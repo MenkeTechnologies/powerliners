@@ -2192,6 +2192,65 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_lint_find_all_ext_config_files_reports_non_dir_error() {
+    if !python_available() {
+        return;
+    }
+    // When <root>/<subdir> exists but is a FILE (not a directory),
+    // both ports yield a single error entry per py:347-353:
+    //   {'error': 'Path X is not a directory', 'path': X}
+    let tmp = std::env::temp_dir().join(format!(
+        "powerliners_parity_findext_err_{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&tmp).expect("mkdir root");
+    let bad_path = tmp.join("themes");
+    std::fs::write(&bad_path, "not a directory").expect("write file-where-dir-expected");
+
+    let py_expr = format!(
+        "(lambda lst: __import__('json').dumps([len(lst), lst[0].get('error') if lst else None]))(list(__import__('powerline.lint').lint.find_all_ext_config_files([{:?}], 'themes')))",
+        tmp.to_string_lossy()
+    );
+    let py = match py_eval(&py_expr) {
+        Some(v) => v,
+        None => {
+            let _ = std::fs::remove_dir_all(&tmp);
+            return;
+        }
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let py_arr = py_value.as_array().expect("py array");
+    assert_eq!(py_arr[0].as_i64(), Some(1), "Python should yield 1 entry");
+    let py_err = py_arr[1].as_str().expect("py error");
+    assert!(
+        py_err.contains("is not a directory"),
+        "Python error text drift: {:?}",
+        py_err
+    );
+    assert!(
+        py_err.contains("themes"),
+        "Python error should include path: {:?}",
+        py_err
+    );
+
+    let rs = powerliners::lint::find_all_ext_config_files(&[tmp.clone()], "themes");
+    assert_eq!(rs.len(), 1, "Rust should yield 1 entry");
+    let rs_err = rs[0].error.as_deref().unwrap_or("");
+    assert!(
+        rs_err.contains("is not a directory"),
+        "Rust error text drift: {:?}",
+        rs_err
+    );
+    assert!(
+        rs_err.contains("themes"),
+        "Rust error should include path: {:?}",
+        rs_err
+    );
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[test]
 fn parity_lint_find_all_ext_config_files_walks_subdir() {
     if !python_available() {
         return;
