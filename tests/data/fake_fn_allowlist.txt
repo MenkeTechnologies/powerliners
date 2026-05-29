@@ -1740,3 +1740,12 @@ powerline_exception
 # The `_instance` suffix follows the same disambiguation pattern
 # as load_config_instance.
 _load_hierarhical_config_instance
+
+# mod.rs::Powerline::create_logger_instance — Rust impl of
+# Powerline.create_logger(self) at
+# powerline/__init__.py:530-548. Renamed from `create_logger`
+# because the module-level `create_logger()` fn at py:262-298
+# (callable in its own right per py:540) conflicts with the
+# instance method's name. Same disambiguation pattern as
+# load_config_instance / _load_hierarhical_config_instance.
+create_logger_instance

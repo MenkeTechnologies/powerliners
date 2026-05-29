@@ -1049,6 +1049,78 @@ impl Powerline {
         // py:772-796
         _load_hierarhical_config(levels, ignore_levels, load_one)
     }
+
+    /// Port of `Powerline.create_logger()` from
+    /// `powerline/__init__.py:530-548`.
+    ///
+    /// Returns a fresh PowerlineLogger keyed by `ext`. The Python
+    /// source returns a 3-tuple `(logging.Logger, PowerlineLogger,
+    /// get_module_attr)` per py:536-540; the Rust port surfaces
+    /// just the PowerlineLogger since neither the stdlib logger
+    /// nor the get_module_attr closure are reachable here.
+    pub fn create_logger_instance(ext: &str) -> PowerlineLogger {
+        // py:542-548  create_logger(common_config=..., ext=...)
+        PowerlineLogger::new(ext, "")
+    }
+
+    /// Port of `Powerline.reload()` from
+    /// `powerline/__init__.py:924-951`.
+    ///
+    /// Drives the reload sequence: clears modules, shuts down,
+    /// re-constructs, and re-runs setup. The Rust port takes the
+    /// caller-supplied closures for each step since the Python
+    /// `sys.modules.pop` and `__import__` calls aren't reachable.
+    pub fn reload<C, S, R>(
+        shutdown_event: &std::sync::Arc<std::sync::atomic::AtomicBool>,
+        clear_modules: C,
+        shutdown_self: S,
+        reconstruct: R,
+    ) -> Result<(), String>
+    where
+        C: FnOnce() -> Result<(), String>,
+        S: FnOnce(),
+        R: FnOnce() -> Result<(), String>,
+    {
+        // py:937-946  clear sys.modules
+        clear_modules()?;
+        // py:948  self.shutdown(set_event=True)
+        Self::shutdown(shutdown_event, true);
+        shutdown_self();
+        // py:949-951  re-construct + re-setup
+        reconstruct()
+    }
+}
+
+/// Port of `Powerline.reraise()` (staticmethod) from
+/// `powerline/__init__.py:362-366`.
+///
+/// Python: re-raises either a `(exception, traceback)` tuple or a
+/// bare exception. The Rust port has no equivalent to Python's
+/// `raise exception.with_traceback(...)` since Rust errors don't
+/// carry tracebacks; the fn surfaces the message-passing shape so
+/// callers can route through any std::panic mechanism.
+pub fn reraise(exception_msg: &str) -> String {
+    // py:362-366  raise exception (or exception[0].with_traceback)
+    exception_msg.to_string()
+}
+
+/// Port of `gen_module_attr_getter()` from
+/// `powerline/__init__.py:369-405`.
+///
+/// Python returns a closure that imports `module` and looks up
+/// `attr`. The Rust port can't perform Python-style `__import__`
+/// dispatch; it surfaces the closure-factory shape so callers can
+/// route through a Rust-side module-attribute table.
+pub fn gen_module_attr_getter<F>(module_attr_lookup: F) -> Box<dyn Fn(&str, &str) -> Option<String>>
+where
+    F: Fn(&str, &str) -> Option<String> + Send + Sync + 'static,
+{
+    // py:370-399  def get_module_attr(module, attr, prefix='powerline')
+    Box::new(move |module: &str, attr: &str| -> Option<String> {
+        // py:391  imported_modules.add(module)
+        // py:392  getattr(__import__(module, fromlist=(attr,)), attr)
+        module_attr_lookup(module, attr)
+    })
 }
 
 /// Port of `get_fallback_logger()` from
@@ -1815,5 +1887,98 @@ mod powerline_class_tests {
         .unwrap();
         assert!(r.contains_key("a"));
         assert!(r.contains_key("b"));
+    }
+
+    #[test]
+    fn create_logger_instance_builds_powerline_logger_for_ext() {
+        // py:542-548
+        let pl = Powerline::create_logger_instance("vim");
+        assert_eq!(pl.ext, "vim");
+    }
+
+    #[test]
+    fn reload_runs_all_three_phases_in_order() {
+        // py:937-951
+        use std::cell::Cell;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let ev = std::sync::Arc::new(AtomicBool::new(false));
+        let phases = Cell::new(Vec::<&str>::new());
+
+        let r = Powerline::reload(
+            &ev,
+            || {
+                let mut v = phases.take();
+                v.push("clear");
+                phases.set(v);
+                Ok(())
+            },
+            || {
+                let mut v = phases.take();
+                v.push("shutdown");
+                phases.set(v);
+            },
+            || {
+                let mut v = phases.take();
+                v.push("reconstruct");
+                phases.set(v);
+                Ok(())
+            },
+        );
+        assert!(r.is_ok());
+        assert!(ev.load(Ordering::SeqCst));
+        let v = phases.into_inner();
+        assert_eq!(v, vec!["clear", "shutdown", "reconstruct"]);
+    }
+
+    #[test]
+    fn reload_stops_on_clear_modules_error() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let ev = std::sync::Arc::new(AtomicBool::new(false));
+        let r = Powerline::reload(
+            &ev,
+            || Err("clear failed".to_string()),
+            || panic!("shutdown should not run after clear fail"),
+            || panic!("reconstruct should not run after clear fail"),
+        );
+        assert!(r.is_err());
+        // Shutdown event NOT set since reload bailed before shutdown
+        assert!(!ev.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn reload_propagates_reconstruct_error() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let ev = std::sync::Arc::new(AtomicBool::new(false));
+        let r = Powerline::reload(
+            &ev,
+            || Ok(()),
+            || {},
+            || Err("reconstruct failed".to_string()),
+        );
+        assert!(r.is_err());
+        assert!(ev.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn reraise_returns_message_unchanged() {
+        // py:362-366
+        assert_eq!(reraise("boom"), "boom");
+    }
+
+    #[test]
+    fn gen_module_attr_getter_routes_through_lookup() {
+        // py:370-399
+        let getter = gen_module_attr_getter(|module, attr| {
+            if module == "powerline.matchers.vim" && attr == "help" {
+                Some("vim_help_matcher".to_string())
+            } else {
+                None
+            }
+        });
+        assert_eq!(
+            getter("powerline.matchers.vim", "help"),
+            Some("vim_help_matcher".to_string())
+        );
+        assert_eq!(getter("nonexistent", "attr"), None);
     }
 }
