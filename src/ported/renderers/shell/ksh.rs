@@ -46,6 +46,22 @@ impl KshPromptRenderer {
         "\x01\r"
     }
 
+    /// Port of `KshPromptRenderer.render()` from
+    /// `powerline/renderers/shell/ksh.py:15-16`.
+    ///
+    /// Prepends `\001\r` to the base renderer's output. Python's
+    /// super().render dispatch is closure-injected here since the
+    /// base ShellRenderer's render isn't reachable through a typed
+    /// Rust struct.
+    pub fn render<F>(super_render: F) -> String
+    where
+        F: FnOnce() -> String,
+    {
+        // py:15  def render(self, *args, **kwargs):
+        // py:16  return '\001\r' + super().render(*args, **kwargs)
+        format!("{}{}", Self::render_prefix(), super_render())
+    }
+
     /// Inherits empty character_translations from ShellRenderer.
     pub fn character_translations() -> HashMap<char, &'static str> {
         HashMap::new()
@@ -71,5 +87,18 @@ mod tests {
     #[test]
     fn ksh_render_prefix_carries_soh_cr() {
         assert_eq!(KshPromptRenderer::render_prefix(), "\x01\r");
+    }
+
+    #[test]
+    fn ksh_render_prepends_soh_cr_to_super_output() {
+        // py:16  '\001\r' + super().render(...)
+        let result = KshPromptRenderer::render(|| "PROMPT".to_string());
+        assert_eq!(result, "\x01\rPROMPT");
+    }
+
+    #[test]
+    fn ksh_render_empty_super_yields_just_prefix() {
+        let result = KshPromptRenderer::render(String::new);
+        assert_eq!(result, "\x01\r");
     }
 }

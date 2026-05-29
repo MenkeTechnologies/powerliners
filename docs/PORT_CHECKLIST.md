@@ -66,15 +66,15 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/segments/vim/plugin/__init__.py` ↔ `src/ported/segments/vim/plugin/mod.rs` | 3 | 0 | 0 | 0 | 7 | 0 | 0 |
 | [x] | `powerline/bindings/pdb/__main__.py` ↔ `src/ported/bindings/pdb/__main__.rs` | 4 | 0 | 0 | 0 | 0 | 0 | 0 |
 | [x] | `powerline/config.py` ↔ `src/ported/config.rs` | 6 | 0 | 0 | 0 | 49 | 4 | 6 |
-| [x] | `powerline/bindings/lemonbar/powerline-lemonbar.py` ↔ `src/ported/bindings/lemonbar/powerline-lemonbar.rs` | 45 | 0 | 0 | 0 | 62 | 1 | 13 |
-| [x] | `powerline/bindings/bar/powerline-bar.py` ↔ `src/ported/bindings/bar/powerline-bar.rs` | 47 | 0 | 0 | 0 | 34 | 1 | 16 |
+| [x] | `powerline/bindings/lemonbar/powerline-lemonbar.py` ↔ `src/ported/bindings/lemonbar/powerline-lemonbar.rs` | 45 | 0 | 0 | 0 | 116 | 3 | 21 |
+| [x] | `powerline/bindings/bar/powerline-bar.py` ↔ `src/ported/bindings/bar/powerline-bar.rs` | 47 | 0 | 0 | 0 | 62 | 3 | 25 |
 | [x] | `powerline/lib/monotonic.py` ↔ `src/ported/lib/monotonic.rs` | 72 | 0 | 0 | 0 | 50 | 2 | 4 |
 | [x] | `powerline/segments/ipython.py` ↔ `src/ported/segments/ipython.rs` | 5 | 1 | 0 | 0 | 27 | 1 | 3 |
 | [x] | `powerline/selectors/vim.py` ↔ `src/ported/selectors/vim.rs` | 6 | 1 | 0 | 0 | 13 | 1 | 3 |
 | [x] | `powerline/matchers/vim/plugin/nerdtree.py` ↔ `src/ported/matchers/vim/plugin/nerdtree.rs` | 8 | 1 | 0 | 0 | 49 | 2 | 7 |
 | [x] | `powerline/matchers/vim/plugin/commandt.py` ↔ `src/ported/matchers/vim/plugin/commandt.rs` | 9 | 1 | 0 | 0 | 42 | 1 | 5 |
 | [x] | `powerline/version.py` ↔ `src/ported/version.rs` | 10 | 1 | 0 | 0 | 34 | 2 | 10 |
-| [x] | `powerline/renderers/shell/ksh.py` ↔ `src/ported/renderers/shell/ksh.rs` | 10 | 0 | 1 | 1 | 32 | 6 | 5 |
+| [x] | `powerline/renderers/shell/ksh.py` ↔ `src/ported/renderers/shell/ksh.rs` | 10 | 0 | 1 | 1 | 48 | 7 | 8 |
 | [x] | `powerline/lint/selfcheck.py` ↔ `src/ported/lint/selfcheck.rs` | 12 | 1 | 0 | 0 | 34 | 1 | 9 |
 | [x] | `powerline/bindings/awesome/powerline-awesome.py` ↔ `src/ported/bindings/awesome/powerline-awesome.rs` | 12 | 1 | 0 | 0 | 17 | 1 | 7 |
 | [x] | `powerline/lib/url.py` ↔ `src/ported/lib/url.rs` | 13 | 1 | 0 | 0 | 64 | 2 | 9 |
@@ -193,7 +193,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 |---|---|---|---|---|---|---|---|---|
 | [ ] | `powerline/renderers/shell/readline.py` ↔ `src/ported/renderers/shell/readline.rs` | 8 | 0 | 1 | 0 | 22 | 4 | 4 |
 | [ ] | `powerline/renderers/shell/zsh.py` ↔ `src/ported/renderers/shell/zsh.rs` | 9 | 0 | 1 | 0 | 29 | 5 | 4 |
-| [ ] | `powerline/bindings/i3/powerline-i3.py` ↔ `src/ported/bindings/i3/powerline-i3.rs` | 34 | 0 | 1 | 0 | 22 | 3 | 20 |
+| [ ] | `powerline/bindings/i3/powerline-i3.py` ↔ `src/ported/bindings/i3/powerline-i3.rs` | 34 | 0 | 1 | 0 | 40 | 4 | 24 |
 
 ## 🟡 PARTIAL — 50–100% of Python fns ported; rest stubbed with citations (0)
 
