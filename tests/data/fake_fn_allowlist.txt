@@ -1052,3 +1052,18 @@ record_event
 # (Python `len(self.events[path])` would suffice). Same Mutex-lock
 # justification as watch_count above.
 event_count
+
+# function_name_re() is the Rust accessor for Python's module-level
+# `function_name_re = r'^(\w+\.)*[a-zA-Z_]\w*$'` regex pattern at
+# lint/__init__.py:43. Python stores it as a plain string constant;
+# Rust uses OnceLock<Regex> for the lazy single-compile pattern
+# (consistent with other module-level regex ports).
+function_name_re
+
+# strip_json_suffix extracts the Python `name[:-5]` suffix-strip
+# from lint/__init__.py:361 + py:373 (where ext_name and
+# config_file_name lose their '.json' extension before being
+# stored as config entry names). Python inlines the slice; Rust
+# extracts to a pure helper so the strip-or-passthrough behaviour
+# can be tested in isolation.
+strip_json_suffix
