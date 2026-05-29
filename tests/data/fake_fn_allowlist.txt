@@ -160,3 +160,15 @@ TMUX_ACTIONS
 SHELL_ACTIONS
 tmux_action_from_name
 shell_action_from_name
+
+# Approved 2026-05-29: replacement signatures for the Python self.run
+# dispatch model in powerline/lib/threaded.py:19. Python's
+# MultiRunnedThread.start() calls self.run() — a method overridden by
+# subclasses — without the caller having to pass a closure. Rust can't
+# model that indirection without trait objects + extra plumbing, so the
+# Rust port collapses start() into start_with(closure) (same observable
+# semantics) and exposes set_shutdown() so callers don't have to lock
+# self.shutdown_event manually. Both names are documented Rust-only
+# adapters per the upstream comment block in the file header.
+start_with
+set_shutdown
