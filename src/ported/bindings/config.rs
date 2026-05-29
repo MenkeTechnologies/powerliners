@@ -432,28 +432,196 @@ pub fn source_tmux_files(
 /// Port of `init_tmux_environment()` from
 /// `powerline/bindings/config.py:99-176`.
 ///
-/// Sets the tmux environment variables that the powerline tmux
-/// statusline depends on. Python uses ShellPowerline +
-/// finish_args + theme_kwargs to resolve the colorscheme and
-/// emit per-group fg/bg/attr triples.
+/// Resolves every `_POWERLINE_*` env var that the
+/// `powerline-base.conf` template substitutes, returning them as
+/// an ordered list of `(varname, value)` pairs. Callers (the
+/// powerline-config tmux-setup script, daemon test fixtures, etc.)
+/// drive the actual `tmux set-environment` emission.
 ///
-/// The Rust port surfaces the entry point with a documented stub
-/// since the deep chain (ShellPowerline → renderer →
-/// colorscheme.get_highlighting → hlstyle) needs the full
-/// orchestrator. Returns the resolved environment map for
-/// callers wiring through their own tmux setenv dispatcher.
+/// Inputs are the same data Python's ShellPowerline materializes
+/// after `update_renderer()`:
+///   - `colorscheme` — resolved colorscheme (py:107 `theme_kwargs['colorscheme']`)
+///   - `theme` — for `theme.dividers` (py:172)
+///   - `renderer` — for `hlstyle()` + `strwidth()` calls
+///   - `term_truecolor` — `common_config['term_truecolor']` (py:167)
 pub fn init_tmux_environment(
-    _config_path: Option<&str>,
-) -> std::collections::HashMap<String, String> {
-    // py:99  def init_tmux_environment(pl, args, set_tmux_environment=set_tmux_environment):
-    // py:100-101  docstring
-    // py:102  powerline = ShellPowerline(finish_args(None, os.environ, EmptyArgs('tmux', args.config_path)))
-    // py:103-104  powerline.update_renderer()
-    // py:105  colorscheme = powerline.renderer_options['theme_kwargs']['colorscheme']
-    // py:109-111  def get_highlighting(group): return colorscheme.get_highlighting([group], None)
-    // py:112-170  per-group setenv calls
-    // py:172-176  dividers + LEFT_HARD_DIVIDER / LEFT_SOFT_DIVIDER
-    std::collections::HashMap::new()
+    colorscheme: &crate::ported::colorscheme::Colorscheme,
+    theme: &crate::ported::theme::Theme,
+    renderer: &crate::ported::renderers::tmux::TmuxRenderer,
+    term_truecolor: bool,
+) -> Vec<(String, String)> {
+    use crate::ported::renderers::tmux::{attrs_to_tmux_attrs, ColorSpec};
+    let mut env: Vec<(String, String)> = Vec::new();
+
+    // py:109-110  def get_highlighting(group): return colorscheme.get_highlighting([group], None)
+    let get_highlighting = |group: &str| -> Option<serde_json::Map<String, serde_json::Value>> {
+        colorscheme
+            .get_highlighting(&[group.to_string()], None, None)
+            .ok()
+    };
+
+    // py:107  fg/bg may be `[cterm, hex_int]` (cterm + truecolor)
+    // or `False` (default sentinel). Lift to Option<ColorSpec>.
+    let to_spec = |v: Option<&serde_json::Value>| -> Option<ColorSpec> {
+        let v = v?;
+        if v.as_bool() == Some(false) {
+            return None;
+        }
+        let arr = v.as_array()?;
+        let cterm = arr.first().and_then(|c| c.as_u64()).unwrap_or(0) as u16;
+        let truecolor = arr.get(1).and_then(|c| c.as_u64()).map(|n| n as u32);
+        Some(ColorSpec { cterm, truecolor })
+    };
+
+    // py:112-125  per-group fg/bg/attrs → hlstyle → strip `#[` … `]`
+    const COLOR_GROUPS: &[(&str, &str)] = &[
+        ("_POWERLINE_BACKGROUND_COLOR", "background"),
+        ("_POWERLINE_ACTIVE_WINDOW_STATUS_COLOR", "active_window_status"),
+        ("_POWERLINE_WINDOW_STATUS_COLOR", "window_status"),
+        ("_POWERLINE_ACTIVITY_STATUS_COLOR", "activity_status"),
+        ("_POWERLINE_BELL_STATUS_COLOR", "bell_status"),
+        ("_POWERLINE_WINDOW_COLOR", "window"),
+        ("_POWERLINE_WINDOW_DIVIDER_COLOR", "window:divider"),
+        ("_POWERLINE_WINDOW_CURRENT_COLOR", "window:current"),
+        ("_POWERLINE_WINDOW_NAME_COLOR", "window_name"),
+        ("_POWERLINE_SESSION_COLOR", "session"),
+    ];
+    for (varname, hl_group) in COLOR_GROUPS {
+        let hl = match get_highlighting(hl_group) {
+            Some(h) => h,
+            None => continue,
+        };
+        let fg = to_spec(hl.get("fg"));
+        let bg = to_spec(hl.get("bg"));
+        let attrs = hl.get("attrs").and_then(|v| v.as_u64()).map(|n| n as u32);
+        // py:125  powerline.renderer.hlstyle(**highlight)[2:-1]
+        let styled = renderer.hlstyle(fg, bg, attrs);
+        // py:125  [2:-1] — strip the surrounding `#[` and `]`
+        let stripped = if styled.starts_with("#[") && styled.ends_with(']') {
+            styled[2..styled.len() - 1].to_string()
+        } else {
+            styled
+        };
+        env.push((varname.to_string(), stripped));
+    }
+
+    // py:126-140  hard-divider cross-group styles (fg=prev.bg, bg=next.bg, attrs=0)
+    const DIVIDER_GROUPS: &[(&str, &str, &str)] = &[
+        (
+            "_POWERLINE_WINDOW_CURRENT_HARD_DIVIDER_COLOR",
+            "window",
+            "window:current",
+        ),
+        (
+            "_POWERLINE_WINDOW_CURRENT_HARD_DIVIDER_NEXT_COLOR",
+            "window:current",
+            "window",
+        ),
+        (
+            "_POWERLINE_SESSION_HARD_DIVIDER_NEXT_COLOR",
+            "session",
+            "background",
+        ),
+    ];
+    for (varname, prev_group, next_group) in DIVIDER_GROUPS {
+        let prev = match get_highlighting(prev_group) {
+            Some(h) => h,
+            None => continue,
+        };
+        let next = match get_highlighting(next_group) {
+            Some(h) => h,
+            None => continue,
+        };
+        let fg = to_spec(prev.get("bg"));
+        let bg = to_spec(next.get("bg"));
+        let styled = renderer.hlstyle(fg, bg, Some(0));
+        // py:139  [2:-1] — strip surrounding `#[` and `]`
+        let stripped = if styled.starts_with("#[") && styled.ends_with(']') {
+            styled[2..styled.len() - 1].to_string()
+        } else {
+            styled
+        };
+        env.push((varname.to_string(), stripped));
+    }
+
+    // py:141-170  per-attribute scalar emission for legacy tmux options
+    // `attr == 'attrs'` → semicolon-joined names + legacy comma form
+    // `attr == 'fg'|'bg'` → `#xxxxxx` (truecolor) or `colourN`
+    const PER_ATTR: &[(&str, &str, &str)] = &[
+        ("_POWERLINE_ACTIVE_WINDOW_FG", "fg", "active_window_status"),
+        ("_POWERLINE_WINDOW_STATUS_FG", "fg", "window_status"),
+        ("_POWERLINE_ACTIVITY_STATUS_FG", "fg", "activity_status"),
+        ("_POWERLINE_ACTIVITY_STATUS_ATTR", "attrs", "activity_status"),
+        ("_POWERLINE_BELL_STATUS_FG", "fg", "bell_status"),
+        ("_POWERLINE_BELL_STATUS_ATTR", "attrs", "bell_status"),
+        ("_POWERLINE_BACKGROUND_FG", "fg", "background"),
+        ("_POWERLINE_BACKGROUND_BG", "bg", "background"),
+        ("_POWERLINE_SESSION_FG", "fg", "session"),
+        ("_POWERLINE_SESSION_BG", "bg", "session"),
+        ("_POWERLINE_SESSION_ATTR", "attrs", "session"),
+        ("_POWERLINE_SESSION_PREFIX_FG", "fg", "session:prefix"),
+        ("_POWERLINE_SESSION_PREFIX_BG", "bg", "session:prefix"),
+        ("_POWERLINE_SESSION_PREFIX_ATTR", "attrs", "session:prefix"),
+    ];
+    for (varname, attr, group) in PER_ATTR {
+        let hl = match get_highlighting(group) {
+            Some(h) => h,
+            None => continue,
+        };
+        if *attr == "attrs" {
+            // py:158-165
+            let raw_attrs = hl.get("attrs").and_then(|v| v.as_u64()).map(|n| n as u32);
+            let names = attrs_to_tmux_attrs(raw_attrs);
+            env.push((varname.to_string(), names.join("]#[")));
+            let legacy: Vec<&String> = names.iter().filter(|n| !n.starts_with("no")).collect();
+            let legacy_val = if legacy.is_empty() {
+                "none".to_string()
+            } else {
+                legacy
+                    .into_iter()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(",")
+            };
+            env.push((format!("{}_LEGACY", varname), legacy_val));
+        } else {
+            // py:167-170
+            let arr = hl.get(*attr).and_then(|v| v.as_array());
+            let cterm = arr
+                .and_then(|a| a.first())
+                .and_then(|c| c.as_u64())
+                .unwrap_or(0);
+            let truecolor = arr.and_then(|a| a.get(1)).and_then(|c| c.as_u64());
+            let value = if term_truecolor {
+                if let Some(t) = truecolor {
+                    format!("#{:06x}", t)
+                } else {
+                    format!("colour{}", cterm)
+                }
+            } else {
+                format!("colour{}", cterm)
+            };
+            env.push((varname.to_string(), value));
+        }
+    }
+
+    // py:172-176  dividers
+    if let Some(left) = theme.dividers.get("left").and_then(|v| v.as_object()) {
+        let hard = left.get("hard").and_then(|v| v.as_str()).unwrap_or(" ");
+        let soft = left.get("soft").and_then(|v| v.as_str()).unwrap_or(" ");
+        env.push(("_POWERLINE_LEFT_HARD_DIVIDER".to_string(), hard.to_string()));
+        env.push(("_POWERLINE_LEFT_SOFT_DIVIDER".to_string(), soft.to_string()));
+        // py:175-176  ' ' * renderer.strwidth(hard)
+        // strwidth in the tmux renderer falls through to base which
+        // counts grapheme columns; for the divider arrows this is 1.
+        let width = crate::ported::renderer::strwidth(hard).max(1);
+        env.push((
+            "_POWERLINE_LEFT_HARD_DIVIDER_SPACES".to_string(),
+            " ".repeat(width),
+        ));
+    }
+
+    env
 }
 
 /// Port of the inner `get_highlighting()` closure from
@@ -1194,10 +1362,82 @@ mod tests {
     }
 
     #[test]
-    fn init_tmux_environment_returns_empty_map_in_stub() {
-        // py:99-176  stub: real chain depends on ShellPowerline + colorscheme
-        let r = init_tmux_environment(None);
-        assert!(r.is_empty());
+    fn init_tmux_environment_emits_color_dividers_and_per_attrs() {
+        // py:99-176  with a minimal colorscheme + theme + renderer
+        // verify the env-var list shape: COLOR group entries +
+        // hard-divider entries + per-attr entries + 3 divider vars.
+        use crate::ported::colorscheme::Colorscheme;
+        use crate::ported::renderers::tmux::TmuxRenderer;
+        use crate::ported::theme::Theme;
+        use serde_json::{json, Value};
+
+        // Minimal colorscheme: 5 groups the loop touches + one
+        // base color name.
+        let cs_json = json!({
+            "groups": {
+                "background":          {"fg": "white", "bg": "black"},
+                "active_window_status":{"fg": "white", "bg": "gray0"},
+                "window_status":       {"fg": "gray8", "bg": "gray0"},
+                "activity_status":     {"fg": "gray8", "bg": "gray0", "attrs": ["bold"]},
+                "bell_status":         {"fg": "red",   "bg": "gray0"},
+                "window":              {"fg": "gray8", "bg": "gray0"},
+                "window:divider":      {"fg": "gray5", "bg": "gray0"},
+                "window:current":      {"fg": "white", "bg": "gray0"},
+                "window_name":         {"fg": "white", "bg": "gray0", "attrs": ["bold"]},
+                "session":             {"fg": "black", "bg": "white", "attrs": ["bold"]},
+                "session:prefix":      {"fg": "white", "bg": "red",   "attrs": ["bold"]},
+            }
+        });
+        let colors_json = json!({
+            "colors": {
+                "white": 231, "black": 16, "red": 1, "gray0": 233, "gray5": 241, "gray8": 247,
+            },
+            "gradients": {}
+        });
+        let cs = Colorscheme::new(
+            cs_json.as_object().unwrap(),
+            colors_json.as_object().unwrap(),
+        );
+
+        let mut theme = Theme::default();
+        let mut left = serde_json::Map::new();
+        left.insert("hard".to_string(), Value::String("\u{e0b0}".into()));
+        left.insert("soft".to_string(), Value::String("\u{e0b1}".into()));
+        theme
+            .dividers
+            .insert("left".to_string(), Value::Object(left));
+
+        let renderer = TmuxRenderer::new(false);
+
+        let env = init_tmux_environment(&cs, &theme, &renderer, false);
+        // py:112-122  10 COLOR vars
+        let names: Vec<&String> = env.iter().map(|(k, _)| k).collect();
+        assert!(names.contains(&&"_POWERLINE_BACKGROUND_COLOR".to_string()));
+        assert!(names.contains(&&"_POWERLINE_SESSION_COLOR".to_string()));
+        // py:126-129  3 HARD_DIVIDER vars
+        assert!(names.contains(&&"_POWERLINE_WINDOW_CURRENT_HARD_DIVIDER_COLOR".to_string()));
+        // py:141-155  per-attr scalar entries
+        assert!(names.contains(&&"_POWERLINE_SESSION_FG".to_string()));
+        assert!(names.contains(&&"_POWERLINE_SESSION_BG".to_string()));
+        assert!(names.contains(&&"_POWERLINE_SESSION_ATTR".to_string()));
+        assert!(names.contains(&&"_POWERLINE_SESSION_ATTR_LEGACY".to_string()));
+        // py:172-176  divider vars
+        assert!(names.contains(&&"_POWERLINE_LEFT_HARD_DIVIDER".to_string()));
+        assert!(names.contains(&&"_POWERLINE_LEFT_SOFT_DIVIDER".to_string()));
+        assert!(names.contains(&&"_POWERLINE_LEFT_HARD_DIVIDER_SPACES".to_string()));
+
+        // Spot-check the value shape: SESSION_FG should be `colourN`
+        // in non-truecolor mode (py:167-170 else branch).
+        let session_fg = env
+            .iter()
+            .find(|(k, _)| k == "_POWERLINE_SESSION_FG")
+            .map(|(_, v)| v.clone())
+            .unwrap();
+        assert!(
+            session_fg.starts_with("colour"),
+            "session_fg = {}",
+            session_fg
+        );
     }
 
     #[test]
