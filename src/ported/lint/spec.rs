@@ -142,8 +142,14 @@ pub struct Spec {
     pub regex: Option<String>,
     /// Registered oneof constraint from `Spec::oneof`.
     pub oneof: Option<Vec<String>>,
-    /// Registered len constraint from `Spec::len`.
-    pub len_constraint: Option<(Cmp, i64)>,
+    /// Registered len constraints from `Spec::len` / `Spec::tuple`.
+    ///
+    /// Python upstream stores each `self.len(op, n)` call as a separate
+    /// entry in `self.checks`. The Rust port keeps the same multiset
+    /// semantics so callers can issue both `(Cmp::Ge, min)` and
+    /// `(Cmp::Le, max)` for `Spec::tuple` with trailing optional specs,
+    /// matching `lint/spec.py:534-536`.
+    pub len_constraints: Vec<(Cmp, i64)>,
     /// Registered cmp constraint from `Spec::cmp`.
     pub cmp_constraint: Option<(Cmp, f64)>,
     /// Registered unsigned flag from `Spec::unsigned`.
@@ -187,7 +193,7 @@ impl Spec {
             allowed_types: Vec::new(),
             regex: None,
             oneof: None,
-            len_constraint: None,
+            len_constraints: Vec::new(),
             cmp_constraint: None,
             unsigned_flag: false,
             printable_flag: false,
@@ -385,7 +391,7 @@ impl Spec {
         // py:432  cmp_func = self.cmp_funcs[comparison]
         // py:433  self.checks.append(('check_func', lambda value: (cmp_func(len(value), cint), False), ...))
         // py:434  return self
-        self.len_constraint = Some((comparison, value));
+        self.len_constraints.push((comparison, value));
         self
     }
 
@@ -427,7 +433,7 @@ impl Spec {
             allowed_types: self.allowed_types.clone(),
             regex: self.regex.clone(),
             oneof: self.oneof.clone(),
-            len_constraint: self.len_constraint,
+            len_constraints: self.len_constraints.clone(),
             cmp_constraint: self.cmp_constraint,
             unsigned_flag: self.unsigned_flag,
             printable_flag: self.printable_flag,
@@ -525,10 +531,17 @@ impl Spec {
         // py:534  if min_len > 0:
         // py:535  self.len('>=', min_len)
         // py:536  self.len('<=', max_len)
+        // py:531-536
         if max_len == min_len {
-            self.len_constraint = Some((Cmp::Eq, max_len as i64));
+            // py:532  self.len('==', max_len)
+            self.len_constraints.push((Cmp::Eq, max_len as i64));
         } else {
-            self.len_constraint = Some((Cmp::Le, max_len as i64));
+            // py:534-535  if min_len > 0: self.len('>=', min_len)
+            if min_len > 0 {
+                self.len_constraints.push((Cmp::Ge, min_len as i64));
+            }
+            // py:536  self.len('<=', max_len)
+            self.len_constraints.push((Cmp::Le, max_len as i64));
         }
 
         // py:538  start_id = len(self.specs)
@@ -772,7 +785,7 @@ impl Spec {
         self.allowed_types = other.allowed_types.clone();
         self.regex = other.regex.clone();
         self.oneof = other.oneof.clone();
-        self.len_constraint = other.len_constraint;
+        self.len_constraints = other.len_constraints.clone();
         self.cmp_constraint = other.cmp_constraint;
         self.unsigned_flag = other.unsigned_flag;
         self.printable_flag = other.printable_flag;
@@ -1130,7 +1143,7 @@ mod tests {
     #[test]
     fn spec_len_stores_constraint() {
         let s = Spec::new().len(Cmp::Lt, 10);
-        assert_eq!(s.len_constraint, Some((Cmp::Lt, 10)));
+        assert_eq!(s.len_constraints, vec![(Cmp::Lt, 10)]);
     }
 
     #[test]
@@ -1280,19 +1293,20 @@ mod tests {
             Spec::new().type_check(&[SpecType::Float]),
         ];
         let s = Spec::new().tuple(specs);
-        assert_eq!(s.len_constraint, Some((Cmp::Eq, 2)));
+        assert_eq!(s.len_constraints, vec![(Cmp::Eq, 2)]);
         assert_eq!(s.specs.len(), 2);
     }
 
     #[test]
     fn tuple_uses_le_when_trailing_optionals_present() {
-        // py:533-536
+        // py:533-536  with 1 required + 1 trailing optional, min=1<max=2:
+        // Python calls BOTH self.len('ge', 1) and self.len('le', 2).
         let specs = vec![
             Spec::new().type_check(&[SpecType::Unicode]),
             Spec::new().type_check(&[SpecType::Float]).optional(),
         ];
         let s = Spec::new().tuple(specs);
-        assert_eq!(s.len_constraint, Some((Cmp::Le, 2)));
+        assert_eq!(s.len_constraints, vec![(Cmp::Ge, 1), (Cmp::Le, 2)]);
     }
 
     #[test]
@@ -1309,7 +1323,7 @@ mod tests {
     fn tuple_empty_specs_yields_eq_zero_length() {
         // py:531-532  edge case
         let s = Spec::new().tuple(vec![]);
-        assert_eq!(s.len_constraint, Some((Cmp::Eq, 0)));
+        assert_eq!(s.len_constraints, vec![(Cmp::Eq, 0)]);
     }
 
     #[test]

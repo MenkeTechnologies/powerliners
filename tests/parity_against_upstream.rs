@@ -1974,7 +1974,7 @@ fn parity_spec_len_check_appended() {
         return;
     }
     // Spec().len('eq', 5) registers 1 check_func entry on Python.
-    // Rust stores (Cmp::Eq, 5) in len_constraint.
+    // Rust stores (Cmp::Eq, 5) in len_constraints.
     let py = match py_eval(
         "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().len('eq', 5).checks)",
     ) {
@@ -1986,9 +1986,9 @@ fn parity_spec_len_check_appended() {
     use powerliners::lint::spec::{Cmp, Spec};
     let s = Spec::new().len(Cmp::Eq, 5);
     assert_eq!(
-        s.len_constraint,
-        Some((Cmp::Eq, 5)),
-        "Rust len_constraint storage mismatch"
+        s.len_constraints,
+        vec![(Cmp::Eq, 5)],
+        "Rust len_constraints storage mismatch"
     );
 }
 
@@ -2192,6 +2192,76 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_spec_tuple_emits_both_lower_and_upper_bounds() {
+    if !python_available() {
+        return;
+    }
+    // Spec.tuple(...) — py:531-536 logic:
+    //   max_len == min_len  → self.len('eq', max_len)
+    //   else
+    //     min_len > 0       → self.len('ge', min_len)
+    //     always             → self.len('le', max_len)
+    //
+    // Three scenarios:
+    //   3 required          → 1 type + 1 eq + 1 check_tuple = 3 checks
+    //   2 required, 1 opt   → 1 type + 1 ge + 1 le + 1 check_tuple = 4 checks
+    //   2 all optional      → 1 type + 1 le        + 1 check_tuple = 3 checks
+    //
+    // The 4-check case is what the old Rust port lost (only stored 1
+    // bound, missed the (Ge, 2) lower bound from py:535).
+    use powerliners::lint::spec::{Cmp, Spec, SpecType};
+
+    // Scenario A: 3 required → Eq bound only
+    let py = match py_eval(
+        "(lambda S: len(S().tuple(S(), S(), S()).checks))(__import__('powerline.lint.spec', fromlist=['Spec']).Spec)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_n: usize = py.trim().parse().expect("py returned non-int");
+    assert_eq!(py_n, 3, "Python 3-required tuple checks count drift");
+    let s = Spec::default().tuple(vec![Spec::default(), Spec::default(), Spec::default()]);
+    assert_eq!(s.len_constraints, vec![(Cmp::Eq, 3)]);
+    assert!(s.allowed_types.contains(&SpecType::List));
+
+    // Scenario B: 2 required + 1 trailing optional → Ge AND Le bounds
+    let py = py_eval(
+        "(lambda S: len(S().tuple(S(), S(), S().optional()).checks))(__import__('powerline.lint.spec', fromlist=['Spec']).Spec)",
+    ).expect("py_eval failed");
+    let py_n: usize = py.trim().parse().expect("py returned non-int");
+    assert_eq!(
+        py_n, 4,
+        "Python tuple(req, req, opt) should have 4 checks (type + ge + le + check_tuple)"
+    );
+    let s = Spec::default().tuple(vec![
+        Spec::default(),
+        Spec::default(),
+        Spec::default().optional(),
+    ]);
+    assert_eq!(
+        s.len_constraints,
+        vec![(Cmp::Ge, 2), (Cmp::Le, 3)],
+        "Rust tuple(req, req, opt) MUST emit BOTH Ge AND Le bounds (port bug fix)"
+    );
+
+    // Scenario C: 2 optional → Le bound only (min_len drops to 0)
+    let py = py_eval(
+        "(lambda S: len(S().tuple(S().optional(), S().optional()).checks))(__import__('powerline.lint.spec', fromlist=['Spec']).Spec)",
+    ).expect("py_eval failed");
+    let py_n: usize = py.trim().parse().expect("py returned non-int");
+    assert_eq!(
+        py_n, 3,
+        "Python tuple(opt, opt) should have 3 checks (type + le + check_tuple); ge skipped when min_len==0"
+    );
+    let s = Spec::default().tuple(vec![Spec::default().optional(), Spec::default().optional()]);
+    assert_eq!(
+        s.len_constraints,
+        vec![(Cmp::Le, 2)],
+        "Rust tuple(opt, opt) should emit ONLY Le (Ge skipped when min_len==0)"
+    );
+}
+
+#[test]
 fn parity_spec_list_appends_type_and_item_spec() {
     if !python_available() {
         return;
@@ -2390,11 +2460,11 @@ fn parity_spec_len_appends_check_only_no_type() {
     }
     use powerliners::lint::spec::{Cmp, Spec};
     let s = Spec::default().len(Cmp::Lt, 10);
-    let (rs_op, rs_val) = s
-        .len_constraint
-        .expect("Rust Spec::len should set len_constraint");
-    assert_eq!(rs_op, Cmp::Lt);
-    assert_eq!(rs_val, 10);
+    assert_eq!(
+        s.len_constraints,
+        vec![(Cmp::Lt, 10)],
+        "Rust Spec::len should append (Lt, 10) to len_constraints"
+    );
 }
 
 #[test]
