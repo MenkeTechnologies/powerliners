@@ -2192,6 +2192,60 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_stat_file_watcher_3_state_transitions() {
+    if !python_available() {
+        return;
+    }
+    // StatFileWatcher.__call__(path) — py:30-40:
+    //   1. First call on an unseen path → True (registers mtime)
+    //   2. Second call without mtime change → False
+    //   3. After mtime bumps → True
+    use std::time::Duration;
+
+    let py_tmpfile = std::env::temp_dir().join(format!(
+        "powerliners_parity_stat_py_{}.txt",
+        std::process::id()
+    ));
+    let rs_tmpfile = std::env::temp_dir().join(format!(
+        "powerliners_parity_stat_rs_{}.txt",
+        std::process::id()
+    ));
+    std::fs::write(&py_tmpfile, "initial").expect("write py fixture");
+    std::fs::write(&rs_tmpfile, "initial").expect("write rs fixture");
+
+    let py_expr = format!(
+        "(lambda w, p: [w(p), w(p), (__import__('time').sleep(1.1), open(p, 'w').write('bump'), w(p))[-1]])(__import__('powerline.lib.watcher.stat', fromlist=['StatFileWatcher']).StatFileWatcher(), {:?})",
+        py_tmpfile.to_string_lossy()
+    );
+    let py = match py_eval(&py_expr) {
+        Some(v) => v,
+        None => {
+            let _ = std::fs::remove_file(&py_tmpfile);
+            let _ = std::fs::remove_file(&rs_tmpfile);
+            return;
+        }
+    };
+    let _ = std::fs::remove_file(&py_tmpfile);
+    assert_eq!(
+        py.trim(),
+        "[True, False, True]",
+        "Python StatFileWatcher transition fixture drift"
+    );
+
+    let w = powerliners::lib::watcher::stat::StatFileWatcher::new();
+    let rs1 = w.check(&rs_tmpfile);
+    let rs2 = w.check(&rs_tmpfile);
+    std::thread::sleep(Duration::from_millis(1100));
+    std::fs::write(&rs_tmpfile, "bump").expect("bump rs fixture");
+    let rs3 = w.check(&rs_tmpfile);
+    let _ = std::fs::remove_file(&rs_tmpfile);
+
+    assert!(rs1, "Rust 1st call should be True (unseen path)");
+    assert!(!rs2, "Rust 2nd call should be False (no mtime change)");
+    assert!(rs3, "Rust 3rd call should be True (mtime bumped)");
+}
+
+#[test]
 fn parity_load_json_config_roundtrip_through_disk() {
     if !python_available() {
         return;
