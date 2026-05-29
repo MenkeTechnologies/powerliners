@@ -1583,6 +1583,80 @@ fn parity_surrogate_pair_to_character() {
 // ─────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────
+// lint/spec.py — Spec.optional()/required() round-trip
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_spec_optional_required_round_trip() {
+    if !python_available() {
+        return;
+    }
+    // Verify the fluent builder's optional() and required() methods toggle
+    // isoptional identically to upstream.
+    let cases = [
+        "Spec().isoptional",
+        "Spec().optional().isoptional",
+        "Spec().optional().required().isoptional",
+        "Spec().required().optional().isoptional",
+    ];
+    let py_values: Vec<String> = cases
+        .iter()
+        .filter_map(|expr| {
+            let full = format!(
+                "__import__('powerline.lint.spec', fromlist=['Spec']).{}",
+                expr.replacen("Spec()", "Spec()", 1)
+            );
+            py_eval(&full)
+        })
+        .collect();
+    if py_values.len() != cases.len() {
+        return;
+    }
+    // Expected: False, True, False, True
+    assert_eq!(
+        py_values,
+        vec!["False", "True", "False", "True"],
+        "Python Spec.optional/required toggle changed semantics"
+    );
+
+    use powerliners::lint::spec::Spec;
+    assert!(
+        !Spec::new().isoptional,
+        "Rust Spec::new().isoptional should be false"
+    );
+    assert!(
+        Spec::new().optional().isoptional,
+        "Rust Spec::new().optional().isoptional should be true"
+    );
+    assert!(
+        !Spec::new().optional().required().isoptional,
+        "Rust Spec::new().optional().required().isoptional should be false"
+    );
+    assert!(
+        Spec::new().required().optional().isoptional,
+        "Rust Spec::new().required().optional().isoptional should be true"
+    );
+}
+
+#[test]
+fn parity_spec_context_message_sets_cmsg() {
+    if !python_available() {
+        return;
+    }
+    // Verify chaining context_message(msg) sets self.cmsg to msg verbatim.
+    let py = match py_eval(
+        "__import__('powerline.lint.spec', fromlist=['Spec']).Spec().context_message('test ctx').cmsg",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "test ctx", "Python cmsg storage changed");
+    use powerliners::lint::spec::Spec;
+    let s = Spec::new().context_message("test ctx");
+    assert_eq!(s.cmsg, "test ctx", "Rust cmsg mismatch");
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // lint/markedjson/error.py — strtrans + repl
 // ─────────────────────────────────────────────────────────────────────
 
