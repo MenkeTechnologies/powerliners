@@ -435,6 +435,84 @@ pub fn network_load_key(interface: &str) -> String {
     interface.to_string()
 }
 
+/// Port of `NetworkLoadSegment.key()` from
+/// `powerline/segments/common/net.py:198-200`.
+///
+/// Bare-name alias for [`network_load_key`] preserving the upstream
+/// Python identifier byte-for-byte. The `network_load_` prefix on
+/// the original Rust port disambiguates from other `key` fns across
+/// the codebase.
+pub fn key(interface: &str) -> String {
+    network_load_key(interface)
+}
+
+/// Port of `NetworkLoadSegment.compute_state()` from
+/// `powerline/segments/common/net.py:202-244`.
+///
+/// Per-interface byte-counter probe used by the network-load segment.
+///
+/// When `interface == "auto"`:
+///   - py:203-216  walks `/proc/net/route` for the default-route
+///     interface (parsed via [`parse_proc_net_route_default`]).
+///   - py:217-228  falls back to picking the active interface via
+///     [`pick_active_interface`] over [`_get_interfaces`].
+///
+/// Then updates `interfaces[interface]` per py:230-243:
+///   - py:233  shifts `last → prev`
+///   - py:243  reads current `(monotonic, _get_bytes(interface))`
+///     and stores it as the new `last`.
+///
+/// Returns a copy of the per-interface state dict per py:244, or
+/// `None` when no interface can be determined (callers route to the
+/// segment-hidden path).
+///
+/// The Rust port:
+///   - Takes `interfaces` as `&mut` so the long-lived state survives
+///     across calls (Python carries it on `self`).
+///   - Takes the `proc_exists` flag explicitly since Python caches it
+///     on `self` via `getattr(self, 'proc_exists', None)`.
+///   - Returns the state pair `(prev, last)` directly so callers
+///     don't have to unwrap the JSON shape.
+pub fn compute_state(
+    interface: &str,
+    interfaces: &mut std::collections::HashMap<String, (Option<(f64, (u64, u64))>, Option<(f64, (u64, u64))>)>,
+    proc_route_content: Option<&str>,
+) -> Option<(Option<(f64, (u64, u64))>, Option<(f64, (u64, u64))>)> {
+    use crate::ported::lib::monotonic::monotonic;
+
+    // py:203  if interface == 'auto':
+    let resolved_interface = if interface == "auto" {
+        // py:204-216  /proc/net/route default-route walk
+        let from_proc = proc_route_content.and_then(parse_proc_net_route_default);
+        match from_proc {
+            Some(iface) => iface,
+            None => {
+                // py:217-228  fallback to most-active interface
+                let entries = _get_interfaces();
+                let borrowed: Vec<(String, u64, u64)> = entries;
+                let iter = borrowed.iter().map(|(n, r, t)| (n.as_str(), *r, *t));
+                pick_active_interface(iter)
+            }
+        }
+    } else {
+        interface.to_string()
+    };
+
+    // py:230-243  state tracking
+    let entry = interfaces
+        .entry(resolved_interface.clone())
+        .or_insert((None, None));
+    // py:233  prev = last
+    let (prev, last) = entry.clone();
+    let new_prev = last;
+    // py:243  last = (monotonic(), _get_bytes(interface))
+    let new_last = _get_bytes(&resolved_interface).map(|b| (monotonic(), b));
+    *entry = (new_prev.clone(), new_last.clone());
+    let _ = prev;
+    // py:244  return idata.copy()
+    Some((new_prev, new_last))
+}
+
 /// Port of the `/proc/net/route` default-interface scanner at
 /// `powerline/segments/common/net.py:208-216`.
 ///
@@ -1035,6 +1113,59 @@ mod tests {
         // py:181  open() raises on missing → Rust port returns None.
         let r = _get_bytes("nonexistent_iface_zz9999");
         assert!(r.is_none(), "expected None for missing iface, got {r:?}");
+    }
+
+    #[test]
+    fn key_alias_delegates_to_network_load_key() {
+        // py:198-200
+        assert_eq!(key("eth0"), "eth0");
+        assert_eq!(key("wlan0"), "wlan0");
+    }
+
+    #[test]
+    fn compute_state_explicit_interface_skips_route_walk() {
+        // py:203  interface != 'auto' → no route walk
+        let mut interfaces = std::collections::HashMap::new();
+        let result = compute_state(
+            "nonexistent_iface_zz",
+            &mut interfaces,
+            None,
+        );
+        // First call yields (prev=None, last=None) since _get_bytes
+        // returns None for the synthetic interface on non-Linux.
+        assert!(result.is_some());
+        let (prev, _last) = result.unwrap();
+        assert!(prev.is_none());
+    }
+
+    #[test]
+    fn compute_state_auto_uses_proc_route_default() {
+        // py:206-216  /proc/net/route default-route line
+        let proc_content = "Iface\tDestination\nlocalif\t00000000\n";
+        let mut interfaces = std::collections::HashMap::new();
+        // The resolved interface (localif) doesn't exist on disk so
+        // _get_bytes returns None; the state pair is still seeded.
+        let result = compute_state("auto", &mut interfaces, Some(proc_content));
+        assert!(result.is_some());
+        // Verify the interface dict picked up "localif".
+        assert!(
+            interfaces.contains_key("localif"),
+            "expected `localif` key in interfaces map"
+        );
+    }
+
+    #[test]
+    fn compute_state_second_call_shifts_last_to_prev() {
+        // py:230-243  last → prev, then new last
+        let mut interfaces = std::collections::HashMap::new();
+        // Seed with a known prior reading.
+        interfaces.insert(
+            "fakeif".to_string(),
+            (None, Some((100.0_f64, (5000_u64, 6000_u64)))),
+        );
+        let result = compute_state("fakeif", &mut interfaces, None);
+        let (prev, _last) = result.unwrap();
+        assert_eq!(prev, Some((100.0, (5000, 6000))));
     }
 
     #[test]

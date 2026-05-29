@@ -923,6 +923,27 @@ pub fn check_highlight_groups(hl_groups: &[&str], available_groups: &HashSet<&st
 /// full nested-config walk needs the lint context. Returns `true`
 /// when the group exists in the colorscheme AND satisfies the
 /// gradient policy.
+/// Port of the inner `listed_key()` closure from
+/// `powerline/lint/checks.py:178-182`.
+///
+/// Wraps a single-key lookup into a list-wrapped result: returns
+/// `[value]` when `k` is present in `d`, `[]` when missing. Python
+/// embeds this closure inside `hl_exists` to chain multiple
+/// dict-lookups via list concatenation (py:191-194). The Rust port
+/// surfaces it as a free fn over `&serde_json::Map` so callers can
+/// reuse the list-or-empty pattern.
+pub fn listed_key(d: &serde_json::Map<String, serde_json::Value>, k: &str) -> Vec<serde_json::Value> {
+    // py:178  def listed_key(d, k):
+    // py:179  try:
+    // py:180  return [d[k]]
+    // py:181  except KeyError:
+    // py:182  return []
+    match d.get(k) {
+        Some(v) => vec![v.clone()],
+        None => Vec::new(),
+    }
+}
+
 pub fn hl_group_in_colorscheme(
     hl_group: &str,
     groups: &HashSet<&str>,

@@ -1244,6 +1244,46 @@ impl AttrFunc {
     }
 }
 
+/// Port of the inner `expand_func()` closure from
+/// `powerline/segment.py:92-98`.
+///
+/// Space-function dispatcher: calls the underlying contents-func with
+/// `(pl, amount, segment, **args)` and returns its output. On
+/// exception, returns `segment['contents'] + ' ' * amount` per the
+/// fallback at py:96-97.
+///
+/// Python embeds this closure inside `get_attr_func` to capture
+/// `func` + `args` from the outer scope. The Rust port surfaces it as
+/// a free fn taking the underlying call as a closure so the fallback
+/// path is independently testable.
+pub fn expand_func<F>(
+    pl: &(),
+    amount: usize,
+    segment: &Map<String, Value>,
+    call_func: F,
+) -> String
+where
+    F: FnOnce() -> Result<String, String>,
+{
+    // py:92  def expand_func(pl, amount, segment):
+    // py:93  try:
+    // py:94  return func(pl=pl, amount=amount, segment=segment, **args)
+    match call_func() {
+        Ok(s) => s,
+        Err(_e) => {
+            // py:95  except Exception as e:
+            // py:96  pl.exception(...)
+            let _ = pl;
+            // py:97  return segment['contents'] + (' ' * amount)
+            let contents = segment
+                .get("contents")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            format!("{}{}", contents, " ".repeat(amount))
+        }
+    }
+}
+
 /// Port of `get_attr_func()` from
 /// `powerline/segment.py:85-100`.
 ///
