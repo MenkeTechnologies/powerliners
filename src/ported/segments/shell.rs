@@ -342,9 +342,78 @@ pub fn continuation(
     ret
 }
 
+/// Port of `ShellCwdSegment.get_shortened_path()` from
+/// `powerline/segments/shell.py:162-168`.
+///
+/// Shell-specific override of the CwdSegment base method that
+/// checks `segment_info['shortened_path']` first. When the key is
+/// present and `use_shortened_path=True` (py:163), returns the
+/// value decoded via out_u (mirrors py:165). Otherwise falls
+/// through to the base implementation at py:168.
+///
+/// `super_get_shortened_path` is the closure-injected base call —
+/// Rust's super dispatch can't reach the base CwdSegment without
+/// trait objects, so callers supply the fallback explicitly.
+pub fn get_shortened_path<F>(
+    segment_info: &serde_json::Map<String, serde_json::Value>,
+    use_shortened_path: bool,
+    super_get_shortened_path: F,
+) -> Result<String, std::io::Error>
+where
+    F: FnOnce() -> Result<String, std::io::Error>,
+{
+    // py:162  def get_shortened_path(self, pl, segment_info, use_shortened_path=True, **kwargs):
+    // py:163  if use_shortened_path:
+    if use_shortened_path {
+        // py:164  try:
+        // py:165  return out_u(segment_info['shortened_path'])
+        // py:166-167  except KeyError: pass
+        if let Some(v) = segment_info.get("shortened_path").and_then(|v| v.as_str()) {
+            return Ok(crate::ported::lib::unicode::out_u_str(v));
+        }
+    }
+    // py:168  return super().get_shortened_path(...)
+    super_get_shortened_path()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn get_shortened_path_uses_segment_info_shortened_path_when_present() {
+        // py:165
+        let mut info = serde_json::Map::new();
+        info.insert(
+            "shortened_path".to_string(),
+            serde_json::Value::String("/sh/path".to_string()),
+        );
+        let result = get_shortened_path(&info, true, || {
+            panic!("super should not be called");
+        })
+        .unwrap();
+        assert_eq!(result, "/sh/path");
+    }
+
+    #[test]
+    fn get_shortened_path_falls_back_to_super_when_use_shortened_false() {
+        // py:163  if use_shortened_path is False → skip lookup
+        let mut info = serde_json::Map::new();
+        info.insert(
+            "shortened_path".to_string(),
+            serde_json::Value::String("/sh/path".to_string()),
+        );
+        let result = get_shortened_path(&info, false, || Ok("/full/path".to_string())).unwrap();
+        assert_eq!(result, "/full/path");
+    }
+
+    #[test]
+    fn get_shortened_path_falls_back_to_super_when_key_missing() {
+        // py:166-167  except KeyError: pass → super()
+        let info = serde_json::Map::new();
+        let result = get_shortened_path(&info, true, || Ok("/full/path".to_string())).unwrap();
+        assert_eq!(result, "/full/path");
+    }
 
     #[test]
     fn jobnum_returns_none_when_zero_and_no_show_zero() {

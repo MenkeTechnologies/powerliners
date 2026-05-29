@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">590</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3372</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">57.4%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">591</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3376</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">57.5%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -303,8 +303,8 @@ columns:
   <!-- SYM py_file=powerline/renderers/ipython/pre_5.py rs_file=src/ported/renderers/ipython/pre_5.rs rs_exists=True py_fn_total=6 ported_count=5 missing_count=1 rs_extra_count=18 coverage=0.8333 -->
   <!-- END-GROUP py_file=powerline/renderers/ipython/pre_5.py -->
   <!-- BEGIN-GROUP py_file=powerline/segments/shell.py -->
-  <tr class="partial"><td><code>segments/shell.py</code></td><td>✔ <code>segments/shell.rs</code></td><td>6</td><td><code>jobnum</code>, <code>last_status</code>, <code>last_pipe_status</code>, <code>mode</code>, <code>continuation</code></td><td><code>get_shortened_path</code></td><td><code>exit_codes</code>, <code>jobnum_returns_none_when_zero_and_no_show_zero</code>, <code>jobnum_returns_zero_when_show_zero</code>, <code>jobnum_returns_count_string</code>, <code>jobnum_none_jobnum_returns_none</code>, <code>exit_codes_known_signals</code>, <code>last_status_zero_returns_none</code>, <code>last_status_signal_kills</code>, <code>last_status_non_signal_returns_number</code>, <code>last_pipe_status_all_zero_returns_none</code>, <code>last_pipe_status_mixed_emits_per_status_segments</code>, <code>mode_returns_uppercase_when_no_override</code>, <code>mode_returns_override_when_present</code>, <code>mode_returns_none_when_matches_default</code>, <code>continuation_no_parser_state_returns_empty_segment</code>, <code>continuation_splits_parser_state</code>, <code>continuation_omits_cmdsubst_last</code>, <code>continuation_right_align_sets_first_align</code></td><td class="coverage">83%</td></tr>
-  <!-- SYM py_file=powerline/segments/shell.py rs_file=src/ported/segments/shell.rs rs_exists=True py_fn_total=6 ported_count=5 missing_count=1 rs_extra_count=18 coverage=0.8333 -->
+  <tr class="full"><td><code>segments/shell.py</code></td><td>✔ <code>segments/shell.rs</code></td><td>6</td><td><code>jobnum</code>, <code>last_status</code>, <code>last_pipe_status</code>, <code>mode</code>, <code>continuation</code>, <code>get_shortened_path</code></td><td>—</td><td><code>exit_codes</code>, <code>get_shortened_path_uses_segment_info_shortened_path_when_present</code>, <code>get_shortened_path_falls_back_to_super_when_use_shortened_false</code>, <code>get_shortened_path_falls_back_to_super_when_key_missing</code>, <code>jobnum_returns_none_when_zero_and_no_show_zero</code>, <code>jobnum_returns_zero_when_show_zero</code>, <code>jobnum_returns_count_string</code>, <code>jobnum_none_jobnum_returns_none</code>, <code>exit_codes_known_signals</code>, <code>last_status_zero_returns_none</code>, <code>last_status_signal_kills</code>, <code>last_status_non_signal_returns_number</code>, <code>last_pipe_status_all_zero_returns_none</code>, <code>last_pipe_status_mixed_emits_per_status_segments</code>, <code>mode_returns_uppercase_when_no_override</code>, <code>mode_returns_override_when_present</code>, <code>mode_returns_none_when_matches_default</code>, <code>continuation_no_parser_state_returns_empty_segment</code>, <code>continuation_splits_parser_state</code>, <code>continuation_omits_cmdsubst_last</code>, <code>continuation_right_align_sets_first_align</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/segments/shell.py rs_file=src/ported/segments/shell.rs rs_exists=True py_fn_total=6 ported_count=6 missing_count=0 rs_extra_count=21 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/segments/shell.py -->
   <!-- BEGIN-GROUP py_file=powerline/shell.py -->
   <tr class="full"><td><code>shell.py</code></td><td>✔ <code>shell.rs</code></td><td>6</td><td><code>init</code>, <code>load_main_config</code>, <code>load_theme_config</code>, <code>get_config_paths</code>, <code>get_local_themes</code>, <code>do_setup</code></td><td>—</td><td><code>init_stores_args_and_returns_ext_first</code>, <code>init_empty_ext_returns_empty_string</code>, <code>load_main_config_overlays_config_override</code>, <code>load_main_config_no_override_leaves_base</code>, <code>load_theme_config_overlays_matching_theme</code>, <code>load_theme_config_ignores_non_matching_theme</code>, <code>load_theme_config_no_overrides_leaves_base</code>, <code>get_config_paths_returns_args_value_when_set</code>, <code>get_config_paths_returns_none_when_args_empty</code>, <code>get_local_themes_empty_input_returns_empty</code>, <code>get_local_themes_wraps_each_value_in_config_key</code>, <code>get_local_themes_loaded_config_picks_up_theme_override</code>, <code>do_setup_assigns_powerline_attribute</code>, <code>shell_args_default_has_empty_fields</code>, <code>load_main_config_overlay_recurses_into_nested_dict</code>, <code>local_theme_input_with_non_string_value_uses_empty_theme_name</code></td><td class="coverage">100%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3372,
-    "ported_fns": 590,
-    "coverage": 0.5739299610894941
+    "rs_fns_in_ported": 3376,
+    "ported_fns": 591,
+    "coverage": 0.5749027237354085
   },
   "rows": [
     {
@@ -3453,13 +3453,15 @@ columns:
         "last_status",
         "last_pipe_status",
         "mode",
-        "continuation"
-      ],
-      "missing_fns": [
+        "continuation",
         "get_shortened_path"
       ],
+      "missing_fns": [],
       "rs_extra_fns": [
         "exit_codes",
+        "get_shortened_path_uses_segment_info_shortened_path_when_present",
+        "get_shortened_path_falls_back_to_super_when_use_shortened_false",
+        "get_shortened_path_falls_back_to_super_when_key_missing",
         "jobnum_returns_none_when_zero_and_no_show_zero",
         "jobnum_returns_zero_when_show_zero",
         "jobnum_returns_count_string",
@@ -3478,7 +3480,7 @@ columns:
         "continuation_omits_cmdsubst_last",
         "continuation_right_align_sets_first_align"
       ],
-      "coverage": 0.8333333333333334
+      "coverage": 1.0
     },
     {
       "py_file": "powerline/shell.py",
