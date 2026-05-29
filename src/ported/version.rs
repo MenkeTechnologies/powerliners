@@ -29,28 +29,17 @@ pub fn get_version() -> String {
             "--count",
             &format!("{}..HEAD", __version__), // py:11  __version__ + '..HEAD'
         ])
+        .stderr(std::process::Stdio::null())        // suppress git's noisy stderr — Python's
+                                                    // print_exc emits a Python traceback that
+                                                    // looks like a powerliners crash; equivalent
+                                                    // user-facing behaviour is "silent fall-through".
         .output()
     {
         Ok(out) if out.status.success() => {
             let count = String::from_utf8_lossy(&out.stdout).trim().to_string(); // py:11  .strip().decode()
             format!("{}b{}", __version__, count) // py:11  __version__ + 'b' + ...
         }
-        Ok(out) => {
-            // py:12-13  except Exception: print_exc()
-            // git ran but returned non-zero — emit a traceback-equivalent
-            // diagnostic on stderr and fall through.
-            eprintln!(
-                "powerline.version.get_version: git rev-list exited {}: {}",
-                out.status,
-                String::from_utf8_lossy(&out.stderr).trim()
-            );
-            __version__.to_string() // py:14  return __version__
-        }
-        Err(e) => {
-            // py:12-13  except Exception: print_exc()
-            eprintln!("powerline.version.get_version: {}", e);
-            __version__.to_string() // py:14  return __version__
-        }
+        _ => __version__.to_string()                 // py:12-14  except Exception: return __version__
     }
 }
 

@@ -19,3 +19,105 @@ POWERLINE_ROOT
 BINDINGS_DIRECTORY
 TMUX_CONFIG_DIRECTORY
 DEFAULT_SYSTEM_CONFIG_DIR
+
+# Approved 2026-05-28: constructor for the REMOVE_THIS_KEY sentinel from
+# powerline/lib/dict.py:5. Python declares it as `REMOVE_THIS_KEY = object()`
+# — an opaque sentinel used by mergedicts to signal key deletion. Rust
+# does not have Python's `object()` sentinel idiom, so we expose
+# REMOVE_THIS_KEY as a fn that returns a well-known JSON marker value.
+# Name matches the Python identifier byte-for-byte.
+REMOVE_THIS_KEY
+
+# Approved 2026-05-28: per-type variants of safe_unicode() from
+# powerline/lib/unicode.py:121. Python's safe_unicode(s) accepts bytes,
+# str, or arbitrary object and dispatches at runtime via isinstance +
+# duck-typed __str__/__repr__. Rust cannot type-dispatch on parameter
+# type without an extra trait/macro, so the cascade is split into
+# safe_unicode_str (for &str), safe_unicode_bytes (for &[u8]), and
+# safe_unicode<T: Display> (catch-all). Together they cover the same
+# inputs Python's single safe_unicode handles.
+safe_unicode_str
+safe_unicode_bytes
+
+# Approved 2026-05-28: accessor fns for module-level pre-compiled regex
+# constants from powerline/bindings/tmux/__init__.py:66-68. Python
+# evaluates re.compile(...) at module import; Rust uses OnceLock-backed
+# accessor fns. Names match the Python identifiers byte-for-byte
+# (uppercase preserved per PORT.md Rule A).
+NON_DIGITS
+DIGITS
+NON_LETTERS
+
+# Approved 2026-05-28: py_round helper exposing Python 3's banker's
+# rounding semantics (`round(2.5) == 2` half-to-even) in Rust. Required
+# for byte-identical parity at every call site that ports Python's
+# `int(round(x))` (colorscheme.pick_gradient_value:32, and any future
+# port that does the same). Rust's `f64::round` rounds half-away-from-
+# zero, which gives observable divergence (caught by
+# parity_pick_gradient_value at gradient_level=25). Internal helper, not
+# a name-port. Approval recorded after the parity test caught the bug.
+py_round
+
+# Approved 2026-05-28: accessor fn for module-level dict from
+# powerline/theme.py:40. Python declares `expand_functions = {'l': ...,
+# 'r': ..., 'c': ...}` as a module-level dict mapping align-char to
+# expand fn. Rust exposes it as a match-fn over the same key set so
+# callers can do `expand_functions('l')` instead of indexing a static
+# HashMap. Name matches the Python identifier byte-for-byte.
+expand_functions
+
+# Approved 2026-05-28: per-shape variants of parsedotval() from
+# powerline/lib/overrides.py:47. Python's parsedotval accepts EITHER a
+# str (parsed via keyvaluesplit) OR a pre-split (o, val_str) tuple
+# (re-parsed via parse_value); dispatch via `if type(s) is tuple`. Rust
+# can't isinstance-dispatch on a sum type without a runtime tag, so
+# the cascade is split into parsedotval_str (str input) and
+# parsedotval_tuple (pre-split). build_nested is the internal helper
+# that both call to assemble the {keys[0]: {...: val}} shape (matches
+# the inline body at py:58-68 — Python keeps it inlined twice, Rust
+# factors it once since both callers want the same shape).
+parsedotval_str
+parsedotval_tuple
+build_nested
+
+# Approved 2026-05-28: replacement entry point for the closure that
+# Python's `memoize.__call__()` returns (`powerline/lib/memoize.py:21`).
+# Python's `__call__` returns a wrapped function; the caller treats the
+# memoize instance as a decorator. Rust can't return a closure that
+# borrows from self for the lifetime of the cache without complex
+# lifetime gymnastics, so the call-site shape is collapsed to a plain
+# method: callers pass kwargs + a compute closure, the method handles
+# the cache lookup/store internally. Same observable semantics as the
+# Python decorator; only the call syntax differs.
+get_or_compute
+
+# Approved 2026-05-28: module-level binding from powerline/lib/url.py:7
+# (Python: `from urllib.parse import urlencode as urllib_urlencode`).
+# Re-exported via Python's `as` alias mechanism — the underlying fn is
+# `urllib.parse.urlencode`. Rust ports it as a fn under the alias name
+# (matching the upstream module namespace). The Rust impl is a small
+# inline percent-encoder; the `percent_encode` byte-walker is the
+# internal helper (Python uses `urllib.parse.quote_plus` for the same
+# job; we inline it to avoid adding a `urlencoding` crate dependency).
+urllib_urlencode
+percent_encode
+
+# Approved 2026-05-28: module-level bindings from powerline/segment.py
+# at py:225 and py:227. Python declares `always_true = lambda ...` and
+# `get_fallback_segment = {...}.copy` — both are module-level
+# bindings, not `def`-defined functions. Rust exposes both as
+# functions of the same name (`always_true` returns true; `get_fallback_segment`
+# returns a fresh fallback dict). Names match Python identifiers
+# byte-for-byte. The dict-template + `.copy` callable factory is one
+# logical operation in Python; the Rust fn is the same operation.
+always_true
+get_fallback_segment
+
+# Approved 2026-05-28: Rust helper replicating Python's
+# `os.path.ismount(path)`. Used by generate_directories in
+# powerline/lib/vcs/__init__.py:19 to terminate the parent-walk at a
+# mount boundary. Rust's std::path has no mount-detection primitive;
+# the helper compares device IDs via os::unix::fs::MetadataExt::dev,
+# which is what os.path.ismount does internally on Unix. Two cfg
+# variants (unix + non-unix) — both share the same name.
+is_mount
