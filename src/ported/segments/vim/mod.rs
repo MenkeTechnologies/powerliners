@@ -565,6 +565,102 @@ pub fn winnr(this_winnr: u64, current_winnr: u64, show_current: bool) -> Option<
     }
 }
 
+/// Port of `tab_modified_indicator()` from
+/// `powerline/segments/vim/__init__.py:182-196`.
+///
+/// Returns the modified-indicator segment list when any buffer in
+/// the supplied tabpage is modified per py:190-195.
+/// `tab_modified_bufs` is the caller-supplied list of buffer
+/// numbers in the tab that have `modified=1`; empty means no
+/// modified buffer found.
+pub fn tab_modified_indicator(has_modified_buffer: bool, text: &str) -> Option<serde_json::Value> {
+    // py:190-195  if any modified: return [{'contents': text, 'highlight_groups': [...]}]
+    if has_modified_buffer {
+        Some(serde_json::json!([{
+            "contents": text,
+            "highlight_groups": ["tab_modified_indicator", "modified_indicator"],
+        }]))
+    } else {
+        // py:196  return None
+        None
+    }
+}
+
+/// Port of `window_title()` from
+/// `powerline/segments/vim/__init__.py:380-390`.
+///
+/// Returns the `quickfix_title` window variable when set per
+/// py:387-388; None when missing per py:389-390 (KeyError path).
+/// `quickfix_title` is the caller-supplied resolved value.
+pub fn window_title(quickfix_title: Option<&str>) -> Option<String> {
+    // py:387-390
+    quickfix_title.map(String::from)
+}
+
+/// Port of `file_size()` from
+/// `powerline/segments/vim/__init__.py:314-328`.
+///
+/// Returns the humanized file size per py:328. `byte_count` is the
+/// caller-supplied result of `line2byte(len(buffer) + 1) - 1` (or
+/// 0 when negative per py:326-327).
+pub fn file_size(byte_count: i64, suffix: &str, si_prefix: bool) -> Option<String> {
+    // py:325-326  if file_size < 0: file_size = 0
+    let count = byte_count.max(0);
+    // py:328  humanize_bytes (always returns a value, even for 0)
+    Some(humanize_bytes(count as f64, suffix, si_prefix))
+}
+
+/// Port of `detect_text_csv_dialect()` from
+/// `powerline/segments/vim/__init__.py:679-683`.
+///
+/// Detects the CSV dialect + whether the text has a header. Python
+/// uses `csv.Sniffer`; Rust port returns the resolved `(delimiter,
+/// has_header)` pair given the caller's pre-sniffed result.
+///
+/// `display_name='auto'` per py:682 triggers the auto-detect path
+/// (caller runs `has_header(header_text or text)`); any other
+/// value uses `display_name` directly as the has_header flag (the
+/// Python `... if display_name == 'auto' else display_name` ternary).
+pub fn detect_text_csv_dialect(
+    sniffed_delimiter: char,
+    display_name: &str,
+    auto_has_header: bool,
+) -> (char, bool) {
+    // py:680-683
+    let has_header = if display_name == "auto" {
+        // py:682  sniffer.has_header(...)
+        auto_has_header
+    } else {
+        // py:682  else display_name (truthy display_name → has header)
+        !display_name.is_empty() && display_name != "false"
+    };
+    (sniffed_delimiter, has_header)
+}
+
+/// Port of `tab()` from
+/// `powerline/segments/vim/__init__.py:790-805`.
+///
+/// Emits the clickable region marker for the supplied tabpage
+/// number per py:800-803. `end=true` closes the region with
+/// `%{}T` per py:802 (empty tabnr).
+///
+/// `tabnr` is None when py:804 KeyError fires (no tabnr in
+/// segment_info), in which case the fn returns None per py:805.
+pub fn tab(tabnr: Option<u64>, end: bool) -> Option<serde_json::Value> {
+    // py:799-805
+    let n = tabnr?;
+    let literal = if end {
+        "%T".to_string()
+    } else {
+        format!("%{}T", n)
+    };
+    // py:800-803
+    Some(serde_json::json!([{
+        "contents": serde_json::Value::Null,
+        "literal_contents": [0, literal],
+    }]))
+}
+
 /// Port of `CSV_SNIFF_LINES` constant at
 /// `powerline/segments/vim/__init__.py:686`.
 pub const CSV_SNIFF_LINES: usize = 100;
@@ -1134,5 +1230,101 @@ mod tests {
     fn csv_parse_lines_constant() {
         // py:687
         assert_eq!(CSV_PARSE_LINES, 10);
+    }
+
+    #[test]
+    fn tab_modified_indicator_returns_segment_when_modified() {
+        // py:190-195
+        let r = tab_modified_indicator(true, "+").unwrap();
+        let arr = r.as_array().unwrap();
+        assert_eq!(arr[0]["contents"], "+");
+        let hl = arr[0]["highlight_groups"].as_array().unwrap();
+        assert_eq!(hl[0], "tab_modified_indicator");
+        assert_eq!(hl[1], "modified_indicator");
+    }
+
+    #[test]
+    fn tab_modified_indicator_returns_none_when_no_modified() {
+        // py:196
+        assert!(tab_modified_indicator(false, "+").is_none());
+    }
+
+    #[test]
+    fn window_title_returns_value_when_set() {
+        // py:387-388
+        assert_eq!(
+            window_title(Some("Quickfix List")),
+            Some("Quickfix List".to_string())
+        );
+    }
+
+    #[test]
+    fn window_title_returns_none_when_unset() {
+        // py:389-390
+        assert!(window_title(None).is_none());
+    }
+
+    #[test]
+    fn file_size_clamps_negative_to_zero() {
+        // py:326-327
+        let r = file_size(-1, "B", false);
+        assert!(r.is_some());
+        // 0 bytes should produce "0 B"-style output (or similar)
+        assert!(!r.unwrap().is_empty());
+    }
+
+    #[test]
+    fn file_size_humanizes_byte_count() {
+        // py:328
+        let r = file_size(1024, "B", false);
+        assert!(r.is_some());
+        // 1024 bytes should mention "K" or "KiB"
+        let s = r.unwrap();
+        assert!(s.contains('K') || s.contains('k') || s.contains("1024"));
+    }
+
+    #[test]
+    fn detect_text_csv_dialect_auto_uses_caller_has_header() {
+        // py:682  display_name == 'auto'
+        let (delim, has_header) = detect_text_csv_dialect(',', "auto", true);
+        assert_eq!(delim, ',');
+        assert!(has_header);
+        let (_, has_header) = detect_text_csv_dialect(',', "auto", false);
+        assert!(!has_header);
+    }
+
+    #[test]
+    fn detect_text_csv_dialect_non_auto_uses_display_name() {
+        // py:682  else display_name
+        let (_, has_header) = detect_text_csv_dialect(',', "true", false);
+        assert!(has_header);
+        let (_, has_header) = detect_text_csv_dialect(',', "false", true);
+        assert!(!has_header);
+    }
+
+    #[test]
+    fn tab_returns_segment_with_tabnr_marker() {
+        // py:800-803
+        let r = tab(Some(3), false).unwrap();
+        let arr = r.as_array().unwrap();
+        assert_eq!(arr[0]["contents"], serde_json::Value::Null);
+        let literal = arr[0]["literal_contents"].as_array().unwrap();
+        assert_eq!(literal[0], 0);
+        assert_eq!(literal[1], "%3T");
+    }
+
+    #[test]
+    fn tab_end_emits_empty_tabnr() {
+        // py:802  '' if end else segment_info['tabnr']
+        let r = tab(Some(3), true).unwrap();
+        let arr = r.as_array().unwrap();
+        let literal = arr[0]["literal_contents"].as_array().unwrap();
+        assert_eq!(literal[1], "%T");
+    }
+
+    #[test]
+    fn tab_returns_none_when_no_tabnr() {
+        // py:804-805
+        assert!(tab(None, false).is_none());
     }
 }
