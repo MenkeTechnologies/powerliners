@@ -2192,6 +2192,42 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_mark_get_snippet_extracts_line_with_caret() {
+    if !python_available() {
+        return;
+    }
+    // Mark.get_snippet(indent=4, max_length=75) walks backward/forward
+    // from self.pointer to the nearest newline/NUL, joins as a single
+    // line, runs strtrans on the pieces, and appends '^' under pointer.
+    //
+    // Buffer: 'line1\nline2\nline3\nline4'
+    // Pointer 12 → start of 'line3' (index 12). Snippet = 'line3'
+    // with caret under index 0 → '    line3\n    ^'.
+    let buffer = "line1\nline2\nline3\nline4";
+    let py_expr = format!(
+        "__import__('powerline.lint.markedjson.error', fromlist=['Mark']).Mark('cfg.json', 5, 0, {:?}, 12).get_snippet()",
+        buffer
+    );
+    let py = match py_eval(&py_expr) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_payload = py.as_str();
+
+    let m = powerliners::lint::markedjson::error::RichMark::new(
+        "cfg.json",
+        5,
+        0,
+        Some(buffer.chars().collect()),
+        12,
+    );
+    let rs = m
+        .get_snippet(4, 75)
+        .expect("Rust get_snippet returned None");
+    assert_eq!(py_payload, &rs, "Mark.get_snippet parity mismatch");
+}
+
+#[test]
 fn parity_markedjson_mark_advance_string_increments_pointer_and_column() {
     if !python_available() {
         return;
