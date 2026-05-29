@@ -2192,6 +2192,46 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_strwidth_ucs_4_ascii_only_matches() {
+    if !python_available() {
+        return;
+    }
+    // strwidth_ucs_4 returns 1 cell per char for ASCII. The Rust port
+    // currently falls back to 'Narrow' (width 1) for every char
+    // (src/ported/lib/unicode.rs:354 documents this gap until a
+    // foundational unicode-properties crate is wired in). For
+    // ASCII-only inputs both ports happen to agree — pin that
+    // subset.
+    let wd_lit = "{'N': 1, 'Na': 1, 'A': 1, 'H': 1, 'W': 2, 'F': 2}";
+    let cases: &[(&str, usize)] = &[
+        ("hello", 5),
+        ("A", 1),
+        ("abc def", 7),
+        ("", 0),
+        ("longer string here", 18),
+    ];
+    use std::collections::HashMap;
+    let mut wd: HashMap<String, usize> = HashMap::new();
+    for k in ["N", "Na", "A", "H", "W", "F"] {
+        wd.insert(k.to_string(), if matches!(k, "W" | "F") { 2 } else { 1 });
+    }
+    for (input, expected) in cases {
+        let py_expr = format!(
+            "__import__('powerline.lib.unicode', fromlist=['strwidth_ucs_4']).strwidth_ucs_4({wd}, {val:?})",
+            wd = wd_lit, val = input
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_val: usize = py.trim().parse().expect("py non-integer");
+        assert_eq!(py_val, *expected, "Python fixture drift for {:?}", input);
+        let rs = powerliners::lib::unicode::strwidth_ucs_4(&wd, input);
+        assert_eq!(rs, *expected, "Rust strwidth_ucs_4({:?}) mismatch", input);
+    }
+}
+
+#[test]
 fn parity_lint_find_all_ext_config_files_top_level_json() {
     if !python_available() {
         return;
