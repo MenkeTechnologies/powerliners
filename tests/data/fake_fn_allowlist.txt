@@ -230,3 +230,10 @@ workspace_lister_for
 # observable semantics as Python when called via tablister/bufferlister().
 tablister_for
 bufferlister_for
+
+# Approved 2026-05-29: extraction helper for the inline command assembly
+# in powerline/bindings/lemonbar/powerline-lemonbar.py:23. Python inlines
+# the command list construction directly in the for-loop body; Rust
+# factors it into a testable function so the geometry format string
+# `{w}x{h}+{x}+{y}` can be unit-tested without spawning subprocess.
+build_bar_command
