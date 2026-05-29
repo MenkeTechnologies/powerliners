@@ -91,11 +91,17 @@ pub fn get_tmux_output(pl: &(), args: &[&str]) -> Option<String> {
 ///     environment prior to attaching any client (runs
 ///     `tmux set-environment -r {varname}`).
 pub fn set_tmux_environment(varname: &str, value: &str, remove: bool) {
-    // py:49  run_tmux_command('set-environment', '-g', varname, value)
+    // py:40  def set_tmux_environment(varname, value, remove=True):
+    // py:51  run_tmux_command('set-environment', '-g', varname, value)
     run_tmux_command(&["set-environment", "-g", varname, value]);
+    // py:52  if remove:
     if remove {
-        // py:50
-        // py:51-55  except CalledProcessError: pass — silently ignore failure.
+        // py:53  try:
+        // py:54  run_tmux_command('set-environment', '-r', varname)
+        // py:55  except subprocess.CalledProcessError:
+        // py:56  # On tmux-2.0 this command may fail for whatever reason. Since it is
+        // py:57  # critical just ignore the failure.
+        // py:58  pass
         let _ = _run_tmux(&["set-environment", "-r", varname]);
     }
 }
@@ -144,16 +150,19 @@ pub fn NON_LETTERS() -> &'static Regex {
 ///
 /// Parse `tmux -V` output into a `TmuxVersionInfo`.
 pub fn get_tmux_version(pl: &()) -> Option<TmuxVersionInfo> {
-    // py:72  version_string = get_tmux_output(pl, '-V')
+    // py:75  def get_tmux_version(pl):
+    // py:76  version_string = get_tmux_output(pl, '-V')
     let version_string = get_tmux_output(pl, &["-V"])?;
 
-    // py:73  _, version_string = version_string.split(' ')
+    // py:77  _, version_string = version_string.split(' ')
     let mut parts = version_string.splitn(2, ' ');
     let _ = parts.next()?;
-    let version_string = parts.next()?.trim(); // py:74
+    // py:78  version_string = version_string.strip()
+    let version_string = parts.next()?.trim();
 
-    // py:75-76  if version_string == 'master': return TmuxVersionInfo(float('inf'), 0, version_string)
+    // py:79  if version_string == 'master':
     if version_string == "master" {
+        // py:80  return TmuxVersionInfo(float('inf'), 0, version_string)
         return Some(TmuxVersionInfo {
             major: f64::INFINITY,
             minor: 0,
@@ -161,23 +170,23 @@ pub fn get_tmux_version(pl: &()) -> Option<TmuxVersionInfo> {
         });
     }
 
-    // py:77  major, minor = version_string.split('.')
+    // py:81  major, minor = version_string.split('.')
     let (major_raw, minor_raw) = version_string.split_once('.')?;
 
-    // py:78  major = NON_DIGITS.subn('', major)[0]
+    // py:82  major = NON_DIGITS.subn('', major)[0]
     let major_str = NON_DIGITS().replace_all(major_raw, "").into_owned();
-    // py:79  suffix = DIGITS.subn('', minor)[0] or None
+    // py:83  suffix = DIGITS.subn('', minor)[0] or None
     let suffix_str = DIGITS().replace_all(minor_raw, "").into_owned();
     let suffix = if suffix_str.is_empty() {
         None
     } else {
         Some(suffix_str)
     };
-    // py:80  minor = NON_DIGITS.subn('', minor)[0]
+    // py:84  minor = NON_DIGITS.subn('', minor)[0]
     let minor_str = NON_DIGITS().replace_all(minor_raw, "").into_owned();
 
+    // py:85  return TmuxVersionInfo(int(major), int(minor), suffix)
     Some(TmuxVersionInfo {
-        // py:81
         major: major_str.parse().ok()?,
         minor: minor_str.parse().ok()?,
         suffix,

@@ -109,12 +109,17 @@ pub fn import_function(
     mut echoerr: impl FnMut(ImportError),
     module: &MarkedName,
 ) -> ImportedFunction {
+    // py:21  def import_function(function_type, name, data, context, echoerr, module):
     // py:22  havemarks(name, module)
     debug_assert!(name.mark.is_some());
     debug_assert!(module.mark.is_some());
 
-    // py:24-28  deprecation warning for i3wm.workspaces
+    // py:24  if module == 'powerline.segments.i3wm' and name == 'workspaces':
     if module.value == "powerline.segments.i3wm" && name.value == "workspaces" {
+        // py:25  echoerr(context='Warning while checking segments (key {key})'.format(key=context.key),
+        // py:26  context_mark=name.mark,
+        // py:27  problem='segment {0} from {1} is deprecated'.format(name, module),
+        // py:28  problem_mark=module.mark)
         let key = context
             .get("key")
             .and_then(|v| v.as_str())
@@ -129,9 +134,20 @@ pub fn import_function(
         });
     }
 
-    // py:30-44  WithPath(data['import_paths']) + __import__ + getattr
-    // Rust port surfaces the path-context dance but skips the actual
-    // dynamic import since the Rust port can't load Python modules.
+    // py:30  with WithPath(data['import_paths']):
+    // py:31  try:
+    // py:32  func = getattr(__import__(str(module), fromlist=[str(name)]), str(name))
+    // py:33  except ImportError:
+    // py:34  echoerr(context='Error while checking segments (key {key})'.format(key=context.key),
+    // py:35  context_mark=name.mark,
+    // py:36  problem='failed to import module {0}'.format(module),
+    // py:37  problem_mark=module.mark)
+    // py:38  return None
+    // py:39  except AttributeError:
+    // py:40  echoerr(context='Error while loading {0} function (key {key})'.format(function_type, key=context.key),
+    // py:41  problem='failed to load function {0} from module {1}'.format(name, module),
+    // py:42  problem_mark=name.mark)
+    // py:43  return None
     let import_paths: Vec<String> = data
         .get("import_paths")
         .and_then(|v| v.as_array())
@@ -141,12 +157,16 @@ pub fn import_function(
                 .collect()
         })
         .unwrap_or_default();
-    let _ = import_paths; // would be passed to WithPath
+    let _ = import_paths;
     let _ = function_type;
 
-    // py:46-50  callable check — surfaced via the registry caller.
-    // The Rust port assumes a positive resolution since the actual
-    // callable check happens at the caller's static dispatch.
+    // py:45  if not callable(func):
+    // py:46  echoerr(context='Error while checking segments (key {key})'.format(key=context.key),
+    // py:47  context_mark=name.mark,
+    // py:48  problem='imported "function" {0} from module {1} is not callable'.format(name, module),
+    // py:49  problem_mark=module.mark)
+    // py:50  return None
+    // py:52  return func
     ImportedFunction::Qualified(format!("{}.{}", module.value, name.value))
 }
 

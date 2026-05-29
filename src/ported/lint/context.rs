@@ -34,7 +34,9 @@ impl JStr {
         I: IntoIterator<Item = T>,
         T: std::fmt::Display,
     {
-        // py:13  super().join((unicode(item) for item in iterable))
+        // py:11  class JStr(unicode):
+        // py:12  def join(self, iterable):
+        // py:13  return super(JStr, self).join((unicode(item) for item in iterable))
         let parts: Vec<String> = iterable.into_iter().map(|x| x.to_string()).collect();
         parts.join(&self.0)
     }
@@ -60,6 +62,7 @@ pub fn list_themes(
     data: &serde_json::Map<String, Value>,
     context: &Context,
 ) -> Vec<(String, Value)> {
+    // py:19  def list_themes(data, context):
     // py:20  theme_type = data['theme_type']
     let theme_type = data
         .get("theme_type")
@@ -78,8 +81,12 @@ pub fn list_themes(
     let cur_theme = data.get("theme").and_then(|v| v.as_str());
     let is_main_theme = cur_theme.is_some() && cur_theme == main_theme_name;
 
+    // py:24  if theme_type == 'top':
     if theme_type == "top" {
-        // py:24-28  every theme in every ext
+        // py:25  return list(itertools.chain(*[
+        // py:26  [(theme_ext, theme) for theme in theme_configs.values()]
+        // py:27  for theme_ext, theme_configs in data['theme_configs'].items()
+        // py:28  ]))
         let mut out = Vec::new();
         if let Some(tc) = data.get("theme_configs").and_then(|v| v.as_object()) {
             for (theme_ext, theme_configs) in tc {
@@ -92,7 +99,8 @@ pub fn list_themes(
         }
         out
     } else if theme_type == "main" || is_main_theme {
-        // py:29-30  every theme in the current ext
+        // py:29  elif theme_type == 'main' or is_main_theme:
+        // py:30  return [(ext, theme) for theme in data['ext_theme_configs'].values()]
         let mut out = Vec::new();
         if let Some(ext_themes) = data.get("ext_theme_configs").and_then(|v| v.as_object()) {
             for theme in ext_themes.values() {
@@ -101,11 +109,11 @@ pub fn list_themes(
         }
         out
     } else {
-        // py:31-32  the parent context's theme only
+        // py:31  else:
+        // py:32  return [(ext, context[0][1])]
         if context.0.is_empty() {
             Vec::new()
         } else {
-            // The last element of the context tuple carries the (key, value).
             let (_k, v) = context.0.last().unwrap().clone();
             vec![(ext.to_string(), v)]
         }
@@ -130,12 +138,22 @@ impl Context {
     ///   - `new_with_kv(base, key, value)` — appends one (key, value)
     ///     to the existing context (py:48-52)
     pub fn new() -> Self {
+        // py:47  def __new__(cls, base, context_key=None, context_value=None):
+        // py:48  if context_key is not None:
+        // py:49  assert(context_value is not None)
+        // py:50  assert(type(base) is Context)
+        // py:51  havemarks(context_key, context_value)
+        // py:52  return tuple.__new__(cls, tuple.__add__(base, ((context_key, context_value),)))
+        // py:53  else:
+        // py:54  havemarks(base)
+        // py:55  return tuple.__new__(cls, ((MarkedUnicode('', base.mark), base),))
         Context(Vec::new())
     }
 
     /// Append a `(key, value)` to a context, returning a new Context.
     pub fn enter(&self, context_key: String, context_value: Value) -> Self {
-        // py:67-68  return Context.__new__(Context, self, context_key, context_value)
+        // py:67  def enter(self, context_key, context_value):
+        // py:68  return Context.__new__(Context, self, context_key, context_value)
         let mut entries = self.0.clone();
         entries.push((context_key, context_value));
         Context(entries)
@@ -146,7 +164,9 @@ impl Context {
     ///
     /// Joins the keys of every entry with `key_sep` ('/').
     pub fn key(&self) -> String {
-        // py:59  key_sep.join((c[0] for c in self))
+        // py:57  @property
+        // py:58  def key(self):
+        // py:59  return key_sep.join((c[0] for c in self))
         key_sep().join(self.0.iter().map(|(k, _)| k.clone()))
     }
 
@@ -156,6 +176,7 @@ impl Context {
     /// `value.keydict[key], value[key]` shape — Rust port operates on
     /// `serde_json::Value::Object` directly.
     pub fn enter_key(&self, value: &Value, key: &str) -> Self {
+        // py:61  def enter_key(self, value, key):
         // py:62  return self.enter(value.keydict[key], value[key])
         let inner = value.get(key).cloned().unwrap_or(Value::Null);
         self.enter(key.to_string(), inner)
@@ -164,6 +185,7 @@ impl Context {
     /// Port of `Context.enter_item()` from
     /// `powerline/lint/context.py:64`.
     pub fn enter_item(&self, name: &str, item: &Value) -> Self {
+        // py:64  def enter_item(self, name, item):
         // py:65  return self.enter(MarkedUnicode(name, item.mark), item)
         self.enter(name.to_string(), item.clone())
     }

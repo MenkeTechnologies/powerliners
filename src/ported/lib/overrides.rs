@@ -30,9 +30,11 @@ use serde_json::Value;
 ///
 /// :return: Python object.
 pub fn parse_value(s: &str) -> Value {
+    // py:9  def parse_value(s):
     // py:26  if not s:
     if s.is_empty() {
-        return REMOVE_THIS_KEY(); // py:27  return REMOVE_THIS_KEY
+        // py:27  return REMOVE_THIS_KEY
+        return REMOVE_THIS_KEY();
     }
     // py:28  elif s[0] in '"{[0123456789-' or s in ('null', 'true', 'false'):
     let first = s.chars().next().unwrap();
@@ -45,7 +47,8 @@ pub fn parse_value(s: &str) -> Value {
         // py:29  return json.loads(s)
         serde_json::from_str(s).unwrap_or_else(|_| Value::String(s.to_string()))
     } else {
-        // py:30-31  else: return s
+        // py:30  else:
+        // py:31  return s
         Value::String(s.to_string())
     }
 }
@@ -54,19 +57,25 @@ pub fn parse_value(s: &str) -> Value {
 ///
 /// Split `K1.K2=VAL` into `K1.K2` and parsed VAL.
 pub fn keyvaluesplit(s: &str) -> Result<(String, Value), String> {
+    // py:34  def keyvaluesplit(s):
     // py:37  if '=' not in s:
     if !s.contains('=') {
-        return Err("Option must look like option=json_value".to_string()); // py:38
+        // py:38  raise TypeError('Option must look like option=json_value')
+        return Err("Option must look like option=json_value".to_string());
     }
     // py:39  if s[0] == '_':
     if s.starts_with('_') {
-        return Err("Option names must not start with `_'".to_string()); // py:40
+        // py:40  raise ValueError('Option names must not start with `_\'')
+        return Err("Option names must not start with `_'".to_string());
     }
-    // py:41-43  idx, o, val = ...
+    // py:41  idx = s.index('=')
     let idx = s.find('=').unwrap();
+    // py:42  o = s[:idx]
     let o = s[..idx].to_string();
+    // py:43  val = parse_value(s[idx + 1:])
     let val = parse_value(&s[idx + 1..]);
-    Ok((o, val)) // py:44
+    // py:44  return (o, val)
+    Ok((o, val))
 }
 
 /// Port of `parsedotval()` from `powerline/lib/overrides.py:47`.
@@ -81,8 +90,11 @@ pub fn keyvaluesplit(s: &str) -> Result<(String, Value), String> {
 /// `parsedotval_tuple` for the (o, val) case. Both write to the same
 /// output shape.
 pub fn parsedotval_str(s: &str) -> Result<(String, Value), String> {
-    // py:52  if type(s) is tuple: ... else: o, val = keyvaluesplit(s)
-    let (o, val) = keyvaluesplit(s)?; // py:56
+    // py:47  def parsedotval(s):
+    // py:52  if type(s) is tuple:
+    // py:55  else:
+    // py:56  o, val = keyvaluesplit(s)
+    let (o, val) = keyvaluesplit(s)?;
     Ok(build_nested(&o, val))
 }
 
@@ -90,7 +102,9 @@ pub fn parsedotval_str(s: &str) -> Result<(String, Value), String> {
 /// `powerline/lib/overrides.py:53-54` where `s` is already `(o, val_str)`
 /// and `val_str` is re-parsed via `parse_value`.
 pub fn parsedotval_tuple(o: &str, val: &str) -> (String, Value) {
-    // py:53-54
+    // py:52  if type(s) is tuple:
+    // py:53  o, val = s
+    // py:54  val = parse_value(val)
     let parsed_val = parse_value(val);
     build_nested(o, parsed_val)
 }
@@ -98,20 +112,28 @@ pub fn parsedotval_tuple(o: &str, val: &str) -> (String, Value) {
 /// Builds the nested-dict shape from a dotted key + already-parsed value.
 /// Inlined from `parsedotval` body at `powerline/lib/overrides.py:58-68`.
 fn build_nested(o: &str, val: Value) -> (String, Value) {
-    let keys: Vec<&str> = o.split('.').collect(); // py:58
+    // py:58  keys = o.split('.')
+    let keys: Vec<&str> = o.split('.').collect();
+    // py:59  if len(keys) > 1:
     if keys.len() > 1 {
-        // py:59
-        // py:60-65  Build nested {keys[0]: {keys[1]: ... : val}}
+        // py:60  r = (keys[0], {})
+        // py:61  rcur = r[1]
+        // py:62  for key in keys[1:-1]:
+        // py:63  rcur[key] = {}
+        // py:64  rcur = rcur[key]
+        // py:65  rcur[keys[-1]] = val
         let mut current = val;
         for k in keys[1..].iter().rev() {
             let mut m = serde_json::Map::new();
             m.insert(k.to_string(), current);
             current = Value::Object(m);
         }
+        // py:66  return r
         (keys[0].to_string(), current)
     } else {
-        // py:67
-        (o.to_string(), val) // py:68
+        // py:67  else:
+        // py:68  return (o, val)
+        (o.to_string(), val)
     }
 }
 
@@ -121,7 +143,12 @@ fn build_nested(o: &str, val: Value) -> (String, Value) {
 ///
 /// Emits the same items in sequence as `parsedotval` does.
 pub fn parse_override_var(s: &str) -> Vec<(String, Value)> {
-    // py:76-80  generator over semicolon-split items
+    // py:71  def parse_override_var(s):
+    // py:76  return (
+    // py:77  parsedotval(item)
+    // py:78  for item in s.split(';')
+    // py:79  if item
+    // py:80  )
     s.split(';')
         .filter(|item| !item.is_empty())
         .filter_map(|item| parsedotval_str(item).ok())

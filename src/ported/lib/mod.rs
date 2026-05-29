@@ -90,20 +90,31 @@ pub fn add_divider_highlight_group<F>(
 where
     F: FnMut() -> Option<String>,
 {
+    // py:15  def add_divider_highlight_group(highlight_group):
+    // py:16  def dec(func):
     let hg = highlight_group.into();
     move || {
-        // py:17  r = func(**kwargs)
-        // py:18-22  if r: return [{contents, divider_highlight_group}]
-        // py:24  else: return None
+        // py:17  @wraps_saveargs(func)
+        // py:18  def f(**kwargs):
+        // py:19  r = func(**kwargs)
         let r = func()?;
+        // py:20  if r:
         if r.is_empty() {
+            // py:25  else:
+            // py:26  return None
             return None;
         }
+        // py:21  return [{
+        // py:22  'contents': r,
+        // py:23  'divider_highlight_group': highlight_group,
+        // py:24  }]
         Some(vec![json!({
             "contents": r,
             "divider_highlight_group": hg,
         })])
     }
+    // py:27  return f
+    // py:28  return dec
 }
 
 /// Variant of `add_divider_highlight_group` that takes a closure

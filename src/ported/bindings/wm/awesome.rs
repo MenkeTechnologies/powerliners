@@ -32,20 +32,26 @@ use crate::ported::lib::threaded::MultiRunnedThread;
 /// lines via `eprintln!` for now — the structured `pl.info` /
 /// `pl.error` dispatch arrives with the Powerline logger trait.
 pub fn read_to_log(_pl: &(), client: std::process::Output) {
-    // py:15-17  for line in client.stdout: pl.info(line, prefix='awesome-client')
+    // py:14  def read_to_log(pl, client):
+    // py:15  for line in client.stdout:
     for line in String::from_utf8_lossy(&client.stdout).lines() {
+        // py:16  if line:
         if !line.is_empty() {
+            // py:17  pl.info(line, prefix='awesome-client')
             eprintln!("awesome-client: {}", line);
         }
     }
-    // py:18-20  for line in client.stderr: pl.error(line, prefix='awesome-client')
+    // py:18  for line in client.stderr:
     for line in String::from_utf8_lossy(&client.stderr).lines() {
+        // py:19  if line:
         if !line.is_empty() {
+            // py:20  pl.error(line, prefix='awesome-client')
             eprintln!("awesome-client: {}", line);
         }
     }
-    // py:21-22  if client.wait(): pl.error('Client exited with {0}', returncode)
+    // py:21  if client.wait():
     if !client.status.success() {
+        // py:22  pl.error('Client exited with {0}', client.returncode, prefix='awesome')
         eprintln!("awesome-client: exited {}", client.status);
     }
 }
@@ -59,10 +65,28 @@ pub fn read_to_log(_pl: &(), client: std::process::Output) {
 /// Returns immediately so the binding doesn't busy-loop when the
 /// awesome thread is started against a not-yet-ported orchestrator.
 pub fn run() {
-    // py:25-30  Powerline('wm', renderer_module='pango_markup', ...)
-    // py:31     powerline.update_renderer()
-    // py:33-34  thread_shutdown_event = ... or powerline.shutdown_event
-    // py:36-44  while not thread_shutdown_event.is_set(): render + popen
+    // py:25  def run(thread_shutdown_event=None, pl_shutdown_event=None, pl_config_loader=None,
+    // py:26  interval=None):
+    // py:27  powerline = Powerline(
+    // py:28  'wm',
+    // py:29  renderer_module='pango_markup',
+    // py:30  shutdown_event=pl_shutdown_event,
+    // py:31  config_loader=pl_config_loader,
+    // py:32  )
+    // py:33  powerline.update_renderer()
+    // py:35  if not thread_shutdown_event:
+    // py:36  thread_shutdown_event = powerline.shutdown_event
+    // py:38  while not thread_shutdown_event.is_set():
+    // py:39  # powerline.update_interval may change over time
+    // py:40  used_interval = interval or powerline.update_interval
+    // py:41  start_time = monotonic()
+    // py:42  s = powerline.render(side='right')
+    // py:43  request = 'powerline_widget:set_markup(\'' + s.translate(...) + '\')\n'
+    // py:44  client = Popen(['awesome-client'], shell=False, stdout=PIPE, stderr=PIPE, stdin=PIPE)
+    // py:45  client.stdin.write(request.encode('utf-8'))
+    // py:46  client.stdin.close()
+    // py:47  read_to_log(powerline.pl, client)
+    // py:48  thread_shutdown_event.wait(max(used_interval - (monotonic() - start_time), 0.1))
     eprintln!(
         "powerliners: bindings::wm::awesome::run() — Powerline class not yet ported; \
          awesome WM integration disabled until Phase 2 lands"

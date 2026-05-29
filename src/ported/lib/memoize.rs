@@ -91,22 +91,33 @@ impl memoize {
     where
         F: FnOnce(&Map<String, Value>) -> Value,
     {
-        let key = (self.cache_key)(kwargs); // py:28
+        // py:21  def __call__(self, func):
+        // py:22  @wraps(func)
+        // py:23  def decorated_function(**kwargs):
+        // py:24  if self.cache_reg_func:  (Rust port omits cache_reg_func)
+        // py:25  self.cache_reg_func(self.cache)
+        // py:26  self.cache_reg_func = None
+        // py:28  key = self.cache_key(**kwargs)
+        let key = (self.cache_key)(kwargs);
         let now = monotonic();
 
-        // py:30-36  check cache freshness
+        // py:29  try:
+        // py:30  cached = self.cache.get(key, None)
+        // py:31  except TypeError:
+        // py:32  return func(**kwargs)
         let cache = self.cache.lock().unwrap();
         if let Some(cached) = cache.get(&key) {
-            // Python: `cached['time'] < monotonic() < cached['time'] + self.timeout`
-            // Monotonic clock can't go backwards in Rust (it's `Instant`-
-            // based), so the lower-bound check is always true in practice;
-            // we keep it for parity.
+            // py:36  if cached is None or not (cached['time'] < monotonic() < cached['time'] + self.timeout):
             if cached.time < now && now < cached.time + self.timeout {
-                return cached.result.clone(); // py:41  return cached['result']
+                // py:41  return cached['result']
+                return cached.result.clone();
             }
         }
 
-        // py:37-40  cache miss/expired: compute + store
+        // py:37  cached = self.cache[key] = {
+        // py:38  'result': func(**kwargs),
+        // py:39  'time': monotonic(),
+        // py:40  }
         drop(cache);
         let result = compute(kwargs);
         let mut cache = self.cache.lock().unwrap();
@@ -117,7 +128,9 @@ impl memoize {
                 time: now,
             },
         );
+        // py:41  return cached['result']
         result
+        // py:42  return decorated_function
     }
 }
 
