@@ -1583,3 +1583,35 @@ branch_watcher_initialised
 # is_truthy mirrors `bool(d)` semantics — true when the errs list is
 # non-empty (initial state errs=[[]] is truthy per py:239).
 is_truthy
+
+# bindings/zsh/mod.rs::args_config_override / args_theme_override /
+# args_config_path / args_jobnum — Python defines these as @property
+# methods on the Args class at
+# powerline/bindings/zsh/__init__.py:43-72 (config_override at
+# py:43-46, theme_override at py:47-50, config_path at py:51-66,
+# jobnum at py:69-72). Python properties are accessed without ()
+# via attribute syntax; Rust requires named fns since there's no
+# property-decorator equivalent. The args_ prefix disambiguates
+# from any free fn with the same name (Python's property name
+# alone would collide with module-level fns of the same name).
+args_config_override
+args_theme_override
+args_config_path
+args_jobnum
+
+# bindings/zsh/mod.rs::zsh_expand_fallback_steps — extracts the
+# 4-step fallback chain from the zsh_expand else branch at
+# powerline/bindings/zsh/__init__.py:109-114. Python conditionally
+# overrides zsh_expand based on hasattr(zsh, 'expand'); when
+# absent, it defines the closure that runs eval+getvalue+setvalue.
+# Rust extracts the 4 commands as a tuple so callers can route
+# through their zsh-RPC binding without recompiling the closure.
+zsh_expand_fallback_steps
+
+# bindings/zsh/mod.rs::Prompt::del_restore — extracts the
+# savedps-restore step from Prompt.__del__ at
+# powerline/bindings/zsh/__init__.py:193-196. Python's __del__ is
+# the finaliser; Rust has Drop but the actual zsh.setvalue dispatch
+# isn't reachable here, so the helper returns (var, value) for
+# the caller to wire through.
+del_restore

@@ -162,6 +162,62 @@ pub fn string(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).to_string()
 }
 
+/// Port of `Args.config_override` property at
+/// `powerline/bindings/zsh/__init__.py:43-44`.
+///
+/// Reads `POWERLINE_CONFIG_OVERRIDES` and parses it via
+/// `get_var_config`. The Rust port takes the resolved zsh value
+/// directly since `zsh.getvalue` isn't reachable.
+pub fn args_config_override(value: Option<Value>) -> Option<Map<String, Value>> {
+    // py:44  return get_var_config('POWERLINE_CONFIG_OVERRIDES')
+    get_var_config(value)
+}
+
+/// Port of `Args.theme_override` property at
+/// `powerline/bindings/zsh/__init__.py:47-48`.
+pub fn args_theme_override(value: Option<Value>) -> Option<Map<String, Value>> {
+    // py:48  return get_var_config('POWERLINE_THEME_OVERRIDES')
+    get_var_config(value)
+}
+
+/// Port of `Args.config_path` property at
+/// `powerline/bindings/zsh/__init__.py:51-66`.
+///
+/// `value` is the resolved `POWERLINE_CONFIG_PATHS` zsh variable
+/// value (None when py:55 raises IndexError). Strings/bytes are
+/// split on `:` per py:59-65; lists pass through. Empty path
+/// segments are filtered out per py:63.
+pub fn args_config_path(value: Option<Value>) -> Option<Vec<String>> {
+    // py:54-57  try zsh.getvalue; except IndexError: return None
+    let v = value?;
+    match v {
+        // py:58-65  isinstance string/bytes → split on ':'
+        Value::String(s) => Some(
+            s.split(':')
+                .filter(|p| !p.is_empty())
+                .map(String::from)
+                .collect(),
+        ),
+        // py:65-66  else: return ret
+        Value::Array(arr) => Some(
+            arr.into_iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect(),
+        ),
+        _ => None,
+    }
+}
+
+/// Port of `Args.jobnum` property at
+/// `powerline/bindings/zsh/__init__.py:68-72`.
+///
+/// Returns the `_POWERLINE_JOBNUM` zsh variable value. The Rust port
+/// takes the resolved integer directly.
+pub fn args_jobnum(value: Option<i32>) -> Option<i32> {
+    // py:70  return zsh.getvalue('_POWERLINE_JOBNUM')
+    value
+}
+
 /// Port of `class Environment(object)` from
 /// `powerline/bindings/zsh/__init__.py:78`.
 ///
@@ -190,6 +246,27 @@ impl Environment {
         // py:94-97  try zsh.getvalue(key): return True; except IndexError: False
         get_value().is_some()
     }
+}
+
+/// Port of `zsh_expand()` fallback at
+/// `powerline/bindings/zsh/__init__.py:109-114`.
+///
+/// Python lazily checks `hasattr(zsh, 'expand')` per py:107; when
+/// absent, falls back to:
+///   1. `zsh.eval('local _POWERLINE_REPLY="' + s + '"')` (py:111)
+///   2. `ret = zsh.getvalue('_POWERLINE_REPLY')` (py:112)
+///   3. `zsh.setvalue('_POWERLINE_REPLY', None)` (py:113)
+///   4. `return ret` (py:114)
+///
+/// The Rust port returns the (eval_command, getvalue_key,
+/// setvalue_key, setvalue_value) tuple the caller dispatches
+/// through its zsh-RPC binding.
+pub fn zsh_expand_fallback_steps(s: &str) -> (String, &'static str, &'static str, Option<String>) {
+    // py:111  local _POWERLINE_REPLY="..."
+    let eval_cmd = format!("local _POWERLINE_REPLY=\"{}\"", s);
+    // py:112  zsh.getvalue('_POWERLINE_REPLY')
+    // py:113  zsh.setvalue('_POWERLINE_REPLY', None)
+    (eval_cmd, "_POWERLINE_REPLY", "_POWERLINE_REPLY", None)
 }
 
 /// Port of `set_prompt()` from
@@ -267,6 +344,20 @@ pub struct Prompt {
 }
 
 impl Prompt {
+    /// Port of `Prompt.__del__()` value-restore step at
+    /// `powerline/bindings/zsh/__init__.py:193-196`.
+    ///
+    /// Returns `Some((var_name, value))` to restore when both
+    /// `savedps` and `savedpsvar` are set per py:194-195. The caller
+    /// dispatches the zsh setvalue + powerline shutdown.
+    pub fn del_restore(&self) -> Option<(String, String)> {
+        // py:194-195  if self.savedps: zsh.setvalue(self.savedpsvar, self.savedps)
+        match (&self.savedpsvar, &self.savedps) {
+            (Some(var), Some(ps)) if !ps.is_empty() => Some((var.clone(), ps.clone())),
+            _ => None,
+        }
+    }
+
     /// Port of `Prompt.__init__()` from
     /// `powerline/bindings/zsh/__init__.py:138`.
     pub fn new(
@@ -688,5 +779,116 @@ mod tests {
     fn setup_entry_returns_fresh_powerline() {
         let p = setup_entry();
         assert!(p.id > 0);
+    }
+
+    #[test]
+    fn args_config_override_delegates_to_get_var_config() {
+        // py:44
+        let cfg = serde_json::json!({"foo": "bar"});
+        let r = args_config_override(Some(cfg)).unwrap();
+        assert_eq!(r.get("foo"), Some(&Value::String("bar".into())));
+    }
+
+    #[test]
+    fn args_config_override_none_input_returns_none() {
+        assert!(args_config_override(None).is_none());
+    }
+
+    #[test]
+    fn args_theme_override_delegates_to_get_var_config() {
+        // py:48
+        let cfg = serde_json::json!({"key": "value"});
+        let r = args_theme_override(Some(cfg)).unwrap();
+        assert_eq!(r.get("key"), Some(&Value::String("value".into())));
+    }
+
+    #[test]
+    fn args_config_path_splits_string_on_colon() {
+        // py:59-65
+        let v = Value::String("/etc/powerline:/home/user/.config/powerline".into());
+        let r = args_config_path(Some(v)).unwrap();
+        assert_eq!(
+            r,
+            vec![
+                "/etc/powerline".to_string(),
+                "/home/user/.config/powerline".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn args_config_path_filters_empty_segments() {
+        // py:62-63  if path
+        let v = Value::String(":/etc/powerline::/home/user:".into());
+        let r = args_config_path(Some(v)).unwrap();
+        assert_eq!(
+            r,
+            vec!["/etc/powerline".to_string(), "/home/user".to_string()]
+        );
+    }
+
+    #[test]
+    fn args_config_path_passes_array_through() {
+        // py:65-66
+        let v = Value::Array(vec![Value::String("/a".into()), Value::String("/b".into())]);
+        let r = args_config_path(Some(v)).unwrap();
+        assert_eq!(r, vec!["/a".to_string(), "/b".to_string()]);
+    }
+
+    #[test]
+    fn args_config_path_none_input_returns_none() {
+        // py:55-57  IndexError → None
+        assert!(args_config_path(None).is_none());
+    }
+
+    #[test]
+    fn args_jobnum_passes_through() {
+        // py:70
+        assert_eq!(args_jobnum(Some(3)), Some(3));
+        assert!(args_jobnum(None).is_none());
+    }
+
+    #[test]
+    fn zsh_expand_fallback_builds_local_var_command() {
+        // py:109-114
+        let (eval_cmd, get_key, set_key, set_val) = zsh_expand_fallback_steps("${(%):-%~}");
+        assert_eq!(eval_cmd, "local _POWERLINE_REPLY=\"${(%):-%~}\"");
+        assert_eq!(get_key, "_POWERLINE_REPLY");
+        assert_eq!(set_key, "_POWERLINE_REPLY");
+        assert!(set_val.is_none());
+    }
+
+    #[test]
+    fn prompt_del_restore_returns_var_value_pair() {
+        // py:194-195
+        let p = Prompt::new(
+            "left",
+            None,
+            Some("PS1".to_string()),
+            Some("$ ".to_string()),
+            false,
+        );
+        let r = p.del_restore().unwrap();
+        assert_eq!(r.0, "PS1");
+        assert_eq!(r.1, "$ ");
+    }
+
+    #[test]
+    fn prompt_del_restore_returns_none_when_no_savedps() {
+        let p = Prompt::new("left", None, Some("PS1".to_string()), None, false);
+        assert!(p.del_restore().is_none());
+    }
+
+    #[test]
+    fn prompt_del_restore_returns_none_when_savedps_empty() {
+        // py:194  if self.savedps — empty string is falsy in Python
+        let p = Prompt::new(
+            "left",
+            None,
+            Some("PS1".to_string()),
+            Some("".to_string()),
+            false,
+        );
+        assert!(p.del_restore().is_none());
     }
 }
