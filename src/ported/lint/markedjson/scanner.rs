@@ -567,6 +567,157 @@ impl Scanner {
     }
 }
 
+/// Port of `Scanner.scan_flow_scalar()` from
+/// `powerline/lint/markedjson/scanner.py:369-386`.
+///
+/// Scans a quoted scalar (double-quoted in JSON). Python builds
+/// the chunks list by interleaving non-space + space scans until
+/// the closing quote is consumed, then returns a
+/// `ScalarToken(value, ..., '"')`.
+///
+/// The Rust port takes the post-opening-quote slice of the buffer
+/// and returns the unquoted value + bytes consumed (including the
+/// closing quote). Escape handling lives in
+/// [`scan_flow_scalar_non_spaces`]; whitespace folding in
+/// [`scan_flow_scalar_spaces`].
+///
+/// Returns `(value, bytes_consumed)` on success. `None` when the
+/// buffer ends before the closing quote.
+pub fn scan_flow_scalar(buffer: &str, quote: char) -> Option<(String, usize)> {
+    // py:369  def scan_flow_scalar(self):
+    // py:376  chunks = []
+    // py:377  start_mark = self.get_mark()
+    // py:378  quote = self.peek()
+    // py:379  self.forward()
+    let mut chunks = String::new();
+    let mut pos = 0usize;
+    let bytes = buffer.as_bytes();
+    // py:380  chunks.extend(self.scan_flow_scalar_non_spaces(start_mark))
+    // py:381-383  loop: spaces + non-spaces until quote
+    while pos < bytes.len() {
+        let ch = bytes[pos] as char;
+        if ch == quote {
+            // py:384  self.forward()  (consume closing quote)
+            // py:385-386  return ScalarToken(chunks)
+            return Some((chunks, pos + 1));
+        }
+        // py:382  spaces
+        let (s, ds) = scan_flow_scalar_spaces(&buffer[pos..]);
+        chunks.push_str(&s);
+        pos += ds;
+        if pos >= bytes.len() {
+            break;
+        }
+        // py:383  non-spaces
+        let (ns, dns) = scan_flow_scalar_non_spaces(&buffer[pos..]);
+        chunks.push_str(&ns);
+        pos += dns;
+        // Avoid infinite loop on unrecognized input.
+        if ds == 0 && dns == 0 {
+            break;
+        }
+    }
+    None
+}
+
+/// Port of `Scanner.scan_flow_scalar_non_spaces()` from
+/// `powerline/lint/markedjson/scanner.py:402-457`.
+///
+/// Scans the next run of non-whitespace characters inside a
+/// quoted scalar, handling escape sequences (`\b`, `\t`, `\n`,
+/// `\f`, `\r`, `\"`, `\\`) per `ESCAPE_REPLACEMENTS` at py:388-396
+/// and `\uXXXX` per py:399-400.
+///
+/// Returns `(decoded_value, bytes_consumed)`. Stops at the first
+/// whitespace, quote, or backslash-followed-EOF.
+pub fn scan_flow_scalar_non_spaces(buffer: &str) -> (String, usize) {
+    let mut out = String::new();
+    let mut pos = 0usize;
+    let bytes = buffer.as_bytes();
+    while pos < bytes.len() {
+        let ch = bytes[pos] as char;
+        // py:407  stop at any of " \ \0 ' ' '\t' '\n'
+        if matches!(ch, '"' | '\\' | '\0' | ' ' | '\t' | '\n') {
+            if ch == '\\' && pos + 1 < bytes.len() {
+                // py:413-422  escape handling
+                let next = bytes[pos + 1] as char;
+                match next {
+                    'b' => out.push('\x08'),
+                    't' => out.push('\t'),
+                    'n' => out.push('\n'),
+                    'f' => out.push('\x0c'),
+                    'r' => out.push('\r'),
+                    '"' => out.push('"'),
+                    '\\' => out.push('\\'),
+                    'u' => {
+                        // py:399-400  \uXXXX
+                        if pos + 6 <= bytes.len() {
+                            let hex = &buffer[pos + 2..pos + 6];
+                            if let Ok(code) = u32::from_str_radix(hex, 16) {
+                                if let Some(c) = char::from_u32(code) {
+                                    out.push(c);
+                                }
+                            }
+                            pos += 6;
+                            continue;
+                        }
+                        return (out, pos);
+                    }
+                    other => out.push(other),
+                }
+                pos += 2;
+                continue;
+            }
+            break;
+        }
+        out.push(ch);
+        pos += 1;
+    }
+    (out, pos)
+}
+
+/// Port of `Scanner.scan_flow_scalar_spaces()` from
+/// `powerline/lint/markedjson/scanner.py:459-480`.
+///
+/// Folds the run of whitespace (spaces / tabs) inside a quoted
+/// scalar into the canonical YAML representation per the JSON
+/// subset rules. Returns `(folded_value, bytes_consumed)`.
+pub fn scan_flow_scalar_spaces(buffer: &str) -> (String, usize) {
+    let mut pos = 0usize;
+    let bytes = buffer.as_bytes();
+    while pos < bytes.len() {
+        let ch = bytes[pos] as char;
+        if ch == ' ' || ch == '\t' {
+            pos += 1;
+        } else {
+            break;
+        }
+    }
+    // py:478-479  return ' ' joined chunks
+    (" ".repeat(if pos > 0 { 1 } else { 0 }), pos)
+}
+
+/// Port of `Scanner.scan_plain()` from
+/// `powerline/lint/markedjson/scanner.py:482-527`.
+///
+/// Scans an unquoted (plain) scalar — runs of `check_plain`-true
+/// characters until a structural separator. Used for unquoted
+/// keys + values in the JSON subset.
+///
+/// Returns `(value, bytes_consumed)`.
+pub fn scan_plain(buffer: &str) -> (String, usize) {
+    let mut out = String::new();
+    let mut pos = 0usize;
+    for (i, ch) in buffer.char_indices() {
+        if !check_plain(ch) {
+            break;
+        }
+        out.push(ch);
+        pos = i + ch.len_utf8();
+    }
+    (out, pos)
+}
+
 /// Port of `Scanner.scan_to_next_token()` from
 /// `powerline/lint/markedjson/scanner.py:365-367`.
 ///
@@ -999,5 +1150,77 @@ mod tests {
         let (ws, kind) = fetch_more_tokens("   ", 0);
         assert_eq!(ws, 3);
         assert_eq!(kind, Some(FetchKind::StreamEnd));
+    }
+
+    #[test]
+    fn scan_flow_scalar_non_spaces_returns_run_until_quote() {
+        // py:402-457
+        let (s, n) = scan_flow_scalar_non_spaces("hello\"world");
+        assert_eq!(s, "hello");
+        assert_eq!(n, 5);
+    }
+
+    #[test]
+    fn scan_flow_scalar_non_spaces_decodes_basic_escapes() {
+        // py:388-396
+        let (s, _) = scan_flow_scalar_non_spaces("hi\\n\"");
+        assert_eq!(s, "hi\n");
+    }
+
+    #[test]
+    fn scan_flow_scalar_non_spaces_decodes_unicode_escape() {
+        // py:399-400
+        let (s, _) = scan_flow_scalar_non_spaces("\\u0041\"");
+        assert_eq!(s, "A");
+    }
+
+    #[test]
+    fn scan_flow_scalar_spaces_collapses_run() {
+        // py:459-480
+        let (s, n) = scan_flow_scalar_spaces("   hello");
+        assert_eq!(s, " ");
+        assert_eq!(n, 3);
+    }
+
+    #[test]
+    fn scan_flow_scalar_spaces_empty_run_yields_empty_string() {
+        let (s, n) = scan_flow_scalar_spaces("hello");
+        assert_eq!(s, "");
+        assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn scan_flow_scalar_round_trips_simple_string() {
+        // py:369-386
+        let r = scan_flow_scalar("hello\"", '"');
+        assert_eq!(r, Some(("hello".to_string(), 6)));
+    }
+
+    #[test]
+    fn scan_flow_scalar_returns_none_when_no_closing_quote() {
+        let r = scan_flow_scalar("hello", '"');
+        assert!(r.is_none());
+    }
+
+    #[test]
+    fn scan_plain_stops_at_structural_chars() {
+        // py:482-527
+        let (s, n) = scan_plain("foo:bar");
+        assert_eq!(s, "foo");
+        assert_eq!(n, 3);
+    }
+
+    #[test]
+    fn scan_plain_empty_input_returns_empty() {
+        let (s, n) = scan_plain("");
+        assert_eq!(s, "");
+        assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn scan_plain_runs_to_end_when_all_plain() {
+        let (s, n) = scan_plain("abc123");
+        assert_eq!(s, "abc123");
+        assert_eq!(n, 6);
     }
 }

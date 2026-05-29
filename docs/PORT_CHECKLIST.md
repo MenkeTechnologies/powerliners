@@ -182,7 +182,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/lib/watcher/uv.py` ↔ `src/ported/lib/watcher/uv.rs` | 160 | 3 | 5 | 21 | 405 | 32 | 137 |
 | [x] | `powerline/lint/checks.py` ↔ `src/ported/lint/checks.rs` | 752 | 26 | 0 | 0 | 1071 | 33 | 414 |
 | [x] | `powerline/lib/threaded.py` ↔ `src/ported/lib/threaded.rs` | 199 | 0 | 3 | 29 | 831 | 35 | 163 |
-| [x] | `powerline/lint/markedjson/scanner.py` ↔ `src/ported/lint/markedjson/scanner.rs` | 283 | 0 | 3 | 29 | 570 | 32 | 174 |
+| [x] | `powerline/lint/markedjson/scanner.py` ↔ `src/ported/lint/markedjson/scanner.rs` | 283 | 0 | 3 | 29 | 717 | 36 | 195 |
 | [x] | `powerline/lint/spec.py` ↔ `src/ported/lint/spec.rs` | 637 | 0 | 1 | 32 | 1018 | 35 | 320 |
 | [x] | `powerline/segments/vim/__init__.py` ↔ `src/ported/segments/vim/mod.rs` | 650 | 32 | 2 | 2 | 869 | 34 | 330 |
 | [x] | `powerline/__init__.py` ↔ `src/ported/mod.rs` | 813 | 13 | 3 | 32 | 1784 | 49 | 456 |
