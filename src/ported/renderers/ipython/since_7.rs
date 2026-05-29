@@ -126,6 +126,39 @@ impl IPythonPygmentsRenderer {
         }
     }
 
+    /// Port of `IPythonPygmentsRenderer.get_segment_info()` from
+    /// `powerline/renderers/ipython/since_7.py:35-37`.
+    ///
+    /// Wraps `segment_info` in an `IPythonInfo` adapter before
+    /// delegating to the base Renderer.get_segment_info. The
+    /// IPythonInfo class (from powerline.ipython) translates IPython
+    /// shell state attrs (last_history, prompt_count) into the
+    /// dict-like surface segments expect.
+    ///
+    /// Rust port can't reach the base Renderer.get_segment_info or
+    /// IPython's shell object; callers supply the wrap closure +
+    /// super call so the dispatch shape is preserved.
+    pub fn get_segment_info<W, S>(
+        segment_info: &serde_json::Map<String, serde_json::Value>,
+        mode: &str,
+        wrap_ipython_info: W,
+        super_get_segment_info: S,
+    ) -> serde_json::Map<String, serde_json::Value>
+    where
+        W: FnOnce(
+            &serde_json::Map<String, serde_json::Value>,
+        ) -> serde_json::Map<String, serde_json::Value>,
+        S: FnOnce(
+            &serde_json::Map<String, serde_json::Value>,
+            &str,
+        ) -> serde_json::Map<String, serde_json::Value>,
+    {
+        // py:35  def get_segment_info(self, segment_info, mode):
+        // py:36-37  return super().get_segment_info(IPythonInfo(segment_info), mode)
+        let wrapped = wrap_ipython_info(segment_info);
+        super_get_segment_info(&wrapped, mode)
+    }
+
     /// Port of `IPythonPygmentsRenderer.hl_join()` (staticmethod) from
     /// `powerline/renderers/ipython/since_7.py:40`.
     ///
@@ -514,5 +547,42 @@ mod tests {
         let p = PowerlinePromptStyle::new();
         let h = p.invalidation_hash();
         assert!(!h.is_empty());
+    }
+
+    #[test]
+    fn get_segment_info_wraps_then_dispatches() {
+        // py:36-37  super().get_segment_info(IPythonInfo(segment_info), mode)
+        let mut info = serde_json::Map::new();
+        info.insert(
+            "execution_count".to_string(),
+            serde_json::Value::Number(42.into()),
+        );
+        let result = IPythonPygmentsRenderer::get_segment_info(
+            &info,
+            "in",
+            |m| {
+                // Mimic IPythonInfo: add 'ipython_wrapped': true.
+                let mut wrapped = m.clone();
+                wrapped.insert("ipython_wrapped".to_string(), serde_json::Value::Bool(true));
+                wrapped
+            },
+            |m, mode| {
+                let mut out = m.clone();
+                out.insert("mode".to_string(), serde_json::Value::String(mode.to_string()));
+                out
+            },
+        );
+        assert_eq!(
+            result.get("ipython_wrapped"),
+            Some(&serde_json::Value::Bool(true))
+        );
+        assert_eq!(
+            result.get("mode"),
+            Some(&serde_json::Value::String("in".to_string()))
+        );
+        assert_eq!(
+            result.get("execution_count").and_then(|v| v.as_i64()),
+            Some(42)
+        );
     }
 }
