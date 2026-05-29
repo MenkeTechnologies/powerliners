@@ -1583,6 +1583,47 @@ fn parity_surrogate_pair_to_character() {
 // ─────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────
+// lint/markedjson/error.py — strtrans + repl
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_markedjson_error_strtrans_replaces_tab_and_non_printables() {
+    if !python_available() {
+        return;
+    }
+    // strtrans first replaces every '\t' with '>---', then runs
+    // NON_PRINTABLE_RE.sub(repl, ...) over the result. Verify both
+    // ports produce byte-identical output across a range of inputs.
+    let cases = [
+        "plain ascii",
+        "with\ttab",
+        "\ttab at start",
+        "trailing\t",
+        "two\t\ttabs",
+        "control \x07 char",
+        "newline\nis\nallowed",
+        "mix \t\x07 of \tboth",
+        "",
+    ];
+    for input in cases {
+        let expr = format!(
+            "__import__('powerline.lint.markedjson.error', fromlist=['strtrans']).strtrans({:?})",
+            input
+        );
+        let py = match py_eval(&expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = powerliners::lint::markedjson::error::strtrans(input);
+        assert_eq!(
+            py, rs,
+            "strtrans({:?}) mismatch: py={:?}, rs={:?}",
+            input, py, rs
+        );
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // bindings/wm/__init__.py — DEFAULT_UPDATE_INTERVAL + XRANDR_OUTPUT_RE
 // ─────────────────────────────────────────────────────────────────────
 
