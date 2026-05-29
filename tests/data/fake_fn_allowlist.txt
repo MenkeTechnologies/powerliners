@@ -653,3 +653,48 @@ _interface_start_re
 # segments/common/net.py:191. Class-attribute init becomes
 # module-level OnceLock since the segment class itself is stubbed.
 replace_num_pat
+
+# weather_conditions_codes() and weather_conditions_icons() are
+# Rust accessors for the Python module-level
+# `weather_conditions_codes = {...}` and `weather_conditions_icons
+# = {...}` dicts at segments/common/wthr.py:21-77 and py:79-92.
+# Python initialises the dicts at module-load; Rust uses OnceLock
+# for the equivalent lazy single-init pattern.
+weather_conditions_codes
+weather_conditions_icons
+
+# temp_conversions() and temp_units() are the Rust analogs of the
+# Python module-level dict-with-lambdas at segments/common/wthr.py:
+# 94-98 and py:101-105. Python uses `{'C': lambda t: t-273.15,
+# ...}`; Rust can't store lambdas in a HashMap by name without
+# boxing, so the port surfaces them as match-based functions
+# keyed by the unit string.
+temp_conversions
+temp_units
+
+# weather_key() is the Rust analog of WeatherSegment.key() at
+# segments/common/wthr.py:113 (a @staticmethod that constructs the
+# _WeatherKey namedtuple). The bare `key` name would collide with
+# common identifiers (HashMap key arg, etc.); the port prepends
+# `weather_` for disambiguation.
+weather_key
+
+# compute_state_from_response extracts the JSON-parse pure path
+# from WeatherSegment.compute_state at segments/common/wthr.py:
+# 141-160. Python mixes the urllib_read network call with the
+# JSON parsing in a single method; Rust separates them so the
+# parse logic can be unit-tested without a network stub.
+compute_state_from_response
+
+# pick_icon extracts the for/else icon-selection block at
+# segments/common/wthr.py:171-176 into a pure helper. Python uses
+# the for/else idiom which has no direct Rust analog; the helper
+# inlines the equivalent walk + fallback in straight-line code.
+pick_icon
+
+# temp_gradient_level extracts the 3-branch gradient computation
+# at segments/common/wthr.py:181-187 (clamp coldest to 0, clamp
+# hottest to 100, linear interpolation otherwise) into a pure
+# helper so the boundary behaviour can be unit-tested without the
+# render_one segment-list scaffolding.
+temp_gradient_level
