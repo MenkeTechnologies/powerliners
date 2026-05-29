@@ -1119,3 +1119,34 @@ format_message
 # wrappers since Rust can't reduce dispatch via *args/**kwargs
 # the way Python does.
 log
+
+# unicode.rs::out_u_str / out_u_bytes split the Python out_u()
+# from powerline/lib/unicode.py:106-118 into two type-overloaded
+# Rust functions because Python's runtime dispatches on
+# isinstance(s, unicode) vs isinstance(s, bytes) at py:113-117.
+# Rust requires distinct fn names to encode the &str vs &[u8] type
+# split since Rust doesn't have ad-hoc overloads.
+out_u_str
+out_u_bytes
+
+# unicode.rs::string_from_str / string_from_bytes is the same
+# pattern for the Python string() at powerline/lib/unicode.py:162-173.
+# Py3 string() returns s unchanged for str input (py:170) and
+# s.decode('utf-8') for bytes input (py:171). Rust splits the
+# isinstance dispatch into two named functions.
+string_from_str
+string_from_bytes
+
+# FailedUnicode::as_str is the borrowing accessor on the Rust
+# newtype FailedUnicode(String) wrapping the Python unicode
+# subclass at powerline/lib/unicode.py:150-159. Python callers
+# treat FailedUnicode as a string directly via isinstance + slicing;
+# Rust provides as_str() as the canonical &str borrow.
+as_str
+
+# FailedUnicode::into_string is the consuming accessor on the
+# Rust newtype FailedUnicode(String). Python callers use the
+# FailedUnicode instance as a string by virtue of unicode
+# inheritance at py:150; Rust requires explicit unwrap to extract
+# the inner String, named into_string to mirror std conventions.
+into_string
