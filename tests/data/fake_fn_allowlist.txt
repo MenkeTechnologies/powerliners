@@ -698,3 +698,40 @@ pick_icon
 # helper so the boundary behaviour can be unit-tested without the
 # render_one segment-list scaffolding.
 temp_gradient_level
+
+# BATTERY_PERCENT_RE() is the Rust accessor for Python's
+# `BATTERY_PERCENT_RE = re.compile(r'(\d+)%')` at
+# segments/common/bat.py:146. Python initialises the regex inside
+# a closure scope at module-load; Rust uses OnceLock for the same
+# lazy-init pattern.
+BATTERY_PERCENT_RE
+
+# parse_pmset_output extracts the pmset-output parsing inlined at
+# segments/common/bat.py:148-151 (regex search + AC substring check)
+# into a pure helper. Python keeps it inside the closure that
+# captures `pl`; Rust separates so the parse can be tested without
+# the shell-out dispatch.
+parse_pmset_output
+
+# parse_linux_status extracts the /sys/class/power_supply status
+# string parse at segments/common/bat.py:111 into a pure helper.
+# Python inlines `state &= (line.strip() != 'Discharging')`; Rust
+# extracts so the discharging/charging classification can be tested
+# without the file I/O setup.
+parse_linux_status
+
+# flatten_battery aggregates the per-device energy/energy_full/state
+# loop at segments/common/bat.py:54-77 (DBUS+UPower) and the
+# equivalent /sys/class/power_supply loop at py:101-114 into a single
+# helper. Python inlines the loop inside the closure each backend
+# constructs; Rust extracts so the aggregation can be tested
+# independently of the live battery-detection dispatch.
+flatten_battery
+
+# build_device_table constructs the per-device tuple list from
+# parallel slices (Rust zip-based) — analog of the Python `devices`
+# list-of-tuples accumulated inside the /sys/class/power_supply
+# detection loop at segments/common/bat.py:99-101. Helper exists so
+# callers wiring real `/sys/class/power_supply/*` reads can build
+# the input to flatten_battery without duplicating the zip dance.
+build_device_table
