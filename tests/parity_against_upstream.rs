@@ -2192,6 +2192,39 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_mergedicts_copy_does_not_mutate_d1() {
+    if !python_available() {
+        return;
+    }
+    // mergedicts_copy returns a NEW dict; d1 stays unchanged even when
+    // d2 has overlapping nested keys. Pin: d1.nested.x stays alone in
+    // d1 while result.nested has both x and y.
+    let py = match py_eval(
+        "(lambda d1, d2: (lambda result: __import__('json').dumps({'d1': d1, 'result': result}, sort_keys=True))(__import__('powerline.lib.dict', fromlist=['mergedicts_copy']).mergedicts_copy(d1, d2)))({'a': 1, 'nested': {'x': 1}}, {'b': 2, 'nested': {'y': 2}})",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+
+    use serde_json::json;
+    let d1_orig = json!({"a": 1, "nested": {"x": 1}})
+        .as_object()
+        .unwrap()
+        .clone();
+    let d2 = json!({"b": 2, "nested": {"y": 2}})
+        .as_object()
+        .unwrap()
+        .clone();
+    let result = powerliners::lib::dict::mergedicts_copy(&d1_orig, d2);
+    let combined = json!({
+        "d1": serde_json::Value::Object(d1_orig),
+        "result": serde_json::Value::Object(result),
+    });
+    assert_eq!(py_value, combined, "mergedicts_copy mutation mismatch");
+}
+
+#[test]
 fn parity_parse_value_handles_floats_and_negatives() {
     if !python_available() {
         return;
