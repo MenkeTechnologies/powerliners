@@ -74,6 +74,31 @@ pub fn list_tabpages() -> Vec<()> {
     Vec::new()
 }
 
+/// Port of `bufvar_exists()` from
+/// `powerline/bindings/vim/__init__.py` (vim.eval('exists(...)') wrapper).
+///
+/// Returns true if buffer-local variable `var` is defined on
+/// `matcher_info`'s buffer. Stub returns false (no vim connection).
+pub fn bufvar_exists(_matcher_info: Option<&MatcherInfo>, _var: &str) -> bool {
+    false
+}
+
+/// Port of `vim_func_exists()` from
+/// `powerline/bindings/vim/__init__.py` (vim.eval('exists(":func")') wrapper).
+///
+/// Returns true if vim function `name` is defined. Stub returns false.
+pub fn vim_func_exists(_name: &str) -> bool {
+    false
+}
+
+/// Port of `vim_global_exists()` from
+/// `powerline/bindings/vim/__init__.py` (vim.eval('exists("g:var")') wrapper).
+///
+/// Returns true if vim global variable `name` is defined. Stub returns false.
+pub fn vim_global_exists(_name: &str) -> bool {
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
