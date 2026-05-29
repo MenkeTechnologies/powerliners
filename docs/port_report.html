@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">546</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3264</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">53.1%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">550</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3277</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">53.5%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -363,12 +363,12 @@ columns:
   <!-- SYM py_file=powerline/renderers/lemonbar.py rs_file=src/ported/renderers/lemonbar.rs rs_exists=True py_fn_total=4 ported_count=4 missing_count=0 rs_extra_count=9 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/renderers/lemonbar.py -->
   <!-- BEGIN-GROUP py_file=powerline/renderers/pdb.py -->
-  <tr class="partial"><td><code>renderers/pdb.py</code></td><td>✔ <code>renderers/pdb.rs</code></td><td>4</td><td><code>get_segment_info</code>, <code>set_pdb</code>, <code>render</code></td><td><code>do_render</code></td><td><code>default</code>, <code>new</code>, <code>new_pdb_renderer_has_no_pdb_set</code>, <code>set_pdb_stores_handle</code>, <code>render_initializes_initial_stack_length</code>, <code>render_does_not_overwrite_initial_stack_length_on_second_call</code>, <code>get_segment_info_inserts_curframe_and_pdb_keys</code>, <code>pdb_renderer_inherits_readline_escape_markers</code></td><td class="coverage">75%</td></tr>
-  <!-- SYM py_file=powerline/renderers/pdb.py rs_file=src/ported/renderers/pdb.rs rs_exists=True py_fn_total=4 ported_count=3 missing_count=1 rs_extra_count=8 coverage=0.7500 -->
+  <tr class="full"><td><code>renderers/pdb.py</code></td><td>✔ <code>renderers/pdb.rs</code></td><td>4</td><td><code>get_segment_info</code>, <code>set_pdb</code>, <code>render</code>, <code>do_render</code></td><td>—</td><td><code>default</code>, <code>new</code>, <code>new_pdb_renderer_has_no_pdb_set</code>, <code>set_pdb_stores_handle</code>, <code>render_initializes_initial_stack_length</code>, <code>render_does_not_overwrite_initial_stack_length_on_second_call</code>, <code>get_segment_info_inserts_curframe_and_pdb_keys</code>, <code>pdb_renderer_inherits_readline_escape_markers</code>, <code>do_render_strips_non_ascii_chars</code>, <code>do_render_passes_ascii_unchanged</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/renderers/pdb.py rs_file=src/ported/renderers/pdb.rs rs_exists=True py_fn_total=4 ported_count=4 missing_count=0 rs_extra_count=10 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/renderers/pdb.py -->
   <!-- BEGIN-GROUP py_file=powerline/renderers/tmux.py -->
-  <tr class="partial"><td><code>renderers/tmux.py</code></td><td>✔ <code>renderers/tmux.rs</code></td><td>4</td><td><code>attrs_to_tmux_attrs</code>, <code>hlstyle</code></td><td><code>render</code>, <code>get_segment_info</code></td><td><code>new</code>, <code>character_translations</code>, <code>color_spec</code>, <code>attrs_to_tmux_attrs_none_returns_all_no_prefixes</code>, <code>attrs_to_tmux_attrs_zero_returns_all_no_prefixes</code>, <code>attrs_to_tmux_attrs_bold_only</code>, <code>attrs_to_tmux_attrs_italic_only</code>, <code>attrs_to_tmux_attrs_underline_only</code>, <code>attrs_to_tmux_attrs_all_three</code>, <code>character_translations_contains_hash_override</code>, <code>hlstyle_no_args_returns_empty_string</code>, <code>hlstyle_fg_cterm_only_emits_colour_n</code>, <code>hlstyle_fg_truecolor_emits_hex</code>, <code>hlstyle_bg_emits_bg_directive</code>, <code>hlstyle_attrs_emits_bold_italics_underline</code>, <code>hlstyle_combined_fg_bg_attrs_joins_with_commas</code>, <code>hlstyle_truecolor_without_rgb_falls_back_to_cterm</code></td><td class="coverage">50%</td></tr>
-  <!-- SYM py_file=powerline/renderers/tmux.py rs_file=src/ported/renderers/tmux.rs rs_exists=True py_fn_total=4 ported_count=2 missing_count=2 rs_extra_count=17 coverage=0.5000 -->
+  <tr class="full"><td><code>renderers/tmux.py</code></td><td>✔ <code>renderers/tmux.rs</code></td><td>4</td><td><code>attrs_to_tmux_attrs</code>, <code>render</code>, <code>hlstyle</code>, <code>get_segment_info</code></td><td>—</td><td><code>new</code>, <code>character_translations</code>, <code>color_spec</code>, <code>attrs_to_tmux_attrs_none_returns_all_no_prefixes</code>, <code>attrs_to_tmux_attrs_zero_returns_all_no_prefixes</code>, <code>attrs_to_tmux_attrs_bold_only</code>, <code>attrs_to_tmux_attrs_italic_only</code>, <code>attrs_to_tmux_attrs_underline_only</code>, <code>attrs_to_tmux_attrs_all_three</code>, <code>character_translations_contains_hash_override</code>, <code>hlstyle_no_args_returns_empty_string</code>, <code>hlstyle_fg_cterm_only_emits_colour_n</code>, <code>hlstyle_fg_truecolor_emits_hex</code>, <code>hlstyle_bg_emits_bg_directive</code>, <code>hlstyle_attrs_emits_bold_italics_underline</code>, <code>hlstyle_combined_fg_bg_attrs_joins_with_commas</code>, <code>hlstyle_truecolor_without_rgb_falls_back_to_cterm</code>, <code>render_subtracts_width_adjust_from_supplied_width</code>, <code>render_clamps_width_to_minimum_10</code>, <code>render_passes_through_width_when_segment_info_empty</code>, <code>get_segment_info_inserts_mode_key</code>, <code>get_segment_info_uses_pane_current_path_for_getcwd</code>, <code>get_segment_info_falls_back_to_tmux_pwd_var</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/renderers/tmux.py rs_file=src/ported/renderers/tmux.rs rs_exists=True py_fn_total=4 ported_count=4 missing_count=0 rs_extra_count=23 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/renderers/tmux.py -->
   <!-- BEGIN-GROUP py_file=powerline/segments/common/vcs.py -->
   <tr class="partial"><td><code>segments/common/vcs.py</code></td><td>✔ <code>segments/common/vcs.rs</code></td><td>4</td><td><code>get_directory</code>, <code>get_directory</code></td><td><code>__call__</code>, <code>__call__</code></td><td><code>branch</code>, <code>stash</code>, <code>tree_status</code>, <code>default</code>, <code>new</code>, <code>call</code>, <code>default</code>, <code>new</code>, <code>call</code>, <code>branch</code>, <code>stash</code>, <code>tree_status</code>, <code>repo</code>, <code>branch_segment_divider_highlight_group_is_none</code>, <code>branch_segment_get_directory_calls_getcwd_closure</code>, <code>branch_segment_get_directory_none_when_getcwd_returns_none</code>, <code>branch_segment_no_repo_returns_none</code>, <code>branch_segment_no_status_colors_returns_branch_highlight</code>, <code>branch_segment_with_status_colors_clean_picks_branch_clean</code>, <code>branch_segment_with_status_colors_dirty_picks_branch_dirty</code>, <code>branch_segment_ignore_statuses_strips_to_clean</code>, <code>branch_segment_empty_status_is_clean</code>, <code>branch_segment_emits_divider_highlight_group_as_null</code>, <code>stash_segment_divider_highlight_group_is_none</code>, <code>stash_segment_no_repo_returns_none</code>, <code>stash_segment_no_stash_support_returns_none</code>, <code>stash_segment_zero_stashes_returns_none</code>, <code>stash_segment_positive_count_returns_segment</code>, <code>stash_segment_get_directory_calls_closure</code></td><td class="coverage">50%</td></tr>
@@ -391,8 +391,8 @@ columns:
   <!-- SYM py_file=powerline/segments/vim/plugin/commandt.py rs_file=src/ported/segments/vim/plugin/commandt.rs rs_exists=True py_fn_total=3 ported_count=3 missing_count=0 rs_extra_count=5 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/segments/vim/plugin/commandt.py -->
   <!-- BEGIN-GROUP py_file=powerline/lemonbar.py -->
-  <tr class="partial"><td><code>lemonbar.py</code></td><td>✔ <code>lemonbar.rs</code></td><td>2</td><td><code>get_local_themes</code></td><td><code>init</code></td><td><code>get_encoding</code>, <code>init_ext_is_wm</code>, <code>init_renderer_module_is_lemonbar</code>, <code>get_encoding_is_utf8</code>, <code>get_local_themes_none_returns_empty</code>, <code>get_local_themes_wraps_each_value_in_config_key</code></td><td class="coverage">50%</td></tr>
-  <!-- SYM py_file=powerline/lemonbar.py rs_file=src/ported/lemonbar.rs rs_exists=True py_fn_total=2 ported_count=1 missing_count=1 rs_extra_count=6 coverage=0.5000 -->
+  <tr class="full"><td><code>lemonbar.py</code></td><td>✔ <code>lemonbar.rs</code></td><td>2</td><td><code>init</code>, <code>get_local_themes</code></td><td>—</td><td><code>get_encoding</code>, <code>init_ext_is_wm</code>, <code>init_renderer_module_is_lemonbar</code>, <code>get_encoding_is_utf8</code>, <code>get_local_themes_none_returns_empty</code>, <code>get_local_themes_wraps_each_value_in_config_key</code>, <code>init_constructs_powerline_with_wm_and_lemonbar</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/lemonbar.py rs_file=src/ported/lemonbar.rs rs_exists=True py_fn_total=2 ported_count=2 missing_count=0 rs_extra_count=7 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/lemonbar.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/path.py -->
   <tr class="full"><td><code>lib/path.py</code></td><td>✔ <code>lib/path.rs</code></td><td>2</td><td><code>realpath</code>, <code>join</code></td><td>—</td><td><code>realpath_of_cwd_is_absolute</code>, <code>realpath_of_missing_path_is_absolute_join_with_cwd</code>, <code>join_concatenates_components_in_order</code>, <code>join_empty_returns_empty_path</code>, <code>join_absolute_component_resets</code></td><td class="coverage">100%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3264,
-    "ported_fns": 546,
-    "coverage": 0.5311284046692607
+    "rs_fns_in_ported": 3277,
+    "ported_fns": 550,
+    "coverage": 0.5350194552529183
   },
   "rows": [
     {
@@ -3873,11 +3873,10 @@ columns:
       "ported_fns": [
         "get_segment_info",
         "set_pdb",
-        "render"
-      ],
-      "missing_fns": [
+        "render",
         "do_render"
       ],
+      "missing_fns": [],
       "rs_extra_fns": [
         "default",
         "new",
@@ -3886,9 +3885,11 @@ columns:
         "render_initializes_initial_stack_length",
         "render_does_not_overwrite_initial_stack_length_on_second_call",
         "get_segment_info_inserts_curframe_and_pdb_keys",
-        "pdb_renderer_inherits_readline_escape_markers"
+        "pdb_renderer_inherits_readline_escape_markers",
+        "do_render_strips_non_ascii_chars",
+        "do_render_passes_ascii_unchanged"
       ],
-      "coverage": 0.75
+      "coverage": 1.0
     },
     {
       "py_file": "powerline/renderers/tmux.py",
@@ -3897,12 +3898,11 @@ columns:
       "py_fn_total": 4,
       "ported_fns": [
         "attrs_to_tmux_attrs",
-        "hlstyle"
-      ],
-      "missing_fns": [
         "render",
+        "hlstyle",
         "get_segment_info"
       ],
+      "missing_fns": [],
       "rs_extra_fns": [
         "new",
         "character_translations",
@@ -3920,9 +3920,15 @@ columns:
         "hlstyle_bg_emits_bg_directive",
         "hlstyle_attrs_emits_bold_italics_underline",
         "hlstyle_combined_fg_bg_attrs_joins_with_commas",
-        "hlstyle_truecolor_without_rgb_falls_back_to_cterm"
+        "hlstyle_truecolor_without_rgb_falls_back_to_cterm",
+        "render_subtracts_width_adjust_from_supplied_width",
+        "render_clamps_width_to_minimum_10",
+        "render_passes_through_width_when_segment_info_empty",
+        "get_segment_info_inserts_mode_key",
+        "get_segment_info_uses_pane_current_path_for_getcwd",
+        "get_segment_info_falls_back_to_tmux_pwd_var"
       ],
-      "coverage": 0.5
+      "coverage": 1.0
     },
     {
       "py_file": "powerline/segments/common/vcs.py",
@@ -4100,20 +4106,20 @@ columns:
       "rs_exists": true,
       "py_fn_total": 2,
       "ported_fns": [
+        "init",
         "get_local_themes"
       ],
-      "missing_fns": [
-        "init"
-      ],
+      "missing_fns": [],
       "rs_extra_fns": [
         "get_encoding",
         "init_ext_is_wm",
         "init_renderer_module_is_lemonbar",
         "get_encoding_is_utf8",
         "get_local_themes_none_returns_empty",
-        "get_local_themes_wraps_each_value_in_config_key"
+        "get_local_themes_wraps_each_value_in_config_key",
+        "init_constructs_powerline_with_wm_and_lemonbar"
       ],
-      "coverage": 0.5
+      "coverage": 1.0
     },
     {
       "py_file": "powerline/lib/path.py",

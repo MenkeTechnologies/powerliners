@@ -68,7 +68,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/config.py` ↔ `src/ported/config.rs` | 6 | 0 | 0 | 0 | 49 | 4 | 6 |
 | [x] | `powerline/bindings/lemonbar/powerline-lemonbar.py` ↔ `src/ported/bindings/lemonbar/powerline-lemonbar.rs` | 45 | 0 | 0 | 0 | 62 | 1 | 13 |
 | [x] | `powerline/bindings/bar/powerline-bar.py` ↔ `src/ported/bindings/bar/powerline-bar.rs` | 47 | 0 | 0 | 0 | 34 | 1 | 16 |
-| [x] | `powerline/lib/monotonic.py` ↔ `src/ported/lib/monotonic.rs` | 72 | 0 | 0 | 0 | 30 | 1 | 0 |
+| [x] | `powerline/lib/monotonic.py` ↔ `src/ported/lib/monotonic.rs` | 72 | 0 | 0 | 0 | 50 | 2 | 4 |
 | [x] | `powerline/segments/ipython.py` ↔ `src/ported/segments/ipython.rs` | 5 | 1 | 0 | 0 | 27 | 1 | 3 |
 | [x] | `powerline/selectors/vim.py` ↔ `src/ported/selectors/vim.rs` | 6 | 1 | 0 | 0 | 13 | 1 | 3 |
 | [x] | `powerline/matchers/vim/plugin/nerdtree.py` ↔ `src/ported/matchers/vim/plugin/nerdtree.rs` | 8 | 1 | 0 | 0 | 49 | 2 | 7 |
@@ -95,7 +95,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/renderers/shell/bash.py` ↔ `src/ported/renderers/shell/bash.rs` | 76 | 0 | 1 | 1 | 39 | 6 | 80 |
 | [x] | `powerline/matchers/vim/plugin/gundo.py` ↔ `src/ported/matchers/vim/plugin/gundo.rs` | 9 | 2 | 0 | 0 | 48 | 2 | 7 |
 | [x] | `powerline/lib/path.py` ↔ `src/ported/lib/path.rs` | 12 | 2 | 0 | 0 | 65 | 2 | 6 |
-| [x] | `powerline/lemonbar.py` ↔ `src/ported/lemonbar.rs` | 14 | 0 | 1 | 2 | 56 | 4 | 11 |
+| [x] | `powerline/lemonbar.py` ↔ `src/ported/lemonbar.rs` | 14 | 0 | 1 | 2 | 70 | 5 | 14 |
 | [x] | `powerline/lint/markedjson/loader.py` ↔ `src/ported/lint/markedjson/loader.rs` | 20 | 0 | 1 | 2 | 62 | 4 | 18 |
 | [x] | `powerline/lib/__init__.py` ↔ `src/ported/lib/mod.rs` | 22 | 2 | 0 | 0 | 165 | 2 | 20 |
 | [x] | `powerline/renderers/i3bar.py` ↔ `src/ported/renderers/i3bar.rs` | 24 | 0 | 1 | 2 | 63 | 4 | 21 |
@@ -109,8 +109,8 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/segments/common/sys.py` ↔ `src/ported/segments/common/sys.rs` | 148 | 2 | 0 | 0 | 311 | 5 | 89 |
 | [x] | `powerline/matchers/vim/__init__.py` ↔ `src/ported/matchers/vim/mod.rs` | 10 | 3 | 0 | 0 | 69 | 3 | 7 |
 | [x] | `powerline/renderers/ipython/__init__.py` ↔ `src/ported/renderers/ipython/mod.rs` | 28 | 0 | 1 | 3 | 152 | 4 | 16 |
-| [x] | `powerline/lib/memoize.py` ↔ `src/ported/lib/memoize.rs` | 30 | 1 | 1 | 2 | 123 | 4 | 28 |
-| [x] | `powerline/renderers/pdb.py` ↔ `src/ported/renderers/pdb.rs` | 36 | 0 | 1 | 3 | 129 | 5 | 28 |
+| [x] | `powerline/lib/memoize.py` ↔ `src/ported/lib/memoize.rs` | 30 | 1 | 1 | 2 | 129 | 5 | 28 |
+| [x] | `powerline/renderers/pdb.py` ↔ `src/ported/renderers/pdb.rs` | 36 | 0 | 1 | 3 | 152 | 6 | 28 |
 | [x] | `powerline/segments/__init__.py` ↔ `src/ported/segments/mod.rs` | 46 | 1 | 1 | 2 | 36 | 4 | 25 |
 | [x] | `powerline/bindings/wm/__init__.py` ↔ `src/ported/bindings/wm/mod.rs` | 47 | 3 | 0 | 0 | 110 | 6 | 31 |
 | [x] | `powerline/bindings/ipython/since_7.py` ↔ `src/ported/bindings/ipython/since_7.rs` | 60 | 0 | 2 | 3 | 304 | 7 | 48 |
@@ -123,8 +123,8 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/renderers/lemonbar.py` ↔ `src/ported/renderers/lemonbar.rs` | 43 | 0 | 1 | 4 | 107 | 7 | 39 |
 | [x] | `powerline/bindings/wm/awesome.py` ↔ `src/ported/bindings/wm/awesome.rs` | 44 | 2 | 1 | 2 | 80 | 5 | 39 |
 | [x] | `powerline/lint/markedjson/tokens.py` ↔ `src/ported/lint/markedjson/tokens.rs` | 46 | 0 | 11 | 4 | 198 | 15 | 46 |
-| [x] | `powerline/lib/overrides.py` ↔ `src/ported/lib/overrides.rs` | 62 | 4 | 0 | 0 | 133 | 4 | 43 |
-| [x] | `powerline/renderers/tmux.py` ↔ `src/ported/renderers/tmux.rs` | 68 | 1 | 1 | 3 | 194 | 4 | 47 |
+| [x] | `powerline/lib/overrides.py` ↔ `src/ported/lib/overrides.rs` | 62 | 4 | 0 | 0 | 161 | 5 | 46 |
+| [x] | `powerline/renderers/tmux.py` ↔ `src/ported/renderers/tmux.rs` | 68 | 1 | 1 | 3 | 328 | 6 | 71 |
 | [x] | `powerline/segments/common/vcs.py` ↔ `src/ported/segments/common/vcs.rs` | 73 | 0 | 2 | 4 | 233 | 6 | 50 |
 | [x] | `powerline/listers/vim.py` ↔ `src/ported/listers/vim.rs` | 91 | 4 | 0 | 0 | 228 | 4 | 73 |
 | [x] | `powerline/commands/main.py` ↔ `src/ported/commands/main.rs` | 170 | 4 | 0 | 0 | 421 | 5 | 160 |
@@ -176,7 +176,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/lint/markedjson/parser.py` ↔ `src/ported/lint/markedjson/parser.rs` | 207 | 0 | 2 | 17 | 575 | 22 | 107 |
 | [x] | `powerline/lint/markedjson/error.py` ↔ `src/ported/lint/markedjson/error.rs` | 197 | 3 | 4 | 16 | 610 | 23 | 147 |
 | [x] | `powerline/bindings/zsh/__init__.py` ↔ `src/ported/bindings/zsh/mod.rs` | 181 | 7 | 4 | 13 | 590 | 24 | 137 |
-| [x] | `powerline/lib/config.py` ↔ `src/ported/lib/config.rs` | 179 | 2 | 3 | 19 | 401 | 22 | 116 |
+| [x] | `powerline/lib/config.py` ↔ `src/ported/lib/config.rs` | 179 | 2 | 3 | 19 | 628 | 24 | 156 |
 | [x] | `powerline/lint/markedjson/constructor.py` ↔ `src/ported/lint/markedjson/constructor.rs` | 240 | 1 | 3 | 21 | 703 | 23 | 139 |
 | [x] | `powerline/vim.py` ↔ `src/ported/vim.rs` | 271 | 4 | 2 | 18 | 512 | 23 | 137 |
 | [x] | `powerline/lib/watcher/uv.py` ↔ `src/ported/lib/watcher/uv.rs` | 160 | 3 | 5 | 21 | 360 | 25 | 119 |

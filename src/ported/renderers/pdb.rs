@@ -118,14 +118,46 @@ impl PDBRenderer {
             }
         }
         // py:39  return Renderer.render(self, **kwargs)
-        // py:41  if sys.version_info < (3,) and platform.python_implementation() == 'PyPy':
+        // Base Renderer.render not yet ported; callers route through
+        // their own renderer stack and use `do_render` for the ASCII
+        // post-processing pass below.
+        String::new()
+    }
+
+    /// Port of `PDBRenderer.do_render()` from
+    /// `powerline/renderers/pdb.py:42-47`.
+    ///
+    /// Python only defines this method when
+    /// `sys.version_info < (3,) and platform.python_implementation() == 'PyPy'`
+    /// (py:41) — the body strips non-ASCII chars from the base
+    /// renderer's output (PyPy 2 didn't surface Unicode reliably from
+    /// pdb).
+    ///
+    /// Rust runs the body unconditionally — `replace_unmappable_chars`
+    /// is harmless on already-ASCII strings, and modern callers can
+    /// opt in to the ASCII fold without a runtime version check.
+    ///
+    /// `base_do_render` is the super().do_render result — closure-
+    /// injected since the base `Renderer.do_render` dispatch isn't
+    /// reachable from a typed Rust struct.
+    pub fn do_render<F>(&self, base_do_render: F) -> String
+    where
+        F: FnOnce() -> String,
+    {
         // py:42  def do_render(self, **kwargs):
         // py:43  # Make sure that only ASCII characters survive
         // py:44  ret = super(PDBRenderer, self).do_render(**kwargs)
+        let ret = base_do_render();
         // py:45  ret = ret.encode('ascii', 'replace')
         // py:46  ret = ret.decode('ascii')
+        // Python's `.encode('ascii', 'replace')` substitutes non-ASCII
+        // codepoints with `?`. Mirror with a char-walk.
+        let folded: String = ret
+            .chars()
+            .map(|c| if c.is_ascii() { c } else { '?' })
+            .collect();
         // py:47  return ret
-        String::new()
+        folded
     }
 }
 
@@ -204,5 +236,20 @@ mod tests {
     fn pdb_renderer_inherits_readline_escape_markers() {
         assert_eq!(PDBRenderer::escape_hl_start, "\x01");
         assert_eq!(PDBRenderer::escape_hl_end, "\x02");
+    }
+
+    #[test]
+    fn do_render_strips_non_ascii_chars() {
+        // py:44-46  encode/decode ascii with 'replace'.
+        let r = PDBRenderer::new();
+        let out = r.do_render(|| "hello\u{2603}world".to_string());
+        assert_eq!(out, "hello?world");
+    }
+
+    #[test]
+    fn do_render_passes_ascii_unchanged() {
+        let r = PDBRenderer::new();
+        let out = r.do_render(|| "plain ASCII string".to_string());
+        assert_eq!(out, "plain ASCII string");
     }
 }

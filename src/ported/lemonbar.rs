@@ -29,6 +29,25 @@ impl LemonbarPowerline {
     #[allow(non_upper_case_globals)]
     pub const init_renderer_module: &'static str = "lemonbar";
 
+    /// Port of `LemonbarPowerline.init()` from
+    /// `powerline/lemonbar.py:9`.
+    ///
+    /// Constructs the base `Powerline` with `ext='wm'` and
+    /// `renderer_module='lemonbar'` — the two LemonbarPowerline-
+    /// specific defaults the Python source sets at py:10. The Rust
+    /// port returns the configured Powerline instance so callers can
+    /// route through it without re-stating the kwargs.
+    pub fn init() -> crate::ported::Powerline {
+        // py:9  def init(self):
+        // py:10  super(LemonbarPowerline, self).init(ext='wm', renderer_module='lemonbar')
+        crate::ported::Powerline::init(
+            Self::init_ext,
+            Some(Self::init_renderer_module),
+            false,
+            false,
+        )
+    }
+
     /// Port of `LemonbarPowerline.get_encoding` (staticmethod lambda)
     /// from `powerline/lemonbar.py:13`.
     pub fn get_encoding() -> &'static str {
@@ -98,5 +117,13 @@ mod tests {
         let result = LemonbarPowerline::get_local_themes(Some(&input));
         assert_eq!(result.len(), 1);
         assert_eq!(result["default"]["config"], json!({"theme": "dark"}));
+    }
+
+    #[test]
+    fn init_constructs_powerline_with_wm_and_lemonbar() {
+        // py:10  super().init(ext='wm', renderer_module='lemonbar')
+        let p = LemonbarPowerline::init();
+        assert_eq!(p.ext, "wm");
+        assert_eq!(p.renderer_module, "powerline.renderers.lemonbar");
     }
 }
