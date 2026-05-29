@@ -2192,6 +2192,38 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_mergeargs_nested_dict_recursive_merge() {
+    if !python_available() {
+        return;
+    }
+    // mergeargs folds an iterable of (k, v) pairs by repeatedly calling
+    // mergedicts on a fresh accumulator. When two pairs share a key
+    // whose values are dicts, the inner dicts merge recursively.
+    // Verify:
+    //   [('a', {'x': 1}), ('a', {'y': 2})] → {'a': {'x': 1, 'y': 2}}
+    let py = match py_eval(
+        "__import__('json').dumps(__import__('powerline.lib.dict', fromlist=['mergeargs']).mergeargs([('a', {'x': 1}), ('a', {'y': 2})]), sort_keys=True)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+
+    use serde_json::{json, Value};
+    let pairs = vec![
+        ("a".to_string(), json!({"x": 1})),
+        ("a".to_string(), json!({"y": 2})),
+    ];
+    let result = powerliners::lib::dict::mergeargs(pairs, true)
+        .expect("mergeargs returned None on non-empty input");
+    assert_eq!(
+        py_value,
+        Value::Object(result),
+        "mergeargs nested merge mismatch"
+    );
+}
+
+#[test]
 fn parity_updated_returns_new_dict_without_mutating_source() {
     if !python_available() {
         return;
