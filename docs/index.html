@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="powerliners — Rust port of powerline-status. Drop-in for tmux, zsh, bash, vim, ipython. Single static binary, sub-millisecond render replacing python startup tax.">
+  <title>powerliners — Documentation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&amp;family=Share+Tech+Mono&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="hud-static.css">
+  <style>
+    .tutorial-main { max-width: 68rem; padding: 1.5rem 1.5rem 4rem; margin: 0 auto; }
+    .docs-build-line {
+      margin: 0.35rem 0 0;
+      font-family: 'Share Tech Mono', ui-monospace, monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 0.03em;
+      max-width: 42rem;
+      opacity: 0.85;
+    }
+    .tutorial-section {
+      margin: 1.6rem 0;
+      padding: 1rem 1.2rem 1.2rem;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--cyan);
+      background: color-mix(in srgb, var(--bg-card) 92%, transparent);
+      border-radius: 2px;
+    }
+    .tutorial-section h2 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 16px;
+      color: var(--cyan);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin: 0 0 0.6rem;
+    }
+    .tutorial-section p, .tutorial-section li {
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    pre, code { font-family: 'Share Tech Mono', ui-monospace, monospace; }
+    pre {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--cyan);
+      padding: 0.65rem 0.85rem;
+      overflow-x: auto;
+      font-size: 12px;
+      color: var(--text);
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+      gap: 0.7rem;
+      margin: 0.7rem 0;
+    }
+    .feature-card {
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--accent);
+      padding: 0.7rem 0.9rem;
+      background: color-mix(in srgb, var(--bg-secondary) 90%, transparent);
+      border-radius: 2px;
+    }
+    .feature-card h4 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0 0 0.35rem;
+    }
+    .feature-card p { margin: 0; font-size: 11.5px; color: var(--text-dim); line-height: 1.5; }
+    .tutorial-header {
+      border-bottom: 1px solid var(--border);
+      padding: 1.2rem 1.5rem;
+      background: linear-gradient(180deg, #070714 0%, #0d0d22 60%, var(--bg-secondary) 100%);
+    }
+    .tutorial-header-inner {
+      max-width: 68rem;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .tutorial-brand {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(1.1rem, 2.4vw, 1.6rem);
+      font-weight: 900;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, var(--cyan), #fff, var(--accent), var(--cyan));
+      background-size: 300% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 12px var(--cyan-glow));
+      margin: 0 0 0.4rem;
+    }
+    .tutorial-crumbs {
+      font-family: 'Share Tech Mono', ui-monospace, monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 0.04em;
+    }
+    .tutorial-crumbs a { color: var(--cyan); text-decoration: none; }
+    .tutorial-crumbs a:hover { color: var(--accent-light); text-shadow: 0 0 8px var(--cyan-glow); }
+    .tutorial-crumbs .sep { color: var(--text-muted); margin: 0 6px; }
+    .tutorial-crumbs .current { color: var(--accent); }
+    .tutorial-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 20px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0.6rem 0 0.4rem;
+    }
+    .tutorial-title .step-hash { color: var(--cyan); margin-right: 0.4rem; }
+    .tutorial-subtitle { color: var(--text); font-size: 13px; max-width: 60rem; }
+    .stat-row {
+      display: flex; gap: 14px; flex-wrap: wrap; margin: 1rem 0;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--cyan);
+      border-radius: 2px;
+      padding: 10px 16px;
+      box-shadow: 0 0 12px var(--cyan-dim);
+      min-width: 8rem;
+    }
+    .stat-card .n {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--cyan);
+      letter-spacing: 1.5px;
+    }
+    .stat-card .l {
+      font-size: 9.5px; letter-spacing: 1.5px;
+      color: var(--text-muted); text-transform: uppercase; margin-top: 2px;
+    }
+  </style>
+</head>
+<body class="crt">
+  <header class="tutorial-header">
+    <div class="tutorial-header-inner">
+      <div>
+        <h1 class="tutorial-brand">// POWERLINERS — RUST POWERLINE</h1>
+        <nav class="tutorial-crumbs" aria-label="Breadcrumb">
+          <span class="current">Docs</span>
+          <span class="sep">/</span>
+          <a href="report.html">Engineering report</a>
+          <span class="sep">/</span>
+          <a href="https://github.com/MenkeTechnologies/powerliners" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <span class="sep">/</span>
+          <a href="https://github.com/powerline/powerline" target="_blank" rel="noopener noreferrer">Upstream</a>
+        </nav>
+        <p class="docs-build-line">powerliners — early Rust port of <code>powerline-status</code> · single static binary · sub-millisecond render · drop-in for tmux / zsh / bash / vim / ipython · 624 upstream Python fn allowlist enforced by audit test</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="tutorial-main">
+    <h2 class="tutorial-title"><span class="step-hash">&gt;_</span>POWERLINERS — RUST POWERLINE</h2>
+    <p class="tutorial-subtitle">A Rust port of Python's <a href="https://github.com/powerline/powerline">powerline-status</a> — the canonical statusline / prompt renderer used by tmux, zsh, bash, vim, ipython. The Python implementation pays a ~100 ms interpreter-startup tax on every render; powerliners is a single static binary with sub-millisecond startup.</p>
+
+    <div class="stat-row">
+      <div class="stat-card"><div class="n">624</div><div class="l">upstream py fns</div></div>
+      <div class="stat-card"><div class="n">5</div><div class="l">target hosts</div></div>
+      <div class="stat-card"><div class="n">0</div><div class="l">python runtime deps</div></div>
+      <div class="stat-card"><div class="n">v0.0.3</div><div class="l">current tag</div></div>
+    </div>
+
+    <section class="tutorial-section">
+      <h2>Why a port?</h2>
+      <ul>
+        <li>Python interpreter startup adds ~100 ms per render — on every keystroke that triggers a zsh `precmd` redraw, every tmux statusline tick, every shell continuation line.</li>
+        <li>At zpwr scale (256-thread workstation, 100+ zsh-in-tmux sessions), powerline-status compounds into seconds of cumulative latency per minute.</li>
+        <li>Rust gives a static binary, microsecond startup, zero runtime deps, cross-arch builds, and predictable memory.</li>
+        <li>The upstream theme grammar (JSON files in <code>powerline/config/</code>) is preserved verbatim — users keep their themes unchanged.</li>
+      </ul>
+    </section>
+
+    <section class="tutorial-section">
+      <h2>Targets</h2>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h4>tmux</h4>
+          <p>statusline + window-list + continuation lines</p>
+        </div>
+        <div class="feature-card">
+          <h4>zsh</h4>
+          <p>PS1 / RPROMPT segments, precmd integration</p>
+        </div>
+        <div class="feature-card">
+          <h4>bash</h4>
+          <p>PS1 / PROMPT_COMMAND segments</p>
+        </div>
+        <div class="feature-card">
+          <h4>vim</h4>
+          <p>statusline + tabline (without `+python3` dependency)</p>
+        </div>
+        <div class="feature-card">
+          <h4>ipython</h4>
+          <p>REPL prompt (via shell hook, not embedded)</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="tutorial-section">
+      <h2>Port discipline</h2>
+      <p>Every fn name landed in <code>src/ported/</code> must exist in upstream powerline Python source. Enforced by <code>tests/ported_fn_names_match_py.rs</code> against <code>docs/powerline_py_functions.txt</code> (currently 624 names extracted from <a href="https://github.com/powerline/powerline">github.com/powerline/powerline</a>). Maintainer-approved Rust-only exemptions live in <code>tests/data/fake_fn_allowlist.txt</code>.</p>
+      <pre># regenerate the upstream allowlist
+./scripts/regen_py_functions.sh
+
+# audit will fail with a list of any invented fn names
+cargo test --test ported_fn_names_match_py</pre>
+      <p>This pattern mirrors the zshrs <code>ported_fn_names_match_c.rs</code> enforcement — the audit test is load-bearing and must not be weakened.</p>
+    </section>
+
+    <section class="tutorial-section">
+      <h2>Status</h2>
+      <p>Early port. The repo currently has ~1,800 LOC of ported infrastructure (path utils, bindings stubs for ipython/zsh/tmux/vim/bash) with 14 unit + 2 audit tests passing. The render pipeline + segment grammar lands incrementally; watch <a href="https://github.com/MenkeTechnologies/powerliners/tags">tags</a> for milestones.</p>
+    </section>
+
+    <section class="tutorial-section">
+      <h2>Install</h2>
+      <pre># source + build
+git clone https://github.com/MenkeTechnologies/powerliners.git
+cd powerliners
+cargo build --release
+ls target/release/powerliners</pre>
+    </section>
+  </main>
+</body>
+</html>
