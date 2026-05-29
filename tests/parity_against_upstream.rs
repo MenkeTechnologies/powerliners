@@ -2192,6 +2192,56 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_spec_context_message_recursively_propagates() {
+    if !python_available() {
+        return;
+    }
+    // Python context_message recurses: every child Spec in self.specs
+    // whose cmsg is empty/falsy receives the same msg. Child specs that
+    // already have a cmsg keep theirs.
+    //
+    // Verify both branches:
+    //   Empty child cmsg  → propagated 'Outer ctx'
+    //   Preset child cmsg → 'Child preset' (unchanged)
+    let py = match py_eval(
+        "(lambda S: (lambda outer, child, outer2, child2: (outer.specs.append(child), outer.context_message('Outer ctx'), outer2.specs.append(child2), outer2.context_message('Outer 2 ctx'), __import__('json').dumps([outer.cmsg, child.cmsg, outer2.cmsg, child2.cmsg]))[4])(S(), S(), S(), (lambda c: setattr(c, 'cmsg', 'Child preset') or c)(S())))(__import__('powerline.lint.spec', fromlist=['Spec']).Spec)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    assert_eq!(
+        py_value,
+        serde_json::json!(["Outer ctx", "Outer ctx", "Outer 2 ctx", "Child preset"]),
+        "Python context_message propagation fixture drift"
+    );
+
+    use powerliners::lint::spec::Spec;
+
+    // Case 1: empty-cmsg child gets propagated.
+    let mut outer = Spec::default();
+    outer.specs.push(Spec::default());
+    let outer = outer.context_message("Outer ctx");
+    assert_eq!(outer.cmsg, "Outer ctx");
+    assert_eq!(
+        outer.specs[0].cmsg, "Outer ctx",
+        "Rust ctx-msg failed to propagate to empty-cmsg child"
+    );
+
+    // Case 2: preset child cmsg is preserved.
+    let mut outer2 = Spec::default();
+    let mut child2 = Spec::default();
+    child2.cmsg = "Child preset".to_string();
+    outer2.specs.push(child2);
+    let outer2 = outer2.context_message("Outer 2 ctx");
+    assert_eq!(outer2.cmsg, "Outer 2 ctx");
+    assert_eq!(
+        outer2.specs[0].cmsg, "Child preset",
+        "Rust ctx-msg overwrote preset child cmsg"
+    );
+}
+
+#[test]
 fn parity_spec_ident_regex_accepts_colon_form() {
     if !python_available() {
         return;

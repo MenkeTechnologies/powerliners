@@ -248,9 +248,22 @@ impl Spec {
         // py:178  def context_message(self, msg):
         // py:179  '''Define message used to enhance context information
         // py:180  ...
-        // py:191  self.cmsg = msg
+        // py:188  self.cmsg = msg
+        // py:189  for spec in self.specs:
+        // py:190      if not spec.cmsg:
+        // py:191          spec.context_message(msg)
         // py:192  return self
-        self.cmsg = msg.into();
+        let msg = msg.into();
+        self.cmsg = msg.clone();
+        // Recursively propagate to child specs that have no cmsg yet.
+        // Python's `if not spec.cmsg` treats empty string as falsy →
+        // Rust mirrors with `spec.cmsg.is_empty()`.
+        for spec in self.specs.iter_mut() {
+            if spec.cmsg.is_empty() {
+                let taken = std::mem::take(spec);
+                *spec = taken.context_message(msg.clone());
+            }
+        }
         self
     }
 
