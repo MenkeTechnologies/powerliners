@@ -74,17 +74,22 @@ impl MultiRunnedThread {
     /// Port of `MultiRunnedThread.__init__()` from
     /// `powerline/lib/threaded.py:14`.
     pub fn new() -> Self {
+        // py:11  class MultiRunnedThread(object):
+        // py:12  daemon = True
+        // py:14  def __init__(self):
+        // py:15  self.thread = None
         Self {
-            thread: Mutex::new(None), // py:14
+            thread: Mutex::new(None),
             shutdown_event: Arc::new(Mutex::new(false)),
-            daemon: true, // py:12  daemon = True
+            daemon: true,
         }
     }
 
     /// Port of `MultiRunnedThread.is_alive()` from
     /// `powerline/lib/threaded.py:16`.
     pub fn is_alive(&self) -> bool {
-        // py:17  return self.thread and self.thread.is_alive()
+        // py:17  def is_alive(self):
+        // py:18  return self.thread and self.thread.is_alive()
         let t = self.thread.lock().unwrap();
         match t.as_ref() {
             None => false,
@@ -103,13 +108,13 @@ impl MultiRunnedThread {
     where
         F: FnOnce(Arc<Mutex<bool>>) + Send + 'static,
     {
-        // py:20  self.shutdown_event.clear()
+        // py:20  def start(self):
+        // py:21  self.shutdown_event.clear()
         *self.shutdown_event.lock().unwrap() = false;
         let event = self.shutdown_event.clone();
-        // py:21-23  Thread(target=self.run), daemon=True, start
-        // Rust's std::thread is always "daemon-like" — JoinHandle's
-        // drop doesn't block the parent on exit when the parent
-        // returns.
+        // py:22  self.thread = Thread(target=self.run)
+        // py:23  self.thread.daemon = self.daemon
+        // py:24  self.thread.start()
         let handle = std::thread::spawn(move || run(event));
         *self.thread.lock().unwrap() = Some(handle);
     }
@@ -123,11 +128,14 @@ impl MultiRunnedThread {
     /// timeout case the caller must check `is_finished()` in a loop.
     /// This port matches the no-timeout Python branch.
     pub fn join(&self) -> Option<()> {
-        // py:26-27  if self.thread: return self.thread.join(...)
+        // py:26  def join(self, *args, **kwargs):
+        // py:27  if self.thread:
+        // py:28  return self.thread.join(*args, **kwargs)
+        // py:29  return None
         let mut t = self.thread.lock().unwrap();
         let handle = t.take()?;
         let _ = handle.join();
-        Some(()) // py:27
+        Some(())
     }
 
     /// Signal the thread to shut down (sets `shutdown_event` to true).
@@ -177,15 +185,24 @@ impl ThreadedSegment {
     /// Port of `ThreadedSegment.__init__()` from
     /// `powerline/lib/threaded.py:40`.
     pub fn new() -> Self {
+        // py:32  class ThreadedSegment(Segment, MultiRunnedThread):
+        // py:33  min_sleep_time = 0.1
+        // py:34  update_first = True
+        // py:35  interval = 1
+        // py:36  daemon = False
+        // py:38  argmethods = ('render', 'set_state')
+        // py:40  def __init__(self):
+        // py:41  super(ThreadedSegment, self).__init__()
+        // py:42  self.run_once = True
+        // py:43  self.crashed = False
+        // py:44  self.crashed_value = None
+        // py:45  self.update_value = None
+        // py:46  self.updated = False
         Self {
             base: MultiRunnedThread::new(),
-            // py:34  min_sleep_time = 0.1
             min_sleep_time: 0.1,
-            // py:35  update_first = True
             update_first: true,
-            // py:36  interval = 1
             interval: 1.0,
-            // py:42-46  initial state
             run_once: true,
             crashed: false,
             crashed_value: None,
@@ -197,7 +214,10 @@ impl ThreadedSegment {
     /// Port of `ThreadedSegment.set_interval()` from
     /// `powerline/lib/threaded.py:109`.
     pub fn set_interval(&mut self, interval: Option<f64>) {
-        // py:114-115  interval = interval or self.interval
+        // py:109  def set_interval(self, interval=None):
+        // py:110  # Allowing "interval" keyword in configuration.
+        // py:114  interval = interval or getattr(self, 'interval')
+        // py:115  self.interval = interval
         if let Some(i) = interval {
             self.interval = i;
         }
@@ -206,7 +226,11 @@ impl ThreadedSegment {
     /// Port of `ThreadedSegment.set_state()` from
     /// `powerline/lib/threaded.py:117`.
     pub fn set_state(&mut self, interval: Option<f64>, update_first: bool) {
-        // py:118-122
+        // py:117  def set_state(self, interval=None, update_first=True, shutdown_event=None, **kwargs):
+        // py:118  self.set_interval(interval)
+        // py:119  self.shutdown_event = shutdown_event or Event()
+        // py:120  self.do_update_first = update_first and self.update_first
+        // py:121  self.updated = self.updated or (not self.do_update_first)
         self.set_interval(interval);
         self.do_update_first = update_first && self.update_first;
         self.updated = self.updated || !self.do_update_first;
@@ -222,7 +246,13 @@ impl ThreadedSegment {
     where
         F: FnOnce(Arc<Mutex<bool>>) + Send + 'static,
     {
-        // py:124-131
+        // py:123  def startup(self, pl, **kwargs):
+        // py:124  self.run_once = False
+        // py:125  self.pl = pl
+        // py:126  self.daemon = pl.use_daemon_threads
+        // py:128  self.set_state(**kwargs)
+        // py:130  if not self.is_alive():
+        // py:131  self.start()
         self.run_once = false;
         self.base.daemon = use_daemon_threads;
         if !self.base.is_alive() {
@@ -233,11 +263,13 @@ impl ThreadedSegment {
     /// Port of `ThreadedSegment.shutdown()` from
     /// `powerline/lib/threaded.py:102`.
     pub fn shutdown(&self) {
-        // py:103-107
+        // py:102  def shutdown(self):
+        // py:103  self.shutdown_event.set()
+        // py:104  if self.daemon and self.is_alive():
+        // py:105  # Give the worker thread a chance to shutdown, but don't block for
+        // py:106  # too long
+        // py:107  self.join(0.01)
         self.base.set_shutdown();
-        // Python: if daemon and is_alive: join(0.01)
-        // Rust port: join() blocks indefinitely; caller can opt to
-        // detach by not calling join.
     }
 
     /// Port of `ThreadedSegment.get_update_value()` from
@@ -370,7 +402,18 @@ impl ThreadedSegment {
     where
         F: FnMut() -> Result<String, String>,
     {
-        // py:71-81  try update; except: crashed = True
+        // py:69  def set_update_value(self):
+        // py:70  try:
+        // py:71  self.update_value = self.update(self.update_value)
+        // py:72  except Exception as e:
+        // py:73  self.exception('Exception while updating: {0}', str(e))
+        // py:74  self.crashed = True
+        // py:75  except KeyboardInterrupt:
+        // py:76  self.warn('Caught keyboard interrupt while updating')
+        // py:77  self.crashed = True
+        // py:78  else:
+        // py:79  self.crashed = False
+        // py:80  self.updated = True
         match update() {
             Ok(v) => {
                 self.crashed = false;
