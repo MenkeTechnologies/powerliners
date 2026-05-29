@@ -1639,6 +1639,61 @@ fn parity_spec_optional_required_round_trip() {
 }
 
 #[test]
+fn parity_spec_regex_check_appended() {
+    if !python_available() {
+        return;
+    }
+    // Verify Spec().re(pat) appends a 'check_re' entry to self.checks
+    // and Rust Spec::new().regex(pat) stores the pattern verbatim. The
+    // public-API observation we can assert: len(spec.checks) increases
+    // by exactly 1 after a single re() call.
+    let py = match py_eval(
+        "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().re('^[abc]+$').checks)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_len: usize = py.parse().expect("Python returned non-int len");
+    // Python Spec.re() registers BOTH check_type (str enforced) AND
+    // check_func (regex match), so len(checks) == 2 after a single call.
+    assert_eq!(
+        py_len, 2,
+        "Python Spec.re() should append exactly 2 check entries (type+func)"
+    );
+    use powerliners::lint::spec::Spec;
+    let s = Spec::new().regex("^[abc]+$");
+    assert_eq!(
+        s.regex.as_deref(),
+        Some("^[abc]+$"),
+        "Rust Spec.regex() should store pattern verbatim"
+    );
+}
+
+#[test]
+fn parity_spec_oneof_check_appended_and_stored() {
+    if !python_available() {
+        return;
+    }
+    // Verify Spec().oneof(coll) appends a 'check_oneof' entry on Python
+    // and stores the values list on Rust.
+    let py = match py_eval(
+        "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().oneof(['a', 'b', 'c']).checks)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_len: usize = py.parse().expect("Python returned non-int len");
+    assert_eq!(
+        py_len, 1,
+        "Python Spec.oneof() should append exactly 1 check entry"
+    );
+    use powerliners::lint::spec::Spec;
+    let s = Spec::new().oneof(&["a", "b", "c"]);
+    let v = s.oneof.unwrap();
+    assert_eq!(v, vec!["a", "b", "c"], "Rust Spec.oneof storage mismatch");
+}
+
+#[test]
 fn parity_spec_context_message_sets_cmsg() {
     if !python_available() {
         return;
