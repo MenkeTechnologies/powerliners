@@ -172,3 +172,11 @@ shell_action_from_name
 # adapters per the upstream comment block in the file header.
 start_with
 set_shutdown
+
+# Approved 2026-05-29: key_sep accessor fn for the module-level JStr
+# constant from powerline/lint/context.py:16. Python declares
+# `key_sep = JStr('/')` at module scope; Rust exposes it as an accessor
+# fn so callers can write `key_sep().join(...)` mirroring Python's
+# `key_sep.join(...)` shape. Name matches Python's identifier
+# byte-for-byte.
+key_sep
