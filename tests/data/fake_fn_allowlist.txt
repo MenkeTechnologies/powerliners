@@ -617,3 +617,12 @@ active_window_contents
 # Rust does explicit replace() calls so the substitution can be
 # tested without the live i3ipc tree.
 build_workspace_entry
+
+# cwd_segments materialises the Rust analog of CwdSegment.__call__
+# at segments/common/env.py:74. The bare `__call__` dunder isn't a
+# valid Rust identifier so the port renames to `cwd_segments` to
+# describe the result (a list of breadcrumb segments). Python emits
+# this via `cwd = with_docstring(CwdSegment(), '''...''')` at py:107
+# which makes the instance the documented public API; Rust users
+# call the free function directly.
+cwd_segments
