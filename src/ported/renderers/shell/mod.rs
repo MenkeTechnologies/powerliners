@@ -245,7 +245,7 @@ impl ShellRenderer {
     ///
     /// Bare-name alias preserving the upstream Python `do_render`
     /// identifier. Resolves used_term_escape_style via
-    /// [`do_render_resolve_style`], then dispatches super().do_render
+    /// `do_render_resolve_style`, then dispatches super().do_render
     /// via the caller-supplied closure.
     pub fn do_render<F>(
         &mut self,
