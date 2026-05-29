@@ -89,6 +89,51 @@ struct Configs {
     colorscheme: Arc<Colorscheme>,
     theme: Arc<Theme>,
     tmux: Arc<TmuxRenderer>,
+    /// py:265-272 — WM extensions consume `update_interval` to drive
+    /// background re-render. tmux daemon path doesn't run a WM thread;
+    /// surfaced here so a future WM dispatch can read the configured
+    /// value (default 2 seconds per upstream).
+    #[allow(dead_code)]
+    wm_update_interval: f64,
+    /// py:133-141  `reload_config` (default true) — when true, the
+    /// daemon polls cached config-file mtimes on each render and
+    /// invalidates the cache when any have changed. Mirrors upstream
+    /// `ConfigLoader.check` semantics with a per-request stat instead
+    /// of a background watcher thread (the
+    /// `lib/watcher/{inotify,stat,uv,tree}.rs` ports are ready but
+    /// not threaded here to keep the daemon process model simple).
+    reload_config: bool,
+    /// Paths whose mtimes are checked when `reload_config` is true.
+    loaded_paths: Vec<(PathBuf, std::time::SystemTime)>,
+}
+
+impl Configs {
+    /// Returns true if any `loaded_paths` entry has a different mtime
+    /// vs load time — mirrors `ConfigLoader.check` at
+    /// `lib/config.py:130-141`.
+    fn is_stale(&self) -> bool {
+        if !self.reload_config {
+            return false;
+        }
+        for (p, t) in &self.loaded_paths {
+            match std::fs::metadata(p).and_then(|m| m.modified()) {
+                Ok(now) if now != *t => return true,
+                Err(_) => return true,
+                _ => {}
+            }
+        }
+        false
+    }
+}
+
+/// Snapshot mtime of `path` for the `loaded_paths` cache. Returns
+/// SystemTime::UNIX_EPOCH when the stat fails so a follow-up
+/// `is_stale` check naturally returns true (treats missing as
+/// changed).
+fn mtime_or_epoch(path: &PathBuf) -> std::time::SystemTime {
+    std::fs::metadata(path)
+        .and_then(|m| m.modified())
+        .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
 }
 
 fn build_configs(ext: &str) -> Result<Configs, String> {
@@ -128,8 +173,17 @@ fn build_configs(ext: &str) -> Result<Configs, String> {
         .and_then(|c| c.get("default_top_theme"))
         .and_then(|v| v.as_str())
         .unwrap_or("powerline");
+    // py:806-810 / py:821-823  Theme cascade has THREE layers:
+    // 1. `themes/<top_theme>` (cross-ext defaults: dividers, spaces)
+    // 2. `themes/<ext>/__main__` (per-ext defaults: segment_data,
+    //    division of segments, …)
+    // 3. `themes/<ext>/<theme_name>` (the user's specific theme)
+    // Each later layer overrides earlier ones via `mergedicts`. Most
+    // shipped exts have a `__main__.json` so dropping the middle
+    // layer loses per-ext defaults.
     let theme_levels = vec![
         format!("themes/{}", top_theme),
+        format!("themes/{}/__main__", ext),
         format!("themes/{}/{}", ext, theme_name),
     ];
     let theme_json =
@@ -157,19 +211,44 @@ fn build_configs(ext: &str) -> Result<Configs, String> {
         .cloned()
         .unwrap_or_default();
 
-    let mut line_map: Map<String, Value> = Map::new();
-    for side in ["left", "right"] {
-        let mut side_arr: Vec<Value> = Vec::new();
-        if let Some(specs) = segments_json.get(side).and_then(|v| v.as_array()) {
-            for spec in specs {
-                if let Some(spec_obj) = spec.as_object() {
-                    if let Some(prepared) = get_segment(spec_obj, side) {
-                        side_arr.push(Value::Object(prepared));
+    // Mirrors `Theme.__init__` segments-iteration at upstream
+    // `powerline/theme.py:91-105`:
+    //   `for segdict in itertools.chain((theme_config['segments'],),
+    //                                    theme_config['segments'].get('above', ())):`
+    //     `self.segments.append(new_empty_segment_line())`
+    //     ... fill left + right ...
+    // Each segdict = one line. Line 0 = the base render
+    // (`segments.{left,right}`); lines 1..=N = `segments.above[0..]`
+    // each a `{left, right}` dict in upstream order.
+    let prepare_line = |segdict: &Map<String, Value>| -> Map<String, Value> {
+        let mut line_map: Map<String, Value> = Map::new();
+        for side in ["left", "right"] {
+            let mut side_arr: Vec<Value> = Vec::new();
+            if let Some(specs) = segdict.get(side).and_then(|v| v.as_array()) {
+                for spec in specs {
+                    if let Some(spec_obj) = spec.as_object() {
+                        if let Some(prepared) = get_segment(spec_obj, side) {
+                            side_arr.push(Value::Object(prepared));
+                        }
                     }
                 }
             }
+            line_map.insert(side.to_string(), Value::Array(side_arr));
         }
-        line_map.insert(side.to_string(), Value::Array(side_arr));
+        line_map
+    };
+
+    let mut lines: Vec<Map<String, Value>> = Vec::new();
+    // Base line first (theme.py:91 `(theme_config['segments'],)`).
+    lines.push(prepare_line(&segments_json));
+    // Then each entry under `segments.above`. Python uses tuple()
+    // default → empty iter; Rust mirrors with `unwrap_or_default`.
+    if let Some(above_list) = segments_json.get("above").and_then(|v| v.as_array()) {
+        for above_seg in above_list {
+            if let Some(above_obj) = above_seg.as_object() {
+                lines.push(prepare_line(above_obj));
+            }
+        }
     }
 
     let dividers = theme_json
@@ -194,14 +273,22 @@ fn build_configs(ext: &str) -> Result<Configs, String> {
     empty_hl.insert("attrs".to_string(), Value::from(0));
     empty_seg.insert("highlight".to_string(), Value::Object(empty_hl));
 
+    // py:67-70  Theme.__init__: cursor_space → 1 - (theme_config['cursor_space'] / 100)
+    // when present (KeyError → None); cursor_columns from theme_config.get.
+    let cursor_space_multiplier = theme_json
+        .get("cursor_space")
+        .and_then(|v| v.as_f64())
+        .map(|n| 1.0 - (n / 100.0));
+    let cursor_columns = theme_json.get("cursor_columns").and_then(|v| v.as_i64());
+
     let theme = Theme {
         colorscheme: Value::Null,
         dividers,
-        cursor_space_multiplier: None,
-        cursor_columns: None,
+        cursor_space_multiplier,
+        cursor_columns,
         spaces,
         outer_padding,
-        segments: vec![line_map],
+        segments: lines,
         empty_segment: Value::Object(empty_seg),
         shutdown_called: std::sync::Mutex::new(Vec::new()),
     };
@@ -214,10 +301,55 @@ fn build_configs(ext: &str) -> Result<Configs, String> {
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
+    // py:218-223  ext.wm.update_interval (default 2.0). Read from
+    // main config so WM-ext requests can honor it once a WM thread
+    // dispatcher lands. The tmux ext path is request-driven and
+    // ignores it.
+    let wm_update_interval = main
+        .get("ext")
+        .and_then(|v| v.as_object())
+        .and_then(|o| o.get("wm"))
+        .and_then(|v| v.as_object())
+        .and_then(|o| o.get("update_interval"))
+        .and_then(|v| v.as_f64())
+        .unwrap_or(2.0);
+
+    // py:133-141  reload_config (default true)
+    let reload_config = main
+        .get("common")
+        .and_then(|c| c.get("reload_config"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+
+    // Collect every config file path our cascade actually consumed so
+    // `is_stale` can stat them on subsequent renders.
+    let mut loaded_paths: Vec<(PathBuf, std::time::SystemTime)> = Vec::new();
+    let probe_levels: Vec<String> = vec![
+        "config".to_string(),
+        "colors".to_string(),
+        format!("colorschemes/{}", cs_name),
+        format!("colorschemes/{}/__main__", ext),
+        format!("colorschemes/{}/{}", ext, cs_name),
+        format!("themes/{}", top_theme),
+        format!("themes/{}/__main__", ext),
+        format!("themes/{}/{}", ext, theme_name),
+    ];
+    for level in &probe_levels {
+        if let Ok(matches) = _find_config_files(&paths, level) {
+            if let Some(p) = matches.first().cloned() {
+                let mt = mtime_or_epoch(&p);
+                loaded_paths.push((p, mt));
+            }
+        }
+    }
+
     Ok(Configs {
         colorscheme: Arc::new(colorscheme),
         theme: Arc::new(theme),
         tmux: Arc::new(TmuxRenderer::new(term_truecolor)),
+        wm_update_interval,
+        reload_config,
+        loaded_paths,
     })
 }
 
@@ -883,9 +1015,165 @@ fn ad_battery(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
     Some(Value::Array(result))
 }
 
+fn ad_environment(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::ported::segments::common::env::environment;
+    let environ = info
+        .get("environ")
+        .and_then(|v| v.as_object())
+        .cloned()
+        .unwrap_or_default();
+    let variable = args.get("variable").and_then(|v| v.as_str())?;
+    let v = environment(&environ, variable)?;
+    Some(Value::String(v))
+}
+
+fn ad_virtualenv(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::ported::segments::common::env::virtualenv;
+    let environ = info
+        .get("environ")
+        .and_then(|v| v.as_object())
+        .cloned()
+        .unwrap_or_default();
+    let ignore_venv = args
+        .get("ignore_venv")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let ignore_conda = args
+        .get("ignore_conda")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let ignored: Vec<String> = args
+        .get("ignored_names")
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .unwrap_or_else(|| vec!["venv".to_string(), ".venv".to_string()]);
+    let ignored_refs: Vec<&str> = ignored.iter().map(String::as_str).collect();
+    let v = virtualenv(&environ, ignore_venv, ignore_conda, &ignored_refs)?;
+    Some(Value::String(v))
+}
+
+fn ad_fuzzy_time(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::ported::segments::common::time::{
+        fuzzy_time, fuzzy_time_default_hour_str, fuzzy_time_default_minute_str,
+        fuzzy_time_default_special_cases,
+    };
+    let format = args.get("format").and_then(|v| v.as_str());
+    let unicode_text = args
+        .get("unicode_text")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let timezone = args.get("timezone").and_then(|v| v.as_str());
+
+    // py:46  hour_str=[...], minute_str={...}, special_case_str={...}
+    // User-supplied overrides come in via theme args; build the
+    // owned String buffers, then take &str slices for the fuzzy_time
+    // call. Defaults fill in any keys the user omits.
+    let hour_str_default = fuzzy_time_default_hour_str();
+    let hour_str_owned: Vec<String> = match args.get("hour_str").and_then(|v| v.as_array()) {
+        Some(arr) => arr
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect(),
+        None => hour_str_default.iter().map(|s| s.to_string()).collect(),
+    };
+    let hour_str: Vec<&str> = hour_str_owned.iter().map(String::as_str).collect();
+
+    let minute_str_default = fuzzy_time_default_minute_str();
+    let minute_str_owned: std::collections::HashMap<u32, String> =
+        match args.get("minute_str").and_then(|v| v.as_object()) {
+            Some(obj) => obj
+                .iter()
+                .filter_map(|(k, v)| {
+                    let key: u32 = k.parse().ok()?;
+                    let val = v.as_str()?.to_string();
+                    Some((key, val))
+                })
+                .collect(),
+            None => minute_str_default
+                .iter()
+                .map(|(k, v)| (*k, v.to_string()))
+                .collect(),
+        };
+    let minute_str: std::collections::HashMap<u32, &str> = minute_str_owned
+        .iter()
+        .map(|(k, v)| (*k, v.as_str()))
+        .collect();
+
+    let special_cases = fuzzy_time_default_special_cases();
+    let s = fuzzy_time(
+        format,
+        unicode_text,
+        timezone,
+        Some(&hour_str),
+        Some(&minute_str),
+        Some(&special_cases),
+    );
+    if s.is_empty() {
+        return None;
+    }
+    Some(Value::String(s))
+}
+
+fn ad_mpd(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    // Probe `mpc current` and wrap as a player segment. Mirrors the
+    // upstream `MpdPlayerSegment.__call__` at
+    // `powerline/segments/common/players.py:173` shape — host/password/
+    // port args are honored via `-h HOST -p PORT` flags + `MPD_HOST=PASSWORD@HOST`
+    // env per `mpc(1)`.
+    let host = args.get("host").and_then(|v| v.as_str());
+    let port = args.get("port").and_then(|v| v.as_u64());
+    let password = args.get("password").and_then(|v| v.as_str());
+    let mut cmd = std::process::Command::new("mpc");
+    if let (Some(pw), Some(h)) = (password, host) {
+        cmd.env("MPD_HOST", format!("{}@{}", pw, h));
+    } else if let Some(h) = host {
+        cmd.env("MPD_HOST", h);
+    }
+    if let Some(p) = port {
+        cmd.arg("-p").arg(p.to_string());
+    }
+    cmd.arg("current");
+    let out = cmd.output().ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let s = String::from_utf8(out.stdout).ok()?.trim().to_string();
+    if s.is_empty() {
+        return None;
+    }
+    Some(Value::Array(vec![serde_json::json!({
+        "contents": s,
+        "highlight_groups": ["now_playing"],
+        "divider_highlight_group": Value::Null,
+    })]))
+}
+
+fn ad_user(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::ported::segments::common::env::user;
+    let environ = info
+        .get("environ")
+        .and_then(|v| v.as_object())
+        .cloned()
+        .unwrap_or_default();
+    let hide_user = args.get("hide_user").and_then(|v| v.as_str());
+    let hide_domain = args
+        .get("hide_domain")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    // SAFETY: geteuid() is async-signal-safe POSIX.
+    let euid = unsafe { libc::geteuid() };
+    let chunks = user(&environ, hide_user, hide_domain, euid)?;
+    Some(Value::Array(chunks))
+}
+
 const ADAPTERS: &[(&str, AdapterFn)] = &[
     ("powerline.segments.common.net.hostname", ad_hostname),
     ("powerline.segments.common.time.date", ad_date),
+    ("powerline.segments.common.time.fuzzy_time", ad_fuzzy_time),
+    ("powerline.segments.common.env.environment", ad_environment),
+    ("powerline.segments.common.env.virtualenv", ad_virtualenv),
+    ("powerline.segments.common.env.user", ad_user),
+    ("powerline.segments.common.players.mpd", ad_mpd),
     (
         "powerline.segments.common.sys.cpu_load_percent",
         ad_cpu_load_percent,
@@ -1049,10 +1337,18 @@ fn main() {
 
         let configs = {
             let mut guard = store_clone.lock().expect("config store poisoned");
-            if let Some(c) = guard.get(&ext) {
-                c.clone()
-            } else {
-                match build_configs(&ext) {
+            // py:851-866  update_renderer's reload-check: when any
+            // tracked config file's mtime differs vs the cached load,
+            // drop the cache so build_configs re-reads from disk.
+            // Honors `common.reload_config` (default true).
+            let cached = guard.get(&ext).cloned();
+            let stale = cached.as_ref().map(|c| c.is_stale()).unwrap_or(false);
+            if stale {
+                guard.remove(&ext);
+            }
+            match (cached, stale) {
+                (Some(c), false) => c,
+                _ => match build_configs(&ext) {
                     Ok(c) => {
                         guard.insert(ext.clone(), c.clone());
                         c
@@ -1060,7 +1356,7 @@ fn main() {
                     Err(e) => {
                         return format!("powerline-daemon: config error: {}\n", e).into_bytes()
                     }
-                }
+                },
             }
         };
 
@@ -1102,8 +1398,20 @@ fn main() {
                              args: &Map<String, Value>|
          -> Option<Value> { invoke_adapter(id, args, si) };
 
+        // Mode extraction: Python pulls it from `args.renderer_arg["mode"]`
+        // before passing to `Renderer.render`. Mirrors
+        // `commands/main.py:170-189` `write_output`'s segment_info update
+        // and the explicit `mode=segment_info.get('mode', None)` at
+        // py:177/188.
+        let mode_owned: Option<String> = args
+            .renderer_arg_merged
+            .as_ref()
+            .and_then(|m| m.get("mode"))
+            .and_then(|v| v.as_str())
+            .map(String::from);
+        let mode_ref: Option<&str> = mode_owned.as_deref();
         let result = renderer_clone.render(
-            None,
+            mode_ref,
             args.width.map(|w| w as usize),
             if side.is_empty() { None } else { Some(&side) },
             0,

@@ -178,6 +178,13 @@ impl Default for ShellRenderer {
 
 impl ShellRenderer {
     /// Constructs a `ShellRenderer` with the upstream defaults.
+    ///
+    /// `common.additional_escapes` (`reference.rst:76-84`) maps to the
+    /// public `tmux_escape` / `screen_escape` fields; callers should
+    /// set them post-construction per the Python
+    /// `Powerline.create_renderer` flow at `__init__.py:600-606`:
+    /// `tmux_escape = additional_escapes == 'tmux'`,
+    /// `screen_escape = additional_escapes == 'screen'`.
     pub fn new() -> Self {
         Self {
             base: PromptRenderer::new(),

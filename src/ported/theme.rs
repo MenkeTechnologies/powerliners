@@ -425,13 +425,50 @@ impl Theme {
                     continue;
                 };
                 // py:139  if segment['display_condition'](self.pl, segment_info, mode):
-                // display_condition is a callable stored in the segment dict; the
-                // Rust port stores it as a flag/key. Default to always_true.
-                let display_ok = segment
-                    .get("display_condition")
-                    .map(|v| v.is_null() || v.as_bool().unwrap_or(true))
-                    .unwrap_or(true);
-                if !display_ok {
+                // Mirrors `gen_display_condition` at upstream
+                // `segment.py:303-317` for the include_modes / exclude_modes
+                // branches (function-selectors require a callable
+                // registry that's not yet ported and are treated as
+                // "no constraint").
+                let mode_in = |list_v: &Value| -> bool {
+                    list_v
+                        .as_array()
+                        .map(|arr| {
+                            arr.iter().any(|v| match (v.as_str(), mode) {
+                                (Some(s), Some(m)) => s == m,
+                                _ => false,
+                            })
+                        })
+                        .unwrap_or(false)
+                };
+                // py:287-289  `if modes: ... return lambda ...: mode in modes`
+                let include_ok = match segment.get("include_modes") {
+                    Some(v) if !v.is_null() => mode_in(v),
+                    _ => true,
+                };
+                // py:308-315  exclude wraps result in `not exclude_function(*args)`
+                let exclude_ok = match segment.get("exclude_modes") {
+                    Some(v) if !v.is_null() => !mode_in(v),
+                    _ => true,
+                };
+                // py:303-317  function-name selectors. The Rust port
+                // stores the function name string on the prepared
+                // segment; a callable registry (analog of
+                // `gen_module_attr_getter` for selectors) wires the
+                // actual evaluation. Until the registry threads
+                // through `Theme::get_segments`, function selectors
+                // default to "no constraint" (always_true) per the
+                // Python "no matcher → unfiltered" semantics at
+                // py:300-301.
+                let _include_fn_present = segment
+                    .get("include_function")
+                    .map(|v| !v.is_null())
+                    .unwrap_or(false);
+                let _exclude_fn_present = segment
+                    .get("exclude_function")
+                    .map(|v| !v.is_null())
+                    .unwrap_or(false);
+                if !(include_ok && exclude_ok) {
                     continue;
                 }
                 // py:140-148  process_segment(self.pl, side, segment_info, parsed_segments, segment, mode, self.colorscheme)

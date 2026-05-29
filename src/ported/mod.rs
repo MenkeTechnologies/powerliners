@@ -651,6 +651,46 @@ pub struct Powerline {
     pub renderer_module: String,
     /// py:522  self.update_interval = DEFAULT_UPDATE_INTERVAL
     pub update_interval: u64,
+    /// py:497  self.find_config_files = generate_config_finder(self.get_config_paths)
+    /// Stored as the resolved search paths so callers can re-invoke
+    /// `_find_config_files` without re-binding the closure context.
+    pub config_search_paths: Vec<std::path::PathBuf>,
+    /// py:499  self.cr_kwargs_lock = Lock() — guards `cr_kwargs`.
+    pub cr_kwargs_lock: std::sync::Arc<std::sync::Mutex<()>>,
+    /// py:500  self.cr_kwargs = {} — flags inhibiting redundant reloads.
+    pub cr_kwargs: serde_json::Map<String, serde_json::Value>,
+    /// py:501-508  self.cr_callbacks — per-key callbacks; Rust port
+    /// stores key names so the bin shim can wire change-callback
+    /// closures equivalently (Rust can't store `&Fn` in `Value`).
+    pub cr_callback_keys: Vec<String>,
+    /// py:510  self.shutdown_event = shutdown_event or Event()
+    pub shutdown_event: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    /// py:512  self.run_loader_update = False
+    pub run_loader_update: bool,
+    /// py:514  self.renderer_options = {} — propagated into Renderer
+    /// constructors at create-time.
+    pub renderer_options: serde_json::Map<String, serde_json::Value>,
+    /// py:516  self.prev_common_config = None
+    pub prev_common_config: Option<serde_json::Map<String, serde_json::Value>>,
+    /// py:517  self.prev_ext_config = None
+    pub prev_ext_config: Option<serde_json::Map<String, serde_json::Value>>,
+    /// py:519  self.setup_args = ()
+    pub setup_args: Vec<serde_json::Value>,
+    /// py:520  self.setup_kwargs = {}
+    pub setup_kwargs: serde_json::Map<String, serde_json::Value>,
+    /// py:521  self.imported_modules = set()
+    pub imported_modules: std::collections::HashSet<String>,
+    /// py:574/623  Cached common + ext config blocks after first load.
+    pub common_config: Option<serde_json::Map<String, serde_json::Value>>,
+    pub ext_config: Option<serde_json::Map<String, serde_json::Value>>,
+    /// py:629  Theme cascade levels for the resolved top_theme.
+    pub theme_levels: Vec<String>,
+    /// py:670  self.theme_config — merged theme config dict.
+    pub theme_config: Option<serde_json::Map<String, serde_json::Value>>,
+    /// py:702  self.renderer — the concrete `Renderer` subclass instance.
+    /// Stored as `Value::Null` placeholder until per-ext bindings
+    /// dispatch through the not-yet-ported module-attr import chain.
+    pub renderer: serde_json::Value,
 }
 
 impl Powerline {
@@ -710,6 +750,15 @@ impl Powerline {
         // py:520  self.setup_kwargs = {}
         // py:521  self.imported_modules = set()
         // py:522  self.update_interval = DEFAULT_UPDATE_INTERVAL
+        // py:502-508  for key in ('main', 'colors', 'colorscheme', 'theme'):
+        //                  cr_kwargs['load_' + key] = True
+        //                  cr_callbacks[key] = _generate_change_callback(...)
+        let mut cr_kwargs = serde_json::Map::new();
+        let mut cr_callback_keys: Vec<String> = Vec::new();
+        for key in ["main", "colors", "colorscheme", "theme"] {
+            cr_kwargs.insert(format!("load_{}", key), serde_json::Value::Bool(true));
+            cr_callback_keys.push(key.to_string());
+        }
         Powerline {
             ext: ext.to_string(),
             run_once,
@@ -717,6 +766,30 @@ impl Powerline {
             use_daemon_threads: true,
             renderer_module: Self::resolve_renderer_module(ext, renderer_module),
             update_interval: DEFAULT_UPDATE_INTERVAL,
+            // py:497  generate_config_finder(self.get_config_paths)
+            config_search_paths: get_config_paths(),
+            // py:499-500
+            cr_kwargs_lock: std::sync::Arc::new(std::sync::Mutex::new(())),
+            cr_kwargs,
+            cr_callback_keys,
+            // py:510  shutdown_event or Event()
+            shutdown_event: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            // py:512
+            run_loader_update: false,
+            // py:514
+            renderer_options: serde_json::Map::new(),
+            // py:516-521
+            prev_common_config: None,
+            prev_ext_config: None,
+            setup_args: Vec::new(),
+            setup_kwargs: serde_json::Map::new(),
+            imported_modules: std::collections::HashSet::new(),
+            // Populated by `create_renderer`.
+            common_config: None,
+            ext_config: None,
+            theme_levels: Vec::new(),
+            theme_config: None,
+            renderer: serde_json::Value::Null,
         }
     }
 
@@ -1223,6 +1296,291 @@ impl Powerline {
         // py:949-951  re-construct + re-setup
         reconstruct()
     }
+
+    /// Port of `Powerline.create_renderer()` from
+    /// `powerline/__init__.py:550-696`.
+    ///
+    /// Reads config from disk via `_find_config_files` + `load_json_config`,
+    /// composes `common_config` via `finish_common_config`, detects whether
+    /// the merged config changed since the last call, and assembles
+    /// `self.renderer_options` per py:600-614 + py:686. The concrete
+    /// `Renderer(**renderer_options)` instantiation at py:677-696 is
+    /// deferred — it requires the not-yet-ported `gen_module_attr_getter`
+    /// resolution of the renderer module string into a constructable
+    /// Rust type. `self.renderer` stays `Value::Null` until per-ext
+    /// bindings wire that resolution.
+    pub fn create_renderer(
+        &mut self,
+        load_main: bool,
+        load_colors: bool,
+        load_colorscheme: bool,
+        load_theme: bool,
+    ) -> Result<(), String> {
+        // py:569-570
+        let mut common_config_differs = false;
+        let mut ext_config_differs = false;
+        let mut load_colorscheme = load_colorscheme;
+        let mut load_theme = load_theme;
+
+        if load_main {
+            // py:572  self._purge_configs('main') — cache-purge handled
+            // at the daemon shim level; struct fields are direct.
+            // py:573  config = self.load_main_config()
+            let matches = _find_config_files(&self.config_search_paths, "config")?;
+            let mut config: Map<String, Value> = Map::new();
+            for p in &matches {
+                if let Ok(v) = crate::ported::lib::config::load_json_config(p) {
+                    if let Some(o) = v.as_object().cloned() {
+                        crate::ported::lib::dict::mergedicts(&mut config, o, true);
+                    }
+                }
+            }
+            // py:574  self.common_config = finish_common_config(self.get_encoding(), config['common'])
+            let raw_common = config
+                .get("common")
+                .and_then(|v| v.as_object())
+                .cloned()
+                .unwrap_or_default();
+            let new_common = finish_common_config("utf-8", &raw_common);
+            self.common_config = Some(new_common.clone());
+
+            // py:575  if self.common_config != self.prev_common_config:
+            if self.prev_common_config.as_ref() != Some(&new_common) {
+                common_config_differs = true;
+
+                // py:578-580  load_theme bumped when default_top_theme changes
+                let prev_top = self
+                    .prev_common_config
+                    .as_ref()
+                    .and_then(|c| c.get("default_top_theme"))
+                    .and_then(|v| v.as_str());
+                let new_top = new_common.get("default_top_theme").and_then(|v| v.as_str());
+                load_theme = load_theme || self.prev_common_config.is_none() || prev_top != new_top;
+
+                // py:582-586  log_keys_differ tracking — defer logger
+                // re-init since it weaves through PowerlineLogger field
+                // ownership we don't currently model on the struct.
+
+                // py:600-614  mergedicts(renderer_options, dict(...))
+                let mut new_options: Map<String, Value> = Map::new();
+                new_options.insert(
+                    "term_truecolor".into(),
+                    new_common
+                        .get("term_truecolor")
+                        .cloned()
+                        .unwrap_or(Value::Bool(false)),
+                );
+                new_options.insert(
+                    "term_escape_style".into(),
+                    new_common
+                        .get("term_escape_style")
+                        .cloned()
+                        .unwrap_or_else(|| Value::String("auto".into())),
+                );
+                new_options.insert(
+                    "ambiwidth".into(),
+                    new_common.get("ambiwidth").cloned().unwrap_or(Value::from(1)),
+                );
+                let additional_escapes = new_common
+                    .get("additional_escapes")
+                    .and_then(|v| v.as_str())
+                    .map(String::from);
+                new_options.insert(
+                    "tmux_escape".into(),
+                    Value::Bool(additional_escapes.as_deref() == Some("tmux")),
+                );
+                new_options.insert(
+                    "screen_escape".into(),
+                    Value::Bool(additional_escapes.as_deref() == Some("screen")),
+                );
+                // theme_kwargs scaffold per py:607-613
+                let mut theme_kwargs: Map<String, Value> = Map::new();
+                theme_kwargs.insert("ext".into(), Value::String(self.ext.clone()));
+                theme_kwargs.insert(
+                    "common_config".into(),
+                    Value::Object(new_common.clone()),
+                );
+                theme_kwargs.insert("run_once".into(), Value::Bool(self.run_once));
+                new_options.insert("theme_kwargs".into(), Value::Object(theme_kwargs));
+
+                crate::ported::lib::dict::mergedicts(
+                    &mut self.renderer_options,
+                    new_options,
+                    true,
+                );
+
+                self.prev_common_config = Some(new_common.clone());
+            }
+
+            // py:623  self.ext_config = config['ext'][self.ext]
+            let ext_config = config
+                .get("ext")
+                .and_then(|v| v.as_object())
+                .and_then(|o| o.get(&self.ext))
+                .and_then(|v| v.as_object())
+                .cloned()
+                .unwrap_or_default();
+            self.ext_config = Some(ext_config.clone());
+
+            // py:625-630  top_theme + theme_levels
+            let top_theme = ext_config
+                .get("top_theme")
+                .and_then(|v| v.as_str())
+                .map(String::from)
+                .unwrap_or_else(|| {
+                    new_common
+                        .get("default_top_theme")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("powerline")
+                        .to_string()
+                });
+            self.theme_levels = vec![
+                format!("themes/{}", top_theme),
+                format!("themes/{}/__main__", self.ext),
+            ];
+            if let Some(tk) = self
+                .renderer_options
+                .get_mut("theme_kwargs")
+                .and_then(|v| v.as_object_mut())
+            {
+                tk.insert("top_theme".into(), Value::String(top_theme));
+            }
+
+            // py:632-660  ext_config_differs tracking + load flag bumps
+            if Some(&ext_config) != self.prev_ext_config.as_ref() {
+                ext_config_differs = true;
+                let prev_cs = self
+                    .prev_ext_config
+                    .as_ref()
+                    .and_then(|c| c.get("colorscheme"))
+                    .and_then(|v| v.as_str());
+                let new_cs = ext_config.get("colorscheme").and_then(|v| v.as_str());
+                load_colorscheme = load_colorscheme
+                    || self.prev_ext_config.is_none()
+                    || prev_cs != new_cs;
+                let prev_th = self
+                    .prev_ext_config
+                    .as_ref()
+                    .and_then(|c| c.get("theme"))
+                    .and_then(|v| v.as_str());
+                let new_th = ext_config.get("theme").and_then(|v| v.as_str());
+                load_theme = load_theme
+                    || self.prev_ext_config.is_none()
+                    || prev_th != new_th;
+                // py:654  self.update_interval = ext_config.get('update_interval', 2)
+                self.update_interval = ext_config
+                    .get("update_interval")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(2);
+                self.prev_ext_config = Some(ext_config);
+            }
+        }
+
+        // py:660  create_renderer = load_colors or load_colorscheme or load_theme or
+        //                          common_config_differs or ext_config_differs
+        let need_renderer =
+            load_colors || load_colorscheme || load_theme || common_config_differs || ext_config_differs;
+
+        // py:662-664  load colors.json
+        if load_colors {
+            if let Ok(matches) = _find_config_files(&self.config_search_paths, "colors") {
+                let mut colors_config: Map<String, Value> = Map::new();
+                for p in &matches {
+                    if let Ok(v) = crate::ported::lib::config::load_json_config(p) {
+                        if let Some(o) = v.as_object().cloned() {
+                            crate::ported::lib::dict::mergedicts(&mut colors_config, o, true);
+                        }
+                    }
+                }
+                if let Some(tk) = self
+                    .renderer_options
+                    .get_mut("theme_kwargs")
+                    .and_then(|v| v.as_object_mut())
+                {
+                    tk.insert("colors_config".into(), Value::Object(colors_config));
+                }
+            }
+        }
+
+        // py:666-672  colorscheme cascade load. Calls the
+        // already-ported `load_colorscheme_config_levels` to build the
+        // 3-level list and walks each per `_load_hierarhical_config`.
+        if load_colorscheme || load_colors {
+            if let Some(ext_config) = self.prev_ext_config.clone() {
+                let cs_name = ext_config
+                    .get("colorscheme")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("default");
+                let (levels, _ignore) =
+                    Self::load_colorscheme_config_levels(&self.ext, cs_name);
+                let mut cs_config: Map<String, Value> = Map::new();
+                for level in &levels {
+                    if let Ok(matches) = _find_config_files(&self.config_search_paths, level) {
+                        if let Some(p) = matches.first() {
+                            if let Ok(v) = crate::ported::lib::config::load_json_config(p) {
+                                if let Some(o) = v.as_object().cloned() {
+                                    crate::ported::lib::dict::mergedicts(
+                                        &mut cs_config, o, true,
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+                if let Some(tk) = self
+                    .renderer_options
+                    .get_mut("theme_kwargs")
+                    .and_then(|v| v.as_object_mut())
+                {
+                    tk.insert("colorscheme_config".into(), Value::Object(cs_config));
+                }
+            }
+        }
+
+        // py:674-676  theme cascade load
+        if load_theme {
+            if let Some(ext_config) = self.prev_ext_config.clone() {
+                let theme_name = ext_config
+                    .get("theme")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("default");
+                let (levels, _ignore) =
+                    Self::load_theme_config_levels(&self.theme_levels, &self.ext, theme_name);
+                let mut theme_config: Map<String, Value> = Map::new();
+                for level in &levels {
+                    if let Ok(matches) = _find_config_files(&self.config_search_paths, level) {
+                        if let Some(p) = matches.first() {
+                            if let Ok(v) = crate::ported::lib::config::load_json_config(p) {
+                                if let Some(o) = v.as_object().cloned() {
+                                    crate::ported::lib::dict::mergedicts(
+                                        &mut theme_config, o, true,
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+                self.theme_config = Some(theme_config.clone());
+                self.renderer_options
+                    .insert("theme_config".into(), Value::Object(theme_config));
+            }
+        }
+
+        // py:678-696  Renderer subclass instantiation. The Python flow is
+        //   Renderer = self.get_module_attr(self.renderer_module, 'renderer')
+        //   if not Renderer: raise ImportError
+        //   try: self.renderer = Renderer(**self.renderer_options)
+        // Rust port can't dispatch `self.renderer_module` (a dotted name)
+        // to a concrete `Renderer` type without an ext-keyed registry;
+        // per-ext bindings (tmux daemon shim, future shell/vim shims)
+        // do this themselves by constructing the concrete renderer type
+        // from `self.renderer_options`. The Powerline class surfaces the
+        // composed `renderer_options` so the shim can read it.
+        if need_renderer {
+            self.renderer = Value::Object(self.renderer_options.clone());
+        }
+        Ok(())
+    }
 }
 
 /// Port of `Powerline.reraise()` (staticmethod) from
@@ -1704,6 +2062,81 @@ mod powerline_class_tests {
         let p = Powerline::init("shell", None, true, true);
         assert!(p.run_once);
         assert!(p.had_logger);
+    }
+
+    #[test]
+    fn powerline_init_populates_cr_kwargs_for_all_four_keys() {
+        // py:502-508  for key in ('main', 'colors', 'colorscheme', 'theme'):
+        //     cr_kwargs['load_' + key] = True
+        let p = Powerline::init("tmux", None, false, false);
+        assert_eq!(p.cr_kwargs.len(), 4);
+        for key in ["load_main", "load_colors", "load_colorscheme", "load_theme"] {
+            assert_eq!(
+                p.cr_kwargs.get(key).and_then(|v| v.as_bool()),
+                Some(true),
+                "cr_kwargs missing {key}",
+            );
+        }
+        assert_eq!(p.cr_callback_keys.len(), 4);
+        assert!(!p.shutdown_event.load(std::sync::atomic::Ordering::SeqCst));
+        assert!(p.renderer_options.is_empty());
+        assert!(p.prev_common_config.is_none());
+        assert!(p.imported_modules.is_empty());
+    }
+
+    #[test]
+    fn powerline_create_renderer_assembles_renderer_options() {
+        // py:600-614  on first successful load_main, renderer_options
+        // gains term_truecolor/term_escape_style/ambiwidth/tmux_escape/
+        // screen_escape + theme_kwargs.
+        let fixture =
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/data/e2e/scenario_hostname");
+        if !fixture.is_dir() {
+            return;
+        }
+        let mut p = Powerline::init("tmux", None, false, false);
+        // Override search paths to the deterministic fixture so the
+        // test doesn't depend on the host's `~/.config/powerline/`.
+        p.config_search_paths = vec![fixture];
+        let r = p.create_renderer(true, true, true, true);
+        assert!(r.is_ok(), "create_renderer failed: {r:?}");
+        // common_config_differs path populates renderer_options
+        // (first load → prev_common_config was None).
+        assert!(
+            p.renderer_options.contains_key("term_truecolor"),
+            "renderer_options missing term_truecolor: {:?}",
+            p.renderer_options.keys().collect::<Vec<_>>()
+        );
+        assert!(p.renderer_options.contains_key("ambiwidth"));
+        assert!(p.renderer_options.contains_key("tmux_escape"));
+        assert!(p.renderer_options.contains_key("screen_escape"));
+        assert!(p.renderer_options.contains_key("theme_kwargs"));
+        // ext_config + theme_levels populated
+        assert!(p.ext_config.is_some());
+        assert_eq!(p.theme_levels.len(), 2);
+        // theme_config loaded (theme.json under fixtures/themes/tmux/default.json)
+        assert!(p.theme_config.is_some());
+        // self.renderer is the published renderer_options (concrete
+        // instantiation deferred — see docstring).
+        assert!(p.renderer.is_object());
+    }
+
+    #[test]
+    fn powerline_create_renderer_caches_prev_common_config() {
+        let fixture =
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/data/e2e/scenario_hostname");
+        if !fixture.is_dir() {
+            return;
+        }
+        let mut p = Powerline::init("tmux", None, false, false);
+        p.config_search_paths = vec![fixture];
+        let _ = p.create_renderer(true, true, true, true);
+        let first_common = p.prev_common_config.clone();
+        // Second call with same config → no diff, common_config_differs=false.
+        let _ = p.create_renderer(true, false, false, false);
+        assert_eq!(first_common, p.prev_common_config);
     }
 
     #[test]
