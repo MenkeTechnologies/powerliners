@@ -380,6 +380,95 @@ impl Scanner {
         // py:326-336  append FlowEntryToken
         self.tokens.push("FlowEntryToken".to_string());
     }
+
+    /// Port of `Scanner.fetch_flow_sequence_start()` from
+    /// `powerline/lint/markedjson/scanner.py:263-264`.
+    ///
+    /// Thin wrapper around `fetch_flow_collection_start` with the
+    /// `FlowSequenceStartToken` token name per py:264.
+    pub fn fetch_flow_sequence_start(&mut self) {
+        // py:264  self.fetch_flow_collection_start(tokens.FlowSequenceStartToken)
+        self.fetch_flow_collection_start("FlowSequenceStartToken");
+    }
+
+    /// Port of `Scanner.fetch_flow_mapping_start()` from
+    /// `powerline/lint/markedjson/scanner.py:266-267`.
+    pub fn fetch_flow_mapping_start(&mut self) {
+        // py:267  self.fetch_flow_collection_start(tokens.FlowMappingStartToken)
+        self.fetch_flow_collection_start("FlowMappingStartToken");
+    }
+
+    /// Port of `Scanner.fetch_flow_sequence_end()` from
+    /// `powerline/lint/markedjson/scanner.py:285-286`.
+    pub fn fetch_flow_sequence_end(&mut self) {
+        // py:286  self.fetch_flow_collection_end(tokens.FlowSequenceEndToken)
+        self.fetch_flow_collection_end("FlowSequenceEndToken");
+    }
+
+    /// Port of `Scanner.fetch_flow_mapping_end()` from
+    /// `powerline/lint/markedjson/scanner.py:288-289`.
+    pub fn fetch_flow_mapping_end(&mut self) {
+        // py:289  self.fetch_flow_collection_end(tokens.FlowMappingEndToken)
+        self.fetch_flow_collection_end("FlowMappingEndToken");
+    }
+
+    /// Port of `Scanner.fetch_double()` from
+    /// `powerline/lint/markedjson/scanner.py:338-346`.
+    ///
+    /// Saves the possible simple key (py:340), disallows further
+    /// simple keys (py:343), and appends the scanned flow scalar
+    /// per py:346. The actual `scan_flow_scalar()` dispatch lives
+    /// outside this stub — the Rust port emits a placeholder token
+    /// since the reader buffer isn't threaded through.
+    pub fn fetch_double(&mut self, index: usize, line: usize, column: usize) {
+        // py:340  self.save_possible_simple_key()
+        self.save_possible_simple_key(index, line, column);
+        // py:343  self.allow_simple_key = False
+        self.allow_simple_key = false;
+        // py:346  self.tokens.append(self.scan_flow_scalar())
+        self.tokens.push("ScalarToken".to_string());
+    }
+
+    /// Port of `Scanner.fetch_plain()` from
+    /// `powerline/lint/markedjson/scanner.py:348-356`.
+    pub fn fetch_plain(&mut self, index: usize, line: usize, column: usize) {
+        // py:350  self.save_possible_simple_key()
+        self.save_possible_simple_key(index, line, column);
+        // py:353  self.allow_simple_key = False
+        self.allow_simple_key = false;
+        // py:356  self.tokens.append(self.scan_plain())
+        self.tokens.push("ScalarToken".to_string());
+    }
+}
+
+/// Port of `Scanner.scan_to_next_token()` from
+/// `powerline/lint/markedjson/scanner.py:365-367`.
+///
+/// Advances past leading spaces/tabs/newlines. Returns the number
+/// of bytes consumed from the start of `buffer`.
+pub fn scan_to_next_token(buffer: &str) -> usize {
+    // py:366-367  while self.peek() in ' \t\n': self.forward()
+    buffer
+        .bytes()
+        .take_while(|&b| b == b' ' || b == b'\t' || b == b'\n')
+        .count()
+}
+
+/// Port of `Scanner.fetch_more_tokens()` from
+/// `powerline/lint/markedjson/scanner.py:134-190`.
+///
+/// Drives one round of the scanner's lex loop: peeks the next
+/// non-whitespace character, then routes through `dispatch_fetch_for`
+/// to pick a fetch action. The Rust port returns the dispatch result
+/// + the consumed whitespace count so callers can advance their
+/// reader before invoking the chosen fetch_* method.
+pub fn fetch_more_tokens(buffer: &str, flow_level: u32) -> (usize, Option<FetchKind>) {
+    // py:135  self.scan_to_next_token()
+    let whitespace = scan_to_next_token(buffer);
+    // py:138  ch = self.peek()
+    let peeked = buffer[whitespace..].chars().next().unwrap_or('\0');
+    // py:140-187  dispatch
+    (whitespace, dispatch_fetch_for(peeked, flow_level))
 }
 
 /// Port of `Scanner.stale_possible_simple_keys()` from
@@ -690,5 +779,99 @@ mod tests {
         keys.insert(1, SimpleKey::new(2, 0, 5, 0, None));
         let stale = stale_possible_simple_keys(3, &keys);
         assert_eq!(stale, vec![0]);
+    }
+
+    #[test]
+    fn fetch_flow_sequence_start_delegates_to_collection_start() {
+        // py:264
+        let mut s = Scanner::new();
+        let before = s.flow_level;
+        s.fetch_flow_sequence_start();
+        assert_eq!(s.flow_level, before + 1);
+        assert!(s.tokens.contains(&"FlowSequenceStartToken".to_string()));
+    }
+
+    #[test]
+    fn fetch_flow_mapping_start_delegates_to_collection_start() {
+        // py:267
+        let mut s = Scanner::new();
+        s.fetch_flow_mapping_start();
+        assert!(s.tokens.contains(&"FlowMappingStartToken".to_string()));
+    }
+
+    #[test]
+    fn fetch_flow_sequence_end_delegates_to_collection_end() {
+        // py:286
+        let mut s = Scanner::new();
+        // Set up so flow_level can decrement
+        s.flow_level = 1;
+        s.fetch_flow_sequence_end();
+        assert_eq!(s.flow_level, 0);
+        assert!(s.tokens.contains(&"FlowSequenceEndToken".to_string()));
+    }
+
+    #[test]
+    fn fetch_flow_mapping_end_delegates_to_collection_end() {
+        // py:289
+        let mut s = Scanner::new();
+        s.flow_level = 1;
+        s.fetch_flow_mapping_end();
+        assert!(s.tokens.contains(&"FlowMappingEndToken".to_string()));
+    }
+
+    #[test]
+    fn fetch_double_disallows_simple_key_after() {
+        // py:343
+        let mut s = Scanner::new();
+        s.allow_simple_key = true;
+        s.fetch_double(0, 0, 0);
+        assert!(!s.allow_simple_key);
+        assert!(s.tokens.contains(&"ScalarToken".to_string()));
+    }
+
+    #[test]
+    fn fetch_plain_disallows_simple_key_after() {
+        // py:353
+        let mut s = Scanner::new();
+        s.allow_simple_key = true;
+        s.fetch_plain(0, 0, 0);
+        assert!(!s.allow_simple_key);
+        assert!(s.tokens.contains(&"ScalarToken".to_string()));
+    }
+
+    #[test]
+    fn scan_to_next_token_skips_leading_whitespace() {
+        // py:366-367
+        assert_eq!(scan_to_next_token("   abc"), 3);
+        assert_eq!(scan_to_next_token("\t\nabc"), 2);
+        assert_eq!(scan_to_next_token("abc"), 0);
+    }
+
+    #[test]
+    fn scan_to_next_token_empty_returns_zero() {
+        assert_eq!(scan_to_next_token(""), 0);
+    }
+
+    #[test]
+    fn fetch_more_tokens_dispatches_via_dispatch_fetch_for() {
+        // py:135-187
+        let (ws, kind) = fetch_more_tokens("  [", 0);
+        assert_eq!(ws, 2);
+        assert_eq!(kind, Some(FetchKind::FlowSequenceStart));
+    }
+
+    #[test]
+    fn fetch_more_tokens_empty_buffer_returns_stream_end() {
+        let (ws, kind) = fetch_more_tokens("", 0);
+        assert_eq!(ws, 0);
+        assert_eq!(kind, Some(FetchKind::StreamEnd));
+    }
+
+    #[test]
+    fn fetch_more_tokens_whitespace_only_returns_stream_end() {
+        // After consuming whitespace, peek '\0' → StreamEnd
+        let (ws, kind) = fetch_more_tokens("   ", 0);
+        assert_eq!(ws, 3);
+        assert_eq!(kind, Some(FetchKind::StreamEnd));
     }
 }
