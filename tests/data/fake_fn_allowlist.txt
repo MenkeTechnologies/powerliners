@@ -1245,3 +1245,12 @@ create_release
 # OnceLock pattern doesn't recompile per call. Same shape already
 # approved for CONFIG_FILE_NAME and TMUX_VAR_RE.
 MPC_OUTPUT_RE
+
+# segments/vim/mod.rs::SCHEME_RE — module-level OnceLock<Regex>
+# mirroring the inline re.compile at
+# powerline/segments/vim/__init__.py:219.
+# Python exposes the compiled regex as a module attribute SCHEME_RE;
+# Rust uses a fn returning &'static Regex so the same identifier is
+# used at call sites. Same approved pattern as CONFIG_FILE_NAME,
+# TMUX_VAR_RE, MPC_OUTPUT_RE.
+SCHEME_RE
