@@ -87,16 +87,28 @@ impl BranchSegment {
         status_colors: bool,
         ignore_statuses: &[String],
     ) -> Option<Vec<Value>> {
-        // py:19  if name: ... py:21  if repo is not None: ...
+        // py:18  def __call__(self, pl, segment_info, create_watcher, status_colors=False, ignore_statuses=()):
+        // py:19  name = self.get_directory(segment_info)
+        // py:20  if name:
+        // py:21  repo = guess(path=name, create_watcher=create_watcher)
+        // py:22  if repo is not None:
         let repo = repo?;
-        // py:22  branch = repo.branch()
+        // py:23  branch = repo.branch()
         let branch = repo.branch();
-        // py:23  scol = ['branch']
+        // py:24  scol = ['branch']
         let mut scol: Vec<String> = vec!["branch".to_string()];
-        // py:24-37  status_colors path
+        // py:25  if status_colors:
         if status_colors {
+            // py:26  try:
+            // py:27  status = tree_status(repo, pl)
             let status = repo.tree_status();
-            // py:32-34  if status in ignore_statuses: status = None
+            // py:28  except Exception as e:
+            // py:29  pl.exception('Failed to compute tree status: {0}', str(e))
+            // py:30  status = '?'
+            // py:31  else:
+            // py:32  status = status and status.strip()
+            // py:33  if status in ignore_statuses:
+            // py:34  status = None
             let effective = status.and_then(|s| {
                 let trimmed = s.trim().to_string();
                 if trimmed.is_empty() || ignore_statuses.iter().any(|i| i == &trimmed) {
@@ -113,7 +125,11 @@ impl BranchSegment {
             };
             scol.insert(0, group.to_string());
         }
-        // py:36-40  return [{contents, highlight_groups, divider_highlight_group}]
+        // py:36  return [{
+        // py:37  'contents': branch,
+        // py:38  'highlight_groups': scol,
+        // py:39  'divider_highlight_group': self.divider_highlight_group,
+        // py:40  }]
         Some(vec![json!({
             "contents": branch,
             "highlight_groups": scol,
@@ -159,14 +175,25 @@ impl StashSegment {
     /// Renders the stash segment. Returns None when no repository,
     /// no stash support, or zero stashes.
     pub fn call<R: VcsRepository>(repo: Option<&R>) -> Option<Vec<Value>> {
-        // py:74  if name: ... py:76  if repo is not None
+        // py:70  def __call__(self, pl, segment_info, create_watcher):
+        // py:71  name = self.get_directory(segment_info)
+        // py:72  if name:
+        // py:73  repo = guess(path=name, create_watcher=create_watcher)
+        // py:74  if repo is not None:
         let repo = repo?;
-        // py:77  stash = getattr(repo, 'stash', None); if stash: stashes = stash()
+        // py:75  stash = getattr(repo, 'stash', None)
+        // py:76  if stash:
+        // py:77  stashes = stash()
         let stashes = repo.stash()?;
-        // py:79  if stashes: return [...]
+        // py:78  if stashes:
         if stashes == 0 {
             return None;
         }
+        // py:79  return [{
+        // py:80  'contents': str(stashes),
+        // py:81  'highlight_groups': ['stash'],
+        // py:82  'divider_highlight_group': self.divider_highlight_group
+        // py:83  }]
         Some(vec![json!({
             "contents": stashes.to_string(),
             "highlight_groups": ["stash"],
