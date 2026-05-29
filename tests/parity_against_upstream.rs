@@ -1772,6 +1772,59 @@ fn parity_spec_update_auto_adds_dict_type_once() {
 }
 
 #[test]
+fn parity_spec_cmp_check_appended() {
+    if !python_available() {
+        return;
+    }
+    // Spec().cmp('>=', 0) registers a check_func entry and stores the
+    // (Cmp, value) tuple on the Rust side.
+    let py = match py_eval(
+        "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().cmp('ge', 0).checks)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_len: usize = py.parse().expect("Python returned non-int len");
+    // Python Spec.cmp() registers BOTH check_type (numeric) AND check_func
+    // (the comparison itself), so len(checks) == 2 after a single call.
+    assert_eq!(
+        py_len, 2,
+        "Python Spec.cmp() should append 2 check entries (type+func)"
+    );
+    use powerliners::lint::spec::{Cmp, Spec};
+    let s = Spec::new().cmp(Cmp::Ge, 0.0);
+    assert_eq!(
+        s.cmp_constraint,
+        Some((Cmp::Ge, 0.0)),
+        "Rust cmp_constraint storage mismatch"
+    );
+}
+
+#[test]
+fn parity_spec_error_check_appended_and_stored() {
+    if !python_available() {
+        return;
+    }
+    // Spec().error(msg) registers a check_func entry that always fires
+    // with the supplied msg on Python and stores error_msg on Rust.
+    let py = match py_eval(
+        "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().error('boom').checks)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_len: usize = py.parse().expect("Python returned non-int len");
+    assert_eq!(py_len, 1, "Python Spec.error() should append 1 check entry");
+    use powerliners::lint::spec::Spec;
+    let s = Spec::new().error("boom");
+    assert_eq!(
+        s.error_msg.as_deref(),
+        Some("boom"),
+        "Rust error_msg storage mismatch"
+    );
+}
+
+#[test]
 fn parity_spec_oneof_check_appended_and_stored() {
     if !python_available() {
         return;
