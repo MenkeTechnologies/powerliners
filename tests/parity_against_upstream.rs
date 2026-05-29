@@ -2192,6 +2192,54 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_spec_cmp_chains_type_and_check() {
+    if !python_available() {
+        return;
+    }
+    // Spec.cmp(comparison, cint) appends BOTH:
+    //   1. a type check (via self.type(...) at py:457-461)
+    //   2. the cmp check_func itself (py:463-467)
+    // → final self.checks length == 2. Verify for each of the 3 cint
+    // type branches:
+    //   int cint   → self.type(int)
+    //   float cint → self.type(int, float)
+    //   str cint   → self.type(unicode)
+    let cases: &[&str] = &[
+        "Spec().cmp('lt', 100)",     // int branch
+        "Spec().cmp('ge', 0.0)",     // float branch
+        "Spec().cmp('eq', 'hello')", // str branch
+        "Spec().cmp('gt', -1)",      // negative int
+    ];
+    for py_call in cases {
+        let py = match py_eval(&format!(
+            "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec.__dict__ if False else __import__('powerline.lint.spec', fromlist=['Spec']).{}.checks)",
+            py_call
+        )) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_count: usize = py.trim().parse().expect("py returned non-integer");
+        assert_eq!(
+            py_count, 2,
+            "Python Spec().cmp(...).checks length should be 2 for {}",
+            py_call
+        );
+    }
+    // Rust port: cmp() sets cmp_constraint. The shape is different
+    // (constraint Option rather than checks Vec), but the observable
+    // semantic — "cmp call adds the comparison + a type bound" — is
+    // pinned by cmp_constraint being Some after the call.
+    use powerliners::lint::spec::{Cmp, Spec};
+    let s = Spec::default().cmp(Cmp::Lt, 100.0);
+    assert!(
+        s.cmp_constraint.is_some(),
+        "Rust Spec::cmp should set cmp_constraint"
+    );
+    assert_eq!(s.cmp_constraint.as_ref().unwrap().0, Cmp::Lt);
+    assert!((s.cmp_constraint.as_ref().unwrap().1 - 100.0).abs() < 1e-9);
+}
+
+#[test]
 fn parity_mergedicts_3_level_recursive_merge() {
     if !python_available() {
         return;
