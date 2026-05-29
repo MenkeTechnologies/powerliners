@@ -70,6 +70,34 @@ pub fn tablister(
     tablister_for(segment_info, &list_tabpages(), Some(&current_tabpage()))
 }
 
+/// Port of the inner `add_multiplier()` closure from
+/// `powerline/listers/vim.py:45-47` (inside `tablister`).
+///
+/// Computes the `priority_multiplier` per py:46 as
+/// `1 + 0.001 * abs(tabpage.number - cur_tabnr)`, then mutates the
+/// supplied dict and returns it (Python returns the mutated dict so
+/// the comprehension at py:49-57 can chain it).
+///
+/// Python captures `cur_tabnr` from the outer scope; the Rust port
+/// takes both numbers as explicit args.
+pub fn add_multiplier(
+    tabpage_number: i64,
+    cur_tabnr: i64,
+    dct: &mut Map<String, Value>,
+) -> &mut Map<String, Value> {
+    // py:45  def add_multiplier(tabpage, dct):
+    // py:46  dct['priority_multiplier'] = 1 + (0.001 * abs(tabpage.number - cur_tabnr))
+    let mult = 1.0 + 0.001 * (tabpage_number - cur_tabnr).abs() as f64;
+    dct.insert(
+        "priority_multiplier".to_string(),
+        serde_json::Number::from_f64(mult)
+            .map(Value::Number)
+            .unwrap_or(Value::Null),
+    );
+    // py:47  return dct
+    dct
+}
+
 /// Test-driveable variant of `tablister` — drives the prefix-and-
 /// multiplier logic against a caller-supplied tabpage list.
 pub fn tablister_for(
@@ -368,5 +396,34 @@ mod tests {
         let buffers = vec![cur.clone()];
         let result = bufferlister_for(&seg, &buffers, Some(&cur), false);
         assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn add_multiplier_sets_priority_multiplier_from_distance() {
+        // py:46  1 + 0.001 * abs(tabnr - cur)
+        let mut dct = Map::new();
+        let returned = add_multiplier(5, 3, &mut dct);
+        // |5 - 3| * 0.001 = 0.002 → 1.002
+        let v = returned.get("priority_multiplier").unwrap();
+        assert!((v.as_f64().unwrap() - 1.002).abs() < 1e-9);
+    }
+
+    #[test]
+    fn add_multiplier_returns_one_when_distance_is_zero() {
+        let mut dct = Map::new();
+        add_multiplier(7, 7, &mut dct);
+        assert_eq!(
+            dct.get("priority_multiplier").unwrap().as_f64().unwrap(),
+            1.0
+        );
+    }
+
+    #[test]
+    fn add_multiplier_handles_negative_distance_via_abs() {
+        let mut dct = Map::new();
+        add_multiplier(1, 10, &mut dct);
+        // |1 - 10| = 9, so 1 + 0.009 = 1.009
+        let v = dct.get("priority_multiplier").unwrap().as_f64().unwrap();
+        assert!((v - 1.009).abs() < 1e-9);
     }
 }

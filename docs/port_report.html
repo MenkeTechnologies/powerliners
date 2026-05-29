@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">588</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3368</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">57.2%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">590</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3372</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">57.4%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -295,8 +295,8 @@ columns:
   <!-- SYM py_file=powerline/lint/markedjson/resolver.py rs_file=src/ported/lint/markedjson/resolver.rs rs_exists=True py_fn_total=6 ported_count=5 missing_count=1 rs_extra_count=22 coverage=0.8333 -->
   <!-- END-GROUP py_file=powerline/lint/markedjson/resolver.py -->
   <!-- BEGIN-GROUP py_file=powerline/listers/vim.py -->
-  <tr class="partial"><td><code>listers/vim.py</code></td><td>✔ <code>listers/vim.rs</code></td><td>6</td><td><code>tabpage_updated_segment_info</code>, <code>tablister</code>, <code>buffer_updated_segment_info</code>, <code>bufferlister</code></td><td><code>add_multiplier</code>, <code>add_multiplier</code></td><td><code>tablister_for</code>, <code>bufferlister_for</code>, <code>tab</code>, <code>buf</code>, <code>tablister_returns_empty_without_vim</code>, <code>tablister_for_marks_current_with_tab_prefix</code>, <code>tablister_for_priority_multiplier_grows_with_distance</code>, <code>bufferlister_for_filters_unlisted_unless_show_or_current</code>, <code>bufferlister_for_prefix_includes_mod_when_buffer_modified</code>, <code>bufferlister_for_current_always_shown_even_if_unlisted</code></td><td class="coverage">67%</td></tr>
-  <!-- SYM py_file=powerline/listers/vim.py rs_file=src/ported/listers/vim.rs rs_exists=True py_fn_total=6 ported_count=4 missing_count=2 rs_extra_count=10 coverage=0.6667 -->
+  <tr class="full"><td><code>listers/vim.py</code></td><td>✔ <code>listers/vim.rs</code></td><td>6</td><td><code>tabpage_updated_segment_info</code>, <code>tablister</code>, <code>add_multiplier</code>, <code>buffer_updated_segment_info</code>, <code>bufferlister</code>, <code>add_multiplier</code></td><td>—</td><td><code>tablister_for</code>, <code>bufferlister_for</code>, <code>tab</code>, <code>buf</code>, <code>tablister_returns_empty_without_vim</code>, <code>tablister_for_marks_current_with_tab_prefix</code>, <code>tablister_for_priority_multiplier_grows_with_distance</code>, <code>bufferlister_for_filters_unlisted_unless_show_or_current</code>, <code>bufferlister_for_prefix_includes_mod_when_buffer_modified</code>, <code>bufferlister_for_current_always_shown_even_if_unlisted</code>, <code>add_multiplier_sets_priority_multiplier_from_distance</code>, <code>add_multiplier_returns_one_when_distance_is_zero</code>, <code>add_multiplier_handles_negative_distance_via_abs</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/listers/vim.py rs_file=src/ported/listers/vim.rs rs_exists=True py_fn_total=6 ported_count=6 missing_count=0 rs_extra_count=13 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/listers/vim.py -->
   <!-- BEGIN-GROUP py_file=powerline/renderers/ipython/pre_5.py -->
   <tr class="partial"><td><code>renderers/ipython/pre_5.py</code></td><td>✔ <code>renderers/ipython/pre_5.rs</code></td><td>6</td><td><code>render</code>, <code>do_render</code>, <code>render_above_lines</code>, <code>render</code>, <code>shutdown</code></td><td><code>__init__</code></td><td><code>default</code>, <code>new</code>, <code>default</code>, <code>new</code>, <code>default</code>, <code>new</code>, <code>default</code>, <code>new</code>, <code>ipython_pre50_renderer_constructs</code>, <code>do_render_injects_client_id_ipython</code>, <code>do_render_preserves_existing_segment_info_keys</code>, <code>do_render_overwrites_pre_existing_client_id</code>, <code>ipython_prompt_renderer_wraps_base</code>, <code>ipython_non_prompt_renderer_wraps_base</code>, <code>renderer_proxy_has_two_inner_renderers</code>, <code>renderer_proxy_render_dispatches_on_is_prompt</code>, <code>renderer_proxy_render_above_lines_returns_vec</code>, <code>renderer_proxy_shutdown_is_callable</code></td><td class="coverage">83%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3368,
-    "ported_fns": 588,
-    "coverage": 0.5719844357976653
+    "rs_fns_in_ported": 3372,
+    "ported_fns": 590,
+    "coverage": 0.5739299610894941
   },
   "rows": [
     {
@@ -3383,13 +3383,12 @@ columns:
       "ported_fns": [
         "tabpage_updated_segment_info",
         "tablister",
-        "buffer_updated_segment_info",
-        "bufferlister"
-      ],
-      "missing_fns": [
         "add_multiplier",
+        "buffer_updated_segment_info",
+        "bufferlister",
         "add_multiplier"
       ],
+      "missing_fns": [],
       "rs_extra_fns": [
         "tablister_for",
         "bufferlister_for",
@@ -3400,9 +3399,12 @@ columns:
         "tablister_for_priority_multiplier_grows_with_distance",
         "bufferlister_for_filters_unlisted_unless_show_or_current",
         "bufferlister_for_prefix_includes_mod_when_buffer_modified",
-        "bufferlister_for_current_always_shown_even_if_unlisted"
+        "bufferlister_for_current_always_shown_even_if_unlisted",
+        "add_multiplier_sets_priority_multiplier_from_distance",
+        "add_multiplier_returns_one_when_distance_is_zero",
+        "add_multiplier_handles_negative_distance_via_abs"
       ],
-      "coverage": 0.6666666666666666
+      "coverage": 1.0
     },
     {
       "py_file": "powerline/renderers/ipython/pre_5.py",
