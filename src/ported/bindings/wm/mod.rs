@@ -183,6 +183,22 @@ pub fn wm_threads() -> &'static HashMap<&'static str, &'static str> {
     })
 }
 
+/// Port of `I3Thread.run()` from
+/// `powerline/bindings/wm/__init__.py:38-39`.
+///
+/// Python: `self.__conn.main()` — runs the i3ipc event loop on
+/// the inner connection. Rust port takes the i3 connection
+/// handle (modelled as caller-supplied closure since i3ipc
+/// isn't reachable) and dispatches the event-loop run.
+pub fn run<F>(conn_main: F)
+where
+    F: FnOnce(),
+{
+    // py:38  def run(self):
+    // py:39  self.__conn.main()
+    conn_main()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

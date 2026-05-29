@@ -105,8 +105,8 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">862</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3576</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">863</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3577</div><div class="l">rust fns total</div></div>
   <div class="stat-card"><div class="n">83.9%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
@@ -347,8 +347,8 @@ columns:
   <!-- SYM py_file=powerline/shell.py rs_file=src/ported/shell.rs rs_exists=True py_fn_total=6 ported_count=6 missing_count=0 rs_extra_count=16 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/shell.py -->
   <!-- BEGIN-GROUP py_file=powerline/bindings/wm/__init__.py -->
-  <tr class="partial"><td><code>bindings/wm/__init__.py</code></td><td>✔ <code>bindings/wm/mod.rs</code></td><td>5</td><td><code>i3_subscribe</code>, <code>get_i3_connection</code>, <code>get_connected_xrandr_outputs</code></td><td><code>__init__</code>, <code>run</code></td><td><code>XRANDR_OUTPUT_RE</code>, <code>wm_threads</code>, <code>default_update_interval_matches_upstream</code>, <code>xrandr_regex_matches_standard_line</code>, <code>xrandr_regex_handles_non_primary</code>, <code>get_connected_xrandr_outputs_returns_empty_when_xrandr_unavailable</code>, <code>wm_threads_registers_awesome</code></td><td class="coverage">60%</td></tr>
-  <!-- SYM py_file=powerline/bindings/wm/__init__.py rs_file=src/ported/bindings/wm/mod.rs rs_exists=True py_fn_total=5 ported_count=3 missing_count=2 rs_extra_count=7 coverage=0.6000 -->
+  <tr class="partial"><td><code>bindings/wm/__init__.py</code></td><td>✔ <code>bindings/wm/mod.rs</code></td><td>5</td><td><code>i3_subscribe</code>, <code>run</code>, <code>get_i3_connection</code>, <code>get_connected_xrandr_outputs</code></td><td><code>__init__</code></td><td><code>XRANDR_OUTPUT_RE</code>, <code>wm_threads</code>, <code>default_update_interval_matches_upstream</code>, <code>xrandr_regex_matches_standard_line</code>, <code>xrandr_regex_handles_non_primary</code>, <code>get_connected_xrandr_outputs_returns_empty_when_xrandr_unavailable</code>, <code>wm_threads_registers_awesome</code></td><td class="coverage">80%</td></tr>
+  <!-- SYM py_file=powerline/bindings/wm/__init__.py rs_file=src/ported/bindings/wm/mod.rs rs_exists=True py_fn_total=5 ported_count=4 missing_count=1 rs_extra_count=7 coverage=0.8000 -->
   <!-- END-GROUP py_file=powerline/bindings/wm/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/commands/config.py -->
   <tr class="partial"><td><code>commands/config.py</code></td><td>✔ <code>commands/config.rs</code></td><td>5</td><td><code>parse_args</code>, <code>get_argparser</code></td><td><code>__init__</code>, <code>__call__</code>, <code>__str__</code></td><td><code>name</code>, <code>binding_function_name</code>, <code>call</code>, <code>fmt</code>, <code>TMUX_ACTIONS</code>, <code>SHELL_ACTIONS</code>, <code>tmux_action_from_name</code>, <code>shell_action_from_name</code>, <code>new</code>, <code>str_function_names_match_upstream</code>, <code>str_function_display_round_trips_via_name</code>, <code>tmux_actions_has_three_entries</code>, <code>shell_actions_has_two_entries</code>, <code>tmux_action_lookup_unknown_returns_none</code>, <code>get_argparser_description_matches_upstream</code>, <code>get_argparser_includes_subcommand_handles</code>, <code>shell_action_lookup_command_and_uses</code>, <code>str_function_binding_names_match_python_module_attrs</code>, <code>str_function_call_returns_binding_function_name</code>, <code>config_arg_parser_parse_args_requires_function</code>, <code>config_arg_parser_parse_args_returns_function_when_set</code>, <code>config_arg_parser_round_trips_underlying_argparser</code></td><td class="coverage">40%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 126,
-    "rs_fns_in_ported": 3576,
-    "ported_fns": 862,
-    "coverage": 0.8385214007782101
+    "rs_fns_in_ported": 3577,
+    "ported_fns": 863,
+    "coverage": 0.8394941634241245
   },
   "rows": [
     {
@@ -4403,12 +4403,12 @@ columns:
       "py_fn_total": 5,
       "ported_fns": [
         "i3_subscribe",
+        "run",
         "get_i3_connection",
         "get_connected_xrandr_outputs"
       ],
       "missing_fns": [
-        "__init__",
-        "run"
+        "__init__"
       ],
       "rs_extra_fns": [
         "XRANDR_OUTPUT_RE",
@@ -4419,7 +4419,7 @@ columns:
         "get_connected_xrandr_outputs_returns_empty_when_xrandr_unavailable",
         "wm_threads_registers_awesome"
       ],
-      "coverage": 0.6
+      "coverage": 0.8
     },
     {
       "py_file": "powerline/commands/config.py",
