@@ -28,7 +28,8 @@
 // from powerline.commands.main import finish_args                                            // py:19
 
 use crate::ported::bindings::tmux::TmuxVersionInfo;
-use crate::ported::config::TMUX_CONFIG_DIRECTORY;
+use crate::ported::config::{POWERLINE_ROOT, TMUX_CONFIG_DIRECTORY};
+use crate::ported::lib::shell::which;
 use regex::Regex;
 use std::path::PathBuf;
 use std::sync::OnceLock;
@@ -204,6 +205,116 @@ pub fn get_tmux_configs(version: &TmuxVersionInfo) -> Vec<(PathBuf, i64)> {
     out
 }
 
+/// Port of `EmptyArgs` class from
+/// `powerline/bindings/config.py:89-96`.
+///
+/// Python's `EmptyArgs` is a stand-in for the `argparse.Namespace`
+/// passed to `init_tmux_environment` when invoked outside of a CLI
+/// context. Sets only `ext`, `side`, and `config_path`; every other
+/// attribute access via `__getattr__` returns `None`.
+///
+/// Rust port encodes `ext` as `Vec<String>` (Python sets `[ext]` at
+/// py:91), `side` as `String`, and `config_path` as `Option<String>`.
+/// The `__getattr__` returns-None behavior is not surfaced because
+/// Rust callers use explicit field access — any missing attribute
+/// would be a compile error rather than a silent None.
+#[derive(Debug, Clone)]
+pub struct EmptyArgs {
+    /// py:91  self.ext = [ext]
+    pub ext: Vec<String>,
+    /// py:92  self.side = 'left'
+    pub side: String,
+    /// py:93  self.config_path = None
+    pub config_path: Option<String>,
+}
+
+impl EmptyArgs {
+    /// Port of `EmptyArgs.__init__()` at py:90-93.
+    ///
+    /// Note Python's signature takes `(self, ext, config_path)` and
+    /// stores `config_path` as **None** at py:93 regardless of the
+    /// argument value — this is upstream behavior, not a bug. The
+    /// argument is captured here so callers exercising the binding
+    /// path can pass it through, but it lands in
+    /// `EmptyArgs::config_path` as `None` to match Python.
+    pub fn new(ext: &str, _config_path: Option<&str>) -> Self {
+        // py:91  self.ext = [ext]
+        // py:92  self.side = 'left'
+        // py:93  self.config_path = None
+        EmptyArgs {
+            ext: vec![ext.to_string()],
+            side: "left".to_string(),
+            config_path: None,
+        }
+    }
+}
+
+/// Port of module-level `TMUX_VAR_RE` regex from
+/// `powerline/bindings/config.py:179`.
+///
+/// Python:
+/// ```python
+/// TMUX_VAR_RE = re.compile(r'\$(_POWERLINE_\w+)')
+/// ```
+#[allow(non_snake_case)]
+pub fn TMUX_VAR_RE() -> &'static Regex {
+    static R: OnceLock<Regex> = OnceLock::new();
+    R.get_or_init(|| Regex::new(r"\$(_POWERLINE_\w+)").unwrap())
+}
+
+/// Port of `check_command()` from
+/// `powerline/bindings/config.py:231-233`.
+///
+/// Returns `Some(cmd)` if `which(cmd)` succeeds; `None` otherwise.
+/// Python returns the string itself when found (py:233) and falls
+/// through to an implicit `None` when missing.
+pub fn check_command(cmd: &str) -> Option<String> {
+    // py:232  if which(cmd):
+    if which(cmd).is_some() {
+        // py:233  return cmd
+        Some(cmd.to_string())
+    } else {
+        None
+    }
+}
+
+/// Port of `deduce_command()` from
+/// `powerline/bindings/config.py:236-261`.
+///
+/// Tries a chain of candidates and returns the first one that resolves
+/// via `which()`. Mirrors Python's chained `... or check_command(...)`
+/// fallback at py:252-261.
+pub fn deduce_command() -> Option<String> {
+    // py:254  check_command('powerline')
+    if let Some(c) = check_command("powerline") {
+        return Some(c);
+    }
+    // py:255  os.path.join(POWERLINE_ROOT, 'scripts', 'powerline')
+    let p = POWERLINE_ROOT().join("scripts").join("powerline");
+    if let Some(c) = check_command(&p.to_string_lossy()) {
+        return Some(c);
+    }
+    // py:256-257  if which('sh') and which('sed') and which('socat')
+    if which("sh").is_some() && which("sed").is_some() && which("socat").is_some() {
+        let p = POWERLINE_ROOT().join("client").join("powerline.sh");
+        if let Some(c) = check_command(&p.to_string_lossy()) {
+            return Some(c);
+        }
+    }
+    // py:258  os.path.join(POWERLINE_ROOT, 'client', 'powerline.py')
+    let p = POWERLINE_ROOT().join("client").join("powerline.py");
+    if let Some(c) = check_command(&p.to_string_lossy()) {
+        return Some(c);
+    }
+    // py:259  check_command('powerline-render')
+    if let Some(c) = check_command("powerline-render") {
+        return Some(c);
+    }
+    // py:260  os.path.join(POWERLINE_ROOT, 'scripts', 'powerline-render')
+    let p = POWERLINE_ROOT().join("scripts").join("powerline-render");
+    check_command(&p.to_string_lossy())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -261,5 +372,69 @@ mod tests {
         assert_eq!(ConfigMatcher::Exact.priority(), 3);
         assert_eq!(ConfigMatcher::Plus.priority(), 2);
         assert_eq!(ConfigMatcher::Minus.priority(), 1);
+    }
+
+    #[test]
+    fn empty_args_init_stores_ext_as_single_element_list() {
+        // py:91  self.ext = [ext]
+        let a = EmptyArgs::new("tmux", None);
+        assert_eq!(a.ext, vec!["tmux".to_string()]);
+    }
+
+    #[test]
+    fn empty_args_init_defaults_side_to_left() {
+        // py:92  self.side = 'left'
+        let a = EmptyArgs::new("tmux", None);
+        assert_eq!(a.side, "left");
+    }
+
+    #[test]
+    fn empty_args_init_pins_config_path_to_none() {
+        // py:93  self.config_path = None — even though Python
+        // accepts config_path as an argument, the body discards
+        // it. Mirror that behavior.
+        let a = EmptyArgs::new("tmux", Some("/etc/powerline"));
+        assert!(a.config_path.is_none());
+    }
+
+    #[test]
+    fn tmux_var_re_matches_dollar_powerline_var() {
+        // py:179  re.compile(r'\$(_POWERLINE_\w+)')
+        let re = TMUX_VAR_RE();
+        assert!(re.is_match("$_POWERLINE_FOO"));
+        assert!(re.is_match("foo $_POWERLINE_BAR_X bar"));
+        assert!(!re.is_match("_POWERLINE_NOPE"));
+        assert!(!re.is_match("$POWERLINE_NO_UNDER"));
+    }
+
+    #[test]
+    fn tmux_var_re_captures_group_after_dollar() {
+        let re = TMUX_VAR_RE();
+        let cap = re.captures("$_POWERLINE_FG").unwrap();
+        assert_eq!(cap.get(1).unwrap().as_str(), "_POWERLINE_FG");
+    }
+
+    #[test]
+    fn check_command_returns_some_for_real_binary() {
+        // sh exists on every Unix; mirrors py:232-233
+        let r = check_command("sh");
+        assert_eq!(r, Some("sh".to_string()));
+    }
+
+    #[test]
+    fn check_command_returns_none_for_missing_binary() {
+        let r = check_command("definitely-not-on-this-system-xyz-abc");
+        assert!(r.is_none());
+    }
+
+    #[test]
+    fn deduce_command_returns_some_or_none() {
+        // Deterministic without mocking which(): we can't pin a
+        // specific candidate, but py:252-261 always returns either a
+        // string or None — assert the return shape, not the value.
+        let r = deduce_command();
+        if let Some(s) = r {
+            assert!(!s.is_empty());
+        }
     }
 }

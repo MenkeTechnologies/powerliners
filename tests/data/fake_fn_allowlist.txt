@@ -1150,3 +1150,11 @@ as_str
 # inheritance at py:150; Rust requires explicit unwrap to extract
 # the inner String, named into_string to mirror std conventions.
 into_string
+
+# bindings/config.rs::TMUX_VAR_RE mirrors the Python module-level
+# regex constant at powerline/bindings/config.py:179. Python exposes
+# the compiled re object as the module-attribute TMUX_VAR_RE; Rust
+# exposes it as a fn returning &'static Regex (OnceLock-backed) so
+# the same name is used at call sites. Same pattern already approved
+# for CONFIG_FILE_NAME above.
+TMUX_VAR_RE
