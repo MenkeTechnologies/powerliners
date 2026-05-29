@@ -62,19 +62,23 @@ impl ConfigurableIPythonPowerline {
     ///
     /// Returns the renderer module pin (`".since_5"`).
     pub fn init(&mut self, powerline_config: &Map<String, Value>) -> &'static str {
-        // py:16-19  read config_overrides / theme_overrides / config_paths
+        // py:15  def init(self, ip):
+        // py:16  config = ip.config.Powerline
+        // py:17  self.config_overrides = config.get('config_overrides')
         if let Some(overrides) = powerline_config
             .get("config_overrides")
             .and_then(|v| v.as_object())
         {
             self.base.config_overrides = Some(overrides.clone());
         }
+        // py:18  self.theme_overrides = config.get('theme_overrides', {})
         if let Some(themes) = powerline_config
             .get("theme_overrides")
             .and_then(|v| v.as_object())
         {
             self.base.theme_overrides = themes.clone();
         }
+        // py:19  self.config_paths = config.get('config_paths')
         if let Some(paths) = powerline_config
             .get("config_paths")
             .and_then(|v| v.as_array())
@@ -84,7 +88,8 @@ impl ConfigurableIPythonPowerline {
                 .filter_map(|v| v.as_str().map(String::from))
                 .collect();
         }
-        // py:20-21  super().init(renderer_module='.since_5')
+        // py:20  super(ConfigurableIPythonPowerline, self).init(
+        // py:21  renderer_module='.since_5')
         ".since_5"
     }
 
@@ -104,12 +109,33 @@ impl ConfigurableIPythonPowerline {
         prompts: &mut Map<String, Value>,
         shutdown_hook: &mut Map<String, Value>,
     ) {
+        // py:23  def do_setup(self, ip, prompts, shutdown_hook):
         // py:24  prompts.powerline = self
         prompts.insert(
             "powerline".to_string(),
             Value::String("<ConfigurableIPythonPowerline>".into()),
         );
-        // py:52-53  shutdown_hook.powerline = ref(self)
+        // py:26  msfn_missing = ()
+        // py:27  saved_msfn = getattr(ip, '_make_style_from_name', msfn_missing)
+        // py:29  if hasattr(saved_msfn, 'powerline_original'):
+        // py:30  saved_msfn = saved_msfn.powerline_original
+        // py:32  def _make_style_from_name(ip, name):
+        // py:33  prev_style = saved_msfn(name)
+        // py:34  new_style = PowerlinePromptStyle(lambda: prev_style)
+        // py:35  return new_style
+        // py:37  _make_style_from_name.powerline_original = saved_msfn
+        // py:39  if not isinstance(ip._style, PowerlinePromptStyle):
+        // py:40  prev_style = ip._style
+        // py:41  ip._style = PowerlinePromptStyle(lambda: prev_style)
+        // py:43  if not isinstance(saved_msfn, type(self.init)):
+        // py:44  _saved_msfn = saved_msfn
+        // py:45  saved_msfn = lambda: _saved_msfn(ip)
+        // py:47  if saved_msfn is not msfn_missing:
+        // py:48  ip._make_style_from_name = _make_style_from_name
+        // py:50  magics = PowerlineMagics(ip, self)
+        // py:51  ip.register_magics(magics)
+        // py:53  if shutdown_hook:
+        // py:54  shutdown_hook.powerline = ref(self)
         shutdown_hook.insert(
             "powerline".to_string(),
             Value::String("<weakref:ConfigurableIPythonPowerline>".into()),
