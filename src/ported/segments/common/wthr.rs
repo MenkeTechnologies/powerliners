@@ -167,6 +167,21 @@ pub const WEATHER_INTERVAL: u32 = 600;
 /// Port of `WeatherSegment.key()` (staticmethod) from
 /// `powerline/segments/common/wthr.py:113`.
 ///
+/// Bare-name alias for [`weather_key`] preserving the upstream
+/// Python `key` identifier byte-for-byte. The `weather_` prefix
+/// on the primary fn exists to disambiguate from other `key` fns
+/// across the codebase.
+pub fn key(
+    location_query: Option<String>,
+    weather_api_key: Option<String>,
+) -> _WeatherKey {
+    // py:115  def key(location_query=None, **kwargs):
+    weather_key(location_query, weather_api_key)
+}
+
+/// Port of `WeatherSegment.key()` (staticmethod) from
+/// `powerline/segments/common/wthr.py:113`.
+///
 /// Returns the `_WeatherKey` for the given args, defaulting the
 /// `weather_api_key` to the upstream `WEATHER_API_KEY` constant.
 pub fn weather_key(location_query: Option<String>, weather_api_key: Option<String>) -> _WeatherKey {
