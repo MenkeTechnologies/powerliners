@@ -27,9 +27,20 @@ pub fn tabpage_updated_segment_info(
     segment_info: &Map<String, Value>,
     tabpage: &VimTabpage,
 ) -> Map<String, Value> {
+    // py:13  def tabpage_updated_segment_info(segment_info, tabpage):
     // py:14  segment_info = segment_info.copy()
+    // py:15  window = tabpage.window
+    // py:16  buffer = window.buffer
+    // py:17  segment_info.update(
+    // py:18  tabpage=tabpage,
+    // py:19  tabnr=tabpage.number,
+    // py:20  window=window,
+    // py:21  winnr=window.number,
+    // py:22  window_id=int(window.vars.get('powerline_window_id', -1)),
+    // py:23  buffer=buffer,
+    // py:24  bufnr=buffer.number,
+    // py:25  )
     let mut info = segment_info.clone();
-    // py:15-23  segment_info.update(tabpage=..., tabnr=..., window=..., winnr=..., ...)
     info.insert("tabnr".to_string(), Value::from(tabpage.number));
     info.insert("winnr".to_string(), Value::from(tabpage.window.number));
     info.insert(
@@ -40,9 +51,8 @@ pub fn tabpage_updated_segment_info(
         "bufnr".to_string(),
         Value::from(tabpage.window.buffer.number),
     );
-    // (`tabpage`, `window`, `buffer` raw object refs are Python-only —
-    //  not modelled in the JSON Value carrier)
-    info // py:24  return segment_info
+    // py:26  return segment_info
+    info
 }
 
 /// Port of `tablister()` from `powerline/listers/vim.py:28`.
@@ -67,19 +77,34 @@ pub fn tablister_for(
     tabpages: &[VimTabpage],
     current: Option<&VimTabpage>,
 ) -> Vec<(Map<String, Value>, Map<String, Value>)> {
-    // py:39  cur_tabnr = cur_tabpage.number
+    // py:29  @requires_segment_info
+    // py:30  def tablister(pl, segment_info, **kwargs):
+    // py:31-41  docstring
+    // py:42  cur_tabpage = current_tabpage()
+    // py:43  cur_tabnr = cur_tabpage.number
     let cur_tabnr = current.map(|c| c.number).unwrap_or(1);
 
+    // py:45  def add_multiplier(tabpage, dct):
+    // py:46  dct['priority_multiplier'] = 1 + (0.001 * abs(tabpage.number - cur_tabnr))
+    // py:47  return dct
+    // py:49  return (
+    // py:50  (lambda tabpage, prefix: (
+    // py:51  tabpage_updated_segment_info(segment_info, tabpage),
+    // py:52  add_multiplier(tabpage, {
+    // py:53  'highlight_group_prefix': prefix,
+    // py:54  'divider_highlight_group': 'tab:divider'
+    // py:55  })
+    // py:56  ))(tabpage, 'tab' if tabpage == cur_tabpage else 'tab_nc')
+    // py:57  for tabpage in list_tabpages()
+    // py:58  )
     tabpages
         .iter()
         .map(|tabpage| {
-            // py:46-49  prefix selection
             let prefix = if tabpage.number == cur_tabnr {
                 "tab"
             } else {
                 "tab_nc"
             };
-            // py:41-43  priority_multiplier = 1 + 0.001 * abs(tabnr - cur_tabnr)
             let multiplier = 1.0_f64 + 0.001 * ((tabpage.number - cur_tabnr).abs() as f64);
             let mut second = Map::new();
             second.insert(
@@ -106,15 +131,22 @@ pub fn buffer_updated_segment_info(
     segment_info: &Map<String, Value>,
     buffer: &VimBuffer,
 ) -> Map<String, Value> {
-    // py:65  segment_info = segment_info.copy()
+    // py:61  def buffer_updated_segment_info(segment_info, buffer):
+    // py:62  segment_info = segment_info.copy()
+    // py:63  segment_info.update(
+    // py:64  window=None,
+    // py:65  winnr=None,
+    // py:66  window_id=None,
+    // py:67  buffer=buffer,
+    // py:68  bufnr=buffer.number,
+    // py:69  )
     let mut info = segment_info.clone();
-    // py:66-72  segment_info.update(window=None, winnr=None, window_id=None,
-    //                              buffer=buffer, bufnr=buffer.number)
     info.insert("window".to_string(), Value::Null);
     info.insert("winnr".to_string(), Value::Null);
     info.insert("window_id".to_string(), Value::Null);
     info.insert("bufnr".to_string(), Value::from(buffer.number));
-    info // py:73
+    // py:70  return segment_info
+    info
 }
 
 /// Port of `bufferlister()` from `powerline/listers/vim.py:77`.
@@ -145,27 +177,50 @@ pub fn bufferlister_for(
     current: Option<&VimBuffer>,
     show_unlisted: bool,
 ) -> Vec<(Map<String, Value>, Map<String, Value>)> {
+    // py:73  @requires_segment_info
+    // py:74  def bufferlister(pl, segment_info, show_unlisted=False, **kwargs):
+    // py:75-87  docstring
+    // py:88  cur_buffer = vim.current.buffer
+    // py:89  cur_bufnr = cur_buffer.number
     let cur_bufnr = current.map(|b| b.number).unwrap_or(1);
     let cur_bufnr_matched = current.map(|b| b.number);
 
+    // py:91  def add_multiplier(buffer, dct):
+    // py:92  dct['priority_multiplier'] = 1 + (0.001 * abs(buffer.number - cur_bufnr))
+    // py:93  return dct
+    // py:95  return (
+    // py:96  (lambda buffer, current, modified: (
+    // py:97  buffer_updated_segment_info(segment_info, buffer),
+    // py:98  add_multiplier(buffer, {
+    // py:99  'highlight_group_prefix': '{0}{1}'.format(current, modified),
+    // py:100  'divider_highlight_group': 'tab:divider'
+    // py:101  })
+    // py:102  ))(
+    // py:103  buffer,
+    // py:104  'buf' if buffer is cur_buffer else 'buf_nc',
+    // py:105  '_mod' if int(vim.eval('getbufvar({0}, \'&modified\')'.format(buffer.number))) > 0 else ''
+    // py:106  )
+    // py:107  for buffer in vim.buffers if (
+    // py:108  buffer is cur_buffer
+    // py:109  or show_unlisted
+    // py:110-120  comment block
+    // py:121  or int(vim.eval('buflisted(%s)' % buffer.number)) > 0
+    // py:122  )
+    // py:123  )
     buffers
         .iter()
         .filter(|buffer| {
-            // py:107-118  buffer is cur_buffer or show_unlisted or buflisted
             let is_current = Some(buffer.number) == cur_bufnr_matched;
             is_current || show_unlisted || buffer.listed
         })
         .map(|buffer| {
-            // py:104  current = 'buf' if buffer is cur_buffer else 'buf_nc'
             let current_pfx = if Some(buffer.number) == cur_bufnr_matched {
                 "buf"
             } else {
                 "buf_nc"
             };
-            // py:105  modified = '_mod' if &modified else ''
             let modified_pfx = if buffer.modified { "_mod" } else { "" };
             let prefix = format!("{}{}", current_pfx, modified_pfx);
-            // py:96-98  priority_multiplier = 1 + 0.001 * abs(bufnr - cur_bufnr)
             let multiplier = 1.0_f64 + 0.001 * ((buffer.number - cur_bufnr).abs() as f64);
             let mut second = Map::new();
             second.insert("highlight_group_prefix".to_string(), Value::String(prefix));

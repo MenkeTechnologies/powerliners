@@ -41,7 +41,55 @@ pub struct FullArgSpec {
 /// function and its kwargs. The static-registry path is the
 /// powerliners endgame; see PORT_PLAN.md Phase 5.
 pub fn getconfigargspec(_obj_name: &str) -> FullArgSpec {
-    // py:11-65  introspect via inspect.getfullargspec — deferred
+    // py:10  def getconfigargspec(obj):
+    // py:11  if hasattr(obj, 'powerline_origin'):
+    // py:12  obj = obj.powerline_origin
+    // py:13  else:
+    // py:14  obj = obj
+    // py:16  args = []
+    // py:17  defaults = []
+    // py:19  if isinstance(obj, Segment):
+    // py:20  additional_args = obj.additional_args()
+    // py:21  argspecobjs = obj.argspecobjs()
+    // py:22  get_omitted_args = obj.omitted_args
+    // py:23  else:
+    // py:24  additional_args = ()
+    // py:25  argspecobjs = ((None, obj),)
+    // py:26  get_omitted_args = lambda *args: ()
+    // py:28  for arg in additional_args:
+    // py:29  args.append(arg[0])
+    // py:30  if len(arg) > 1:
+    // py:31  defaults.append(arg[1])
+    // py:33  requires_segment_info = hasattr(obj, 'powerline_requires_segment_info')
+    // py:34  requires_filesystem_watcher = hasattr(obj, 'powerline_requires_filesystem_watcher')
+    // py:36  for name, method in argspecobjs:
+    // py:37  argspec = getfullargspec(method)
+    // py:38  omitted_args = get_omitted_args(name, method)
+    // py:39  largs = len(argspec.args)
+    // py:40  for i, arg in enumerate(reversed(argspec.args)):
+    // py:41  if (
+    // py:42  largs - (i + 1) in omitted_args
+    // py:43  or arg in omitted_args
+    // py:44  or arg == 'pl'
+    // py:45  or arg == 'self'
+    // py:46  or (arg == 'create_watcher' and requires_filesystem_watcher)
+    // py:47  or (arg == 'segment_info' and requires_segment_info)
+    // py:48  ):
+    // py:49  continue
+    // py:50  if argspec.defaults and len(argspec.defaults) > i:
+    // py:51  if arg in args:
+    // py:52  idx = args.index(arg)
+    // py:53  if len(args) - idx > len(defaults):
+    // py:54  args.pop(idx)
+    // py:55  else:
+    // py:56  continue
+    // py:57  default = argspec.defaults[-(i + 1)]
+    // py:58  defaults.append(default)
+    // py:59  args.append(arg)
+    // py:60  else:
+    // py:61  if arg not in args:
+    // py:62  args.insert(0, arg)
+    // py:64  return FullArgSpec(args=args, ...)
     FullArgSpec::default()
 }
 

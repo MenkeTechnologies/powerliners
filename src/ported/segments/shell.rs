@@ -32,13 +32,18 @@ pub struct ShellSegmentInfo {
 /// :param show_zero: If false (default) shows nothing if there are no
 ///     jobs. Otherwise shows zero for no jobs.
 pub fn jobnum(_pl: &(), segment_info: &ShellSegmentInfo, show_zero: bool) -> Option<String> {
+    // py:10  @requires_segment_info
+    // py:11  def jobnum(pl, segment_info, show_zero=False):
+    // py:12-17  docstring
     // py:18  jobnum = segment_info['args'].jobnum
     let jobnum = segment_info.jobnum?;
-    // py:19  if jobnum is None or (not show_zero and jobnum == 0): return None
+    // py:19  if jobnum is None or (not show_zero and jobnum == 0):
+    // py:20  return None
     if !show_zero && jobnum == 0 {
         return None;
     }
-    // py:22  else: return str(jobnum)
+    // py:21  else:
+    // py:22  return str(jobnum)
     Some(jobnum.to_string())
 }
 
@@ -86,12 +91,20 @@ pub fn last_status(
     segment_info: &ShellSegmentInfo,
     signal_names: bool,
 ) -> Option<Vec<Value>> {
-    // py:38-39  if not segment_info['args'].last_exit_code: return None
+    // py:31  @requires_segment_info
+    // py:32  def last_status(pl, segment_info, signal_names=True):
+    // py:33-39  docstring
+    // py:40  if not segment_info['args'].last_exit_code:
+    // py:41  return None
     let last_exit_code = segment_info.last_exit_code?;
     if last_exit_code == 0 {
         return None;
     }
-    // py:41-45  signal_names branch
+    // py:43  try:
+    // py:44  if signal_names and segment_info['args'].last_exit_code - 128 in exit_codes:
+    // py:45  return [{'contents': exit_codes[...], 'highlight_groups': ['exit_fail']}]
+    // py:46  except TypeError:
+    // py:47  pass
     if signal_names {
         if let Some(name) = exit_codes(last_exit_code - 128) {
             return Some(vec![json!({
@@ -100,7 +113,7 @@ pub fn last_status(
             })]);
         }
     }
-    // py:46  default: integer exit code
+    // py:48  return [{'contents': str(segment_info['args'].last_exit_code), 'highlight_groups': ['exit_fail']}]
     Some(vec![json!({
         "contents": last_exit_code.to_string(),
         "highlight_groups": ["exit_fail"],
@@ -120,7 +133,13 @@ pub fn last_pipe_status(
     segment_info: &ShellSegmentInfo,
     signal_names: bool,
 ) -> Option<Vec<Value>> {
-    // py:57-60  last_pipe_status = segment_info.last_pipe_status or (last_exit_code,)
+    // py:51  @requires_segment_info
+    // py:52  def last_pipe_status(pl, segment_info, signal_names=True):
+    // py:53-59  docstring
+    // py:60  last_pipe_status = (
+    // py:61  segment_info['args'].last_pipe_status
+    // py:62  or (segment_info['args'].last_exit_code,)
+    // py:63  )
     let statuses: Vec<i32> = if !segment_info.last_pipe_status.is_empty() {
         segment_info.last_pipe_status.clone()
     } else {
@@ -129,11 +148,24 @@ pub fn last_pipe_status(
             None => return None,
         }
     };
-    // py:61  if any(last_pipe_status):
+    // py:64  if any(last_pipe_status):
     if !statuses.iter().any(|&s| s != 0) {
-        return None; // py:78
+        // py:79  return None
+        return None;
     }
-    // py:63-72  build segment list
+    // py:65  try:
+    // py:66  return [{
+    // py:67  'contents': exit_codes[status - 128] if signal_names and \
+    // py:68  status - 128 in exit_codes else str(status),
+    // py:69  'highlight_groups': ['exit_fail' if status else 'exit_success'],
+    // py:70  'draw_inner_divider': True
+    // py:71  } for status in last_pipe_status]
+    // py:72  except TypeError:
+    // py:73  return [{
+    // py:74  'contents': str(status),
+    // py:75  'highlight_groups': ['exit_fail' if status else 'exit_success'],
+    // py:76  'draw_inner_divider': True
+    // py:77  } for status in last_pipe_status]
     let segments: Vec<Value> = statuses
         .iter()
         .map(|&status| {
@@ -174,24 +206,34 @@ pub fn mode(
     override_table: &Map<String, Value>,
     default: Option<&str>,
 ) -> Option<String> {
-    // py:91-94  mode = segment_info.get('mode'); if not mode: return None
+    // py:81  @requires_segment_info
+    // py:82  def mode(pl, segment_info, override={'vicmd': 'COMMND', 'viins': 'INSERT'}, default=None):
+    // py:83-92  docstring
+    // py:93  mode = segment_info.get('mode', None)
+    // py:94  if not mode:
+    // py:95  pl.debug('No mode specified')
+    // py:96  return None
     let mode = segment_info.mode.as_ref()?;
     if mode.is_empty() {
         return None;
     }
-    // py:95  default = default or segment_info.get('default_mode')
+    // py:97  default = default or segment_info.get('default_mode', None)
     let default = default
         .map(String::from)
         .or_else(|| segment_info.default_mode.clone());
-    // py:96-97  if mode == default: return None
+    // py:98  if mode == default:
+    // py:99  return None
     if Some(mode.clone()) == default {
         return None;
     }
-    // py:98-99  try: return override[mode]
+    // py:100  try:
+    // py:101  return override[mode]
     if let Some(override_val) = override_table.get(mode).and_then(|v| v.as_str()) {
         return Some(override_val.to_string());
     }
-    // py:100-107  except KeyError: return mode.upper()
+    // py:102  except KeyError:
+    // py:103-108  comment about zsh line editor / unknown modes
+    // py:109  return mode.upper()
     Some(mode.to_uppercase())
 }
 
@@ -211,7 +253,15 @@ pub fn continuation(
     right_align: bool,
     renames: &Map<String, Value>,
 ) -> Vec<Value> {
-    // py:125-129  if not segment_info.get('parser_state'): return placeholder
+    // py:112  @requires_segment_info
+    // py:113  def continuation(pl, segment_info, omit_cmdsubst=True, right_align=False, renames={}):
+    // py:114-125  docstring
+    // py:126  if not segment_info.get('parser_state'):
+    // py:127  return [{
+    // py:128  'contents': '',
+    // py:129  'width': 'auto',
+    // py:130  'highlight_groups': ['continuation:current', 'continuation'],
+    // py:131  }]
     let parser_state = match &segment_info.parser_state {
         Some(s) if !s.is_empty() => s,
         _ => {
@@ -222,10 +272,17 @@ pub fn continuation(
             })];
         }
     };
-
+    // py:132  ret = []
     let mut ret: Vec<Value> = Vec::new();
 
-    // py:131-136  for state in parser_state.split(): rename + append
+    // py:134  for state in segment_info['parser_state'].split():
+    // py:135  state = renames.get(state, state)
+    // py:136  if state:
+    // py:137  ret.append({
+    // py:138  'contents': state,
+    // py:139  'highlight_groups': ['continuation'],
+    // py:140  'draw_inner_divider': True,
+    // py:141  })
     for state in parser_state.split_whitespace() {
         let renamed = renames.get(state).and_then(|v| v.as_str()).unwrap_or(state);
         if renamed.is_empty() {
@@ -238,7 +295,8 @@ pub fn continuation(
         }));
     }
 
-    // py:138-139  if omit_cmdsubst and ret[-1]['contents'] == 'cmdsubst': ret.pop(-1)
+    // py:143  if omit_cmdsubst and ret[-1]['contents'] == 'cmdsubst':
+    // py:144  ret.pop(-1)
     if omit_cmdsubst {
         if let Some(last) = ret.last() {
             if last.get("contents").and_then(|v| v.as_str()) == Some("cmdsubst") {
@@ -247,12 +305,19 @@ pub fn continuation(
         }
     }
 
-    // py:141-142  if not ret: ret.append({'contents': ''})
+    // py:146  if not ret:
+    // py:147  ret.append({
+    // py:148  'contents': ''
+    // py:149  })
     if ret.is_empty() {
         ret.push(json!({"contents": ""}));
     }
 
-    // py:144-149  alignment + final highlight_groups override
+    // py:151  if right_align:
+    // py:152  ret[0].update(width='auto', align='r')
+    // py:153  ret[-1]['highlight_groups'] = ['continuation:current', 'continuation']
+    // py:154  else:
+    // py:155  ret[-1].update(width='auto', align='l', highlight_groups=['continuation:current', 'continuation'])
     if right_align {
         if let Some(Value::Object(map)) = ret.first_mut() {
             map.insert("width".into(), Value::String("auto".into()));
@@ -273,6 +338,7 @@ pub fn continuation(
         );
     }
 
+    // py:157  return ret
     ret
 }
 

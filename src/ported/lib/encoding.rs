@@ -32,10 +32,14 @@
 ///
 /// Get preferred file name encoding.
 pub fn get_preferred_file_name_encoding() -> &'static str {
-    // py:23-26  sys.getfilesystemencoding() or locale.getpreferredencoding() or 'utf-8'
-    // Rust filesystem APIs are byte-oriented (OsStr); UTF-8 is the
-    // canonical encoding on every modern Unix and on Windows ≥10
-    // (where filenames are UTF-16 but exposed as WTF-8 to Rust).
+    // py:20  def get_preferred_file_name_encoding():
+    // py:21  '''Get preferred file name encoding
+    // py:22  '''
+    // py:23  return (
+    // py:24  sys.getfilesystemencoding()
+    // py:25  or locale.getpreferredencoding()
+    // py:26  or 'utf-8'
+    // py:27  )
     "utf-8"
 }
 
@@ -44,7 +48,13 @@ pub fn get_preferred_file_name_encoding() -> &'static str {
 ///
 /// Get encoding preferred for file contents.
 pub fn get_preferred_file_contents_encoding() -> &'static str {
-    // py:33-35  locale.getpreferredencoding() or 'utf-8'
+    // py:30  def get_preferred_file_contents_encoding():
+    // py:31  '''Get encoding preferred for file contents
+    // py:32  '''
+    // py:33  return (
+    // py:34  locale.getpreferredencoding()
+    // py:35  or 'utf-8'
+    // py:36  )
     "utf-8"
 }
 
@@ -56,11 +66,23 @@ pub fn get_preferred_file_contents_encoding() -> &'static str {
 /// > Falls back to ASCII, so that output is most likely to be
 /// > displayed correctly.
 pub fn get_preferred_output_encoding() -> &'static str {
-    // py:46-56  locale.getlocale(LC_MESSAGES)[1] or locale.getlocale()[1] or 'ascii'
-    // On modern locales this returns the encoding portion of LANG
-    // (e.g. "UTF-8" from "en_US.UTF-8"). For Rust we return the
-    // upstream's lower-bound fallback — every printable string in
-    // powerliners is UTF-8 and stdout printing is straight byte write.
+    // py:39  def get_preferred_output_encoding():
+    // py:40  '''Get encoding that should be used for printing strings
+    // py:41
+    // py:42  .. warning::
+    // py:43  Falls back to ASCII, so that output is most likely to be displayed
+    // py:44  correctly.
+    // py:45  '''
+    // py:46  if hasattr(locale, 'LC_MESSAGES'):
+    // py:47  return (
+    // py:48  locale.getlocale(locale.LC_MESSAGES)[1]
+    // py:49  or locale.getlocale()[1]
+    // py:50  or 'ascii'
+    // py:51  )
+    // py:53  return (
+    // py:54  locale.getlocale()[1]
+    // py:55  or 'ascii'
+    // py:56  )
     "ascii"
 }
 
@@ -72,7 +94,23 @@ pub fn get_preferred_output_encoding() -> &'static str {
 /// > Falls back to latin1 so that function is less likely to throw as
 /// > decoded output is primary searched for ASCII values.
 pub fn get_preferred_input_encoding() -> &'static str {
-    // py:66-76  locale.getlocale(LC_MESSAGES)[1] or locale.getlocale()[1] or 'latin1'
+    // py:59  def get_preferred_input_encoding():
+    // py:60  '''Get encoding that should be used for reading shell command output
+    // py:61
+    // py:62  .. warning::
+    // py:63  Falls back to latin1 so that function is less likely to throw as decoded
+    // py:64  output is primary searched for ASCII values.
+    // py:65  '''
+    // py:66  if hasattr(locale, 'LC_MESSAGES'):
+    // py:67  return (
+    // py:68  locale.getlocale(locale.LC_MESSAGES)[1]
+    // py:69  or locale.getlocale()[1]
+    // py:70  or 'latin1'
+    // py:71  )
+    // py:73  return (
+    // py:74  locale.getlocale()[1]
+    // py:75  or 'latin1'
+    // py:76  )
     "latin1"
 }
 
@@ -81,7 +119,12 @@ pub fn get_preferred_input_encoding() -> &'static str {
 ///
 /// Get encoding that should be used for command-line arguments.
 pub fn get_preferred_arguments_encoding() -> &'static str {
-    // py:88-91  locale.getlocale()[1] or 'latin1'
+    // py:79  def get_preferred_arguments_encoding():
+    // py:80-87  docstring
+    // py:88  return (
+    // py:89  locale.getlocale()[1]
+    // py:90  or 'latin1'
+    // py:91  )
     "latin1"
 }
 
@@ -90,7 +133,13 @@ pub fn get_preferred_arguments_encoding() -> &'static str {
 ///
 /// Get encoding that should be used for decoding environment variables.
 pub fn get_preferred_environment_encoding() -> &'static str {
-    // py:97-100  locale.getpreferredencoding() or 'utf-8'
+    // py:94  def get_preferred_environment_encoding():
+    // py:95  '''Get encoding that should be used for decoding environment variables
+    // py:96  '''
+    // py:97  return (
+    // py:98  locale.getpreferredencoding()
+    // py:99  or 'utf-8'
+    // py:100  )
     "utf-8"
 }
 
@@ -115,7 +164,13 @@ pub fn get_unicode_writer<W: std::io::Write + 'static>(
     _encoding: Option<&str>,
     _errors: &str,
 ) -> Box<dyn FnMut(&str) -> std::io::Result<()>> {
-    // py:121-125  closure that writes bytes through the stream's buffer
+    // py:103  def get_unicode_writer(stream=sys.stdout, encoding=None, errors='replace'):
+    // py:104-120  docstring
+    // py:121  encoding = encoding or get_preferred_output_encoding()
+    // py:122  if sys.version_info < (3,) or not hasattr(stream, 'buffer'):
+    // py:123  return lambda s: stream.write(s.encode(encoding, errors))
+    // py:124  else:
+    // py:125  return lambda s: stream.buffer.write(s.encode(encoding, errors))
     Box::new(move |s: &str| stream.write_all(s.as_bytes()))
 }
 
