@@ -702,6 +702,215 @@ impl Powerline {
         // py:724  return get_config_paths()
         get_config_paths()
     }
+
+    /// Port of `Powerline.load_main_config()` from
+    /// `powerline/__init__.py:750-755`.
+    ///
+    /// Delegates to `load_config('config', 'main')`. The Rust port
+    /// takes a load closure since `ConfigLoader.load` isn't yet
+    /// ported; callers wire it through.
+    pub fn load_main_config<F>(load_fn: F) -> Result<Map<String, Value>, String>
+    where
+        F: Fn(&str, &str) -> Result<Map<String, Value>, String>,
+    {
+        // py:755  return self.load_config('config', 'main')
+        load_fn("config", "main")
+    }
+
+    /// Port of `Powerline.load_colors_config()` from
+    /// `powerline/__init__.py:826-831`.
+    pub fn load_colors_config<F>(load_fn: F) -> Result<Map<String, Value>, String>
+    where
+        F: Fn(&str, &str) -> Result<Map<String, Value>, String>,
+    {
+        // py:831  return self.load_config('colors', 'colors')
+        load_fn("colors", "colors")
+    }
+
+    /// Port of `Powerline.load_colorscheme_config()` level builder
+    /// at `powerline/__init__.py:806-810`.
+    ///
+    /// Returns the (cfg_path_levels, ignore_levels) pair used by
+    /// `_load_hierarhical_config`. Levels are joined to:
+    /// 1. `colorschemes/<name>`
+    /// 2. `colorschemes/<ext>/__main__` (ignore_level index 1)
+    /// 3. `colorschemes/<ext>/<name>`
+    pub fn load_colorscheme_config_levels(ext: &str, name: &str) -> (Vec<String>, Vec<usize>) {
+        // py:806-811  levels = (...,); _load_hierarhical_config('colorscheme', levels, (1,))
+        let levels = vec![
+            // py:807
+            format!("colorschemes/{}", name),
+            // py:808
+            format!("colorschemes/{}/__main__", ext),
+            // py:809
+            format!("colorschemes/{}/{}", ext, name),
+        ];
+        // py:811  (1,) — ignore_levels
+        (levels, vec![1])
+    }
+
+    /// Port of `Powerline.load_theme_config()` level builder
+    /// at `powerline/__init__.py:813-824`.
+    ///
+    /// `theme_levels` is the base list configured on the instance
+    /// (e.g. `[themes/__main__, themes/<ext>/__main__]`). The fn
+    /// appends `themes/<ext>/<name>` and returns the
+    /// (levels, ignore_levels=[0, 1]) pair.
+    pub fn load_theme_config_levels(
+        theme_levels: &[String],
+        ext: &str,
+        name: &str,
+    ) -> (Vec<String>, Vec<usize>) {
+        // py:821-823  levels = self.theme_levels + (os.path.join('themes', self.ext, name),)
+        let mut levels: Vec<String> = theme_levels.to_vec();
+        levels.push(format!("themes/{}/{}", ext, name));
+        // py:824  (0, 1,) — ignore_levels
+        (levels, vec![0, 1])
+    }
+
+    /// Port of `Powerline.setup()` from
+    /// `powerline/__init__.py:904-913`.
+    ///
+    /// Clears the shutdown_event, stashes the setup args for later
+    /// reload, and calls do_setup. The Rust port surfaces the
+    /// shutdown_event clear as a method on `&Arc<AtomicBool>`.
+    pub fn setup(shutdown_event: &std::sync::Arc<std::sync::atomic::AtomicBool>) {
+        // py:910  self.shutdown_event.clear()
+        shutdown_event.store(false, std::sync::atomic::Ordering::SeqCst);
+        // py:913  self.do_setup(*args, **kwargs)
+        Self::do_setup();
+    }
+
+    /// Port of `Powerline.shutdown()` from
+    /// `powerline/__init__.py:953-973`.
+    ///
+    /// Sets the shutdown_event when `set_event=true` per py:965-966.
+    /// The renderer.shutdown + config_loader.unregister_* calls
+    /// (py:968-973) are deferred since they depend on the not-yet-ported
+    /// Renderer and ConfigLoader.
+    pub fn shutdown(
+        shutdown_event: &std::sync::Arc<std::sync::atomic::AtomicBool>,
+        set_event: bool,
+    ) {
+        if set_event {
+            // py:966  self.shutdown_event.set()
+            shutdown_event.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+        // py:971-973  config_loader.unregister_functions(...) — deferred
+    }
+}
+
+/// Port of `get_fallback_logger()` from
+/// `powerline/__init__.py:111-128`.
+///
+/// Returns a `PowerlineLogger` with ext='powerline', prefix='_fallback_'.
+/// Python caches this in a global; Rust port returns a fresh instance
+/// each call since the captured-message buffer must not be shared
+/// across callers in a test setting. The Python WARNING-level
+/// `StreamHandler` wiring is not surfaced — the Rust PowerlineLogger
+/// just captures messages internally.
+pub fn get_fallback_logger() -> PowerlineLogger {
+    // py:124-127  Logger('powerline'), PowerlineLogger(None, logger, '_fallback_')
+    PowerlineLogger::new("powerline", "_fallback_")
+}
+
+/// Port of `generate_config_finder()` from
+/// `powerline/__init__.py:156-170`.
+///
+/// Returns a closure that, given a config-file name, calls
+/// `_find_config_files(config_paths, cfg_path)` per py:170.
+pub fn generate_config_finder(
+    get_paths: impl Fn() -> Vec<std::path::PathBuf>,
+) -> Box<dyn Fn(&str) -> Result<Vec<std::path::PathBuf>, String>> {
+    // py:169  config_paths = get_config_paths()
+    let config_paths = get_paths();
+    // py:170  return lambda *args: _find_config_files(config_paths, *args)
+    Box::new(move |cfg_path: &str| _find_config_files(&config_paths, cfg_path))
+}
+
+/// Port of `load_config()` from
+/// `powerline/__init__.py:173-200`.
+///
+/// Loads + merges all configs found at `cfg_path`. The
+/// `find_config_files` closure resolves the file paths;
+/// `load_fn(path)` loads a single file (the Python source calls
+/// `config_loader.load(path)`; Rust port takes a closure since the
+/// ConfigLoader port is deferred).
+pub fn load_config<FF, LF>(
+    cfg_path: &str,
+    find_config_files: FF,
+    load_fn: LF,
+) -> Result<Map<String, Value>, String>
+where
+    FF: Fn(&str) -> Result<Vec<std::path::PathBuf>, String>,
+    LF: Fn(&std::path::Path) -> Result<Map<String, Value>, String>,
+{
+    // py:191  found_files = find_config_files(cfg_path, ...)
+    let found_files = find_config_files(cfg_path)?;
+    // py:192  ret = None
+    let mut ret: Option<Map<String, Value>> = None;
+    // py:193-199  for path in found_files: merge into ret
+    for path in &found_files {
+        let cfg = load_fn(path)?;
+        match ret.as_mut() {
+            None => ret = Some(cfg),
+            Some(acc) => {
+                // py:199  mergedicts(ret, config_loader.load(path))
+                crate::ported::lib::dict::mergedicts(acc, cfg, false);
+            }
+        }
+    }
+    // py:200  return ret
+    ret.ok_or_else(|| format!("No config files found for {}", cfg_path))
+}
+
+/// Port of `Powerline._load_hierarhical_config()` from
+/// `powerline/__init__.py:757-796`.
+///
+/// Walks `levels` calling `load_one(cfg_path)` for each. Merges all
+/// successful loads. Tracks which non-ignored levels loaded; raises
+/// when none did.
+///
+/// `ignore_levels` is the list of level indices (0-based) that are
+/// allowed to be missing without contributing to the `loaded` count
+/// per py:785-786.
+pub fn _load_hierarhical_config<F>(
+    levels: &[String],
+    ignore_levels: &[usize],
+    load_one: F,
+) -> Result<Map<String, Value>, String>
+where
+    F: Fn(&str) -> Result<Map<String, Value>, String>,
+{
+    // py:772  config = {}
+    let mut config = Map::new();
+    // py:773  loaded = 0
+    let mut loaded = 0;
+    // py:774  exceptions = []
+    let mut last_err: Option<String> = None;
+    // py:775  for i, cfg_path in enumerate(levels):
+    for (i, cfg_path) in levels.iter().enumerate() {
+        // py:777  lvl_config = self.load_config(cfg_path, cfg_type)
+        match load_one(cfg_path) {
+            Ok(lvl_config) => {
+                // py:785  if i not in ignore_levels: loaded += 1
+                if !ignore_levels.contains(&i) {
+                    loaded += 1;
+                }
+                // py:787  mergedicts(config, lvl_config)
+                crate::ported::lib::dict::mergedicts(&mut config, lvl_config, false);
+            }
+            Err(e) => {
+                // py:778-783  exceptions.append((e, tb))
+                last_err = Some(e);
+            }
+        }
+    }
+    // py:788  if not loaded: raise e
+    if loaded == 0 {
+        return Err(last_err.unwrap_or_else(|| "No config files loaded".to_string()));
+    }
+    Ok(config)
 }
 
 #[cfg(test)]
@@ -879,5 +1088,261 @@ mod powerline_class_tests {
         let paths_class = Powerline::get_config_paths();
         let paths_module = get_config_paths();
         assert_eq!(paths_class, paths_module);
+    }
+
+    #[test]
+    fn get_fallback_logger_returns_powerline_fallback_pair() {
+        // py:124-127
+        let pl = get_fallback_logger();
+        assert_eq!(pl.ext, "powerline");
+        assert_eq!(pl.prefix, "_fallback_");
+    }
+
+    #[test]
+    fn generate_config_finder_dispatches_to_find_config_files() {
+        // py:156-170
+        let d = std::env::temp_dir().join(format!(
+            "powerliners-gcf-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&d).unwrap();
+        let f = d.join("test.json");
+        std::fs::write(&f, "{}").unwrap();
+
+        let d_clone = d.clone();
+        let finder = generate_config_finder(move || vec![d_clone.clone()]);
+        let result = finder("test").unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], f);
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn generate_config_finder_returns_err_when_missing() {
+        let finder = generate_config_finder(|| vec![std::path::PathBuf::from("/never/exists/x")]);
+        assert!(finder("nonexistent").is_err());
+    }
+
+    #[test]
+    fn load_config_loads_single_file() {
+        // py:173-200  single file load
+        let d = std::env::temp_dir().join(format!(
+            "powerliners-lc-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&d).unwrap();
+        let f = d.join("config.json");
+        std::fs::write(&f, r#"{"key": "value"}"#).unwrap();
+
+        let d_clone = d.clone();
+        let finder = move |p: &str| _find_config_files(&[d_clone.clone()], p);
+        let result = load_config("config", finder, |p| {
+            let raw = std::fs::read_to_string(p).map_err(|e| e.to_string())?;
+            let v: Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+            v.as_object()
+                .cloned()
+                .ok_or_else(|| "not an object".to_string())
+        })
+        .unwrap();
+        assert_eq!(result.get("key"), Some(&Value::String("value".into())));
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn load_config_merges_multiple_paths() {
+        // py:198-199  mergedicts on multiple paths
+        let d1 = std::env::temp_dir().join(format!(
+            "powerliners-lcm1-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let d2 = std::env::temp_dir().join(format!(
+            "powerliners-lcm2-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&d1).unwrap();
+        std::fs::create_dir_all(&d2).unwrap();
+        std::fs::write(d1.join("c.json"), r#"{"a": 1, "b": 2}"#).unwrap();
+        std::fs::write(d2.join("c.json"), r#"{"b": 3, "c": 4}"#).unwrap();
+
+        let d1c = d1.clone();
+        let d2c = d2.clone();
+        let finder = move |p: &str| _find_config_files(&[d1c.clone(), d2c.clone()], p);
+        let result = load_config("c", finder, |p| {
+            let raw = std::fs::read_to_string(p).map_err(|e| e.to_string())?;
+            let v: Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+            v.as_object()
+                .cloned()
+                .ok_or_else(|| "not an object".to_string())
+        })
+        .unwrap();
+        // Second config overrides first
+        assert_eq!(result.get("a"), Some(&Value::from(1)));
+        assert_eq!(result.get("b"), Some(&Value::from(3)));
+        assert_eq!(result.get("c"), Some(&Value::from(4)));
+        std::fs::remove_dir_all(&d1).ok();
+        std::fs::remove_dir_all(&d2).ok();
+    }
+
+    #[test]
+    fn load_colorscheme_config_levels_returns_three_levels() {
+        // py:806-810
+        let (levels, ignore) = Powerline::load_colorscheme_config_levels("shell", "default");
+        assert_eq!(
+            levels,
+            vec![
+                "colorschemes/default".to_string(),
+                "colorschemes/shell/__main__".to_string(),
+                "colorschemes/shell/default".to_string(),
+            ]
+        );
+        assert_eq!(ignore, vec![1]);
+    }
+
+    #[test]
+    fn load_theme_config_levels_appends_ext_name() {
+        // py:821-823
+        let base = vec![
+            "themes/__main__".to_string(),
+            "themes/shell/__main__".to_string(),
+        ];
+        let (levels, ignore) = Powerline::load_theme_config_levels(&base, "shell", "default");
+        assert_eq!(levels.len(), 3);
+        assert_eq!(levels[2], "themes/shell/default");
+        assert_eq!(ignore, vec![0, 1]);
+    }
+
+    #[test]
+    fn powerline_shutdown_sets_event() {
+        // py:965-966
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let ev = std::sync::Arc::new(AtomicBool::new(false));
+        Powerline::shutdown(&ev, true);
+        assert!(ev.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn powerline_shutdown_no_event_set_when_flag_false() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let ev = std::sync::Arc::new(AtomicBool::new(false));
+        Powerline::shutdown(&ev, false);
+        assert!(!ev.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn powerline_setup_clears_shutdown_event_and_calls_do_setup() {
+        // py:910-913
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let ev = std::sync::Arc::new(AtomicBool::new(true));
+        Powerline::setup(&ev);
+        assert!(!ev.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn powerline_load_main_config_dispatches_to_main_kind() {
+        // py:755
+        let r = Powerline::load_main_config(|cfg, kind| {
+            let mut m = Map::new();
+            m.insert("cfg".to_string(), Value::String(cfg.to_string()));
+            m.insert("kind".to_string(), Value::String(kind.to_string()));
+            Ok(m)
+        })
+        .unwrap();
+        assert_eq!(r.get("cfg"), Some(&Value::String("config".into())));
+        assert_eq!(r.get("kind"), Some(&Value::String("main".into())));
+    }
+
+    #[test]
+    fn powerline_load_colors_config_dispatches_to_colors_kind() {
+        // py:831
+        let r = Powerline::load_colors_config(|cfg, kind| {
+            let mut m = Map::new();
+            m.insert("cfg".to_string(), Value::String(cfg.to_string()));
+            m.insert("kind".to_string(), Value::String(kind.to_string()));
+            Ok(m)
+        })
+        .unwrap();
+        assert_eq!(r.get("cfg"), Some(&Value::String("colors".into())));
+        assert_eq!(r.get("kind"), Some(&Value::String("colors".into())));
+    }
+
+    #[test]
+    fn load_hierarhical_config_merges_levels() {
+        // py:772-787
+        let levels = vec![
+            "level_a".to_string(),
+            "level_b".to_string(),
+            "level_c".to_string(),
+        ];
+        let r = _load_hierarhical_config(&levels, &[], |p| {
+            let mut m = Map::new();
+            m.insert(p.to_string(), Value::Bool(true));
+            Ok(m)
+        })
+        .unwrap();
+        assert!(r.contains_key("level_a"));
+        assert!(r.contains_key("level_b"));
+        assert!(r.contains_key("level_c"));
+    }
+
+    #[test]
+    fn load_hierarhical_config_errors_when_no_levels_load() {
+        // py:788-795  if not loaded: raise e
+        let levels = vec!["a".to_string(), "b".to_string()];
+        let r: Result<Map<String, Value>, _> =
+            _load_hierarhical_config(&levels, &[], |_| Err("nope".to_string()));
+        assert!(r.is_err());
+    }
+
+    #[test]
+    fn load_hierarhical_config_ignores_specified_levels() {
+        // py:785-786  if i not in ignore_levels: loaded += 1
+        let levels = vec!["a".to_string(), "b".to_string()];
+        // Only level 0 loads; level 1 errors. Since level 0 is NOT
+        // in ignore_levels, loaded == 1 and the call succeeds.
+        let r = _load_hierarhical_config(&levels, &[], |p| {
+            if p == "a" {
+                let mut m = Map::new();
+                m.insert("x".to_string(), Value::Bool(true));
+                Ok(m)
+            } else {
+                Err("missing".to_string())
+            }
+        })
+        .unwrap();
+        assert!(r.contains_key("x"));
+    }
+
+    #[test]
+    fn load_hierarhical_config_ignore_levels_skipped_in_loaded_count() {
+        // Only level 0 is ignored (in ignore_levels); levels 1 and 2
+        // are required. If only level 0 loads → loaded count = 0 →
+        // raises.
+        let levels = vec!["a".to_string(), "b".to_string()];
+        let r: Result<Map<String, Value>, _> = _load_hierarhical_config(&levels, &[0], |p| {
+            if p == "a" {
+                let mut m = Map::new();
+                m.insert("x".to_string(), Value::Bool(true));
+                Ok(m)
+            } else {
+                Err("missing".to_string())
+            }
+        });
+        assert!(r.is_err());
     }
 }

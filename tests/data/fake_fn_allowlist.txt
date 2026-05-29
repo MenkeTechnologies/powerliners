@@ -1272,3 +1272,17 @@ LOG_KEYS
 # undotted / leading-dot / trailing-dot / dotted) are independently
 # testable without constructing a full Powerline instance.
 resolve_renderer_module
+
+# mod.rs::Powerline::load_colorscheme_config_levels — extracts the
+# levels-tuple builder from the body of
+# Powerline.load_colorscheme_config at powerline/__init__.py:806-810.
+# Python embeds the tuple inline before passing to
+# _load_hierarhical_config; Rust extracts to a pure helper so the
+# 3-level pattern is independently testable without the full
+# config_loader substrate (which is deferred).
+load_colorscheme_config_levels
+
+# mod.rs::Powerline::load_theme_config_levels — same extraction
+# pattern for powerline/__init__.py:821-823 (the theme variant).
+# Python builds the tuple inline; Rust extracts as a pure helper.
+load_theme_config_levels
