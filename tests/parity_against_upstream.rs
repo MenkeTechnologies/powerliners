@@ -2192,6 +2192,38 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_mergedicts_remove_this_key_deletes_when_remove_true() {
+    if !python_available() {
+        return;
+    }
+    // mergedicts with remove=True: REMOVE_THIS_KEY in d2 deletes that
+    // key from d1 entirely (via _clear_special_values).
+    //
+    // Python and Rust use different runtime representations of the
+    // sentinel — Python uses an `object()` identity, Rust uses
+    // `{"__powerliners_remove_this_key__": true}`. The OBSERVABLE
+    // contract is identical: the key vanishes from d1.
+    let py = match py_eval(
+        "(lambda d1, d2: (__import__('powerline.lib.dict', fromlist=['mergedicts']).mergedicts(d1, d2, remove=True), __import__('json').dumps(d1, sort_keys=True))[1])({'a': 1, 'b': 2, 'c': 3}, {'b': __import__('powerline.lib.dict', fromlist=['REMOVE_THIS_KEY']).REMOVE_THIS_KEY})",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+
+    use serde_json::json;
+    let mut d1 = json!({"a": 1, "b": 2, "c": 3}).as_object().unwrap().clone();
+    let mut d2_obj = serde_json::Map::new();
+    d2_obj.insert("b".to_string(), powerliners::lib::dict::REMOVE_THIS_KEY());
+    powerliners::lib::dict::mergedicts(&mut d1, d2_obj, true);
+    assert_eq!(
+        py_value,
+        serde_json::Value::Object(d1),
+        "mergedicts(remove=True) + REMOVE_THIS_KEY observable mismatch"
+    );
+}
+
+#[test]
 fn parity_run_cmd_stdout_stripped_default() {
     if !python_available() {
         return;
