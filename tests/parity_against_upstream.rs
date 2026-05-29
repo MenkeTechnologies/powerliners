@@ -2192,6 +2192,55 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_marked_unicode_value_and_mark_preserved() {
+    if !python_available() {
+        return;
+    }
+    // MarkedUnicode wraps a string with a source mark. Verify value
+    // + mark preservation across both ports for several scalar shapes.
+    let cases: &[(&str, &str, i64, i64)] = &[
+        ("hello", "cfg", 5, 10),
+        ("héllo →", "other.json", 1, 1),
+        ("", "empty.cfg", 0, 0),
+    ];
+    for (value, name, line, column) in cases {
+        let py_expr = format!(
+            "(lambda m: __import__('json').dumps([m.value, list(m.mark), len(m)]))(__import__('powerline.lint.markedjson.markedvalue', fromlist=['gen_marked_value']).gen_marked_value({val:?}, ({nam:?}, {ln}, {col})))",
+            val = value, nam = name, ln = line, col = column
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let py_arr = py_value.as_array().expect("py array");
+        assert_eq!(py_arr[0].as_str(), Some(*value), "Python value drift");
+        let py_mark = py_arr[1].as_array().expect("py mark");
+        assert_eq!(py_mark[0].as_str(), Some(*name));
+        assert_eq!(py_mark[1].as_i64(), Some(*line));
+        assert_eq!(py_mark[2].as_i64(), Some(*column));
+        assert_eq!(
+            py_arr[2].as_u64().unwrap_or(0) as usize,
+            value.chars().count(),
+            "Python char-count len mismatch"
+        );
+
+        use powerliners::lint::markedjson::markedvalue::MarkedUnicode;
+        use powerliners::lint::markedjson::nodes::Mark;
+        let mu = MarkedUnicode::new(
+            *value,
+            Mark {
+                line: *line as usize,
+                column: *column as usize,
+            },
+        );
+        assert_eq!(mu.value, *value);
+        assert_eq!(mu.mark.line, *line as usize);
+        assert_eq!(mu.mark.column, *column as usize);
+    }
+}
+
+#[test]
 fn parity_markedjson_marked_list_value_and_mark_preserved() {
     if !python_available() {
         return;
