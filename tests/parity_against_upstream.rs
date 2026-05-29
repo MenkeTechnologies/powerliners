@@ -2155,6 +2155,44 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_overrides_parse_value_handles_json_and_strings() {
+    if !python_available() {
+        return;
+    }
+    // parse_value tries JSON first, falls back to raw string. Verify
+    // both ports agree across primitives, arrays, objects, and the
+    // JSON-failure-to-string fallback.
+    let cases = [
+        "null",
+        "true",
+        "false",
+        "42",
+        "-7",
+        "[1,2,3]",
+        "{\"a\":1}",
+        "invalid_json",
+    ];
+    for input in cases {
+        let py_expr = format!(
+            "(lambda v: __import__('json').dumps(v, separators=(',',':')))(__import__('powerline.lib.overrides', fromlist=['parse_value']).parse_value({:?}))",
+            input
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs_value = powerliners::lib::overrides::parse_value(input);
+        let py_value: serde_json::Value =
+            serde_json::from_str(&py).expect("py JSON output malformed");
+        assert_eq!(
+            py_value, rs_value,
+            "parse_value({:?}) value mismatch: py={:?}, rs={:?}",
+            input, py_value, rs_value
+        );
+    }
+}
+
+#[test]
 fn parity_theme_add_spaces_center_odd_amounts() {
     if !python_available() {
         return;
