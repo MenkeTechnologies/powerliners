@@ -1583,6 +1583,67 @@ fn parity_surrogate_pair_to_character() {
 // ─────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────
+// lib/path.py — realpath
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_lib_path_realpath_on_existing_temp_dir() {
+    if !python_available() {
+        return;
+    }
+    // Use std::env::temp_dir() which definitely exists; realpath should
+    // canonicalize to the same absolute path on both sides.
+    let p = std::env::temp_dir();
+    let p_str = p.to_string_lossy().to_string();
+    let expr = format!(
+        "__import__('powerline.lib.path', fromlist=['realpath']).realpath({:?})",
+        p_str
+    );
+    let py = match py_eval(&expr) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::lib::path::realpath(&p);
+    let rs_str = rs.to_string_lossy().to_string();
+    // os.path.realpath on macOS resolves /tmp → /private/tmp; Rust
+    // canonicalize does too. So both should produce the same result.
+    assert_eq!(
+        py, rs_str,
+        "realpath(temp_dir) mismatch:\n  py: {}\n  rs: {}",
+        py, rs_str
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/threaded.py — KwThreadedSegment subclass override + key() static
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_kw_threaded_segment_update_first_default() {
+    if !python_available() {
+        return;
+    }
+    // KwThreadedSegment.update_first overrides ThreadedSegment's default
+    // (also True), but it's set explicitly on the subclass at py:172.
+    // Verify both sides agree.
+    let py = match py_eval(
+        "__import__('powerline.lib.threaded', fromlist=['KwThreadedSegment']).KwThreadedSegment.update_first",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_bool = py == "True";
+    let rs = powerliners::lib::threaded::KwThreadedSegment::new()
+        .base
+        .update_first;
+    assert_eq!(
+        py_bool, rs,
+        "KwThreadedSegment.update_first mismatch: py={}, rs={}",
+        py_bool, rs
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // renderer.py — np_control_character_translations dict
 //   (maps 0x00-0x1F → '^@', '^A', ..., '^_')
 // ─────────────────────────────────────────────────────────────────────
