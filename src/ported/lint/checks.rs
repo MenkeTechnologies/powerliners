@@ -645,6 +645,137 @@ pub fn check_highlight_groups(hl_groups: &[&str], available_groups: &HashSet<&st
     }
 }
 
+/// Port of `hl_group_in_colorscheme()` from
+/// `powerline/lint/checks.py:535-582`.
+///
+/// Walks the colorscheme's `groups` dict to check whether `hl_group`
+/// resolves to a non-gradient color when `allow_gradients=false` per
+/// py:564-571, or a gradient when `allow_gradients='force'` per
+/// py:573-580.
+///
+/// The Rust port takes the resolved color sets directly since the
+/// full nested-config walk needs the lint context. Returns `true`
+/// when the group exists in the colorscheme AND satisfies the
+/// gradient policy.
+pub fn hl_group_in_colorscheme(
+    hl_group: &str,
+    groups: &HashSet<&str>,
+    colors: &HashSet<&str>,
+    gradients: &HashSet<&str>,
+    group_fg: Option<&str>,
+    group_bg: Option<&str>,
+    allow_gradients: AllowGradients,
+) -> bool {
+    // py:537-538  if hl_group not in cconfig.get('groups', {}): return False
+    if !groups.contains(hl_group) {
+        return false;
+    }
+    // py:539  elif not allow_gradients or allow_gradients == 'force'
+    if matches!(allow_gradients, AllowGradients::Yes) {
+        return true;
+    }
+    let mut hadgradient = false;
+    for color in [group_fg, group_bg].into_iter().flatten() {
+        // py:560-561  hascolor / hasgradient
+        let hascolor = colors.contains(color);
+        let hasgradient = gradients.contains(color);
+        if hasgradient {
+            hadgradient = true;
+        }
+        // py:564-572  allow_gradients=False + gradient-not-color → fail
+        if matches!(allow_gradients, AllowGradients::No) && !hascolor && hasgradient {
+            return false;
+        }
+    }
+    // py:573-580  allow_gradients='force' + no gradient → fail
+    if matches!(allow_gradients, AllowGradients::Force) && !hadgradient {
+        return false;
+    }
+    true
+}
+
+/// Tri-state for the `allow_gradients` arg per py:539.
+///
+/// Python: `False` / truthy / `'force'`. Rust port enumerates the
+/// three cases since Python's mixed-type sentinel doesn't survive
+/// the boundary cleanly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AllowGradients {
+    /// Python `False` — gradient-not-color is an error.
+    No,
+    /// Python truthy (non-empty/non-'force') — gradients allowed,
+    /// but at least one color must be present too.
+    Yes,
+    /// Python `'force'` — at least one gradient is required.
+    Force,
+}
+
+/// Port of `hl_exists()` from
+/// `powerline/lint/checks.py:585-601`.
+///
+/// Returns the list of colorschemes where `hl_group` is NOT defined.
+/// Empty list means the group exists in every colorscheme.
+///
+/// `colorscheme_membership` is the caller-supplied mapping of
+/// `(colorscheme_name → in_colorscheme)` per py:594-598. Python
+/// dispatches through `hl_group_in_colorscheme`; Rust takes the
+/// resolved membership directly so the iteration shape can be
+/// tested.
+pub fn hl_exists(hl_group: &str, colorscheme_membership: &[(String, bool)]) -> Vec<String> {
+    // py:587-591  if ext not in data['colorscheme_configs']: return []
+    if colorscheme_membership.is_empty() {
+        return Vec::new();
+    }
+    // py:593-598  walk colorschemes; collect those where hl_group missing
+    let _ = hl_group;
+    let mut r: Vec<String> = Vec::new();
+    let mut found = false;
+    for (name, present) in colorscheme_membership {
+        if *present {
+            found = true;
+        } else {
+            r.push(name.clone());
+        }
+    }
+    // py:599-601  found path is implicit
+    let _ = found;
+    r
+}
+
+/// Port of `get_all_possible_functions()` from
+/// `powerline/lint/checks.py:767-792`.
+///
+/// Yields all function names that match the given segment name +
+/// known module/name pairs. Python walks the registered themes and
+/// common_names; the Rust port surfaces the rpartition logic at
+/// py:768-769 + the common_names dispatch at py:775-779.
+///
+/// Returns the list of `(module, function_name)` candidates the
+/// Python source would yield via `import_segment(...)` per py:771
+/// or py:777.
+pub fn get_all_possible_functions(name: &str) -> Vec<(String, String)> {
+    // py:768-769  module, name = name.rpartition('.')[::2]
+    let (module, fname) = match name.rfind('.') {
+        Some(idx) => (name[..idx].to_string(), name[idx + 1..].to_string()),
+        None => (String::new(), name.to_string()),
+    };
+
+    let mut out: Vec<(String, String)> = Vec::new();
+    // py:770-773  if module: yield (module, name)
+    if !module.is_empty() {
+        out.push((module, fname));
+        return out;
+    }
+    // py:774-779  walk common_names
+    let map = common_names().lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(entries) = map.get(&fname) {
+        for (cmodule, cname) in entries {
+            out.push((cmodule.clone(), cname.clone()));
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1145,5 +1276,173 @@ mod tests {
         let groups: HashSet<&str> = ["a"].into_iter().collect();
         let r = check_highlight_groups(&["a", "b"], &groups);
         assert!(r.hadproblem);
+    }
+
+    #[test]
+    fn hl_group_in_colorscheme_missing_group_returns_false() {
+        // py:537-538
+        let groups: HashSet<&str> = HashSet::new();
+        let colors: HashSet<&str> = HashSet::new();
+        let gradients: HashSet<&str> = HashSet::new();
+        let r = hl_group_in_colorscheme(
+            "branch",
+            &groups,
+            &colors,
+            &gradients,
+            None,
+            None,
+            AllowGradients::Yes,
+        );
+        assert!(!r);
+    }
+
+    #[test]
+    fn hl_group_in_colorscheme_allow_gradients_yes_returns_true_if_present() {
+        // py:539  truthy allow_gradients → permissive
+        let groups: HashSet<&str> = ["branch"].into_iter().collect();
+        let colors: HashSet<&str> = HashSet::new();
+        let gradients: HashSet<&str> = HashSet::new();
+        let r = hl_group_in_colorscheme(
+            "branch",
+            &groups,
+            &colors,
+            &gradients,
+            None,
+            None,
+            AllowGradients::Yes,
+        );
+        assert!(r);
+    }
+
+    #[test]
+    fn hl_group_in_colorscheme_no_gradients_with_gradient_color_fails() {
+        // py:564-572  AllowGradients::No + gradient-not-color → fail
+        let groups: HashSet<&str> = ["branch"].into_iter().collect();
+        let colors: HashSet<&str> = HashSet::new();
+        let gradients: HashSet<&str> = ["my_gradient"].into_iter().collect();
+        let r = hl_group_in_colorscheme(
+            "branch",
+            &groups,
+            &colors,
+            &gradients,
+            Some("my_gradient"),
+            None,
+            AllowGradients::No,
+        );
+        assert!(!r);
+    }
+
+    #[test]
+    fn hl_group_in_colorscheme_no_gradients_with_real_color_passes() {
+        let groups: HashSet<&str> = ["branch"].into_iter().collect();
+        let colors: HashSet<&str> = ["solarized_red"].into_iter().collect();
+        let gradients: HashSet<&str> = HashSet::new();
+        let r = hl_group_in_colorscheme(
+            "branch",
+            &groups,
+            &colors,
+            &gradients,
+            Some("solarized_red"),
+            Some("solarized_red"),
+            AllowGradients::No,
+        );
+        assert!(r);
+    }
+
+    #[test]
+    fn hl_group_in_colorscheme_force_gradient_without_gradient_fails() {
+        // py:573-580  Force + no gradient → fail
+        let groups: HashSet<&str> = ["branch"].into_iter().collect();
+        let colors: HashSet<&str> = ["red"].into_iter().collect();
+        let gradients: HashSet<&str> = HashSet::new();
+        let r = hl_group_in_colorscheme(
+            "branch",
+            &groups,
+            &colors,
+            &gradients,
+            Some("red"),
+            Some("red"),
+            AllowGradients::Force,
+        );
+        assert!(!r);
+    }
+
+    #[test]
+    fn hl_group_in_colorscheme_force_gradient_with_gradient_passes() {
+        let groups: HashSet<&str> = ["branch"].into_iter().collect();
+        let colors: HashSet<&str> = HashSet::new();
+        let gradients: HashSet<&str> = ["my_gradient"].into_iter().collect();
+        let r = hl_group_in_colorscheme(
+            "branch",
+            &groups,
+            &colors,
+            &gradients,
+            Some("my_gradient"),
+            None,
+            AllowGradients::Force,
+        );
+        assert!(r);
+    }
+
+    #[test]
+    fn hl_exists_empty_input_returns_empty() {
+        // py:587-591  no colorschemes → []
+        let r = hl_exists("branch", &[]);
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn hl_exists_returns_list_of_missing_colorschemes() {
+        // py:593-598  collect missing
+        let cs = vec![
+            ("default".to_string(), true),
+            ("solarized".to_string(), false),
+            ("monokai".to_string(), false),
+        ];
+        let r = hl_exists("branch", &cs);
+        assert_eq!(r.len(), 2);
+        assert!(r.contains(&"solarized".to_string()));
+        assert!(r.contains(&"monokai".to_string()));
+    }
+
+    #[test]
+    fn hl_exists_all_present_returns_empty() {
+        let cs = vec![
+            ("default".to_string(), true),
+            ("solarized".to_string(), true),
+        ];
+        let r = hl_exists("branch", &cs);
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn get_all_possible_functions_dotted_name_yields_module_function_pair() {
+        // py:768-773
+        let r = get_all_possible_functions("powerline.segments.shell.uptime");
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].0, "powerline.segments.shell");
+        assert_eq!(r[0].1, "uptime");
+    }
+
+    #[test]
+    fn get_all_possible_functions_undotted_walks_common_names() {
+        // py:774-779
+        let _g = lock_globals!();
+        reset_common_names();
+        register_common_name("uptime", "powerline.segments.common.sys", "uptime_impl");
+        let r = get_all_possible_functions("uptime");
+        assert!(!r.is_empty());
+        let pair = r
+            .iter()
+            .find(|(m, n)| m == "powerline.segments.common.sys" && n == "uptime_impl");
+        assert!(pair.is_some());
+    }
+
+    #[test]
+    fn get_all_possible_functions_undotted_unknown_returns_empty() {
+        let _g = lock_globals!();
+        reset_common_names();
+        let r = get_all_possible_functions("nonexistent_segment");
+        assert!(r.is_empty());
     }
 }
