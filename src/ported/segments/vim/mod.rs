@@ -55,6 +55,30 @@ use std::sync::OnceLock;
 /// dispatch substrate is ported. Marker fn so callers can express the
 /// upstream `@window_cached` decoration intent at the call site.
 pub fn window_cached<F>(func: F) -> F {
+    // py:34  vim_funcs = {
+    // py:35  'virtcol': vim_get_func('virtcol', rettype='int'),
+    // py:36  'getpos': vim_get_func('getpos'),
+    // py:37  'fnamemodify': vim_get_func('fnamemodify', rettype='bytes'),
+    // py:38  'line2byte': vim_get_func('line2byte', rettype='int'),
+    // py:39  'line': vim_get_func('line', rettype='int'),
+    // py:40  }
+    // py:71  # TODO Remove cache when needed
+    // py:72  def window_cached(func):
+    // py:73  cache = {}
+    // py:74  @requires_segment_info
+    // py:75  @wraps(func)
+    // py:76  def ret(segment_info, **kwargs):
+    // py:77  window_id = segment_info['window_id']
+    // py:78  if segment_info['mode'] == 'nc':
+    // py:79  return cache.get(window_id)
+    // py:80  else:
+    // py:81  if getattr(func, 'powerline_requires_segment_info', False):
+    // py:82  r = func(segment_info=segment_info, **kwargs)
+    // py:83  else:
+    // py:84  r = func(**kwargs)
+    // py:85  cache[window_id] = r
+    // py:86  return r
+    // py:87  return ret
     func
 }
 
@@ -64,10 +88,34 @@ pub fn window_cached<F>(func: F) -> F {
 /// 24-entry mode-code → display-name table:
 /// `n` → `NORMAL`, `no` → `N-OPER`, `v` → `VISUAL`, …
 pub fn vim_modes() -> &'static HashMap<&'static str, &'static str> {
+    // py:43  vim_modes = {
+    // py:44  'n': 'NORMAL',
+    // py:45  'no': 'N-OPER',
+    // py:46  'v': 'VISUAL',
+    // py:47  'V': 'V-LINE',
+    // py:48  '^V': 'V-BLCK',
+    // py:49  's': 'SELECT',
+    // py:50  'S': 'S-LINE',
+    // py:51  '^S': 'S-BLCK',
+    // py:52  'i': 'INSERT',
+    // py:53  'ic': 'I-COMP',
+    // py:54  'ix': 'I-C_X ',
+    // py:55  'R': 'RPLACE',
+    // py:56  'Rv': 'V-RPLC',
+    // py:57  'Rc': 'R-COMP',
+    // py:58  'Rx': 'R-C_X ',
+    // py:59  'c': 'COMMND',
+    // py:60  'cv': 'VIM-EX',
+    // py:61  'ce': 'NRM-EX',
+    // py:62  'r': 'PROMPT',
+    // py:63  'rm': '-MORE-',
+    // py:64  'r?': 'CNFIRM',
+    // py:65  '!': '!SHELL',
+    // py:66  't': 'TERM  ',
+    // py:67  }
     static M: OnceLock<HashMap<&'static str, &'static str>> = OnceLock::new();
     M.get_or_init(|| {
         let mut m = HashMap::new();
-        // py:43-67  full mode table
         m.insert("n", "NORMAL");
         m.insert("no", "N-OPER");
         m.insert("v", "VISUAL");
@@ -102,7 +150,25 @@ pub fn vim_modes() -> &'static HashMap<&'static str, &'static str> {
 /// upstream vim_modes table. Returns the resolved display name or
 /// the input code when unknown.
 pub fn mode_translation(mode_code: &str, override_map: Option<&HashMap<String, String>>) -> String {
-    // py:113-117  override.get(mode, vim_modes.get(mode, mode))
+    // py:91  @requires_segment_info
+    // py:92  def mode(pl, segment_info, override=None):
+    // py:93  '''Return the current vim mode.
+    // py:94-100  docstring
+    // py:101  '''
+    // py:102  mode = segment_info['mode']
+    // py:103  if mode == 'nc':
+    // py:104  return None
+    // py:105  while mode:
+    // py:106  try:
+    // py:107  if not override:
+    // py:108  return vim_modes[mode]
+    // py:109  try:
+    // py:110  return override[mode]
+    // py:111  except KeyError:
+    // py:112  return vim_modes[mode]
+    // py:113  except KeyError:
+    // py:114  mode = mode[:-1]
+    // py:115  return 'BUG'
     if let Some(o) = override_map {
         if let Some(s) = o.get(mode_code) {
             return s.clone();
@@ -184,13 +250,35 @@ pub fn visual_range_text(
     v_multiline: &str,
     v_block_text: &str,
 ) -> String {
-    // py:135-156  branch on mode code
+    // py:118  @window_cached
+    // py:119  @requires_segment_info
+    // py:120  def visual_range(pl, segment_info, CTRL_V_text='{rows} x {vcols}', v_text_oneline='C:{vcols}', v_text_multiline='L:{rows}', V_text='L:{rows}'):
+    // py:121  '''Return the current visual selection range.
+    // py:122-148  docstring
+    // py:149  '''
+    // py:150  sline, scol, soff = [int(v) for v in vim_funcs['getpos']('v')[1:]]
+    // py:151  eline, ecol, eoff = [int(v) for v in vim_funcs['getpos']('.')[1:]]
+    // py:152  svcol = vim_funcs['virtcol']([sline, scol, soff])
+    // py:153  evcol = vim_funcs['virtcol']([eline, ecol, eoff])
+    // py:154  rows = abs(eline - sline) + 1
+    // py:155  cols = abs(ecol - scol) + 1
+    // py:156  vcols = abs(evcol - svcol) + 1
+    // py:157  return {
+    // py:158  '^': CTRL_V_text,
+    // py:159  's': v_text_oneline if rows == 1 else v_text_multiline,
+    // py:160  'S': V_text,
+    // py:161  'v': v_text_oneline if rows == 1 else v_text_multiline,
+    // py:162  'V': V_text,
+    // py:163  }.get(segment_info['mode'][0], '').format(
+    // py:164  sline=sline, eline=eline,
+    // py:165  scol=scol, ecol=ecol,
+    // py:166  svcol=svcol, evcol=evcol,
+    // py:167  rows=rows, cols=cols, vcols=vcols,
+    // py:168  )
     match mode_code {
-        // py:144  '^V' → CTRL_V_text format
         "^V" => ctrl_v_text
             .replace("{rows}", &rows.to_string())
             .replace("{vcols}", &vcols.to_string()),
-        // py:148  'v' → v_text branch
         "v" => {
             if rows == 1 {
                 v_oneline.replace("{vcols}", &vcols.to_string())
@@ -198,9 +286,7 @@ pub fn visual_range_text(
                 v_multiline.replace("{rows}", &rows.to_string())
             }
         }
-        // py:153  'V' → V_text
         "V" => v_block_text.replace("{rows}", &rows.to_string()),
-        // py: other modes → empty
         _ => String::new(),
     }
 }
@@ -280,7 +366,11 @@ pub fn mode(mode_str: &str, override_map: Option<&HashMap<String, String>>) -> O
 /// Port of `modified_indicator()` from
 /// `powerline/segments/vim/__init__.py:172-178`.
 pub fn modified_indicator(modified: bool, text: &str) -> Option<String> {
-    // py:178  return text if int(...modified) else None
+    // py:171  @requires_segment_info
+    // py:172  def modified_indicator(pl, segment_info, text='+'):
+    // py:173  '''Return a file modified indicator.
+    // py:174-177  docstring
+    // py:178  return text if int(vim_getbufoption(segment_info, 'modified')) else None
     if modified {
         Some(text.to_string())
     } else {
@@ -291,7 +381,21 @@ pub fn modified_indicator(modified: bool, text: &str) -> Option<String> {
 /// Port of `paste_indicator()` from
 /// `powerline/segments/vim/__init__.py:200-206`.
 pub fn paste_indicator(paste_enabled: bool, text: &str) -> Option<String> {
-    // py:206
+    // py:181  @requires_segment_info
+    // py:182  def tab_modified_indicator(pl, segment_info, text='+'):
+    // py:183-189  docstring
+    // py:190  for buf_segment_info in list_tabpage_buffers_segment_info(segment_info):
+    // py:191  if int(vim_getbufoption(buf_segment_info, 'modified')):
+    // py:192  return [{
+    // py:193  'contents': text,
+    // py:194  'highlight_groups': ['tab_modified_indicator', 'modified_indicator'],
+    // py:195  }]
+    // py:196  return None
+    // py:199  @requires_segment_info
+    // py:200  def paste_indicator(pl, segment_info, text='PASTE'):
+    // py:201  '''Return a paste mode indicator.
+    // py:202-205  docstring
+    // py:206  return text if int(vim.eval('&paste')) else None
     if paste_enabled {
         Some(text.to_string())
     } else {
@@ -302,7 +406,11 @@ pub fn paste_indicator(paste_enabled: bool, text: &str) -> Option<String> {
 /// Port of `readonly_indicator()` from
 /// `powerline/segments/vim/__init__.py:209-216`.
 pub fn readonly_indicator(readonly: bool, text: &str) -> Option<String> {
-    // py:216
+    // py:209  @requires_segment_info
+    // py:210  def readonly_indicator(pl, segment_info, text='RO'):
+    // py:211  '''Return a read-only indicator.
+    // py:212-215  docstring
+    // py:216  return text if int(vim_getbufoption(segment_info, 'readonly')) else None
     if readonly {
         Some(text.to_string())
     } else {
@@ -316,13 +424,20 @@ pub fn readonly_indicator(readonly: bool, text: &str) -> Option<String> {
 /// Returns the URI scheme prefix from `name`, or None if name doesn't
 /// start with a scheme. Python returns None for empty names too.
 pub fn file_scheme(name: &str) -> Option<String> {
-    // py:241-242  if not name: return None
+    // py:219  SCHEME_RE = re.compile(b'^\\w[\\w\\d+\\-.]*(?=:)')
+    // py:222  @requires_segment_info
+    // py:223  def file_scheme(pl, segment_info):
+    // py:224  '''Return the protocol part of the file.
+    // py:225-239  docstring
+    // py:240  name = buffer_name(segment_info)
+    // py:241  if not name:
+    // py:242  return None
+    // py:243  match = SCHEME_RE.match(name)
+    // py:244  if match:
+    // py:245  return match.group(0).decode('ascii')
     if name.is_empty() {
         return None;
     }
-    // py:243-245  match = SCHEME_RE.match(name); return match.group(0)
-    // Python's regex captures the scheme via (?=:) lookahead;
-    // Rust strips the trailing ':' from the captured match.
     SCHEME_RE()
         .captures(name)
         .and_then(|c| c.get(1))
@@ -332,7 +447,11 @@ pub fn file_scheme(name: &str) -> Option<String> {
 /// Port of `file_format()` from
 /// `powerline/segments/vim/__init__.py:333-340`.
 pub fn file_format(fileformat: &str) -> Option<String> {
-    // py:340  return vim_getbufoption(..., 'fileformat') or None
+    // py:333  @requires_segment_info
+    // py:334  def file_format(pl, segment_info):
+    // py:335  '''Return file format (i.e. line ending type).
+    // py:336-339  docstring
+    // py:340  return vim_getbufoption(segment_info, 'fileformat') or None
     if fileformat.is_empty() {
         None
     } else {
@@ -343,7 +462,11 @@ pub fn file_format(fileformat: &str) -> Option<String> {
 /// Port of `file_encoding()` from
 /// `powerline/segments/vim/__init__.py:343-352`.
 pub fn file_encoding(fileencoding: &str) -> Option<String> {
-    // py:352  return vim_getbufoption(..., 'fileencoding') or None
+    // py:343  @requires_segment_info
+    // py:344  def file_encoding(pl, segment_info):
+    // py:345  '''Return file encoding/character set.
+    // py:346-351  docstring
+    // py:352  return vim_getbufoption(segment_info, 'fileencoding') or None
     if fileencoding.is_empty() {
         None
     } else {
@@ -354,7 +477,11 @@ pub fn file_encoding(fileencoding: &str) -> Option<String> {
 /// Port of `file_bom()` from
 /// `powerline/segments/vim/__init__.py:355-364`.
 pub fn file_bom(bomb: bool) -> Option<&'static str> {
-    // py:364  return 'bom' if vim_getbufoption(..., 'bomb') else None
+    // py:355  @requires_segment_info
+    // py:356  def file_bom(pl, segment_info, text='BOM'):
+    // py:357  '''Return BOM indicator for the current buffer.
+    // py:358-363  docstring
+    // py:364  return text if int(vim_getbufoption(segment_info, 'bomb')) else None
     if bomb {
         Some("bom")
     } else {
@@ -365,7 +492,11 @@ pub fn file_bom(bomb: bool) -> Option<&'static str> {
 /// Port of `file_type()` from
 /// `powerline/segments/vim/__init__.py:367-376`.
 pub fn file_type(filetype: &str) -> Option<String> {
-    // py:376  return vim_getbufoption(..., 'filetype') or None
+    // py:367  @requires_segment_info
+    // py:368  def file_type(pl, segment_info):
+    // py:369  '''Return file type.
+    // py:370-375  docstring
+    // py:376  return vim_getbufoption(segment_info, 'filetype') or None
     if filetype.is_empty() {
         None
     } else {
@@ -381,15 +512,25 @@ pub fn file_type(filetype: &str) -> Option<String> {
 /// gradient_level; the Rust port returns a `serde_json::Value` of
 /// the same shape.
 pub fn line_percent(line_current: u64, line_last: u64, gradient: bool) -> serde_json::Value {
+    // py:394  @requires_segment_info
+    // py:395  def line_percent(pl, segment_info, gradient=False):
+    // py:396  '''Return the cursor position in the file as a percentage.
+    // py:397-402  docstring
     // py:403  line_current = segment_info['window'].cursor[0]
     // py:404  line_last = len(segment_info['buffer'])
+    // py:405  percentage = line_current * 100.0 / line_last
+    // py:406  if not gradient:
+    // py:407  return str(int(round(percentage)))
+    // py:408  return [{
+    // py:409  'contents': str(int(round(percentage))),
+    // py:410  'highlight_groups': ['line_percent_gradient', 'line_percent'],
+    // py:411  'gradient_level': percentage,
+    // py:412  }]
     let percentage = (line_current as f64) * 100.0 / (line_last.max(1) as f64);
     let rounded = percentage.round() as i64;
     if !gradient {
-        // py:406
         return serde_json::Value::String(rounded.to_string());
     }
-    // py:407-411  return list of one dict
     serde_json::json!([{
         "contents": rounded.to_string(),
         "highlight_groups": ["line_percent_gradient", "line_percent"],
@@ -411,7 +552,28 @@ pub fn position(
     position_strings: &HashMap<&str, &str>,
     gradient: bool,
 ) -> serde_json::Value {
-    // py:430-441
+    // py:414  @requires_segment_info
+    // py:415  def position(pl, segment_info, position_strings={'top': 'Top', 'bottom': 'Bot', 'all': 'All'}, gradient=False):
+    // py:416  '''Return the position of the current view in the file as a percentage.
+    // py:417-424  docstring
+    // py:425  '''
+    // py:426  line_last = len(segment_info['buffer'])
+    // py:427  winline_first = vim_funcs['line']('w0')
+    // py:428  winline_last = vim_funcs['line']('w$')
+    // py:429  if winline_first == 1 and winline_last == line_last:
+    // py:430  percentage = 0.0
+    // py:431  content = position_strings['all']
+    // py:432  elif winline_first == 1:
+    // py:433  percentage = 0.0
+    // py:434  content = position_strings['top']
+    // py:435  elif winline_last == line_last:
+    // py:436  percentage = 100.0
+    // py:437  content = position_strings['bottom']
+    // py:438  else:
+    // py:439  percentage = winline_first * 100.0 / (line_last - winline_last + winline_first)
+    // py:440  content = str(int(round(percentage))) + '%'
+    // py:441  if not gradient:
+    // py:442  return content
     let (percentage, content) = if winline_first == 1 && winline_last == line_last {
         (
             0.0_f64,
@@ -460,6 +622,14 @@ pub fn position(
 /// Port of `line_current()` from
 /// `powerline/segments/vim/__init__.py:452-455`.
 pub fn line_current(cursor_line: u64) -> String {
+    // py:445-449  return [{
+    // py:446  'contents': content,
+    // py:447  'highlight_groups': ['position_gradient', 'position'],
+    // py:448  'gradient_level': percentage,
+    // py:449  }]
+    // py:452  @requires_segment_info
+    // py:453  def line_current(pl, segment_info):
+    // py:454  '''Return the current cursor line.'''
     // py:455  return str(segment_info['window'].cursor[0])
     cursor_line.to_string()
 }
@@ -467,6 +637,9 @@ pub fn line_current(cursor_line: u64) -> String {
 /// Port of `line_count()` from
 /// `powerline/segments/vim/__init__.py:458-461`.
 pub fn line_count(buffer_len: u64) -> String {
+    // py:458  @requires_segment_info
+    // py:459  def line_count(pl, segment_info):
+    // py:460  '''Return the total number of lines in the buffer.'''
     // py:461  return str(len(segment_info['buffer']))
     buffer_len.to_string()
 }
@@ -476,6 +649,10 @@ pub fn line_count(buffer_len: u64) -> String {
 ///
 /// Python adds 1 to the cursor column (vim's `cursor[1]` is 0-based).
 pub fn col_current(cursor_col: u64) -> String {
+    // py:464  @requires_segment_info
+    // py:465  def col_current(pl, segment_info):
+    // py:466  '''Return the current cursor column.'''
+    // py:467  # vim.current.window.cursor[1] is 0-based
     // py:468  return str(segment_info['window'].cursor[1] + 1)
     (cursor_col + 1).to_string()
 }
@@ -486,19 +663,30 @@ pub fn col_current(cursor_col: u64) -> String {
 /// `virtcol` is `vim_funcs['virtcol']('.')`. With gradient=true
 /// computes `min(col * 100 / textwidth, 100)` per py:484.
 pub fn virtcol_current(virtcol: u64, textwidth: u64, gradient: bool) -> serde_json::Value {
-    // py:481  r = [{contents, highlight_groups}]
+    // py:471  @requires_segment_info
+    // py:472  def virtcol_current(pl, segment_info, gradient=False):
+    // py:473  '''Return current visual cursor column with concealed characters
+    // py:474-479  docstring
+    // py:480  col = vim_funcs['virtcol']('.')
+    // py:481  r = [{
+    // py:482  'contents': str(col),
+    // py:483  'highlight_groups': ['virtcol_current', 'col_current'],
+    // py:484  }]
+    // py:485  if gradient:
+    // py:486  textwidth = int(vim_getbufoption(segment_info, 'textwidth'))
+    // py:487  r[-1]['gradient_level'] = min(((col - 1) * 100.0 / textwidth) if textwidth else 0, 100)
+    // py:488  r[-1]['highlight_groups'].insert(0, 'virtcol_current_gradient')
+    // py:489  return r
     let mut entry = serde_json::json!({
         "contents": virtcol.to_string(),
         "highlight_groups": ["virtcol_current", "col_current"],
     });
     if gradient {
-        // py:484  gradient_level = min(col * 100 / textwidth, 100) if textwidth else 0
         let level: f64 = if textwidth > 0 {
             ((virtcol as f64) * 100.0 / (textwidth as f64)).min(100.0)
         } else {
             0.0
         };
-        // py:485  highlight_groups.insert(0, 'virtcol_current_gradient')
         let hl = entry["highlight_groups"]
             .as_array_mut()
             .expect("highlight_groups initialised as array above");
@@ -546,7 +734,12 @@ pub fn tabnr(this_tabnr: u64, current_tabnr: u64, show_current: bool) -> Option<
 /// Port of `bufnr()` from
 /// `powerline/segments/vim/__init__.py:651-660`.
 pub fn bufnr(this_bufnr: u64, current_bufnr: u64, show_current: bool) -> Option<String> {
-    // py:659-660
+    // py:651  @requires_segment_info
+    // py:652  def bufnr(pl, segment_info, show_current=True):
+    // py:653  '''Used to display buffer number of the current buffer
+    // py:654-658  docstring
+    // py:659  bufnr = segment_info['bufnr']
+    // py:660  return str(bufnr) if show_current or bufnr != vim.current.buffer.number else None
     if show_current || this_bufnr != current_bufnr {
         Some(this_bufnr.to_string())
     } else {
@@ -557,7 +750,12 @@ pub fn bufnr(this_bufnr: u64, current_bufnr: u64, show_current: bool) -> Option<
 /// Port of `winnr()` from
 /// `powerline/segments/vim/__init__.py:663-672`.
 pub fn winnr(this_winnr: u64, current_winnr: u64, show_current: bool) -> Option<String> {
-    // py:671-672
+    // py:663  @requires_segment_info
+    // py:664  def winnr(pl, segment_info, show_current=True):
+    // py:665  '''Used to display window number of the current window
+    // py:666-670  docstring
+    // py:671  winnr = segment_info['winnr']
+    // py:672  return str(winnr) if show_current or winnr != vim.current.window.number else None
     if show_current || this_winnr != current_winnr {
         Some(this_winnr.to_string())
     } else {
