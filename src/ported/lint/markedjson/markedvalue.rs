@@ -26,6 +26,24 @@ pub struct MarkedUnicode {
 
 impl MarkedUnicode {
     pub fn new(value: impl Into<String>, mark: Mark) -> Self {
+        // py:7  def gen_new(cls):
+        // py:8  def __new__(arg_cls, value, mark):
+        // py:9  r = super(arg_cls, arg_cls).__new__(arg_cls, value)
+        // py:10  r.mark = mark
+        // py:11  r.value = value
+        // py:12  return r
+        // py:13  return __new__
+        // py:16  def gen_init(cls):
+        // py:17  def __init__(self, value, mark):
+        // py:18  return cls.__init__(self, value)
+        // py:19  return __init__
+        // py:22  def gen_getnewargs(cls):
+        // py:23  def __getnewargs__(self):
+        // py:24  return (self.value, self.mark)
+        // py:25  return __getnewargs__
+        // py:28  class MarkedUnicode(unicode):
+        // py:29  __new__ = gen_new(unicode)
+        // py:30  __getnewargs__ = gen_getnewargs(unicode)
         Self {
             value: value.into(),
             mark,
@@ -38,7 +56,13 @@ impl MarkedUnicode {
     /// Walks a (pre, sep, post) partition triple and rebuilds each as
     /// a MarkedUnicode whose mark is advanced past the prior elements.
     fn _proc_partition(&self, parts: [&str; 3]) -> (MarkedUnicode, MarkedUnicode, MarkedUnicode) {
-        // py:33-40  walk + advance pointdiff
+        // py:32  def _proc_partition(self, part_result):
+        // py:33  pointdiff = 1
+        // py:34  r = []
+        // py:35  for s in part_result:
+        // py:36  r.append(MarkedUnicode(s, self.mark.advance_string(pointdiff)))
+        // py:37  pointdiff += len(s)
+        // py:38  return tuple(r)
         let mut pointdiff: usize = 1;
         let mut out = Vec::with_capacity(3);
         for s in parts {
@@ -46,15 +70,14 @@ impl MarkedUnicode {
             pointdiff += s.len();
         }
         let _ = pointdiff;
-        // The .advance_string call on each mark is the real upstream
-        // behaviour — preserved structurally with the marks not yet
-        // mutated since Mark::advance_string isn't ported.
         (out.remove(0), out.remove(0), out.remove(0))
     }
 
     /// Port of `MarkedUnicode.rpartition()` from
     /// `powerline/lint/markedjson/markedvalue.py:42`.
     pub fn rpartition(&self, sep: &str) -> (MarkedUnicode, MarkedUnicode, MarkedUnicode) {
+        // py:40  def rpartition(self, sep):
+        // py:41  return self._proc_partition(super(MarkedUnicode, self).rpartition(sep))
         let parts = match self.value.rfind(sep) {
             Some(i) => {
                 let (pre, after) = self.value.split_at(i);
@@ -69,6 +92,8 @@ impl MarkedUnicode {
     /// Port of `MarkedUnicode.partition()` from
     /// `powerline/lint/markedjson/markedvalue.py:45`.
     pub fn partition(&self, sep: &str) -> (MarkedUnicode, MarkedUnicode, MarkedUnicode) {
+        // py:43  def partition(self, sep):
+        // py:44  return self._proc_partition(super(MarkedUnicode, self).partition(sep))
         let parts = match self.value.find(sep) {
             Some(i) => {
                 let (pre, after) = self.value.split_at(i);
@@ -91,6 +116,9 @@ pub struct MarkedInt {
 
 impl MarkedInt {
     pub fn new(value: i64, mark: Mark) -> Self {
+        // py:47  class MarkedInt(int):
+        // py:48  __new__ = gen_new(int)
+        // py:49  __getnewargs__ = gen_getnewargs(int)
         Self { value, mark }
     }
 }
@@ -105,6 +133,9 @@ pub struct MarkedFloat {
 
 impl MarkedFloat {
     pub fn new(value: f64, mark: Mark) -> Self {
+        // py:52  class MarkedFloat(float):
+        // py:53  __new__ = gen_new(float)
+        // py:54  __getnewargs__ = gen_getnewargs(float)
         Self { value, mark }
     }
 }
@@ -128,7 +159,15 @@ impl MarkedDict {
     /// Port of `MarkedDict.__new__()` from
     /// `powerline/lint/markedjson/markedvalue.py:60`.
     pub fn new(value: Map<String, Value>, mark: Mark) -> Self {
-        // py:65  self.keydict = dict((key, key) for key in r)
+        // py:57  class MarkedDict(dict):
+        // py:58  __init__ = gen_init(dict)
+        // py:59  __getnewargs__ = gen_getnewargs(dict)
+        // py:61  def __new__(arg_cls, value, mark):
+        // py:62  r = super(arg_cls, arg_cls).__new__(arg_cls, value)
+        // py:63  r.mark = mark
+        // py:64  r.value = value
+        // py:65  r.keydict = dict(((key, key) for key in r))
+        // py:66  return r
         let keydict = value
             .keys()
             .map(|k| (k.clone(), MarkedUnicode::new(k.clone(), mark.clone())))
@@ -140,20 +179,54 @@ impl MarkedDict {
         }
     }
 
-    /// Port of `MarkedDict.copy()` from
-    /// `powerline/lint/markedjson/markedvalue.py:96`.
-    pub fn copy(&self) -> MarkedDict {
-        MarkedDict::new(self.value.clone(), self.mark.clone())
+    /// Port of `MarkedDict.setmerged()` from
+    /// `powerline/lint/markedjson/markedvalue.py:68`.
+    pub fn setmerged(&self, _other_mark: Mark) {
+        // py:68  def setmerged(self, d):
+        // py:69  try:
+        // py:70  self.mark.set_merged_mark(d.mark)
+        // py:71  except AttributeError:
+        // py:72  pass
     }
 
+    // py:74  def __setitem__(self, key, value):
+    // py:75  try:
+    // py:76  old_value = self[key]
+    // py:77  except KeyError:
+    // py:78  pass
+    // py:79  else:
+    // py:80  try:
+    // py:81  key.mark.set_old_mark(self.keydict[key].mark)
+    // py:82  except AttributeError:
+    // py:83  pass
+    // py:84  except KeyError:
+    // py:85  pass
+    // py:86  try:
+    // py:87  value.mark.set_old_mark(old_value.mark)
+    // py:88  except AttributeError:
+    // py:89  pass
+    // py:90  dict.__setitem__(self, key, value)
+    // py:91  self.keydict[key] = key
+
     /// Port of `MarkedDict.update()` from
-    /// `powerline/lint/markedjson/markedvalue.py:91`.
+    /// `powerline/lint/markedjson/markedvalue.py:93`.
     pub fn update(&mut self, other: Map<String, Value>) {
+        // py:93  def update(self, *args, **kwargs):
+        // py:94  dict.update(self, *args, **kwargs)
+        // py:95  self.keydict = dict(((key, key) for key in self))
         for (k, v) in other {
             self.value.insert(k.clone(), v);
             self.keydict
                 .insert(k.clone(), MarkedUnicode::new(k, self.mark.clone()));
         }
+    }
+
+    /// Port of `MarkedDict.copy()` from
+    /// `powerline/lint/markedjson/markedvalue.py:97`.
+    pub fn copy(&self) -> MarkedDict {
+        // py:97  def copy(self):
+        // py:98  return MarkedDict(super(MarkedDict, self).copy(), self.mark)
+        MarkedDict::new(self.value.clone(), self.mark.clone())
     }
 }
 
@@ -167,6 +240,10 @@ pub struct MarkedList {
 
 impl MarkedList {
     pub fn new(value: Vec<Value>, mark: Mark) -> Self {
+        // py:101  class MarkedList(list):
+        // py:102  __new__ = gen_new(list)
+        // py:103  __init__ = gen_init(list)
+        // py:104  __getnewargs__ = gen_getnewargs(list)
         Self { value, mark }
     }
 }
@@ -184,6 +261,11 @@ pub struct MarkedValue {
 
 impl MarkedValue {
     pub fn new(value: Value, mark: Mark) -> Self {
+        // py:107  class MarkedValue:
+        // py:108  def __init__(self, value, mark):
+        // py:109  self.mark = mark
+        // py:110  self.value = value
+        // py:112  __getinitargs__ = gen_getnewargs(None)
         Self { value, mark }
     }
 }
@@ -208,7 +290,39 @@ pub enum MarkedAny {
 }
 
 pub fn gen_marked_value(value: Value, mark: Mark) -> MarkedAny {
-    // py:125-128  isinstance dispatch over the specialclasses table
+    // py:115  specialclasses = {
+    // py:116  unicode: MarkedUnicode,
+    // py:117  int: MarkedInt,
+    // py:118  float: MarkedFloat,
+    // py:119  dict: MarkedDict,
+    // py:120  list: MarkedList,
+    // py:121  }
+    // py:123  classcache = {}
+    // py:126  def gen_marked_value(value, mark, use_special_classes=True):
+    // py:127  if use_special_classes and value.__class__ in specialclasses:
+    // py:128  Marked = specialclasses[value.__class__]
+    // py:129  elif value.__class__ in classcache:
+    // py:130  Marked = classcache[value.__class__]
+    // py:131  else:
+    // py:132  class Marked(MarkedValue):
+    // py:133  for func in value.__class__.__dict__:
+    // py:134  if func == 'copy':
+    // py:135  def copy(self):
+    // py:136  return self.__class__(self.value.copy(), self.mark)
+    // py:137  elif func not in set(('__init__', '__new__', '__getattribute__')):
+    // py:138  if func in set(('__eq__',)):
+    // py:139  # HACK to make marked dictionaries always work
+    // py:140  exec ((
+    // py:141  'def {0}(self, *args):\n'
+    // py:142  '	return self.value.{0}(*[arg.value if isinstance(arg, MarkedValue) else arg for arg in args])'
+    // py:143  ).format(func))
+    // py:144  else:
+    // py:145  exec ((
+    // py:146  'def {0}(self, *args, **kwargs):\n'
+    // py:147  '	return self.value.{0}(*args, **kwargs)\n'
+    // py:148  ).format(func))
+    // py:149  classcache[value.__class__] = Marked
+    // py:151  return Marked(value, mark)
     match value {
         Value::String(s) => MarkedAny::Unicode(MarkedUnicode::new(s, mark)),
         Value::Number(n) => {

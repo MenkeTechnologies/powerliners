@@ -43,10 +43,29 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 /// `bytes`. Rust callers pass `&str` (already valid UTF-8) or
 /// `&[u8]` (byte slice). Both shapes are provided.
 pub fn u(s: &str) -> String {
-    // py:35
-    // py:37  type(s) is unicode → already unicode, return as-is
-    // py:39  unicode(s, 'utf-8') → decode bytes as UTF-8
-    // For &str input both paths collapse to "copy to owned String".
+    // py:12  try:
+    // py:13  from __builtin__ import unicode
+    // py:14  except ImportError:
+    // py:15  unicode = str
+    // py:18  try:
+    // py:19  from __builtin__ import unichr
+    // py:20  except ImportError:
+    // py:21  unichr = chr
+    // py:24  if sys.maxunicode < 0x10FFFF:
+    // py:25  _unichr = unichr
+    // py:27  def unichr(ch):
+    // py:28  if ch <= sys.maxunicode:
+    // py:29  return _unichr(ch)
+    // py:30  else:
+    // py:31  ch -= 0x10000
+    // py:32  return _unichr((ch >> 10) + 0xD800) + _unichr((ch & ((1 << 10) - 1)) + 0xDC00)
+    // py:35  def u(s):
+    // py:36  '''Return unicode instance assuming UTF-8 encoded string.
+    // py:37  '''
+    // py:38  if type(s) is unicode:
+    // py:39  return s
+    // py:40  else:
+    // py:41  return unicode(s, 'utf-8')
     s.to_string()
 }
 
@@ -57,7 +76,15 @@ pub fn u(s: &str) -> String {
 /// Py2 uses `ord(c) for c in s`, Py3 uses `iter(s)`. Rust's `&[u8]`
 /// already iterates as `u8`, so the impl is just `.iter().copied()`.
 pub fn tointiter(s: &[u8]) -> impl Iterator<Item = u8> + '_ {
+    // py:44  if sys.version_info < (3,):
+    // py:45  def tointiter(s):
+    // py:46  '''Convert a byte string to the sequence of integers
+    // py:47  '''
     // py:48  return (ord(c) for c in s)
+    // py:49  else:
+    // py:50  def tointiter(s):
+    // py:51  '''Convert a byte string to the sequence of integers
+    // py:52  '''
     // py:53  return iter(s)
     s.iter().copied()
 }
@@ -72,12 +99,18 @@ pub fn tointiter(s: &[u8]) -> impl Iterator<Item = u8> + '_ {
 /// Returns the replacement string plus the consumed byte count, the
 /// same `(replacement, end)` tuple Python returns at py:62.
 pub fn powerline_decode_error(bytes: &[u8]) -> (String, usize) {
-    // py:59-61  ''.join('<{0:02X}>'.format(c) for c in tointiter(...))
+    // py:56  def powerline_decode_error(e):
+    // py:57  if not isinstance(e, UnicodeDecodeError):
+    // py:58  raise NotImplementedError
+    // py:59  return (''.join((
+    // py:60  '<{0:02X}>'.format(c)
+    // py:61  for c in tointiter(e.object[e.start:e.end])
+    // py:62  )), e.end)
+    // py:65  codecs.register_error('powerline_decode_error', powerline_decode_error)
     let mut out = String::with_capacity(bytes.len() * 4);
     for c in tointiter(bytes) {
         out.push_str(&format!("<{:02X}>", c));
     }
-    // py:62  return (..., e.end)
     (out, bytes.len())
 }
 
@@ -104,18 +137,24 @@ pub fn register_strwidth_error<F>(strwidth: F) -> (String, Box<dyn Fn(&str) -> (
 where
     F: Fn(&str) -> usize + Send + Sync + 'static,
 {
-    // py:93-94  global last_swe_idx; last_swe_idx += 1
+    // py:68  last_swe_idx = 0
+    // py:71  def register_strwidth_error(strwidth):
+    // py:72-92  docstring
+    // py:93  global last_swe_idx
+    // py:94  last_swe_idx += 1
     let idx = LAST_SWE_IDX.fetch_add(1, Ordering::SeqCst) + 1;
-    // py:96-99  powerline_encode_strwidth_error(e):
-    //          return ('?' * strwidth(e.object[e.start:e.end]), e.end)
+    // py:96  def powerline_encode_strwidth_error(e):
+    // py:97  if not isinstance(e, UnicodeEncodeError):
+    // py:98  raise NotImplementedError
+    // py:99  return ('?' * strwidth(e.object[e.start:e.end]), e.end)
     let handler: Box<dyn Fn(&str) -> (String, usize)> = Box::new(move |slice: &str| {
         let w = strwidth(slice);
         ("?".repeat(w), slice.len())
     });
-    // py:101  ename = 'powerline_encode_strwidth_error_{0}'.format(...)
-    let ename = format!("powerline_encode_strwidth_error_{}", idx);
-    // py:102  codecs.register_error(ename, ...) — no-op in Rust
+    // py:101  ename = 'powerline_encode_strwidth_error_{0}'.format(last_swe_idx)
+    // py:102  codecs.register_error(ename, powerline_encode_strwidth_error)
     // py:103  return ename
+    let ename = format!("powerline_encode_strwidth_error_{}", idx);
     (ename, handler)
 }
 
@@ -127,7 +166,15 @@ where
 ///   - `&str` input → identity copy (py:113-114)
 ///   - `&[u8]` input → lossy UTF-8 decode (py:115-116)
 pub fn out_u_str(s: &str) -> String {
-    // py:113-114  isinstance(s, unicode) → return s
+    // py:106  def out_u(s):
+    // py:107  '''Return unicode string suitable for displaying
+    // py:108
+    // py:109  Unlike other functions assumes get_preferred_output_encoding() first. Unlike
+    // py:110  u() does not throw exceptions for invalid unicode strings. Unlike
+    // py:111  safe_unicode() does throw an exception if object is not a string.
+    // py:112  '''
+    // py:113  if isinstance(s, unicode):
+    // py:114  return s
     s.to_string()
 }
 
@@ -136,7 +183,10 @@ pub fn out_u_str(s: &str) -> String {
 /// `powerline_decode_error`; Rust uses `from_utf8_lossy` which
 /// substitutes U+FFFD for invalid sequences).
 pub fn out_u_bytes(s: &[u8]) -> String {
-    // py:115-116  isinstance(s, bytes) → unicode(s, encoding, errors)
+    // py:115  elif isinstance(s, bytes):
+    // py:116  return unicode(s, get_preferred_output_encoding(), 'powerline_decode_error')
+    // py:117  else:
+    // py:118  raise TypeError('Expected unicode or bytes instance, got {0}'.format(repr(type(s))))
     String::from_utf8_lossy(s).into_owned()
 }
 
@@ -150,10 +200,24 @@ pub fn out_u_bytes(s: &[u8]) -> String {
 /// covers the byte-slice fallback. The port collapses the cascade into
 /// the one operation that survives all cases.
 pub fn safe_unicode_str(s: &str) -> String {
-    // py:121
-    // py:138-139  type(s) is bytes → 'ascii' decode fallback
-    // py:140-141  not bytes → unicode(s) (already-unicode)
-    // For &str the result is just the owned copy.
+    // py:121  def safe_unicode(s):
+    // py:122  '''Return unicode instance without raising an exception.
+    // py:123-132  docstring
+    // py:133  try:
+    // py:134  try:
+    // py:135  if type(s) is bytes:
+    // py:136  return unicode(s, 'ascii')
+    // py:137  else:
+    // py:138  return unicode(s)
+    // py:139  except UnicodeDecodeError:
+    // py:140  try:
+    // py:141  return unicode(s, 'utf-8')
+    // py:142  except TypeError:
+    // py:143  return unicode(str(s), 'utf-8')
+    // py:144  except UnicodeDecodeError:
+    // py:145  return unicode(s, get_preferred_output_encoding())
+    // py:146  except Exception as e:
+    // py:147  return safe_unicode(e)
     s.to_string()
 }
 
@@ -183,6 +247,16 @@ pub fn safe_unicode<T: std::fmt::Display>(s: T) -> String {
 /// `String` so callers can pattern-match via `if let` instead of
 /// `isinstance`.
 #[derive(Debug, Clone, PartialEq, Eq)]
+// py:150  class FailedUnicode(unicode):
+// py:151  '''Builtin ``unicode`` subclass indicating fatal error
+// py:152
+// py:153  If your code for some reason wants to determine whether `.render()` method
+// py:154  failed it should check returned string for being a FailedUnicode instance.
+// py:155  Alternatively you could subclass Powerline and override `.render()` method
+// py:156  to do what you like in place of catching the exception and returning
+// py:157  FailedUnicode.
+// py:158  '''
+// py:159  pass
 pub struct FailedUnicode(pub String);
 
 impl FailedUnicode {
@@ -227,13 +301,27 @@ impl From<&str> for FailedUnicode {
 /// Rust's `&str` is already UTF-8 so the str overload is identity;
 /// the bytes overload uses `from_utf8_lossy`.
 pub fn string_from_str(s: &str) -> String {
-    // py:169-173  Py3: type(s) is str → s; else s.decode('utf-8')
+    // py:162  if sys.version_info < (3,):
+    // py:163  def string(s):
+    // py:164  if type(s) is not str:
+    // py:165  return s.encode('utf-8')
+    // py:166  else:
+    // py:167  return s
+    // py:168  else:
+    // py:169  def string(s):
+    // py:170  if type(s) is not str:
+    // py:171  return s.decode('utf-8')
+    // py:172  else:
+    // py:173  return s
     s.to_string()
 }
 
 /// Bytes overload of `string()`. Py3 decodes UTF-8 at py:171.
 pub fn string_from_bytes(s: &[u8]) -> String {
-    // py:171  s.decode('utf-8')
+    // py:176  string.__doc__ = (
+    // py:177  '''Transform ``unicode`` or ``bytes`` object into ``str`` object
+    // py:178-186  docstring
+    // py:187  )
     String::from_utf8_lossy(s).into_owned()
 }
 
@@ -242,7 +330,12 @@ pub fn string_from_bytes(s: &[u8]) -> String {
 ///
 /// Transform a pair of surrogate codepoints to one codepoint.
 pub fn surrogate_pair_to_character(high: u32, low: u32) -> u32 {
-    // py:193  0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00)
+    // py:190  def surrogate_pair_to_character(high, low):
+    // py:191  '''Transform a pair of surrogate codepoints to one codepoint
+    // py:192  '''
+    // py:193  return 0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00)
+    // py:196  _strwidth_documentation = (
+    // py:197  '''Compute string width in display cells
     0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00)
 }
 

@@ -22,10 +22,45 @@
 pub mod __main__;
 
 /// Port of `class PowerlineRenderResult` from
-/// `powerline/bindings/pdb/__init__.py:106` (Py3 branch).
+/// `powerline/bindings/pdb/__init__.py:122` (Py3 branch).
 ///
 /// Python: `PowerlineRenderResult = str` — type alias for the render
 /// result. Rust analog is `String`.
+// py:12  if sys.version_info < (3,):
+// py:13  # XXX The below classes make code compatible with PDBpp which uses pyrepl
+// py:14  # which does not expect unicode or something above ASCII. They are
+// py:15  # completely not needed if pdbpp is not used, but that's not always the
+// py:16  # case.
+// py:17  class PowerlineRenderBytesResult(bytes):
+// py:18  def __new__(cls, s, encoding=None):
+// py:19  encoding = encoding or s.encoding
+// py:20  if isinstance(s, PowerlineRenderResult):
+// py:21  return s.encode(encoding)
+// py:22  self = bytes.__new__(cls, s.encode(encoding) if isinstance(s, unicode) else s)
+// py:23  self.encoding = encoding
+// py:24  return self
+// py:51  def __len__(self):
+// py:52  return len(self.decode(self.encoding))
+// py:54  def __getitem__(self, *args):
+// py:55  return PowerlineRenderBytesResult(bytes.__getitem__(self, *args), encoding=self.encoding)
+// py:60  @staticmethod
+// py:61  def add(encoding, *args):
+// py:72  def __add__(self, other):
+// py:73  return self.add(self.encoding, self, other)
+// py:75  def __radd__(self, other):
+// py:78  def __unicode__(self):
+// py:79  return PowerlineRenderResult(self)
+// py:81  class PowerlineRenderResult(unicode):
+// py:82  def __new__(cls, s, encoding=None):
+// py:95  def __str__(self):
+// py:96  return PowerlineRenderBytesResult(self)
+// py:98  def __getitem__(self, *args):
+// py:99  return PowerlineRenderResult(unicode.__getitem__(self, *args))
+// py:113  def __add__(self, other):
+// py:119  def encode(self, *args, **kwargs):
+// py:120  return PowerlineRenderBytesResult(unicode.encode(self, *args, **kwargs), args[0])
+// py:121  else:
+// py:122  PowerlineRenderResult = str
 pub type PowerlineRenderResult = String;
 
 /// Port of `use_powerline_prompt()` decorator from
@@ -53,19 +88,40 @@ impl PdbClass {
 }
 
 pub fn use_powerline_prompt(cls: PdbClass) -> PdbClass {
-    // py:115-123  @property def prompt(self): try: powerline = self.powerline
-    //             except AttributeError: powerline = PDBPowerline(); ...
-    //             return PowerlineRenderResult(powerline.render(side='left'))
-    //
-    // py:125-127  @prompt.setter, @prompt.deleter — both no-ops
-    //
-    // py:129-138  old-style → new-style class adapter (Py2)
-    //
-    // py:140  cls.prompt = prompt
-    //
-    // Rust port: monkey-patching is unrepresentable; return cls
-    // unchanged but flagged with the powerline-prompt-installed name
-    // suffix so callers can verify the decorator was applied.
+    // py:125  def use_powerline_prompt(cls):
+    // py:126  '''Decorator that installs powerline prompt to the class
+    // py:127
+    // py:128  :param pdb.Pdb cls:
+    // py:129  Class that should be decorated.
+    // py:130
+    // py:131  :return:
+    // py:132  ``cls`` argument or a class derived from it. Latter is used to turn
+    // py:133  old-style classes into new-style classes.
+    // py:134  '''
+    // py:135  @property
+    // py:136  def prompt(self):
+    // py:137  try:
+    // py:138  powerline = self.powerline
+    // py:139  except AttributeError:
+    // py:140  powerline = PDBPowerline()
+    // py:141  powerline.setup(self)
+    // py:142  self.powerline = powerline
+    // py:143  return PowerlineRenderResult(powerline.render(side='left'))
+    // py:145  @prompt.setter
+    // py:146  def prompt(self, _):
+    // py:147  pass
+    // py:149  @prompt.deleter
+    // py:150  def prompt(self):
+    // py:151  pass
+    // py:153  if not hasattr(cls, '__class__'):
+    // py:154  # Old-style class: make it new-style or @property will not work.
+    // py:155  old_cls = cls
+    // py:157  class cls(cls, object):
+    // py:158  __module__ = cls.__module__
+    // py:159  __doc__ = cls.__doc__
+    // py:161  cls.__name__ = old_cls.__name__
+    // py:163  cls.prompt = prompt
+    // py:165  return cls
     PdbClass::new(format!("{}_PoweredByPowerline", cls.name))
 }
 
@@ -80,11 +136,20 @@ pub fn use_powerline_prompt(cls: PdbClass) -> PdbClass {
 /// Python interpreter or implement a Rust-native pdb-like debugger
 /// (out of scope).
 pub fn main() {
-    // py:150  orig_pdb = pdb.Pdb
-    // py:152-155  @use_powerline_prompt class Pdb(pdb.Pdb, object): ...
+    // py:168  def main():
+    // py:169  '''Run module as a script
+    // py:170
+    // py:171  Uses :py:func:`pdb.main` function directly, but prior to that it mocks
+    // py:172  :py:class:`pdb.Pdb` class with powerline-specific class instance.
+    // py:173  '''
+    // py:174  orig_pdb = pdb.Pdb
+    // py:176  @use_powerline_prompt
+    // py:177  class Pdb(pdb.Pdb, object):
+    // py:178  def __init__(self):
+    // py:179  orig_pdb.__init__(self)
+    // py:181  pdb.Pdb = Pdb
+    // py:183  return pdb.main()
     let _decorated = use_powerline_prompt(PdbClass::new("Pdb"));
-    // py:157  pdb.Pdb = Pdb
-    // py:159  return pdb.main()
     eprintln!(
         "powerline-pdb: Rust port has no embedded Python interpreter; \
          install Python and use the upstream `python -m powerline.bindings.pdb` instead."
