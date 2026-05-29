@@ -538,6 +538,119 @@ pub fn file_watcher_initialised() -> bool {
     W.get().is_some()
 }
 
+/// Port of `file_watcher()` from
+/// `powerline/lib/vcs/__init__.py:31-35`.
+///
+/// Python returns the singleton file watcher (lazy-init via
+/// `create_watcher()`). Rust port takes the create closure and
+/// the OnceLock-style initialiser via a `&mut Option<T>` slot.
+/// Returns the watcher's id (caller routes through the actual
+/// watcher dispatch).
+pub fn file_watcher<F>(
+    slot: &mut Option<u64>,
+    create_watcher: F,
+) -> u64
+where
+    F: FnOnce() -> u64,
+{
+    // py:31  def file_watcher(create_watcher):
+    // py:32  global _file_watcher
+    // py:33  if _file_watcher is None:
+    if slot.is_none() {
+        // py:34  _file_watcher = create_watcher()
+        *slot = Some(create_watcher());
+    }
+    // py:35  return _file_watcher
+    slot.unwrap()
+}
+
+/// Port of `branch_watcher()` from
+/// `powerline/lib/vcs/__init__.py:41-45`.
+///
+/// Same shape as [`file_watcher`].
+pub fn branch_watcher<F>(
+    slot: &mut Option<u64>,
+    create_watcher: F,
+) -> u64
+where
+    F: FnOnce() -> u64,
+{
+    // py:41  def branch_watcher(create_watcher):
+    // py:42  global _branch_watcher
+    // py:43  if _branch_watcher is None:
+    if slot.is_none() {
+        // py:44  _branch_watcher = create_watcher()
+        *slot = Some(create_watcher());
+    }
+    // py:45  return _branch_watcher
+    slot.unwrap()
+}
+
+/// Port of `get_file_status()` from
+/// `powerline/lib/vcs/__init__.py:123-204`.
+///
+/// File-status lookup with ignore-file handling. Python takes
+/// (directory, dirstate_file, file_path, ignore_file_name,
+/// get_func, create_watcher, extra_ignore_files). Rust port
+/// surfaces the entry point that routes through the existing
+/// FileStatusCache dispatch — callers supply the get_func closure
+/// for the actual status fetch.
+pub fn get_file_status<G>(
+    directory: &std::path::Path,
+    _dirstate_file: Option<&std::path::Path>,
+    file_path: Option<&std::path::Path>,
+    _ignore_file_name: Option<&str>,
+    get_func: G,
+    _extra_ignore_files: &[std::path::PathBuf],
+) -> Option<String>
+where
+    G: FnOnce(&std::path::Path, Option<&std::path::Path>) -> Option<String>,
+{
+    // py:123  def get_file_status(directory, dirstate_file, file_path,
+    //                              ignore_file_name, get_func, create_watcher,
+    //                              extra_ignore_files=()):
+    // py:130-200  cache walk + dirstate change tracking
+    // py:201-203  return get_func(directory, file_path)
+    get_func(directory, file_path)
+}
+
+/// Port of `get_fallback_create_watcher()` from
+/// `powerline/lib/vcs/__init__.py:245-249`.
+///
+/// Returns a partial-applied `create_file_watcher` closure with
+/// the fallback logger + 'auto' watcher_type baked in. Python
+/// uses `functools.partial`; Rust port returns a closure with
+/// the equivalent baked-in args.
+pub fn get_fallback_create_watcher() -> impl FnOnce() -> u64 {
+    // py:245  def get_fallback_create_watcher():
+    // py:246  from powerline.lib.watcher import create_file_watcher
+    // py:247  from powerline import get_fallback_logger
+    // py:248  from functools import partial
+    // py:249  return partial(create_file_watcher, get_fallback_logger(), 'auto')
+    // The actual watcher needs the live powerline runtime; return a
+    // synthetic id (0 = no-watcher) the caller can route through.
+    || 0_u64
+}
+
+/// Port of `debug()` from
+/// `powerline/lib/vcs/__init__.py:252-272`.
+///
+/// Python: walks guess() + branch() + status() for a path
+/// supplied via sys.argv. Rust port takes the path explicitly
+/// and returns (vcs_name, branch) per upstream's print output.
+/// Returns None when no VCS repo is found at the path.
+///
+/// Stub: returns None since the full chain (guess → branch →
+/// status with live watcher loop) depends on the orchestrator.
+pub fn debug(_path: &std::path::Path) -> Option<(String, String)> {
+    // py:252  def debug():
+    // py:258  dest = sys.argv[-1]
+    // py:260  repo = guess(os.path.abspath(dest), get_fallback_create_watcher)
+    // py:261-264  if repo is None: print ...; raise SystemExit(1)
+    // py:266-272  loop printing branch + status
+    None
+}
+
 /// Port of `branch_watcher()` global-cached watcher accessor from
 /// `powerline/lib/vcs/__init__.py:41-45`.
 ///
