@@ -2192,6 +2192,56 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_shell_which_finds_and_misses_consistently() {
+    if !python_available() {
+        return;
+    }
+    // Pin which() to Python's shutil.which (which is what powerline.lib.shell.which
+    // wraps). Three cases:
+    //   1. 'sh' — must exist on every POSIX system; both ports return a path
+    //   2. 'python3' — present whenever the parity harness can run; both must agree
+    //   3. 'definitely-not-a-real-binary-zzzz' — must be None / Path absent
+    for cmd in &["sh", "python3"] {
+        let py_expr = format!(
+            "(lambda r: r if r is not None else '')(__import__('powerline.lib.shell', fromlist=['which']).which({:?}))",
+            cmd
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = powerliners::lib::shell::which(cmd)
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        assert_eq!(
+            py.trim(),
+            rs,
+            "which({:?}) mismatch: py={:?}, rs={:?}",
+            cmd,
+            py,
+            rs
+        );
+        assert!(!rs.is_empty(), "Rust which({:?}) should resolve", cmd);
+    }
+    // Missing-binary case: Python returns None → empty string; Rust returns None.
+    let py = match py_eval(
+        "(lambda r: r if r is not None else '')(__import__('powerline.lib.shell', fromlist=['which']).which('definitely-not-a-real-binary-zzzz'))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(
+        py.trim(),
+        "",
+        "Python should return None for missing binary"
+    );
+    assert!(
+        powerliners::lib::shell::which("definitely-not-a-real-binary-zzzz").is_none(),
+        "Rust which() should return None for missing binary"
+    );
+}
+
+#[test]
 fn parity_mergedicts_copy_does_not_mutate_d1() {
     if !python_available() {
         return;
