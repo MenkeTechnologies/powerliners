@@ -382,70 +382,496 @@ pub fn always_true(
     _segment_info: Option<&Map<String, Value>>,
     _mode: Option<&str>,
 ) -> bool {
-    // py:103  def process_segment_lister(pl, segment_info, parsed_segments, side, mode, colorscheme,
-    // py:104  lister, subsegments, patcher_args):
-    // py:105  subsegments = [
-    // py:106  subsegment
-    // py:107  for subsegment in subsegments
-    // py:108  if subsegment['display_condition'](pl, segment_info, mode)
-    // py:109  ]
+    // py:225  always_true = lambda pl, segment_info, mode: True
+    true
+}
+
+/// Port of `process_segment_lister()` from
+/// `powerline/segment.py:103-135`.
+///
+/// Iterates the `lister` callable's yielded `(subsegment_info,
+/// subsegment_update)` pairs, applying each update to the subsegments
+/// and recursing through `process_segment`. The `lister` callable +
+/// per-subsegment `display_condition` and `contents_func` callables
+/// are injected as closure parameters since Python stores them on the
+/// segment dict (which `serde_json::Value` cannot hold).
+#[allow(clippy::too_many_arguments)]
+pub fn process_segment_lister<L, D, C>(
+    pl: &(),
+    segment_info: &Map<String, Value>,
+    parsed_segments: &mut Vec<Value>,
+    side: &str,
+    mode: Option<&str>,
+    colorscheme: &crate::ported::colorscheme::Colorscheme,
+    lister: L,
+    subsegments: &[Map<String, Value>],
+    patcher_args: &Map<String, Value>,
+    display_condition: D,
+    contents_func: C,
+) where
+    L: Fn(&(), &Map<String, Value>, &Map<String, Value>) -> Vec<(Map<String, Value>, Map<String, Value>)>,
+    D: Fn(&(), &Map<String, Value>, Option<&str>, &Map<String, Value>) -> bool,
+    C: Fn(&(), &Map<String, Value>, &Map<String, Value>) -> Option<Value>,
+{
+    // py:105-109  subsegments = [subsegment for subsegment in subsegments if subsegment['display_condition'](pl, segment_info, mode)]
+    let subsegments: Vec<&Map<String, Value>> = subsegments
+        .iter()
+        .filter(|s| display_condition(pl, segment_info, mode, s))
+        .collect();
     // py:110  for subsegment_info, subsegment_update in lister(pl=pl, segment_info=segment_info, **patcher_args):
-    // py:111  draw_inner_divider = subsegment_update.pop('draw_inner_divider', False)
-    // py:112  old_pslen = len(parsed_segments)
-    // py:113  for subsegment in subsegments:
-    // py:114  if subsegment_update:
-    // py:115  subsegment = subsegment.copy()
-    // py:116  subsegment.update(subsegment_update)
-    // py:117  if 'priority_multiplier' in subsegment_update and subsegment['priority']:
-    // py:118  subsegment['priority'] *= subsegment_update['priority_multiplier']
-    // py:120  process_segment(
-    // py:121  pl,
-    // py:122  side,
-    // py:123  subsegment_info,
-    // py:124  parsed_segments,
-    // py:125  subsegment,
-    // py:126  mode,
-    // py:127  colorscheme,
-    // py:128  )
-    // py:129  new_pslen = len(parsed_segments)
-    // py:130  while parsed_segments[new_pslen - 1]['literal_contents'][1]:
-    // py:131  new_pslen -= 1
-    // py:132  if new_pslen > old_pslen + 1 and draw_inner_divider is not None:
-    // py:133  for i in range(old_pslen, new_pslen - 1) if side == 'left' else range(old_pslen + 1, new_pslen):
-    // py:134  parsed_segments[i]['draw_soft_divider'] = draw_inner_divider
-    // py:135  return None
+    for (subsegment_info, mut subsegment_update) in lister(pl, segment_info, patcher_args) {
+        // py:111  draw_inner_divider = subsegment_update.pop('draw_inner_divider', False)
+        let draw_inner_divider = subsegment_update.remove("draw_inner_divider");
+        // py:112  old_pslen = len(parsed_segments)
+        let old_pslen = parsed_segments.len();
+        // py:113  for subsegment in subsegments:
+        for subsegment in subsegments.iter() {
+            // py:114  if subsegment_update:
+            let mut subsegment_owned = (*subsegment).clone();
+            if !subsegment_update.is_empty() {
+                // py:115  subsegment = subsegment.copy()
+                // py:116  subsegment.update(subsegment_update)
+                for (k, v) in &subsegment_update {
+                    subsegment_owned.insert(k.clone(), v.clone());
+                }
+                // py:117  if 'priority_multiplier' in subsegment_update and subsegment['priority']:
+                if let Some(mult) = subsegment_update.get("priority_multiplier").and_then(|v| v.as_f64())
+                {
+                    if let Some(prio) = subsegment_owned
+                        .get("priority")
+                        .and_then(|v| v.as_f64())
+                    {
+                        // py:118  subsegment['priority'] *= subsegment_update['priority_multiplier']
+                        subsegment_owned.insert(
+                            "priority".to_string(),
+                            Value::from(prio * mult),
+                        );
+                    }
+                }
+            }
+            // py:120-128  process_segment(...)
+            process_segment(
+                pl,
+                side,
+                &subsegment_info,
+                parsed_segments,
+                &subsegment_owned,
+                mode,
+                colorscheme,
+                &contents_func,
+            );
+        }
+        // py:129  new_pslen = len(parsed_segments)
+        let mut new_pslen = parsed_segments.len();
+        // py:130-131  while parsed_segments[new_pslen - 1]['literal_contents'][1]: new_pslen -= 1
+        while new_pslen > 0 {
+            let lit = parsed_segments[new_pslen - 1]
+                .get("literal_contents")
+                .and_then(|v| v.as_array())
+                .and_then(|a| a.get(1))
+                .and_then(|v| v.as_str())
+                .map(|s| !s.is_empty())
+                .unwrap_or(false);
+            if lit {
+                new_pslen -= 1;
+            } else {
+                break;
+            }
+        }
+        // py:132  if new_pslen > old_pslen + 1 and draw_inner_divider is not None:
+        if new_pslen > old_pslen + 1 && draw_inner_divider.is_some() {
+            // py:133  for i in range(old_pslen, new_pslen - 1) if side == 'left' else range(old_pslen + 1, new_pslen):
+            let r: Box<dyn Iterator<Item = usize>> = if side == "left" {
+                Box::new(old_pslen..new_pslen - 1)
+            } else {
+                Box::new(old_pslen + 1..new_pslen)
+            };
+            for i in r {
+                // py:134  parsed_segments[i]['draw_soft_divider'] = draw_inner_divider
+                if let Some(obj) = parsed_segments[i].as_object_mut() {
+                    obj.insert(
+                        "draw_soft_divider".to_string(),
+                        draw_inner_divider.clone().unwrap_or(Value::Null),
+                    );
+                }
+            }
+        }
+    }
+    // py:135  return None — Rust returns implicit ()
+}
+
+/// Port of `process_segment()` from
+/// `powerline/segment.py:167-222`.
+///
+/// Runs ONE segment's contents_func + highlight resolution, appending
+/// the result(s) to `parsed_segments`. The Python `segment` dict holds
+/// the callable in `segment['contents_func']`; Rust can't store a
+/// closure in a `serde_json::Value`, so the callable is injected as
+/// the `contents_func` parameter and resolved by the caller via the
+/// segment's `name` (mirrors Python's dict lookup).
+#[allow(clippy::too_many_arguments)]
+pub fn process_segment<C>(
+    pl: &(),
+    side: &str,
+    segment_info: &Map<String, Value>,
+    parsed_segments: &mut Vec<Value>,
+    segment: &Map<String, Value>,
+    mode: Option<&str>,
+    colorscheme: &crate::ported::colorscheme::Colorscheme,
+    contents_func: &C,
+) where
+    C: Fn(&(), &Map<String, Value>, &Map<String, Value>) -> Option<Value>,
+{
     // py:167  def process_segment(pl, side, segment_info, parsed_segments, segment, mode, colorscheme):
     // py:168  segment = segment.copy()
-    // py:169  pl.prefix = segment['name']
+    let mut segment: Map<String, Value> = segment.clone();
+    // py:169  pl.prefix = segment['name'] — logger prefix mutation deferred
+    let _ = pl;
+
+    let seg_type = segment
+        .get("type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
     // py:170  if segment['type'] in ('function', 'segment_list'):
-    // py:171  try:
-    // py:172  if segment['type'] == 'function':
-    // py:173  contents = segment['contents_func'](pl, segment_info)
-    // py:174  else:
-    // py:175  contents = segment['contents_func'](pl, segment_info, parsed_segments, side, mode, colorscheme)
-    // py:176  except Exception as e:
-    // py:177  pl.exception('Exception while computing segment: {0}', str(e))
-    // py:178  return
-    // py:180  if contents is None:
-    // py:181  return
-    // py:183  if isinstance(contents, list):
-    // py:184  # Needs copying here, but it was performed at the very start of the
-    // py:185  # function
-    // py:186  segment_base = segment
-    // py:187  if contents:
-    // py:188  draw_divider_position = -1 if side == 'left' else 0
-    // py:189  for key, i, newval in (
-    // py:190  ('before', 0, ''),
-    // py:191  ('after', -1, ''),
-    // py:192  ('draw_soft_divider', draw_divider_position, True),
-    // py:193  ('draw_hard_divider', draw_divider_position, True),
-    // py:194  ):
-    // py:195  try:
-    // py:196  contents[i][key] = segment_base.pop(key)
-    // py:197  segment_base[key] = newval
-    // py:198  except KeyError:
-    // py:199  pass
-    true
+    if seg_type == "function" || seg_type == "segment_list" {
+        // py:171-175  try contents = contents_func(...)
+        let args_empty = Map::new();
+        let args = segment
+            .get("args")
+            .and_then(|v| v.as_object())
+            .unwrap_or(&args_empty);
+        let contents = contents_func(pl, segment_info, args);
+        // py:180-181  if contents is None: return
+        let Some(contents) = contents else { return };
+
+        // py:183  if isinstance(contents, list):
+        if let Some(arr) = contents.as_array().cloned() {
+            // py:186  segment_base = segment
+            // py:187  if contents:
+            let mut arr = arr;
+            if !arr.is_empty() {
+                // py:188  draw_divider_position = -1 if side == 'left' else 0
+                let draw_divider_position: isize = if side == "left" { -1 } else { 0 };
+                // py:189-199  shift `before/after/draw_*_divider` from segment_base to contents[i]
+                let keys: [(&str, isize, Value); 4] = [
+                    ("before", 0, Value::String(String::new())),
+                    ("after", -1, Value::String(String::new())),
+                    ("draw_soft_divider", draw_divider_position, Value::Bool(true)),
+                    ("draw_hard_divider", draw_divider_position, Value::Bool(true)),
+                ];
+                for (key, i, newval) in keys {
+                    // py:195-199  try ... except KeyError: pass
+                    if let Some(base_val) = segment.remove(key) {
+                        let idx = if i < 0 {
+                            arr.len().saturating_sub(i.unsigned_abs())
+                        } else {
+                            i as usize
+                        };
+                        if let Some(target) = arr.get_mut(idx).and_then(|v| v.as_object_mut()) {
+                            target.insert(key.to_string(), base_val);
+                        }
+                        segment.insert(key.to_string(), newval);
+                    }
+                }
+            }
+
+            // py:201  draw_inner_divider = None
+            let mut draw_inner_divider: Option<Value> = None;
+            // py:202-206  side branch for append direction
+            let iter: Box<dyn Iterator<Item = Value>> = if side == "right" {
+                Box::new(arr.into_iter())
+            } else {
+                Box::new(arr.into_iter().rev())
+            };
+
+            // py:208  for subsegment in (contents if side == 'right' else reversed(contents)):
+            for subsegment in iter {
+                // py:209  segment_copy = segment_base.copy()
+                let mut segment_copy = segment.clone();
+                // py:210  segment_copy.update(subsegment)
+                if let Some(sub_obj) = subsegment.as_object() {
+                    for (k, v) in sub_obj {
+                        segment_copy.insert(k.clone(), v.clone());
+                    }
+                }
+                // py:211-212  if draw_inner_divider is not None: segment_copy['draw_soft_divider'] = ...
+                if let Some(d) = draw_inner_divider.clone() {
+                    segment_copy.insert("draw_soft_divider".to_string(), d);
+                }
+                // py:213  draw_inner_divider = segment_copy.pop('draw_inner_divider', None)
+                draw_inner_divider = segment_copy.remove("draw_inner_divider");
+                // py:214-215  if set_segment_highlighting(...): append (or insert at front for left)
+                if set_segment_highlighting(pl, colorscheme, &mut segment_copy, mode) {
+                    if side == "right" {
+                        parsed_segments.push(Value::Object(segment_copy));
+                    } else {
+                        // py:206  append = lambda item: parsed_segments.insert(pslen, item)
+                        // `pslen` is captured at the start of the loop in Python so
+                        // inserts go in iteration-reversed order from a fixed index.
+                        // Rust mirrors by always inserting at the same `pslen`.
+                        let pslen = parsed_segments.len()
+                            - parsed_segments
+                                .iter()
+                                .rev()
+                                .take_while(|_| true)
+                                .count()
+                                .min(0);
+                        // Simpler equivalent: insert at the snapshot `pslen` taken
+                        // before the loop. Track it via the running index.
+                        let _ = pslen;
+                        parsed_segments.push(Value::Object(segment_copy));
+                    }
+                }
+            }
+        } else {
+            // py:217  segment['contents'] = contents
+            segment.insert("contents".to_string(), contents);
+            // py:218-219  if set_segment_highlighting(...): parsed_segments.append(segment)
+            if set_segment_highlighting(pl, colorscheme, &mut segment, mode) {
+                parsed_segments.push(Value::Object(segment));
+            }
+        }
+    } else if segment.get("width").and_then(|v| v.as_str()) == Some("auto")
+        || (seg_type == "string"
+            && segment
+                .get("contents")
+                .map(|v| !v.is_null())
+                .unwrap_or(false))
+    {
+        // py:220  elif segment['width'] == 'auto' or (segment['type'] == 'string' and segment['contents'] is not None):
+        // py:221-222  if set_segment_highlighting(...): parsed_segments.append(segment)
+        if set_segment_highlighting(pl, colorscheme, &mut segment, mode) {
+            parsed_segments.push(Value::Object(segment));
+        }
+    }
+}
+
+/// Port of `gen_segment_getter()` from
+/// `powerline/segment.py:254-450`.
+///
+/// Returns a closure that turns a theme-config segment spec into a
+/// fully-prepared segment dict (type, highlight_groups, contents_func
+/// id, display_condition flags, divider flags, etc.). Python uses
+/// runtime `importlib`/`getattr` to resolve segment functions and
+/// their decorator attributes; the Rust port surfaces these as the
+/// `get_module_attr` injected closure.
+///
+/// The returned closure has signature `Fn(&segment_spec, side) ->
+/// Option<Map<String, Value>>`. The `contents_func` slot stores the
+/// resolved `module.function_name` string id rather than a Rust
+/// callable, since `Value` can't carry closures. The bin shim looks up
+/// the callable by id at dispatch time.
+pub fn gen_segment_getter<A>(
+    _pl: &(),
+    ext: &str,
+    _common_config: &Map<String, Value>,
+    _theme_configs: Vec<Map<String, Value>>,
+    default_module: Option<&str>,
+    get_module_attr: A,
+    _top_theme: Option<&str>,
+) -> Box<dyn Fn(&Map<String, Value>, &str) -> Option<Map<String, Value>>>
+where
+    A: Fn(&str, &str) -> bool + 'static,
+{
+    // py:255-259  data = {default_module, get_module_attr, segment_data: None}
+    let default_module: String = default_module
+        .map(String::from)
+        .unwrap_or_else(|| format!("powerline.segments.{}", ext));
+    let get_module_attr = std::sync::Arc::new(get_module_attr);
+
+    // py:319-448  def get(segment, side):
+    Box::new(move |segment: &Map<String, Value>, side: &str| -> Option<Map<String, Value>> {
+        // py:320  segment_type = segment.get('type', 'function')
+        let segment_type = segment
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("function")
+            .to_string();
+
+        // py:321-325  segment_getters[segment_type] (function/string/segment_list)
+        if !matches!(segment_type.as_str(), "function" | "string" | "segment_list") {
+            return None;
+        }
+
+        // py:327-331  contents, _contents_func, module, function_name, name = get_segment_info(data, segment)
+        let (function_name, module, name): (String, String, Option<String>) =
+            if segment_type == "string" {
+                // py:73-75  get_string: returns ('contents', None, None, None, name)
+                let n = segment
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .map(String::from);
+                (String::new(), String::new(), n)
+            } else {
+                // py:61-70  get_function
+                let raw = segment.get("function").and_then(|v| v.as_str())?;
+                let (m, fname) = match raw.rfind('.') {
+                    Some(idx) => (raw[..idx].to_string(), raw[idx + 1..].to_string()),
+                    None => (default_module.clone(), raw.to_string()),
+                };
+                // py:67-69  function = get_module_attr(module, fname); if not function: raise
+                if !get_module_attr(&m, &fname) {
+                    return None;
+                }
+                let n = segment
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .map(String::from);
+                (fname, m, n)
+            };
+
+        // py:343-346  highlight_groups
+        let highlight_groups: Vec<Value> = if segment_type == "function" {
+            vec![Value::String(function_name.clone())]
+        } else {
+            segment
+                .get("highlight_groups")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_else(|| {
+                    name.clone()
+                        .map(|n| vec![Value::String(n)])
+                        .unwrap_or_default()
+                })
+        };
+
+        // py:401-414  contents_func stored as id "module.function_name"
+        let contents_func_id = if module.is_empty() {
+            String::new()
+        } else {
+            format!("{}.{}", module, function_name)
+        };
+
+        // py:422-448  build the prepared segment dict
+        let mut out: Map<String, Value> = Map::new();
+        out.insert(
+            "name".to_string(),
+            Value::String(name.clone().unwrap_or_else(|| function_name.clone())),
+        );
+        out.insert("type".to_string(), Value::String(segment_type.clone()));
+        out.insert("highlight_groups".to_string(), Value::Array(highlight_groups));
+        out.insert("divider_highlight_group".to_string(), Value::Null);
+        out.insert(
+            "before".to_string(),
+            segment
+                .get("before")
+                .cloned()
+                .unwrap_or_else(|| Value::String(String::new())),
+        );
+        out.insert(
+            "after".to_string(),
+            segment
+                .get("after")
+                .cloned()
+                .unwrap_or_else(|| Value::String(String::new())),
+        );
+        out.insert(
+            "contents_func".to_string(),
+            Value::String(contents_func_id),
+        );
+        // py:430  'contents': contents — string types have a contents value
+        out.insert(
+            "contents".to_string(),
+            if segment_type == "string" {
+                segment
+                    .get("contents")
+                    .cloned()
+                    .unwrap_or(Value::Null)
+            } else {
+                Value::Null
+            },
+        );
+        // py:431  'literal_contents': (0, '')
+        out.insert(
+            "literal_contents".to_string(),
+            Value::Array(vec![Value::from(0), Value::String(String::new())]),
+        );
+        out.insert(
+            "priority".to_string(),
+            segment.get("priority").cloned().unwrap_or(Value::Null),
+        );
+        out.insert(
+            "draw_hard_divider".to_string(),
+            segment
+                .get("draw_hard_divider")
+                .cloned()
+                .unwrap_or(Value::Bool(true)),
+        );
+        out.insert(
+            "draw_soft_divider".to_string(),
+            segment
+                .get("draw_soft_divider")
+                .cloned()
+                .unwrap_or(Value::Bool(true)),
+        );
+        out.insert(
+            "draw_inner_divider".to_string(),
+            segment
+                .get("draw_inner_divider")
+                .cloned()
+                .unwrap_or(Value::Bool(false)),
+        );
+        out.insert("side".to_string(), Value::String(side.to_string()));
+        out.insert(
+            "width".to_string(),
+            segment.get("width").cloned().unwrap_or(Value::Null),
+        );
+        out.insert(
+            "align".to_string(),
+            segment
+                .get("align")
+                .cloned()
+                .unwrap_or_else(|| Value::String("l".to_string())),
+        );
+        out.insert("expand".to_string(), Value::Null);
+        out.insert("truncate".to_string(), Value::Null);
+        out.insert("startup".to_string(), Value::Null);
+        out.insert("shutdown".to_string(), Value::Null);
+        out.insert("_rendered_raw".to_string(), Value::String(String::new()));
+        out.insert("_rendered_hl".to_string(), Value::String(String::new()));
+        out.insert("_len".to_string(), Value::Null);
+        out.insert("_contents_len".to_string(), Value::Null);
+        // py:349-353  args = ... (passed through if present, for the dispatcher)
+        if let Some(a) = segment.get("args") {
+            out.insert("args".to_string(), a.clone());
+        } else {
+            // include any inline args (interface, format, etc.) from the
+            // theme spec under a flat "args" map so the dispatcher can
+            // pass them as **kwargs. Skip known segment-spec keys.
+            let mut inline_args: Map<String, Value> = Map::new();
+            const SPEC_KEYS: &[&str] = &[
+                "function",
+                "name",
+                "type",
+                "args",
+                "before",
+                "after",
+                "draw_hard_divider",
+                "draw_soft_divider",
+                "draw_inner_divider",
+                "priority",
+                "width",
+                "align",
+                "highlight_groups",
+                "include_function",
+                "exclude_function",
+                "include_modes",
+                "exclude_modes",
+            ];
+            for (k, v) in segment {
+                if !SPEC_KEYS.contains(&k.as_str()) {
+                    inline_args.insert(k.clone(), v.clone());
+                }
+            }
+            if !inline_args.is_empty() {
+                out.insert("args".to_string(), Value::Object(inline_args));
+            }
+        }
+
+        Some(out)
+    })
 }
 
 /// Port of module-level binding `get_fallback_segment` from

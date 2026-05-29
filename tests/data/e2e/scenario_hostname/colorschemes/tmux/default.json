@@ -1,0 +1,8 @@
+{
+	"name": "Default",
+	"groups": {
+		"hostname": { "fg": "black", "bg": "gray10", "attrs": ["bold"] },
+		"background": { "fg": "white", "bg": "gray0", "attrs": [] },
+		"background:divider": { "fg": "white", "bg": "gray0", "attrs": [] }
+	}
+}

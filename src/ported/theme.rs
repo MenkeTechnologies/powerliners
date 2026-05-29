@@ -335,16 +335,26 @@ impl Theme {
     /// Port of `Theme.get_segments()` from
     /// `powerline/theme.py:126-182`.
     ///
-    /// **Status:** stub. Returns empty Vec since the segment-dispatch
-    /// substrate (process_segment, expand_functions wiring) hasn't
-    /// landed yet.
-    pub fn get_segments(
+    /// Iterates self.segments[line][side], applies `display_condition`
+    /// + `process_segment` per segment, then walks the parsed result
+    /// applying width/align per py:149-177. The `contents_func`
+    /// closure is the caller-supplied dispatcher (Python looks it up
+    /// as `segment['contents_func']`; Rust `Value` can't hold a
+    /// closure so the bin shim provides one keyed by
+    /// `segment['contents_func']` string id).
+    #[allow(clippy::too_many_arguments)]
+    pub fn get_segments<C>(
         &self,
-        _side: Option<&str>,
-        _line: usize,
-        _segment_info: Option<&Value>,
-        _mode: Option<&str>,
-    ) -> Vec<Value> {
+        side: Option<&str>,
+        line: usize,
+        segment_info: Option<&Value>,
+        mode: Option<&str>,
+        colorscheme: &crate::ported::colorscheme::Colorscheme,
+        contents_func: &C,
+    ) -> Vec<Value>
+    where
+        C: Fn(&str, &(), &Map<String, Value>, &Map<String, Value>) -> Option<Value>,
+    {
         // py:126  def get_segments(self, side=None, line=0, segment_info=None, mode=None):
         // py:127-135  docstring
         // py:136  for side in [side] if side else ['left', 'right']:
@@ -390,7 +400,136 @@ impl Theme {
         // py:180  fallback = get_fallback_segment()
         // py:181  fallback.update(side=side)
         // py:182  yield fallback
-        Vec::new()
+        let mut out: Vec<Value> = Vec::new();
+        let segment_info_map: Map<String, Value> = segment_info
+            .and_then(|v| v.as_object().cloned())
+            .unwrap_or_default();
+        // py:136  for side in [side] if side else ['left', 'right']:
+        let sides: Vec<&str> = match side {
+            Some(s) => vec![s],
+            None => vec!["left", "right"],
+        };
+        let pl = ();
+        for side in sides {
+            // py:137  parsed_segments = []
+            let mut parsed_segments: Vec<Value> = Vec::new();
+            // py:138  for segment in self.segments[line][side]:
+            let Some(line_map) = self.segments.get(line) else {
+                continue;
+            };
+            let Some(side_arr) = line_map.get(side).and_then(|v| v.as_array()) else {
+                continue;
+            };
+            for segment_v in side_arr {
+                let Some(segment) = segment_v.as_object() else {
+                    continue;
+                };
+                // py:139  if segment['display_condition'](self.pl, segment_info, mode):
+                // display_condition is a callable stored in the segment dict; the
+                // Rust port stores it as a flag/key. Default to always_true.
+                let display_ok = segment
+                    .get("display_condition")
+                    .map(|v| v.is_null() || v.as_bool().unwrap_or(true))
+                    .unwrap_or(true);
+                if !display_ok {
+                    continue;
+                }
+                // py:140-148  process_segment(self.pl, side, segment_info, parsed_segments, segment, mode, self.colorscheme)
+                crate::ported::segment::process_segment(
+                    &pl,
+                    side,
+                    &segment_info_map,
+                    &mut parsed_segments,
+                    segment,
+                    mode,
+                    colorscheme,
+                    &|pl_inner, si, args| {
+                        // py:173/175  segment['contents_func'](pl, segment_info[, ...])
+                        let id = segment
+                            .get("contents_func")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("");
+                        contents_func(id, pl_inner, si, args)
+                    },
+                );
+            }
+            // py:149  for segment in parsed_segments:
+            for mut segment in parsed_segments {
+                let Some(obj) = segment.as_object_mut() else {
+                    continue;
+                };
+                // py:150  self.pl.prefix = segment['name'] — logger deferred
+                let _ = obj.get("name");
+                // py:152-153  width / align
+                let width = obj.get("width").cloned().unwrap_or(Value::Null);
+                let align = obj
+                    .get("align")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("l")
+                    .to_string();
+                // py:154-157  if width == 'auto' and expand is None: expand = expand_functions[align]
+                if width.as_str() == Some("auto")
+                    && obj
+                        .get("expand")
+                        .map(|v| v.is_null())
+                        .unwrap_or(true)
+                {
+                    if expand_functions(align.chars().next().unwrap_or('l')).is_some() {
+                        // The fn pointer can't be stored in Value; the renderer's
+                        // padding logic at do_render handles 'auto' width spacing.
+                        obj.insert("expand".to_string(), Value::String(align.clone()));
+                    }
+                }
+                // py:159-165  segment['contents'] = before + contents + after
+                let before = obj
+                    .get("before")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let after = obj
+                    .get("after")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let contents = obj
+                    .get("contents")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                obj.insert(
+                    "contents".to_string(),
+                    Value::String(format!("{}{}{}", before, contents, after)),
+                );
+                // py:167-173  width-driven ljust/rjust/center alignment
+                let width_int = width.as_u64();
+                if let Some(w) = width_int {
+                    let w = w as usize;
+                    let cur = obj
+                        .get("contents")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let len = cur.chars().count();
+                    if len < w {
+                        let pad = w - len;
+                        let padded = match align.as_str() {
+                            "l" => format!("{}{}", cur, " ".repeat(pad)),
+                            "r" => format!("{}{}", " ".repeat(pad), cur),
+                            "c" => {
+                                let left = pad / 2;
+                                let right = pad - left;
+                                format!("{}{}{}", " ".repeat(left), cur, " ".repeat(right))
+                            }
+                            _ => cur,
+                        };
+                        obj.insert("contents".to_string(), Value::String(padded));
+                    }
+                }
+                // py:177  yield segment.copy()
+                out.push(Value::Object(obj.clone()));
+            }
+        }
+        out
     }
 }
 

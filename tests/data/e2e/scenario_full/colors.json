@@ -1,0 +1,20 @@
+{
+	"colors": {
+		"black": 16,
+		"white": 231,
+		"red": 1,
+		"green": 2,
+		"yellow": 3,
+		"gray0": 233,
+		"gray2": 235,
+		"gray4": 237,
+		"gray5": 240,
+		"gray8": 247,
+		"gray10": 252
+	},
+	"gradients": {
+		"green_yellow_orange_red": [
+			[2, 3, 208, 1]
+		]
+	}
+}

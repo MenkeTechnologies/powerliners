@@ -255,7 +255,69 @@ pub fn render_one(
         // py:271  'divider_highlight_group': 'network_load:divider',
         // py:272  'highlight_groups': hl_groups,
         // py:273  }
-        let contents = fmt.replace("{value}", &humanize_bytes(value, suffix, si_prefix));
+        // py:268  contents = fmt.format(value=humanize_bytes(...))
+        // Inline `{value[:spec]}` substitution. Supported specs cover
+        // upstream defaults `{value:>8}` (right-align width 8) and
+        // bare `{value}`.
+        let rendered_value = humanize_bytes(value, suffix, si_prefix);
+        let mut contents = String::with_capacity(fmt.len());
+        let mut chars = fmt.chars().peekable();
+        while let Some(c) = chars.next() {
+            if c != '{' {
+                contents.push(c);
+                continue;
+            }
+            let mut name = String::new();
+            while let Some(&p) = chars.peek() {
+                if p == '}' || p == ':' {
+                    break;
+                }
+                name.push(p);
+                chars.next();
+            }
+            let mut spec = String::new();
+            if chars.peek() == Some(&':') {
+                chars.next();
+                while let Some(&p) = chars.peek() {
+                    if p == '}' {
+                        break;
+                    }
+                    spec.push(p);
+                    chars.next();
+                }
+            }
+            if chars.peek() == Some(&'}') {
+                chars.next();
+            }
+            if name == "value" {
+                // Parse `>N` / `<N` alignment + width.
+                let (align, width) = if let Some(rest) = spec.strip_prefix('>') {
+                    ('>', rest.parse::<usize>().unwrap_or(0))
+                } else if let Some(rest) = spec.strip_prefix('<') {
+                    ('<', rest.parse::<usize>().unwrap_or(0))
+                } else if let Ok(w) = spec.parse::<usize>() {
+                    ('>', w)
+                } else {
+                    (' ', 0)
+                };
+                if width == 0 {
+                    contents.push_str(&rendered_value);
+                } else if align == '<' {
+                    contents.push_str(&format!("{:<width$}", rendered_value, width = width));
+                } else {
+                    contents.push_str(&format!("{:>width$}", rendered_value, width = width));
+                }
+            } else {
+                // Unknown placeholder; leave as literal.
+                contents.push('{');
+                contents.push_str(&name);
+                if !spec.is_empty() {
+                    contents.push(':');
+                    contents.push_str(&spec);
+                }
+                contents.push('}');
+            }
+        }
         let mut entry = json!({
             "contents": contents,
             "divider_highlight_group": "network_load:divider",
