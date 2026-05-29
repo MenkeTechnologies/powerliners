@@ -1833,6 +1833,72 @@ fn parity_spec_unsigned_chains_type_int_and_cmp_ge_zero() {
 }
 
 #[test]
+fn parity_spec_either_pushes_variant_specs() {
+    if !python_available() {
+        return;
+    }
+    // Spec().either(Spec(), Spec(), Spec()) appends 1 check_either entry
+    // on Python and pushes the 3 variant specs into self.specs.
+    let py = match py_eval(
+        "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().either(__import__('powerline.lint.spec', fromlist=['Spec']).Spec(), __import__('powerline.lint.spec', fromlist=['Spec']).Spec(), __import__('powerline.lint.spec', fromlist=['Spec']).Spec()).checks)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_len: usize = py.parse().expect("Python returned non-int len");
+    assert_eq!(
+        py_len, 1,
+        "Python Spec.either() should append 1 check entry (check_either)"
+    );
+    let py_specs_count = match py_eval(
+        "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().either(__import__('powerline.lint.spec', fromlist=['Spec']).Spec(), __import__('powerline.lint.spec', fromlist=['Spec']).Spec(), __import__('powerline.lint.spec', fromlist=['Spec']).Spec()).specs)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_specs_n: usize = py_specs_count.parse().expect("Python returned non-int");
+    assert_eq!(
+        py_specs_n, 3,
+        "Python Spec.either(3 specs) should push 3 specs to self.specs"
+    );
+    use powerliners::lint::spec::Spec;
+    let s = Spec::new().either(vec![Spec::new(), Spec::new(), Spec::new()]);
+    assert_eq!(
+        s.specs.len(),
+        3,
+        "Rust Spec.either(3 specs) should push 3 specs"
+    );
+}
+
+#[test]
+fn parity_spec_ident_chains_type_unicode_and_regex() {
+    if !python_available() {
+        return;
+    }
+    // Spec().ident() calls self.re('^[a-zA-Z_]\w*$', ...), which itself
+    // chains self.type(unicode). Result: 2 check entries on Python.
+    let py = match py_eval(
+        "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().ident().checks)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_len: usize = py.parse().expect("Python returned non-int len");
+    assert_eq!(
+        py_len, 2,
+        "Python Spec.ident() should append 2 check entries (type+regex via .re())"
+    );
+    use powerliners::lint::spec::Spec;
+    let s = Spec::new().ident();
+    assert!(s.ident_flag, "Rust ident_flag should be set");
+    assert_eq!(
+        s.regex.as_deref(),
+        Some(r"^[a-zA-Z_]\w*$"),
+        "Rust ident() should set the ident regex"
+    );
+}
+
+#[test]
 fn parity_spec_len_check_appended() {
     if !python_available() {
         return;
