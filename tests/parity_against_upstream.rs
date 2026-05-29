@@ -2155,6 +2155,39 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_parse_value_handles_floats_and_negatives() {
+    if !python_available() {
+        return;
+    }
+    // Verify parse_value() handles 4 float edge cases identically.
+    // (Empty-string returns REMOVE_THIS_KEY sentinel — skipped here.)
+    let cases = ["3.14", "-0.5", "0.0", "-1e-5"];
+    for input in cases {
+        let py_expr = format!(
+            "(lambda v: __import__('json').dumps(v))(__import__('powerline.lib.overrides', fromlist=['parse_value']).parse_value({:?}))",
+            input
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let rs_value = powerliners::lib::overrides::parse_value(input);
+        // Compare via JSON-encoded float equality (handles 1e-5 == 0.00001
+        // representation differences).
+        let py_f = py_value.as_f64().unwrap_or(f64::NAN);
+        let rs_f = rs_value.as_f64().unwrap_or(f64::NAN);
+        assert!(
+            (py_f - rs_f).abs() < 1e-12,
+            "parse_value({:?}) float mismatch: py={}, rs={}",
+            input,
+            py_f,
+            rs_f
+        );
+    }
+}
+
+#[test]
 fn parity_spec_full_chain_preserves_each_step() {
     if !python_available() {
         return;
