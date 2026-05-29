@@ -557,3 +557,17 @@ set_powerline
 # leading dunder underscores since they're reserved for the
 # language's own attr magic.
 call
+
+# rspace() is the Rust accessor for the Python module-level
+# `rspace = re.compile(r'(\s*)$')` at
+# bindings/ipython/pre_0_11.py:57. Python initialises the regex at
+# class-body eval time; Rust uses OnceLock<Regex> for the
+# equivalent lazy single-init pattern.
+rspace
+
+# PowerlinePrompt1::to_p_str is the Rust analog of Python's
+# `__str__` dunder at bindings/ipython/pre_0_11.py:57. Rust drops
+# the leading dunder underscores since they're reserved for the
+# language's own attr magic; `to_p_str` describes the body
+# behaviour (it builds and returns `self.p_str`).
+to_p_str
