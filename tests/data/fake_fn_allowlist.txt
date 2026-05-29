@@ -510,3 +510,30 @@ build_style_rule
 # `enter` already exists in upstream as a non-dunder match;
 # `exit` does not — the only upstream variant is `__exit__`.
 exit
+
+# PromptKind::cache_key and PromptKind::matcher_info are
+# accessor methods on the Rust PromptKind enum. Python loops
+# `for prompt in ('in', 'continuation', 'rewrite', 'out'):` and
+# uses the loop variable directly as both the cache key and the
+# matcher_info ternary input (py:74, 76 in bindings/ipython/
+# since_5.py). Rust represents the same discrimination as an enum
+# so the projection has to live somewhere; both accessors are
+# pure projections of the enum variant.
+cache_key
+matcher_info
+
+# PowerlinePrompts::prompt_tokens is the Rust analog of the four
+# `<name>_prompt_tokens` methods Python generates via `exec` at
+# bindings/ipython/since_5.py:65-78. Python's exec-generated
+# method names ({prompt}_prompt_tokens) don't appear in the static
+# function-name corpus because the generation happens at class-body
+# eval time. The Rust port consolidates them into one parameterised
+# `prompt_tokens(kind, render)` method + four named convenience
+# wrappers (in_prompt_tokens / continuation_prompt_tokens /
+# rewrite_prompt_tokens / out_prompt_tokens) preserving the
+# upstream call sites.
+prompt_tokens
+in_prompt_tokens
+continuation_prompt_tokens
+rewrite_prompt_tokens
+out_prompt_tokens
