@@ -581,3 +581,39 @@ to_p_str
 # `new()` constructor takes the full positional args matching the
 # upstream kwargs.
 with_defaults
+
+# WORKSPACE_REGEX() is the Rust accessor for the Python module-level
+# WORKSPACE_REGEX = re.compile(...) at segments/i3wm.py:9.
+# Python initialises the regex at module-load; Rust uses OnceLock
+# for the equivalent lazy single-init pattern.
+WORKSPACE_REGEX
+
+# ws_icons() and scratchpad_icons() are the Rust accessors for the
+# Python module-level WS_ICONS = {...} and SCRATCHPAD_ICONS = {...}
+# dict constants at segments/i3wm.py:39 and py:272-274. Python
+# initialises the dicts at module-load time and merges them into
+# user-supplied icon maps; Rust returns a fresh Map each call so
+# the merge step at py:42-44 doesn't mutate a shared static.
+ws_icons
+scratchpad_icons
+
+# mode_segment is the Rust analog of the @requires_segment_info
+# `mode` segment function at segments/i3wm.py:243. The bare name
+# `mode` would collide with Rust enum variants / common identifiers
+# (e.g. crate::ported::theme::Mode), so the port appends `_segment`
+# to disambiguate while preserving the Python function's contract.
+mode_segment
+
+# active_window_contents extracts the cutoff-vs-window_class
+# decision from segments/i3wm.py:295-302 into a pure helper
+# (title length > cutoff → window_class, else title). Python
+# inlines this inside the segment function; Rust extracts so the
+# decision can be unit-tested without the i3ipc connection.
+active_window_contents
+
+# build_workspace_entry extracts the format-string substitution
+# loop from segments/i3wm.py:140-150 (workspaces segment body)
+# into a pure helper. Python uses str.format with keyword args;
+# Rust does explicit replace() calls so the substitution can be
+# tested without the live i3ipc tree.
+build_workspace_entry
