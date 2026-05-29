@@ -220,3 +220,13 @@ FINDERS_WITHOUT_PATH
 # output match) is independently testable. Same observable semantics
 # as Python when called via workspace_lister().
 workspace_lister_for
+
+# Approved 2026-05-29: test-driveable variants of tablister/bufferlister
+# from powerline/listers/vim.py:28,77. Python calls vim.tabpages /
+# vim.buffers inline, making the prefix-and-multiplier logic
+# impossible to test without a live vim. Rust splits the data-supplier
+# from the logic so the filter (only_show + modified prefix + show_unlisted
+# rule + priority multiplier formula) is independently testable. Same
+# observable semantics as Python when called via tablister/bufferlister().
+tablister_for
+bufferlister_for

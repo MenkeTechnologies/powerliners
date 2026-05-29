@@ -63,15 +63,60 @@ pub fn vim_getbufoption(matcher_info: &MatcherInfo, option: &str) -> String {
         .unwrap_or_default()
 }
 
+/// Vim tabpage data — mirrors `vim.tabpages[i]` object shape.
+#[derive(Debug, Clone)]
+pub struct VimTabpage {
+    pub number: i32,
+    pub window: VimWindow,
+}
+
+/// Vim window data — mirrors `tabpage.window` shape.
+#[derive(Debug, Clone)]
+pub struct VimWindow {
+    pub number: i32,
+    pub window_id: i32,
+    pub buffer: VimBuffer,
+}
+
+/// Vim buffer data — mirrors `window.buffer` shape.
+#[derive(Debug, Clone)]
+pub struct VimBuffer {
+    pub number: i32,
+    pub name: Option<Vec<u8>>,
+    pub modified: bool,
+    pub listed: bool,
+}
+
 /// Port of `list_tabpages()` from
 /// `powerline/bindings/vim/__init__.py:370`.
 ///
 /// Returns the list of vim tabpages. Without a live vim connection
 /// the Rust port returns an empty Vec; the selector below treats that
 /// as "no tabs" which is the safe default.
-pub fn list_tabpages() -> Vec<()> {
+pub fn list_tabpages() -> Vec<VimTabpage> {
     // py:371  return vim.tabpages — no equivalent in Rust without RPC
     Vec::new()
+}
+
+/// Port of `current_tabpage()` from
+/// `powerline/bindings/vim/__init__.py`.
+///
+/// Returns the current vim tabpage. Stub returns a placeholder with
+/// tabnr=1.
+pub fn current_tabpage() -> VimTabpage {
+    VimTabpage {
+        number: 1,
+        window: VimWindow {
+            number: 1,
+            window_id: -1,
+            buffer: VimBuffer {
+                number: 1,
+                name: None,
+                modified: false,
+                listed: true,
+            },
+        },
+    }
 }
 
 /// Port of `bufvar_exists()` from
