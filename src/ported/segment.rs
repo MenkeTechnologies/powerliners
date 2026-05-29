@@ -386,6 +386,182 @@ pub fn always_true(
     true
 }
 
+/// Port of the inner `get_key()` closure from
+/// `powerline/segment.py:261-263`.
+///
+/// Thin partial application of [`get_segment_key`] that captures
+/// `theme_configs` and `segment_data` from the surrounding
+/// `gen_segment_getter` scope. The Rust port surfaces the same
+/// signature so callers reuse the per-segment fall-back chain
+/// (segment → per-theme segment_data → module-name → fn-name → root
+/// → default) without duplicating the arg threading.
+#[allow(clippy::too_many_arguments)]
+pub fn get_key(
+    merge: bool,
+    segment: &Map<String, Value>,
+    theme_configs: &[&Map<String, Value>],
+    segment_data: Option<&Map<String, Value>>,
+    module: Option<&str>,
+    function_name: Option<&str>,
+    name: Option<&str>,
+    key: &str,
+    default: Option<Value>,
+) -> Option<Value> {
+    // py:261  def get_key(merge, segment, module, function_name, name, key, default=None):
+    // py:262  return get_segment_key(merge, segment, theme_configs, data['segment_data'], key, function_name, name, module, default)
+    get_segment_key(
+        merge,
+        segment,
+        theme_configs,
+        segment_data,
+        key,
+        function_name,
+        name,
+        module,
+        default,
+    )
+}
+
+/// Port of the inner `get_selector()` closure from
+/// `powerline/segment.py:265-273`.
+///
+/// Resolves an include/exclude selector function name. Python's
+/// dotted-name handling (`function_name.rpartition('.')[::2]`) is
+/// reproduced; the default selector module is
+/// `powerline.selectors.<ext>` per py:269.
+///
+/// Returns `(module, function_name)` if the selector resolves;
+/// `None` if `get_module_attr` reports the function missing.
+/// `pl.error(...)` at py:272 is left to the caller — the Rust port
+/// returns the lookup result so callers can route diagnostics.
+pub fn get_selector<F>(
+    function_name: &str,
+    ext: &str,
+    get_module_attr: F,
+) -> Option<(String, String)>
+where
+    F: Fn(&str, &str) -> bool,
+{
+    // py:265  def get_selector(function_name):
+    // py:266  if '.' in function_name:
+    let (module, fname) = if let Some(idx) = function_name.rfind('.') {
+        // py:267  module, function_name = function_name.rpartition('.')[::2]
+        (
+            function_name[..idx].to_string(),
+            function_name[idx + 1..].to_string(),
+        )
+    } else {
+        // py:268  else:
+        // py:269  module = 'powerline.selectors.' + ext
+        (format!("powerline.selectors.{}", ext), function_name.to_string())
+    };
+    // py:270  function = get_module_attr(module, function_name, prefix='segment_generator/selector_function')
+    // py:271  if not function:
+    if !get_module_attr(&module, &fname) {
+        // py:272  pl.error('Failed to get segment selector, ignoring it')
+        return None;
+    }
+    // py:273  return function
+    Some((module, fname))
+}
+
+/// Port of the inner `get_segment_selector()` closure from
+/// `powerline/segment.py:275-301`.
+///
+/// Builds the include/exclude selector closure for a single segment
+/// from its `<selector_type>_function` and `<selector_type>_modes`
+/// keys (`selector_type` is `"include"` or `"exclude"`).
+///
+/// Returns one of four shapes per py:287-301:
+/// - `Some(modes + function)` when both are present
+/// - `Some(modes-only)` when only modes
+/// - `Some(function-only)` when only function
+/// - `None` when neither
+///
+/// The Python source returns a closure; the Rust port returns a
+/// boxed `dyn Fn` over `(mode: &str)` since the closure is later
+/// called from `gen_display_condition`. The `function` argument is
+/// the resolved selector (caller supplies after `get_selector`).
+pub fn get_segment_selector(
+    segment: &Map<String, Value>,
+    selector_type: &str,
+    function: Option<Box<dyn Fn(&str) -> bool>>,
+) -> Option<Box<dyn Fn(&str) -> bool>> {
+    // py:275  def get_segment_selector(segment, selector_type):
+    // py:276-281  function_name lookup → get_selector
+    // (caller already resolved the function; we only model the
+    //  closure-assembly half of the upstream body here)
+    // py:282-285  modes lookup
+    let modes: Option<Vec<String>> = segment
+        .get(&format!("{}_modes", selector_type))
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|m| m.as_str().map(String::from))
+                .collect()
+        });
+
+    // py:287  if modes:
+    match (modes, function) {
+        (Some(modes), Some(func)) => {
+            // py:289-292  modes OR function
+            Some(Box::new(move |mode: &str| {
+                modes.iter().any(|m| m == mode) || func(mode)
+            }))
+        }
+        (Some(modes), None) => {
+            // py:294  modes only
+            Some(Box::new(move |mode: &str| modes.iter().any(|m| m == mode)))
+        }
+        (None, Some(func)) => {
+            // py:297-299  function only
+            Some(Box::new(move |mode: &str| func(mode)))
+        }
+        (None, None) => {
+            // py:301  return None
+            None
+        }
+    }
+}
+
+/// Port of the inner `gen_display_condition()` closure from
+/// `powerline/segment.py:303-317`.
+///
+/// Combines include + exclude selectors into a single display
+/// condition. When neither is set the segment always displays
+/// (`always_true` per py:317).
+///
+/// Returns a boxed `dyn Fn(&str) -> bool` that mirrors Python's
+/// lambda-returning shape. Caller supplies the resolved
+/// include/exclude selectors via the two `Option<Box<dyn Fn>>` args
+/// (since selector resolution depends on `get_module_attr`, which
+/// can't be threaded through a free fn cleanly).
+pub fn gen_display_condition(
+    include_function: Option<Box<dyn Fn(&str) -> bool>>,
+    exclude_function: Option<Box<dyn Fn(&str) -> bool>>,
+) -> Box<dyn Fn(&str) -> bool> {
+    // py:303  def gen_display_condition(segment):
+    // py:304-305  include + exclude resolution (caller-supplied)
+    match (include_function, exclude_function) {
+        (Some(inc), Some(exc)) => {
+            // py:306-310  include AND NOT exclude
+            Box::new(move |mode: &str| inc(mode) && !exc(mode))
+        }
+        (Some(inc), None) => {
+            // py:312  include only
+            Box::new(move |mode: &str| inc(mode))
+        }
+        (None, Some(exc)) => {
+            // py:315  NOT exclude
+            Box::new(move |mode: &str| !exc(mode))
+        }
+        (None, None) => {
+            // py:317  always_true
+            Box::new(|_| true)
+        }
+    }
+}
+
 /// Port of `process_segment_lister()` from
 /// `powerline/segment.py:103-135`.
 ///
@@ -1357,5 +1533,131 @@ mod tests {
     fn attr_func_is_none_helper() {
         assert!(AttrFunc::None.is_none());
         assert!(!AttrFunc::Space(Box::new(|_, _, _| String::new())).is_none());
+    }
+
+    #[test]
+    fn get_key_passes_through_to_get_segment_key() {
+        // py:261-263  get_key is a thin wrapper.
+        let mut seg = Map::new();
+        seg.insert("display".to_string(), json!(true));
+        let r = get_key(false, &seg, &[], None, None, None, None, "display", None);
+        assert_eq!(r, Some(json!(true)));
+    }
+
+    #[test]
+    fn get_key_falls_back_to_default_when_absent() {
+        let seg = Map::new();
+        let r = get_key(
+            false,
+            &seg,
+            &[],
+            None,
+            None,
+            None,
+            None,
+            "absent_key",
+            Some(json!("dflt")),
+        );
+        assert_eq!(r, Some(json!("dflt")));
+    }
+
+    #[test]
+    fn get_selector_resolves_dotted_function_name() {
+        // py:266-267  rpartition('.') split
+        let r = get_selector("foo.bar.baz", "shell", |m, f| {
+            m == "foo.bar" && f == "baz"
+        });
+        assert_eq!(
+            r,
+            Some(("foo.bar".to_string(), "baz".to_string()))
+        );
+    }
+
+    #[test]
+    fn get_selector_uses_default_selectors_module_for_undotted_name() {
+        // py:268-269  default: powerline.selectors.<ext>
+        let r = get_selector("some_fn", "shell", |m, f| {
+            m == "powerline.selectors.shell" && f == "some_fn"
+        });
+        assert_eq!(
+            r,
+            Some((
+                "powerline.selectors.shell".to_string(),
+                "some_fn".to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn get_selector_returns_none_when_function_missing() {
+        // py:271-272  if not function: return None
+        let r = get_selector("missing_fn", "shell", |_, _| false);
+        assert_eq!(r, None);
+    }
+
+    #[test]
+    fn get_segment_selector_combines_modes_and_function() {
+        // py:287-292  modes OR function
+        let mut seg = Map::new();
+        seg.insert("include_modes".to_string(), json!(["normal", "visual"]));
+        let func: Box<dyn Fn(&str) -> bool> = Box::new(|m| m == "insert");
+        let pred = get_segment_selector(&seg, "include", Some(func)).unwrap();
+        assert!(pred("normal"));
+        assert!(pred("visual"));
+        assert!(pred("insert"));
+        assert!(!pred("command"));
+    }
+
+    #[test]
+    fn get_segment_selector_modes_only_returns_membership_check() {
+        // py:294
+        let mut seg = Map::new();
+        seg.insert("exclude_modes".to_string(), json!(["v"]));
+        let pred = get_segment_selector(&seg, "exclude", None).unwrap();
+        assert!(pred("v"));
+        assert!(!pred("n"));
+    }
+
+    #[test]
+    fn get_segment_selector_no_modes_no_function_returns_none() {
+        // py:301
+        let seg = Map::new();
+        assert!(get_segment_selector(&seg, "include", None).is_none());
+    }
+
+    #[test]
+    fn gen_display_condition_no_conditions_always_displays() {
+        // py:317  always_true
+        let pred = gen_display_condition(None, None);
+        assert!(pred("any_mode"));
+    }
+
+    #[test]
+    fn gen_display_condition_include_only_uses_include() {
+        // py:312
+        let inc: Box<dyn Fn(&str) -> bool> = Box::new(|m| m == "n");
+        let pred = gen_display_condition(Some(inc), None);
+        assert!(pred("n"));
+        assert!(!pred("v"));
+    }
+
+    #[test]
+    fn gen_display_condition_exclude_only_negates() {
+        // py:315
+        let exc: Box<dyn Fn(&str) -> bool> = Box::new(|m| m == "n");
+        let pred = gen_display_condition(None, Some(exc));
+        assert!(!pred("n"));
+        assert!(pred("v"));
+    }
+
+    #[test]
+    fn gen_display_condition_both_uses_and_not() {
+        // py:306-310  include AND NOT exclude
+        let inc: Box<dyn Fn(&str) -> bool> = Box::new(|m| matches!(m, "n" | "v"));
+        let exc: Box<dyn Fn(&str) -> bool> = Box::new(|m| m == "v");
+        let pred = gen_display_condition(Some(inc), Some(exc));
+        assert!(pred("n"));
+        assert!(!pred("v"));
+        assert!(!pred("i"));
     }
 }
