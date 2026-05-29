@@ -2192,6 +2192,32 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_reader_get_mark_carries_line_and_column() {
+    if !python_available() {
+        return;
+    }
+    // Reader.get_mark() returns a Mark snapshotting current
+    // (name, line, column, ...). Verify both ports advance line/column
+    // identically and produce a mark at the same position.
+    let py = match py_eval(
+        "(lambda r: (r.forward(3), __import__('json').dumps([r.get_mark().line, r.get_mark().column]))[1])(__import__('powerline.lint.markedjson.reader', fromlist=['Reader']).Reader(__import__('io').BytesIO(b'hello')))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let py_arr = py_value.as_array().expect("py array");
+    assert_eq!(py_arr[0].as_i64(), Some(0), "Python mark.line drift");
+    assert_eq!(py_arr[1].as_i64(), Some(3), "Python mark.column drift");
+
+    let mut r = powerliners::lint::markedjson::reader::Reader::new("hello", "<file>");
+    r.forward(3);
+    let m = r.get_mark();
+    assert_eq!(m.line, 0, "Rust mark.line should be 0");
+    assert_eq!(m.column, 3, "Rust mark.column should be 3 after forward(3)");
+}
+
+#[test]
 fn parity_markedjson_reader_prefix_canonical_lengths() {
     if !python_available() {
         return;
