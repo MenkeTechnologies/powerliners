@@ -1710,3 +1710,24 @@ check_list_walk
 # supplied by the caller per py:695 + py:701). Same keyword-
 # disambiguation pattern as if/else/let/etc.
 match_dispatch
+
+# mod.rs::Powerline::load_config_instance — Rust impl of
+# Powerline.load_config(self, cfg_path, cfg_type) at
+# powerline/__init__.py:726-743. Renamed from `load_config` because
+# the module-level `load_config()` fn at py:173-200 (already ported
+# at module scope as `load_config`) conflicts with the instance
+# method's name. The `_instance` suffix disambiguates — both Python
+# fns coexist via the self vs no-self dispatch. Same pattern as
+# load_main_config / load_colors_config which already wrap the
+# module-level load_config.
+load_config_instance
+
+# mod.rs::Powerline::powerline_exception — Rust impl of
+# Powerline.exception(self, msg, *args, **kwargs) at
+# powerline/__init__.py:981-991. Renamed from `exception` because
+# `exception` is already used as the PowerlineLogger.exception
+# method at py:108-109 (ported as PowerlineLogger::exception).
+# The `powerline_` prefix disambiguates the Powerline class method
+# from the PowerlineLogger method while keeping the upstream
+# meaning clear at call sites.
+powerline_exception

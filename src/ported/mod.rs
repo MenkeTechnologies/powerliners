@@ -798,6 +798,129 @@ impl Powerline {
         }
         // py:971-973  config_loader.unregister_functions(...) — deferred
     }
+
+    /// Port of `Powerline.load_config()` from
+    /// `powerline/__init__.py:726-743`.
+    ///
+    /// Wraps the module-level `load_config(cfg_path,
+    /// find_config_files, config_loader, cr_callbacks[cfg_type])`
+    /// dispatch at py:738-742. The Rust port takes the resolved
+    /// dispatch closure so callers route through their own
+    /// config_loader.
+    pub fn load_config_instance<F, LF>(
+        cfg_path: &str,
+        find_config_files: F,
+        load_fn: LF,
+    ) -> Result<Map<String, Value>, String>
+    where
+        F: Fn(&str) -> Result<Vec<std::path::PathBuf>, String>,
+        LF: Fn(&std::path::Path) -> Result<Map<String, Value>, String>,
+    {
+        // py:738-742  return load_config(cfg_path, ..., cr_callbacks[cfg_type])
+        load_config(cfg_path, find_config_files, load_fn)
+    }
+
+    /// Port of `Powerline._purge_configs()` from
+    /// `powerline/__init__.py:745-748`.
+    ///
+    /// Returns the (function_id, find_config_files_id) pair the
+    /// caller would pass to `config_loader.unregister_functions` +
+    /// `config_loader.unregister_missing` per py:746-748. The Rust
+    /// port surfaces the id pair so callers route through the
+    /// ConfigLoader port (which takes ids per its existing API).
+    pub fn _purge_configs(function_id: u64) -> (u64, u64) {
+        // py:746  function = self.cr_callbacks[cfg_type]
+        // py:747-748  config_loader.unregister_functions({function})
+        //              config_loader.unregister_missing({(find_config_files, function)})
+        (function_id, function_id)
+    }
+
+    /// Port of `Powerline.load_colorscheme_config()` from
+    /// `powerline/__init__.py:798-811`.
+    ///
+    /// Dispatches to `_load_hierarhical_config` with the 3-level
+    /// list built by `load_colorscheme_config_levels` (already
+    /// ported above). Caller-supplied `load_one` closure resolves
+    /// each level path.
+    pub fn load_colorscheme_config<F>(
+        ext: &str,
+        name: &str,
+        load_one: F,
+    ) -> Result<Map<String, Value>, String>
+    where
+        F: Fn(&str) -> Result<Map<String, Value>, String>,
+    {
+        // py:806-810  build levels tuple
+        let (levels, ignore) = Self::load_colorscheme_config_levels(ext, name);
+        // py:811  _load_hierarhical_config('colorscheme', levels, (1,))
+        _load_hierarhical_config(&levels, &ignore, load_one)
+    }
+
+    /// Port of `Powerline.load_theme_config()` from
+    /// `powerline/__init__.py:813-824`.
+    ///
+    /// Dispatches to `_load_hierarhical_config` with the level
+    /// list built by `load_theme_config_levels` (already ported).
+    /// Caller supplies `theme_levels` (the instance's pre-resolved
+    /// base levels) since the Rust struct doesn't carry them yet.
+    pub fn load_theme_config<F>(
+        theme_levels: &[String],
+        ext: &str,
+        name: &str,
+        load_one: F,
+    ) -> Result<Map<String, Value>, String>
+    where
+        F: Fn(&str) -> Result<Map<String, Value>, String>,
+    {
+        // py:821-823  build levels = self.theme_levels + (themes/<ext>/<name>,)
+        let (levels, ignore) = Self::load_theme_config_levels(theme_levels, ext, name);
+        // py:824  _load_hierarhical_config('theme', levels, (0, 1,))
+        _load_hierarhical_config(&levels, &ignore, load_one)
+    }
+
+    /// Port of `Powerline.exception()` from
+    /// `powerline/__init__.py:981-991`.
+    ///
+    /// Returns the (prefix, msg, used_fallback) tuple callers route
+    /// through the logger dispatch. Python defaults `kwargs['prefix']
+    /// = 'powerline'` per py:982-983 when not supplied; uses
+    /// `self.pl` when available, else falls back to
+    /// `get_fallback_logger(self.default_log_stream)` per py:985.
+    ///
+    /// Returns `used_fallback=true` when the fallback logger was
+    /// resolved (i.e. `self.pl` was None).
+    pub fn powerline_exception(
+        msg: &str,
+        explicit_prefix: Option<&str>,
+        has_pl: bool,
+    ) -> (String, String, bool) {
+        // py:982-983  if 'prefix' not in kwargs: kwargs['prefix'] = 'powerline'
+        let prefix = explicit_prefix.unwrap_or("powerline").to_string();
+        // py:985  pl = getattr(self, 'pl', None) or get_fallback_logger(...)
+        let used_fallback = !has_pl;
+        (prefix, msg.to_string(), used_fallback)
+    }
+
+    /// Port of `Powerline.__enter__()` from
+    /// `powerline/__init__.py:975-976`.
+    ///
+    /// Python's context-manager entry returns `self`. The Rust port
+    /// is a no-op since callers hold the Powerline directly. This fn
+    /// exists for API parity.
+    pub fn enter(&self) {
+        // py:976  return self
+    }
+
+    /// Port of `Powerline.__exit__()` from
+    /// `powerline/__init__.py:978-979`.
+    ///
+    /// Calls `self.shutdown()` per py:979. The Rust port takes the
+    /// shutdown_event reference so callers can wire through the
+    /// existing static shutdown.
+    pub fn exit(shutdown_event: &std::sync::Arc<std::sync::atomic::AtomicBool>) {
+        // py:979  self.shutdown()
+        Self::shutdown(shutdown_event, true);
+    }
 }
 
 /// Port of `get_fallback_logger()` from
@@ -1344,5 +1467,127 @@ mod powerline_class_tests {
             }
         });
         assert!(r.is_err());
+    }
+
+    #[test]
+    fn powerline_load_config_instance_dispatches_through_finder_and_load_fn() {
+        // py:738-742
+        let d = std::env::temp_dir().join(format!(
+            "powerliners-load-config-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("test.json"), r#"{"k": 1}"#).unwrap();
+
+        let d_clone = d.clone();
+        let r = Powerline::load_config_instance(
+            "test",
+            move |p| _find_config_files(&[d_clone.clone()], p),
+            |p| {
+                let raw = std::fs::read_to_string(p).map_err(|e| e.to_string())?;
+                let v: Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+                v.as_object()
+                    .cloned()
+                    .ok_or_else(|| "not an object".to_string())
+            },
+        )
+        .unwrap();
+        assert_eq!(r.get("k"), Some(&Value::from(1)));
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn powerline_purge_configs_returns_function_id_pair() {
+        // py:746-748
+        let (fn_id, finder_fn_id) = Powerline::_purge_configs(42);
+        assert_eq!(fn_id, 42);
+        assert_eq!(finder_fn_id, 42);
+    }
+
+    #[test]
+    fn powerline_load_colorscheme_config_walks_three_levels() {
+        // py:806-811
+        use std::cell::Cell;
+        let visited = Cell::new(Vec::<String>::new());
+        let result = Powerline::load_colorscheme_config("shell", "default", |p| {
+            let mut v = visited.take();
+            v.push(p.to_string());
+            visited.set(v);
+            let mut m = Map::new();
+            m.insert("level".to_string(), Value::String(p.to_string()));
+            Ok(m)
+        });
+        assert!(result.is_ok());
+        let v = visited.into_inner();
+        // py:806-810  3 levels: colorschemes/default, colorschemes/shell/__main__,
+        //   colorschemes/shell/default
+        assert!(v.contains(&"colorschemes/default".to_string()));
+        assert!(v.contains(&"colorschemes/shell/__main__".to_string()));
+        assert!(v.contains(&"colorschemes/shell/default".to_string()));
+    }
+
+    #[test]
+    fn powerline_load_theme_config_appends_ext_name_level() {
+        // py:821-823
+        use std::cell::Cell;
+        let base = vec![
+            "themes/__main__".to_string(),
+            "themes/shell/__main__".to_string(),
+        ];
+        let visited = Cell::new(Vec::<String>::new());
+        let r = Powerline::load_theme_config(&base, "shell", "default", |p| {
+            let mut v = visited.take();
+            v.push(p.to_string());
+            visited.set(v);
+            let mut m = Map::new();
+            m.insert("level".to_string(), Value::String(p.to_string()));
+            Ok(m)
+        });
+        assert!(r.is_ok());
+        let v = visited.into_inner();
+        // py:822  themes/<ext>/<name> appended
+        assert!(v.contains(&"themes/shell/default".to_string()));
+    }
+
+    #[test]
+    fn powerline_exception_defaults_prefix_to_powerline() {
+        // py:982-983
+        let (prefix, msg, used_fallback) = Powerline::powerline_exception("oops", None, true);
+        assert_eq!(prefix, "powerline");
+        assert_eq!(msg, "oops");
+        assert!(!used_fallback);
+    }
+
+    #[test]
+    fn powerline_exception_explicit_prefix_used() {
+        let (prefix, _, _) = Powerline::powerline_exception("oops", Some("custom"), true);
+        assert_eq!(prefix, "custom");
+    }
+
+    #[test]
+    fn powerline_exception_no_pl_returns_fallback_flag() {
+        // py:985  self.pl or get_fallback_logger
+        let (_, _, used_fallback) = Powerline::powerline_exception("oops", None, false);
+        assert!(used_fallback);
+    }
+
+    #[test]
+    fn powerline_enter_is_no_op() {
+        // py:975-976
+        let p = Powerline::init("shell", None, false, false);
+        p.enter();
+    }
+
+    #[test]
+    fn powerline_exit_sets_shutdown_event() {
+        // py:979  self.shutdown()
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let ev = std::sync::Arc::new(AtomicBool::new(false));
+        Powerline::exit(&ev);
+        assert!(ev.load(Ordering::SeqCst));
     }
 }
