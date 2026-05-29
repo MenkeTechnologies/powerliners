@@ -168,7 +168,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/lint/markedjson/markedvalue.py` ↔ `src/ported/lint/markedjson/markedvalue.rs` | 115 | 4 | 6 | 9 | 274 | 17 | 132 |
 | [x] | `powerline/bindings/config.py` ↔ `src/ported/bindings/config.rs` | 232 | 11 | 1 | 2 | 600 | 20 | 151 |
 | [x] | `powerline/bindings/vim/__init__.py` ↔ `src/ported/bindings/vim/mod.rs` | 371 | 11 | 1 | 3 | 252 | 17 | 211 |
-| [x] | `powerline/bindings/ipython/pre_0_11.py` ↔ `src/ported/bindings/ipython/pre_0_11.rs` | 111 | 1 | 7 | 14 | 429 | 23 | 66 |
+| [x] | `powerline/bindings/ipython/pre_0_11.py` ↔ `src/ported/bindings/ipython/pre_0_11.rs` | 111 | 1 | 7 | 14 | 443 | 24 | 70 |
 | [x] | `powerline/lib/watcher/inotify.py` ↔ `src/ported/lib/watcher/inotify.rs` | 212 | 0 | 5 | 15 | 545 | 19 | 153 |
 | [x] | `powerline/renderer.py` ↔ `src/ported/renderer.rs` | 503 | 1 | 1 | 14 | 1280 | 25 | 373 |
 | [x] | `powerline/segments/common/players.py` ↔ `src/ported/segments/common/players.rs` | 522 | 2 | 11 | 13 | 682 | 25 | 274 |
@@ -178,7 +178,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/bindings/zsh/__init__.py` ↔ `src/ported/bindings/zsh/mod.rs` | 181 | 7 | 4 | 13 | 590 | 24 | 137 |
 | [x] | `powerline/lib/config.py` ↔ `src/ported/lib/config.rs` | 179 | 2 | 3 | 19 | 628 | 24 | 156 |
 | [x] | `powerline/lint/markedjson/constructor.py` ↔ `src/ported/lint/markedjson/constructor.rs` | 240 | 1 | 3 | 21 | 722 | 24 | 142 |
-| [x] | `powerline/vim.py` ↔ `src/ported/vim.rs` | 271 | 4 | 2 | 18 | 512 | 23 | 137 |
+| [x] | `powerline/vim.py` ↔ `src/ported/vim.rs` | 271 | 4 | 2 | 18 | 660 | 29 | 168 |
 | [x] | `powerline/lib/watcher/uv.py` ↔ `src/ported/lib/watcher/uv.rs` | 160 | 3 | 5 | 21 | 405 | 32 | 137 |
 | [x] | `powerline/lint/checks.py` ↔ `src/ported/lint/checks.rs` | 752 | 26 | 0 | 0 | 1071 | 33 | 414 |
 | [x] | `powerline/lib/threaded.py` ↔ `src/ported/lib/threaded.rs` | 199 | 0 | 3 | 29 | 831 | 35 | 163 |

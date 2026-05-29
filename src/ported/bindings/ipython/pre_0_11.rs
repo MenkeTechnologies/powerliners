@@ -473,6 +473,30 @@ impl ShutdownHook {
     }
 }
 
+/// Port of the inner `late_startup_hook()` closure from
+/// `powerline/bindings/ipython/pre_0_11.py:141-143` (inside
+/// `setup`).
+///
+/// Python: calls `powerline.setup(ip, shutdown_hook)` then raises
+/// `TryNext()` so the IPython hook chain continues. Rust port
+/// drives the powerline setup via the supplied closure and
+/// returns a `TryNext`-equivalent error so callers route through
+/// any hook-continuation strategy.
+///
+/// `setup_powerline` is the caller-supplied closure that owns the
+/// `powerline.setup(ip, shutdown_hook)` dispatch (the IPython
+/// runtime isn't reachable from Rust).
+pub fn late_startup_hook<F>(setup_powerline: F) -> Result<(), &'static str>
+where
+    F: FnOnce(),
+{
+    // py:141  def late_startup_hook():
+    // py:142  powerline.setup(ip, shutdown_hook)
+    setup_powerline();
+    // py:143  raise TryNext()
+    Err("TryNext")
+}
+
 /// Port of `setup()` from
 /// `powerline/bindings/ipython/pre_0_11.py:131`.
 ///
@@ -715,5 +739,14 @@ mod tests {
         let (powerline, hook) = setup();
         assert!(!powerline.setup_done);
         assert!(!hook.powerline_live);
+    }
+
+    #[test]
+    fn late_startup_hook_dispatches_setup_then_returns_try_next() {
+        // py:141-143
+        let invoked = std::cell::Cell::new(false);
+        let r = late_startup_hook(|| invoked.set(true));
+        assert!(invoked.get());
+        assert_eq!(r, Err("TryNext"));
     }
 }

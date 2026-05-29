@@ -406,6 +406,162 @@ impl VimPowerline {
         Some(format!("No window {}", window_id.unwrap_or(0)))
     }
 
+    /// Port of `VimPowerline.statusline()` from
+    /// `powerline/vim.py:299-303`.
+    ///
+    /// Calls `self.win_idx(window_id)` then dispatches to render.
+    /// Returns the FailedUnicode message at py:302 when no window
+    /// matches.
+    ///
+    /// `win_idx` is the caller-supplied closure (Rust port can't
+    /// reach vim.windows directly — see [`new_win_idx`] /
+    /// [`old_win_idx`]). `render` is the caller's render dispatch
+    /// returning the formatted statusline.
+    pub fn statusline<W, R>(
+        window_id: Option<u64>,
+        win_idx: W,
+        render: R,
+    ) -> String
+    where
+        W: FnOnce(Option<u64>) -> Option<(u64, u64, i64)>,
+        R: FnOnce(u64, u64, i64) -> String,
+    {
+        // py:299  def statusline(self, window_id):
+        // py:300  window, window_id, winnr = self.win_idx(window_id) or (None, None, None)
+        match win_idx(window_id) {
+            // py:303  return self.render(window, window_id, winnr)
+            Some((w, wid, wn)) => render(w, wid, wn),
+            // py:301-302  if not window: return FailedUnicode('No window {0}'.format(window_id))
+            None => Self::statusline_no_window_message(window_id).unwrap_or_default(),
+        }
+    }
+
+    /// Port of `VimPowerline.tabline()` from
+    /// `powerline/vim.py:305-317`.
+    ///
+    /// Calls `self.win_idx(None)` then dispatches to render with
+    /// is_tabline=true. Falls back to vim.current.window per
+    /// py:311-317 — Rust port takes the fallback as a closure
+    /// since vim.current isn't reachable.
+    ///
+    /// `win_idx_none` is the same closure shape as in [`statusline`]
+    /// invoked with None. `current_window_fallback` produces the
+    /// `(window, window_id, winnr)` tuple from vim.current.window
+    /// per py:311-317. `render` dispatches the actual render with
+    /// is_tabline=true per py:309 / py:317.
+    pub fn tabline<W, F, R>(
+        win_idx_none: W,
+        current_window_fallback: F,
+        render: R,
+    ) -> String
+    where
+        W: FnOnce() -> Option<(u64, u64, i64)>,
+        F: FnOnce() -> (u64, u64, i64),
+        R: FnOnce(u64, u64, i64, bool) -> String,
+    {
+        // py:305  def tabline(self):
+        // py:306  r = self.win_idx(None)
+        match win_idx_none() {
+            // py:308-309  if r: return self.render(*r, is_tabline=True)
+            Some((w, wid, wn)) => render(w, wid, wn, true),
+            // py:310-317  else: r = (vim.current.window, ...); return render(*r, is_tabline=True)
+            None => {
+                let (w, wid, wn) = current_window_fallback();
+                render(w, wid, wn, true)
+            }
+        }
+    }
+
+    /// Port of `VimPowerline.new_win_idx()` from
+    /// `powerline/vim.py:263-280`.
+    ///
+    /// Walks `vim.windows`, assigning powerline_window_id to each
+    /// (via [`assign_window_id`]), then returns the
+    /// `(window, window_id, winnr)` tuple for the requested
+    /// window_id (or vim.current.window when window_id is None).
+    ///
+    /// Rust port takes the windows iterator as a slice of
+    /// `(window_handle, current_powerline_window_id_or_none,
+    /// winnr, is_current)` tuples since vim.windows isn't
+    /// reachable. Returns the matching tuple after assignment.
+    pub fn new_win_idx<F>(
+        windows: &[(u64, Option<u64>, i64, bool)],
+        window_id: Option<u64>,
+        mut last_window_id: u64,
+        mut set_window_var: F,
+    ) -> Option<(u64, u64, i64)>
+    where
+        F: FnMut(u64, u64),
+    {
+        // py:263  def new_win_idx(self, window_id):
+        // py:264  r = None
+        let mut r: Option<(u64, u64, i64)> = None;
+        // py:266  for window in vim.windows:
+        for (window, curwindow_id, winnr, is_current) in windows {
+            // py:267-274  assignment via try/except KeyError
+            let assigned_id = match curwindow_id {
+                Some(id) if !(r.is_some() && *id == window_id.unwrap_or(0)) => *id,
+                _ => {
+                    let new_id = last_window_id;
+                    last_window_id += 1;
+                    set_window_var(*window, new_id);
+                    new_id
+                }
+            };
+            // py:278-279  match window_id (or current window when None)
+            let matches = if let Some(wid) = window_id {
+                assigned_id == wid
+            } else {
+                *is_current
+            };
+            if matches {
+                r = Some((*window, assigned_id, *winnr));
+            }
+        }
+        r
+    }
+
+    /// Port of `VimPowerline.old_win_idx()` from
+    /// `powerline/vim.py:282-297`.
+    ///
+    /// Pre-vim-7.4-1825 variant that uses `_vim_getwinvar` /
+    /// `_vim_setwinvar` instead of direct window.vars/options
+    /// access. Same shape as [`new_win_idx`]; collapsed here to
+    /// the same dispatch since the Rust port abstracts over the
+    /// runtime via the closures.
+    pub fn old_win_idx<F>(
+        windows: &[(u64, Option<u64>, i64, bool)],
+        window_id: Option<u64>,
+        last_window_id: u64,
+        set_window_var: F,
+    ) -> Option<(u64, u64, i64)>
+    where
+        F: FnMut(u64, u64),
+    {
+        // py:282-297  same observable behavior as new_win_idx (the
+        //             only difference is the vim.windows access mode)
+        Self::new_win_idx(windows, window_id, last_window_id, set_window_var)
+    }
+
+    /// Port of `VimPowerline.do_pyeval()` (staticmethod) from
+    /// `powerline/vim.py:323-330`.
+    ///
+    /// Evaluates a Python expression supplied via the vim
+    /// `a:e` variable and returns the JSON-encoded result via
+    /// `vim.command('return ' + json.dumps(...))`.
+    ///
+    /// Rust port can't `eval()` arbitrary Python; the parity
+    /// surface takes the already-evaluated value (as a serde_json
+    /// Value) and returns the `return <json>` command string the
+    /// upstream would emit. Same shape as [`do_pyeval_command`].
+    pub fn do_pyeval(evaluated: &serde_json::Value) -> String {
+        // py:323  def do_pyeval():
+        // py:324-328  docstring
+        // py:329  import __main__
+        // py:330  vim.command('return ' + json.dumps(eval(...)))
+        Self::do_pyeval_command(&serde_json::to_string(evaluated).unwrap_or_default())
+    }
+
     /// Port of `VimPowerline.get_local_themes()` from
     /// `powerline/vim.py:157-174`.
     ///
@@ -499,6 +655,28 @@ impl VimPowerline {
         // py:356  return powerline.setup(*args, **kwargs)  (stubbed)
         Self::new(pyeval)
     }
+}
+
+/// Port of module-level `setup()` from
+/// `powerline/vim.py:357-359`.
+///
+/// Free fn shaped like upstream:
+/// ```python
+/// def setup(*args, **kwargs):
+///     powerline = VimPowerline()
+///     return powerline.setup(*args, **kwargs)
+/// ```
+///
+/// Constructs a fresh VimPowerline and returns it. The
+/// `.setup(...)` instance method dispatches augroup wiring that
+/// depends on the live vim runtime, so the Rust port stops at
+/// construction (same as [`VimPowerline::setup_entry`]) and lets
+/// the caller route through their own runtime bridge if available.
+pub fn setup(pyeval: impl Into<String>) -> VimPowerline {
+    // py:357  def setup(*args, **kwargs):
+    // py:358  powerline = VimPowerline()
+    // py:359  return powerline.setup(*args, **kwargs)
+    VimPowerline::setup_entry(pyeval)
 }
 
 #[cfg(test)]
@@ -894,5 +1072,91 @@ mod tests {
     fn new_window_returns_none_when_no_current_window() {
         let r = VimPowerline::new_window(|| None);
         assert_eq!(r, None);
+    }
+
+    #[test]
+    fn statusline_returns_no_window_message_when_win_idx_none() {
+        // py:301-302
+        let r = VimPowerline::statusline(
+            Some(42),
+            |_| None,
+            |_, _, _| panic!("render should not be called"),
+        );
+        assert_eq!(r, "No window 42");
+    }
+
+    #[test]
+    fn statusline_dispatches_to_render_when_window_resolves() {
+        // py:303
+        let r = VimPowerline::statusline(
+            Some(3),
+            |wid| Some((100, wid.unwrap_or(0), 7)),
+            |w, wid, wn| format!("w={w},wid={wid},wn={wn}"),
+        );
+        assert_eq!(r, "w=100,wid=3,wn=7");
+    }
+
+    #[test]
+    fn tabline_uses_win_idx_result_when_present() {
+        // py:308-309
+        let r = VimPowerline::tabline(
+            || Some((200, 5, 9)),
+            || panic!("fallback should not be called"),
+            |w, wid, wn, tab| format!("w={w},wid={wid},wn={wn},tab={tab}"),
+        );
+        assert_eq!(r, "w=200,wid=5,wn=9,tab=true");
+    }
+
+    #[test]
+    fn tabline_falls_back_to_current_window_when_win_idx_none() {
+        // py:310-317
+        let r = VimPowerline::tabline(
+            || None,
+            || (300, 6, 10),
+            |w, wid, wn, tab| format!("FB w={w},wid={wid},wn={wn},tab={tab}"),
+        );
+        assert_eq!(r, "FB w=300,wid=6,wn=10,tab=true");
+    }
+
+    #[test]
+    fn do_pyeval_returns_return_json_command() {
+        // py:330  vim.command('return ' + json.dumps(...))
+        let r = VimPowerline::do_pyeval(&serde_json::json!(42));
+        assert_eq!(r, "return 42");
+    }
+
+    #[test]
+    fn new_win_idx_assigns_id_when_none_and_returns_current() {
+        // py:267-279
+        let mut assignments: Vec<(u64, u64)> = Vec::new();
+        let windows = vec![(100_u64, None, 1_i64, true)];
+        let r = VimPowerline::new_win_idx(&windows, None, 10, |w, id| {
+            assignments.push((w, id))
+        });
+        assert_eq!(r, Some((100, 10, 1)));
+        assert_eq!(assignments, vec![(100, 10)]);
+    }
+
+    #[test]
+    fn new_win_idx_reuses_existing_id() {
+        // py:268-269  reuse existing curwindow_id
+        let windows = vec![(200_u64, Some(7), 2_i64, false)];
+        let r = VimPowerline::new_win_idx(&windows, Some(7), 99, |_, _| {});
+        assert_eq!(r, Some((200, 7, 2)));
+    }
+
+    #[test]
+    fn old_win_idx_delegates_to_new_win_idx() {
+        // py:282-297 same observable behavior
+        let windows = vec![(50_u64, Some(3), 1_i64, false)];
+        let r = VimPowerline::old_win_idx(&windows, Some(3), 0, |_, _| {});
+        assert_eq!(r, Some((50, 3, 1)));
+    }
+
+    #[test]
+    fn module_setup_returns_vim_powerline_with_pyeval() {
+        // py:357-359
+        let p = setup("MyPyeval");
+        assert_eq!(p.pyeval, "MyPyeval");
     }
 }
