@@ -935,7 +935,7 @@ pub fn gen_segment_getter<A>(
     _pl: &(),
     ext: &str,
     _common_config: &Map<String, Value>,
-    _theme_configs: Vec<Map<String, Value>>,
+    theme_configs: Vec<Map<String, Value>>,
     default_module: Option<&str>,
     get_module_attr: A,
     _top_theme: Option<&str>,
@@ -948,6 +948,7 @@ where
         .map(String::from)
         .unwrap_or_else(|| format!("powerline.segments.{}", ext));
     let get_module_attr = std::sync::Arc::new(get_module_attr);
+    let theme_configs = std::sync::Arc::new(theme_configs);
 
     // py:319-448  def get(segment, side):
     Box::new(
@@ -1133,14 +1134,21 @@ where
             out.insert("_rendered_hl".to_string(), Value::String(String::new()));
             out.insert("_len".to_string(), Value::Null);
             out.insert("_contents_len".to_string(), Value::Null);
-            // py:349-353  args = ... (passed through if present, for the dispatcher)
-            if let Some(a) = segment.get("args") {
-                out.insert("args".to_string(), a.clone());
+            // py:349-353  args = get_key(merge=True, segment, module,
+            // function_name, name, 'args', {}). Walks the cascade:
+            // segment_data["module.fn"]["args"] (top_theme/per-ext) →
+            // segment_data[fn]["args"] → segment_data[name]["args"] →
+            // inline segment["args"]. All layers deep-merged.
+            let mut inline_args: Map<String, Value> = Map::new();
+            if let Some(a) = segment.get("args").and_then(|v| v.as_object()) {
+                for (k, v) in a {
+                    inline_args.insert(k.clone(), v.clone());
+                }
             } else {
-                // include any inline args (interface, format, etc.) from the
-                // theme spec under a flat "args" map so the dispatcher can
-                // pass them as **kwargs. Skip known segment-spec keys.
-                let mut inline_args: Map<String, Value> = Map::new();
+                // Theme specs sometimes write args as inline keys
+                // (interface, format, …) rather than under an "args" map.
+                // Carry these into the args dict same as upstream
+                // segment_data["args"] would.
                 const SPEC_KEYS: &[&str] = &[
                     "function",
                     "name",
@@ -1165,9 +1173,30 @@ where
                         inline_args.insert(k.clone(), v.clone());
                     }
                 }
-                if !inline_args.is_empty() {
-                    out.insert("args".to_string(), Value::Object(inline_args));
+            }
+            // py:7-39  walk theme_configs[*]["segment_data"][...]["args"]
+            // and deep-merge under inline args (inline takes precedence,
+            // matching py:53 `ret.update(old_ret)`).
+            let mut inline_seg = segment.clone();
+            inline_seg.insert("args".to_string(), Value::Object(inline_args.clone()));
+            let theme_refs: Vec<&Map<String, Value>> = theme_configs.iter().collect();
+            let merged = get_segment_key(
+                true,
+                &inline_seg,
+                &theme_refs,
+                None,
+                "args",
+                Some(&function_name),
+                name.as_deref(),
+                Some(&module),
+                Some(Value::Object(Map::new())),
+            );
+            if let Some(Value::Object(merged_map)) = merged {
+                if !merged_map.is_empty() {
+                    out.insert("args".to_string(), Value::Object(merged_map));
                 }
+            } else if !inline_args.is_empty() {
+                out.insert("args".to_string(), Value::Object(inline_args));
             }
 
             Some(out)
