@@ -427,6 +427,192 @@ impl ConfigLoader {
         true
     }
 
+    /// Port of `ConfigLoader.update()` from
+    /// `powerline/lib/config.py:164-207`.
+    ///
+    /// Walks the registered watch + missing tables, dispatches the
+    /// watcher per path, invokes the registered function callbacks
+    /// for modified or newly-resolved paths, and reloads modified
+    /// files into the `loaded` cache.
+    ///
+    /// Rust can't store callable references in `watched` / `missing`
+    /// (function pointers aren't `Hash`), so the dispatch is split:
+    /// callers supply
+    ///   - `watcher`: `Fn(&Path) -> Result<bool, String>` — replaces
+    ///     the inline `self.watcher(path)` call at py:170.
+    ///   - `dispatch_fn`: `Fn(u64, &Path)` — invokes the registered
+    ///     callback for `(path, function_id)` at py:178.
+    ///   - `condition_fn`: `Fn(u64, &str) -> Option<PathBuf>` —
+    ///     evaluates the missing-key condition at py:183.
+    ///   - `dispatch_missing_fn`: `Fn(u64, &Path)` — calls the
+    ///     newly-resolved function callback at py:191.
+    ///   - `load_fn`: `Fn(&Path) -> Result<Value, String>` — the
+    ///     `self._load(path)` call at py:197.
+    ///
+    /// Returns the list of (path, error) pairs encountered during
+    /// load. Python silently logs via `self.exception` at py:198; the
+    /// Rust port surfaces them so callers can route the error stream.
+    pub fn update<W, D, C, DM, L>(
+        &mut self,
+        watcher: W,
+        dispatch_fn: D,
+        condition_fn: C,
+        dispatch_missing_fn: DM,
+        load_fn: L,
+    ) -> Vec<(std::path::PathBuf, String)>
+    where
+        W: Fn(&std::path::Path) -> Result<bool, String>,
+        D: Fn(u64, &std::path::Path),
+        C: Fn(u64, &str) -> Option<std::path::PathBuf>,
+        DM: Fn(u64, &std::path::Path),
+        L: Fn(&std::path::Path) -> Result<Value, String>,
+    {
+        // py:165  toload = []
+        let mut toload: Vec<std::path::PathBuf> = Vec::new();
+        let mut errors: Vec<(std::path::PathBuf, String)> = Vec::new();
+
+        // py:166  with self.lock:
+        // py:167  for path, functions in self.watched.items():
+        let watched_snapshot: Vec<(std::path::PathBuf, std::collections::HashSet<u64>)> = {
+            let _g = self.lock.lock().unwrap();
+            self.watched
+                .iter()
+                .map(|(p, fs)| (p.clone(), fs.clone()))
+                .collect()
+        };
+        for (path, functions) in &watched_snapshot {
+            for function_id in functions {
+                // py:169  try:
+                // py:170  modified = self.watcher(path)
+                // py:171  except OSError as e:
+                // py:172  modified = True
+                let modified = match watcher(path) {
+                    Ok(m) => m,
+                    Err(_) => true,
+                };
+                // py:174  else:
+                // py:175  if modified:
+                // py:176  toload.append(path)
+                if modified && !toload.contains(path) {
+                    toload.push(path.clone());
+                }
+                // py:177  if modified:
+                // py:178  function(path)
+                if modified {
+                    dispatch_fn(*function_id, path);
+                }
+            }
+        }
+
+        // py:179  with self.lock:
+        // py:180  for key, functions in list(self.missing.items()):
+        let missing_snapshot: Vec<(String, std::collections::HashSet<(u64, u64)>)> = {
+            let _g = self.lock.lock().unwrap();
+            self.missing
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect()
+        };
+        for (key, functions) in &missing_snapshot {
+            let mut remaining: std::collections::HashSet<(u64, u64)> = functions.clone();
+            for &(cond_id, func_id) in functions {
+                // py:181  for condition_function, function in list(functions):
+                // py:182  try:
+                // py:183  path = condition_function(key)
+                // py:184  except IOError:
+                // py:185  pass
+                // py:189  if path:
+                if let Some(path) = condition_fn(cond_id, key) {
+                    // py:190  toload.append(path)
+                    if !toload.contains(&path) {
+                        toload.push(path.clone());
+                    }
+                    // py:191  function(path)
+                    dispatch_missing_fn(func_id, &path);
+                    // py:192  functions.remove((condition_function, function))
+                    remaining.remove(&(cond_id, func_id));
+                }
+            }
+            // py:193  if not functions:
+            // py:194  self.missing.pop(key)
+            let _g = self.lock.lock().unwrap();
+            if remaining.is_empty() {
+                self.missing.remove(key);
+            } else {
+                self.missing.insert(key.clone(), remaining);
+            }
+        }
+
+        // py:195  for path in toload:
+        for path in &toload {
+            // py:196  try:
+            // py:197  self.loaded[path] = deepcopy(self._load(path))
+            match load_fn(path) {
+                Ok(v) => {
+                    self.loaded.insert(path.clone(), v);
+                }
+                Err(e) => {
+                    // py:198  except Exception as e:
+                    // py:199  self.exception(...)
+                    // py:200-207  try: self.loaded.pop(path) (twice)
+                    self.loaded.remove(path);
+                    errors.push((path.clone(), e));
+                }
+            }
+        }
+        errors
+    }
+
+    /// Port of `ConfigLoader.run()` from
+    /// `powerline/lib/config.py:209-212`.
+    ///
+    /// Runs `update` repeatedly at `self.interval`-second intervals
+    /// until `shutdown_event` is set. Python uses `threading.Event`'s
+    /// `wait(timeout)` for the inter-tick sleep; Rust polls the
+    /// `Arc<AtomicBool>` in 100ms slices so SIGTERM is responsive.
+    ///
+    /// Like `update`, callers supply the dispatch closures since
+    /// Rust can't store fn-refs in the watched/missing tables.
+    pub fn run<W, D, C, DM, L>(
+        &mut self,
+        shutdown_event: &std::sync::Arc<std::sync::atomic::AtomicBool>,
+        watcher: W,
+        dispatch_fn: D,
+        condition_fn: C,
+        dispatch_missing_fn: DM,
+        load_fn: L,
+    ) where
+        W: Fn(&std::path::Path) -> Result<bool, String>,
+        D: Fn(u64, &std::path::Path),
+        C: Fn(u64, &str) -> Option<std::path::PathBuf>,
+        DM: Fn(u64, &std::path::Path),
+        L: Fn(&std::path::Path) -> Result<Value, String>,
+    {
+        use std::sync::atomic::Ordering;
+        // py:210  while self.interval is not None and not self.shutdown_event.is_set():
+        while self.interval.is_some() && !shutdown_event.load(Ordering::Relaxed) {
+            // py:211  self.update()
+            let _ = self.update(
+                &watcher,
+                &dispatch_fn,
+                &condition_fn,
+                &dispatch_missing_fn,
+                &load_fn,
+            );
+            // py:212  self.shutdown_event.wait(self.interval)
+            let interval = self.interval.unwrap();
+            let slice = std::time::Duration::from_millis(100);
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(interval);
+            while std::time::Instant::now() < deadline {
+                if shutdown_event.load(Ordering::Relaxed) {
+                    return;
+                }
+                let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+                std::thread::sleep(slice.min(remaining));
+            }
+        }
+    }
+
     /// Port of `ConfigLoader.exception()` from
     /// `powerline/lib/config.py:214-218`.
     ///
@@ -715,5 +901,136 @@ mod tests {
         let cl = ConfigLoader::new(false);
         let r = cl.exception("a={0} b={1}", &["X", "Y"]).unwrap_err();
         assert_eq!(r, "a=X b=Y");
+    }
+
+    #[test]
+    fn config_loader_update_dispatches_modified_paths() {
+        // py:164-178  modified=True path triggers dispatch_fn + reload.
+        let mut cl = ConfigLoader::new(false);
+        let p = std::path::PathBuf::from("/tmp/zz_pwl_test_a.json");
+        cl.register(42, &p);
+        let called = std::sync::Arc::new(std::sync::Mutex::new(Vec::<(u64, std::path::PathBuf)>::new()));
+        let loaded = std::sync::Arc::new(std::sync::Mutex::new(Vec::<std::path::PathBuf>::new()));
+        let called_c = called.clone();
+        let loaded_c = loaded.clone();
+        let errors = cl.update(
+            |_p| Ok(true),
+            move |id, path| called_c.lock().unwrap().push((id, path.to_path_buf())),
+            |_id, _key| None,
+            |_id, _path| {},
+            move |path| {
+                loaded_c.lock().unwrap().push(path.to_path_buf());
+                Ok(Value::Object(serde_json::Map::new()))
+            },
+        );
+        assert!(errors.is_empty());
+        assert_eq!(*called.lock().unwrap(), vec![(42, p.clone())]);
+        assert_eq!(*loaded.lock().unwrap(), vec![p.clone()]);
+        assert!(cl.loaded.contains_key(&p));
+    }
+
+    #[test]
+    fn config_loader_update_skips_unmodified_paths() {
+        // py:170  watcher returns False → no dispatch, no reload.
+        let mut cl = ConfigLoader::new(false);
+        let p = std::path::PathBuf::from("/tmp/zz_pwl_test_b.json");
+        cl.register(99, &p);
+        let called = std::sync::Arc::new(std::sync::Mutex::new(0u32));
+        let called_c = called.clone();
+        let errors = cl.update(
+            |_p| Ok(false),
+            move |_id, _path| {
+                *called_c.lock().unwrap() += 1;
+            },
+            |_id, _key| None,
+            |_id, _path| {},
+            |_path| Ok(Value::Null),
+        );
+        assert!(errors.is_empty());
+        assert_eq!(*called.lock().unwrap(), 0);
+        assert!(!cl.loaded.contains_key(&p));
+    }
+
+    #[test]
+    fn config_loader_update_load_error_surfaces() {
+        // py:198-207  load failure → loaded.pop + error logged.
+        let mut cl = ConfigLoader::new(false);
+        let p = std::path::PathBuf::from("/tmp/zz_pwl_test_c.json");
+        cl.register(1, &p);
+        let errors = cl.update(
+            |_p| Ok(true),
+            |_id, _path| {},
+            |_id, _key| None,
+            |_id, _path| {},
+            |_path| Err("disk full".to_string()),
+        );
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].0, p);
+        assert!(errors[0].1.contains("disk full"));
+        assert!(!cl.loaded.contains_key(&p));
+    }
+
+    #[test]
+    fn config_loader_update_resolves_missing_via_condition() {
+        // py:179-194  missing-key condition_fn returns a path → dispatch.
+        let mut cl = ConfigLoader::new(false);
+        let resolved = std::path::PathBuf::from("/tmp/zz_pwl_test_d.json");
+        let key = "ext.shell.theme".to_string();
+        cl.register_missing(7, 13, &key);
+        let resolved_c = resolved.clone();
+        let dispatched = std::sync::Arc::new(std::sync::Mutex::new(Vec::<u64>::new()));
+        let dispatched_c = dispatched.clone();
+        let errors = cl.update(
+            |_p| Ok(false),
+            |_id, _path| {},
+            move |_cond_id, _k| Some(resolved_c.clone()),
+            move |id, _path| dispatched_c.lock().unwrap().push(id),
+            |_path| Ok(Value::Bool(true)),
+        );
+        assert!(errors.is_empty());
+        assert_eq!(*dispatched.lock().unwrap(), vec![13]);
+        // After resolution the missing-key entry is dropped.
+        assert!(!cl.missing.contains_key(&key));
+    }
+
+    #[test]
+    fn config_loader_run_exits_immediately_when_shutdown_event_set() {
+        // py:210  while not self.shutdown_event.is_set() — pre-set
+        // shutdown terminates the loop on first poll.
+        use std::sync::atomic::AtomicBool;
+        let mut cl = ConfigLoader::new(false);
+        cl.set_interval(60);
+        let event = std::sync::Arc::new(AtomicBool::new(true));
+        let invoked = std::sync::Arc::new(std::sync::Mutex::new(0u32));
+        let invoked_c = invoked.clone();
+        cl.run(
+            &event,
+            |_p| Ok(false),
+            move |_id, _path| {
+                *invoked_c.lock().unwrap() += 1;
+            },
+            |_id, _key| None,
+            |_id, _path| {},
+            |_path| Ok(Value::Null),
+        );
+        assert_eq!(*invoked.lock().unwrap(), 0);
+    }
+
+    #[test]
+    fn config_loader_run_exits_when_interval_is_none() {
+        // py:210  while self.interval is not None — None terminates.
+        use std::sync::atomic::AtomicBool;
+        let mut cl = ConfigLoader::new(false);
+        let event = std::sync::Arc::new(AtomicBool::new(false));
+        // interval stays None
+        cl.run(
+            &event,
+            |_p| Ok(false),
+            |_id, _path| {},
+            |_id, _key| None,
+            |_id, _path| {},
+            |_path| Ok(Value::Null),
+        );
+        // Should not deadlock.
     }
 }

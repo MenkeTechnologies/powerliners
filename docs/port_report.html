@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">541</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3175</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">52.6%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">546</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3264</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">53.1%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -147,8 +147,8 @@ columns:
   <!-- SYM py_file=powerline/lint/markedjson/constructor.py rs_file=src/ported/lint/markedjson/constructor.rs rs_exists=True py_fn_total=23 ported_count=21 missing_count=2 rs_extra_count=42 coverage=0.9130 -->
   <!-- END-GROUP py_file=powerline/lint/markedjson/constructor.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/config.py -->
-  <tr class="partial"><td><code>lib/config.py</code></td><td>✔ <code>lib/config.rs</code></td><td>21</td><td><code>open_file</code>, <code>load_json_config</code>, <code>watch</code>, <code>watch</code>, <code>unwatch</code>, <code>transfer_calls</code>, <code>set_watcher</code>, <code>set_pl</code>, <code>set_interval</code>, <code>register</code>, <code>register_missing</code>, <code>unregister_functions</code>, <code>unregister_missing</code>, <code>load</code>, <code>exception</code></td><td><code>__call__</code>, <code>__init__</code>, <code>__call__</code>, <code>__init__</code>, <code>update</code>, <code>run</code></td><td><code>check</code>, <code>default</code>, <code>new</code>, <code>check</code>, <code>default</code>, <code>new</code>, <code>tmp_json</code>, <code>open_file_reads_utf8_contents</code>, <code>load_json_config_parses_basic</code>, <code>load_json_config_returns_err_on_bad_json</code>, <code>dummy_watcher_always_returns_false</code>, <code>deferred_watcher_queues_calls</code>, <code>config_loader_run_once_uses_dummy_watcher_type</code>, <code>config_loader_default_uses_deferred_watcher_type</code>, <code>config_loader_set_pl_records_value</code>, <code>config_loader_set_interval_records_value</code>, <code>config_loader_register_adds_function_to_watched_path</code>, <code>config_loader_register_dedupes_function_id</code>, <code>config_loader_register_missing_adds_pair_to_key</code>, <code>config_loader_unregister_functions_drops_path_when_empty</code>, <code>config_loader_unregister_functions_keeps_path_with_remaining_functions</code>, <code>config_loader_unregister_functions_clears_loaded_entry</code>, <code>config_loader_unregister_missing_drops_key_when_empty</code>, <code>config_loader_load_calls_load_fn_on_cache_miss</code>, <code>config_loader_load_returns_cached_value_on_hit</code>, <code>config_loader_load_propagates_load_fn_errors</code>, <code>config_loader_set_watcher_same_type_is_noop</code>, <code>config_loader_set_watcher_different_type_swaps</code>, <code>config_loader_set_watcher_dummy_to_inotify</code>, <code>config_loader_exception_no_pl_returns_err</code>, <code>config_loader_exception_with_pl_returns_formatted</code>, <code>config_loader_exception_substitutes_multiple_args</code></td><td class="coverage">71%</td></tr>
-  <!-- SYM py_file=powerline/lib/config.py rs_file=src/ported/lib/config.rs rs_exists=True py_fn_total=21 ported_count=15 missing_count=6 rs_extra_count=32 coverage=0.7143 -->
+  <tr class="partial"><td><code>lib/config.py</code></td><td>✔ <code>lib/config.rs</code></td><td>21</td><td><code>open_file</code>, <code>load_json_config</code>, <code>watch</code>, <code>watch</code>, <code>unwatch</code>, <code>transfer_calls</code>, <code>set_watcher</code>, <code>set_pl</code>, <code>set_interval</code>, <code>register</code>, <code>register_missing</code>, <code>unregister_functions</code>, <code>unregister_missing</code>, <code>load</code>, <code>update</code>, <code>run</code>, <code>exception</code></td><td><code>__call__</code>, <code>__init__</code>, <code>__call__</code>, <code>__init__</code></td><td><code>check</code>, <code>default</code>, <code>new</code>, <code>check</code>, <code>default</code>, <code>new</code>, <code>tmp_json</code>, <code>open_file_reads_utf8_contents</code>, <code>load_json_config_parses_basic</code>, <code>load_json_config_returns_err_on_bad_json</code>, <code>dummy_watcher_always_returns_false</code>, <code>deferred_watcher_queues_calls</code>, <code>config_loader_run_once_uses_dummy_watcher_type</code>, <code>config_loader_default_uses_deferred_watcher_type</code>, <code>config_loader_set_pl_records_value</code>, <code>config_loader_set_interval_records_value</code>, <code>config_loader_register_adds_function_to_watched_path</code>, <code>config_loader_register_dedupes_function_id</code>, <code>config_loader_register_missing_adds_pair_to_key</code>, <code>config_loader_unregister_functions_drops_path_when_empty</code>, <code>config_loader_unregister_functions_keeps_path_with_remaining_functions</code>, <code>config_loader_unregister_functions_clears_loaded_entry</code>, <code>config_loader_unregister_missing_drops_key_when_empty</code>, <code>config_loader_load_calls_load_fn_on_cache_miss</code>, <code>config_loader_load_returns_cached_value_on_hit</code>, <code>config_loader_load_propagates_load_fn_errors</code>, <code>config_loader_set_watcher_same_type_is_noop</code>, <code>config_loader_set_watcher_different_type_swaps</code>, <code>config_loader_set_watcher_dummy_to_inotify</code>, <code>config_loader_exception_no_pl_returns_err</code>, <code>config_loader_exception_with_pl_returns_formatted</code>, <code>config_loader_exception_substitutes_multiple_args</code>, <code>config_loader_update_dispatches_modified_paths</code>, <code>config_loader_update_skips_unmodified_paths</code>, <code>config_loader_update_load_error_surfaces</code>, <code>config_loader_update_resolves_missing_via_condition</code>, <code>config_loader_run_exits_immediately_when_shutdown_event_set</code>, <code>config_loader_run_exits_when_interval_is_none</code></td><td class="coverage">81%</td></tr>
+  <!-- SYM py_file=powerline/lib/config.py rs_file=src/ported/lib/config.rs rs_exists=True py_fn_total=21 ported_count=17 missing_count=4 rs_extra_count=38 coverage=0.8095 -->
   <!-- END-GROUP py_file=powerline/lib/config.py -->
   <!-- BEGIN-GROUP py_file=powerline/bindings/config.py -->
   <tr class="partial"><td><code>bindings/config.py</code></td><td>✔ <code>bindings/config.rs</code></td><td>18</td><td><code>list_all_tmux_configs</code>, <code>get_tmux_configs</code>, <code>replace_env</code>, <code>check_command</code>, <code>deduce_command</code>, <code>shell_command</code></td><td><code>source_tmux_files</code>, <code>__init__</code>, <code>__getattr__</code>, <code>init_tmux_environment</code>, <code>get_highlighting</code>, <code>tmux_setup</code>, <code>set_tmux_environment_nosource</code>, <code>replace_cb</code>, <code>source_tmux_file_nosource</code>, <code>get_main_config</code>, <code>create_powerline_logger</code>, <code>uses</code></td><td><code>CONFIG_FILE_NAME</code>, <code>applies</code>, <code>priority</code>, <code>new</code>, <code>TMUX_VAR_RE</code>, <code>parse_tmux_file_line</code>, <code>shlex_split</code>, <code>sorted_tmux_configs</code>, <code>uses_check_env_vars</code>, <code>uses_component_exit_code</code>, <code>ver</code>, <code>config_file_name_matches_standard_format</code>, <code>exact_matcher_requires_same_major_minor</code>, <code>plus_matcher_applies_when_file_lte_tmux</code>, <code>minus_matcher_applies_when_file_gte_tmux</code>, <code>priority_order_matches_upstream</code>, <code>empty_args_init_stores_ext_as_single_element_list</code>, <code>empty_args_init_defaults_side_to_left</code>, <code>empty_args_init_pins_config_path_to_none</code>, <code>tmux_var_re_matches_dollar_powerline_var</code>, <code>tmux_var_re_captures_group_after_dollar</code>, <code>check_command_returns_some_for_real_binary</code>, <code>check_command_returns_none_for_missing_binary</code>, <code>deduce_command_returns_some_or_none</code>, <code>replace_env_substitutes_known_var</code>, <code>replace_env_passes_through_unknown_var</code>, <code>replace_env_substitutes_multiple_in_one_string</code>, <code>replace_env_leaves_non_dollar_powerline_text_alone</code>, <code>parse_tmux_file_line_skips_comments</code>, <code>parse_tmux_file_line_skips_blank_lines</code>, <code>parse_tmux_file_line_splits_simple_args</code>, <code>parse_tmux_file_line_handles_quoted_args</code>, <code>sorted_tmux_configs_returns_entries_in_ascending_priority_order</code>, <code>uses_check_env_vars_returns_true_for_powerline_no_var</code>, <code>uses_check_env_vars_checks_shell_fallback</code>, <code>uses_check_env_vars_returns_false_when_unset</code>, <code>uses_check_env_vars_returns_false_when_var_is_empty</code>, <code>uses_component_exit_code_returns_0_when_component_in_config</code>, <code>uses_component_exit_code_returns_1_when_component_not_in_config</code>, <code>uses_component_exit_code_default_components_when_missing</code>, <code>shell_command_returns_deduce_command_result</code></td><td class="coverage">33%</td></tr>
@@ -343,16 +343,16 @@ columns:
   <!-- SYM py_file=powerline/bindings/wm/awesome.py rs_file=src/ported/bindings/wm/awesome.rs rs_exists=True py_fn_total=4 ported_count=3 missing_count=1 rs_extra_count=6 coverage=0.7500 -->
   <!-- END-GROUP py_file=powerline/bindings/wm/awesome.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/memoize.py -->
-  <tr class="partial"><td><code>lib/memoize.py</code></td><td>✔ <code>lib/memoize.rs</code></td><td>4</td><td><code>default_cache_key</code></td><td><code>__init__</code>, <code>__call__</code>, <code>decorated_function</code></td><td><code>new</code>, <code>get_or_compute</code>, <code>default_cache_key_is_stable_across_iteration_order</code>, <code>memoize_caches_within_timeout</code>, <code>memoize_recomputes_on_different_key</code>, <code>memoize_recomputes_after_timeout</code></td><td class="coverage">25%</td></tr>
-  <!-- SYM py_file=powerline/lib/memoize.py rs_file=src/ported/lib/memoize.rs rs_exists=True py_fn_total=4 ported_count=1 missing_count=3 rs_extra_count=6 coverage=0.2500 -->
+  <tr class="partial"><td><code>lib/memoize.py</code></td><td>✔ <code>lib/memoize.rs</code></td><td>4</td><td><code>default_cache_key</code>, <code>decorated_function</code></td><td><code>__init__</code>, <code>__call__</code></td><td><code>new</code>, <code>get_or_compute</code>, <code>default_cache_key_is_stable_across_iteration_order</code>, <code>memoize_caches_within_timeout</code>, <code>memoize_recomputes_on_different_key</code>, <code>memoize_recomputes_after_timeout</code></td><td class="coverage">50%</td></tr>
+  <!-- SYM py_file=powerline/lib/memoize.py rs_file=src/ported/lib/memoize.rs rs_exists=True py_fn_total=4 ported_count=2 missing_count=2 rs_extra_count=6 coverage=0.5000 -->
   <!-- END-GROUP py_file=powerline/lib/memoize.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/monotonic.py -->
-  <tr class="partial"><td><code>lib/monotonic.py</code></td><td>✔ <code>lib/monotonic.rs</code></td><td>4</td><td><code>monotonic</code>, <code>monotonic</code>, <code>monotonic</code></td><td><code>mach_timebase_info</code></td><td><code>monotonic_is_non_decreasing</code>, <code>monotonic_advances</code></td><td class="coverage">75%</td></tr>
-  <!-- SYM py_file=powerline/lib/monotonic.py rs_file=src/ported/lib/monotonic.rs rs_exists=True py_fn_total=4 ported_count=3 missing_count=1 rs_extra_count=2 coverage=0.7500 -->
+  <tr class="full"><td><code>lib/monotonic.py</code></td><td>✔ <code>lib/monotonic.rs</code></td><td>4</td><td><code>monotonic</code>, <code>mach_timebase_info</code>, <code>monotonic</code>, <code>monotonic</code></td><td>—</td><td><code>monotonic_is_non_decreasing</code>, <code>monotonic_advances</code>, <code>mach_timebase_info_returns_positive_rational</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/lib/monotonic.py rs_file=src/ported/lib/monotonic.rs rs_exists=True py_fn_total=4 ported_count=4 missing_count=0 rs_extra_count=3 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/lib/monotonic.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/overrides.py -->
-  <tr class="partial"><td><code>lib/overrides.py</code></td><td>✔ <code>lib/overrides.rs</code></td><td>4</td><td><code>parse_value</code>, <code>keyvaluesplit</code>, <code>parse_override_var</code></td><td><code>parsedotval</code></td><td><code>parsedotval_str</code>, <code>parsedotval_tuple</code>, <code>build_nested</code>, <code>parse_value_empty_returns_remove_marker</code>, <code>parse_value_number</code>, <code>parse_value_string_in_quotes</code>, <code>parse_value_specials</code>, <code>parse_value_array_and_object</code>, <code>parse_value_raw_string</code>, <code>keyvaluesplit_basic</code>, <code>keyvaluesplit_no_equals_errors</code>, <code>keyvaluesplit_leading_underscore_errors</code>, <code>parsedotval_str_builds_nested</code>, <code>parsedotval_str_no_dot_is_flat</code>, <code>parse_override_var_splits_on_semicolon</code>, <code>parse_override_var_skips_empty</code></td><td class="coverage">75%</td></tr>
-  <!-- SYM py_file=powerline/lib/overrides.py rs_file=src/ported/lib/overrides.rs rs_exists=True py_fn_total=4 ported_count=3 missing_count=1 rs_extra_count=16 coverage=0.7500 -->
+  <tr class="full"><td><code>lib/overrides.py</code></td><td>✔ <code>lib/overrides.rs</code></td><td>4</td><td><code>parse_value</code>, <code>keyvaluesplit</code>, <code>parsedotval</code>, <code>parse_override_var</code></td><td>—</td><td><code>parsedotval_str</code>, <code>parsedotval_tuple</code>, <code>build_nested</code>, <code>parse_value_empty_returns_remove_marker</code>, <code>parse_value_number</code>, <code>parse_value_string_in_quotes</code>, <code>parse_value_specials</code>, <code>parse_value_array_and_object</code>, <code>parse_value_raw_string</code>, <code>keyvaluesplit_basic</code>, <code>keyvaluesplit_no_equals_errors</code>, <code>keyvaluesplit_leading_underscore_errors</code>, <code>parsedotval_str_builds_nested</code>, <code>parsedotval_str_no_dot_is_flat</code>, <code>parse_override_var_splits_on_semicolon</code>, <code>parse_override_var_skips_empty</code>, <code>parsedotval_dispatches_str_to_keyvaluesplit</code>, <code>parsedotval_dispatches_tuple_to_parse_value</code>, <code>parsedotval_str_no_dot_returns_flat_pair</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/lib/overrides.py rs_file=src/ported/lib/overrides.rs rs_exists=True py_fn_total=4 ported_count=4 missing_count=0 rs_extra_count=19 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/lib/overrides.py -->
   <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/tokens.py -->
   <tr class="partial"><td><code>lint/markedjson/tokens.py</code></td><td>✔ <code>lint/markedjson/tokens.rs</code></td><td>4</td><td><code>__repr__</code></td><td><code>__init__</code>, <code>__init__</code>, <code>__init__</code></td><td><code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>token_carries_marks</code>, <code>stream_start_id_matches_upstream</code>, <code>stream_end_id_matches_upstream</code>, <code>flow_token_ids_match_upstream</code>, <code>key_value_flow_entry_ids_match_upstream</code>, <code>scalar_token_carries_value_and_style</code>, <code>stream_start_token_carries_encoding</code></td><td class="coverage">25%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3175,
-    "ported_fns": 541,
-    "coverage": 0.5262645914396887
+    "rs_fns_in_ported": 3264,
+    "ported_fns": 546,
+    "coverage": 0.5311284046692607
   },
   "rows": [
     {
@@ -1477,15 +1477,15 @@ columns:
         "unregister_functions",
         "unregister_missing",
         "load",
+        "update",
+        "run",
         "exception"
       ],
       "missing_fns": [
         "__call__",
         "__init__",
         "__call__",
-        "__init__",
-        "update",
-        "run"
+        "__init__"
       ],
       "rs_extra_fns": [
         "check",
@@ -1519,9 +1519,15 @@ columns:
         "config_loader_set_watcher_dummy_to_inotify",
         "config_loader_exception_no_pl_returns_err",
         "config_loader_exception_with_pl_returns_formatted",
-        "config_loader_exception_substitutes_multiple_args"
+        "config_loader_exception_substitutes_multiple_args",
+        "config_loader_update_dispatches_modified_paths",
+        "config_loader_update_skips_unmodified_paths",
+        "config_loader_update_load_error_surfaces",
+        "config_loader_update_resolves_missing_via_condition",
+        "config_loader_run_exits_immediately_when_shutdown_event_set",
+        "config_loader_run_exits_when_interval_is_none"
       ],
-      "coverage": 0.7142857142857143
+      "coverage": 0.8095238095238095
     },
     {
       "py_file": "powerline/bindings/config.py",
@@ -3728,12 +3734,12 @@ columns:
       "rs_exists": true,
       "py_fn_total": 4,
       "ported_fns": [
-        "default_cache_key"
+        "default_cache_key",
+        "decorated_function"
       ],
       "missing_fns": [
         "__init__",
-        "__call__",
-        "decorated_function"
+        "__call__"
       ],
       "rs_extra_fns": [
         "new",
@@ -3743,7 +3749,7 @@ columns:
         "memoize_recomputes_on_different_key",
         "memoize_recomputes_after_timeout"
       ],
-      "coverage": 0.25
+      "coverage": 0.5
     },
     {
       "py_file": "powerline/lib/monotonic.py",
@@ -3752,17 +3758,17 @@ columns:
       "py_fn_total": 4,
       "ported_fns": [
         "monotonic",
+        "mach_timebase_info",
         "monotonic",
         "monotonic"
       ],
-      "missing_fns": [
-        "mach_timebase_info"
-      ],
+      "missing_fns": [],
       "rs_extra_fns": [
         "monotonic_is_non_decreasing",
-        "monotonic_advances"
+        "monotonic_advances",
+        "mach_timebase_info_returns_positive_rational"
       ],
-      "coverage": 0.75
+      "coverage": 1.0
     },
     {
       "py_file": "powerline/lib/overrides.py",
@@ -3772,11 +3778,10 @@ columns:
       "ported_fns": [
         "parse_value",
         "keyvaluesplit",
+        "parsedotval",
         "parse_override_var"
       ],
-      "missing_fns": [
-        "parsedotval"
-      ],
+      "missing_fns": [],
       "rs_extra_fns": [
         "parsedotval_str",
         "parsedotval_tuple",
@@ -3793,9 +3798,12 @@ columns:
         "parsedotval_str_builds_nested",
         "parsedotval_str_no_dot_is_flat",
         "parse_override_var_splits_on_semicolon",
-        "parse_override_var_skips_empty"
+        "parse_override_var_skips_empty",
+        "parsedotval_dispatches_str_to_keyvaluesplit",
+        "parsedotval_dispatches_tuple_to_parse_value",
+        "parsedotval_str_no_dot_returns_flat_pair"
       ],
-      "coverage": 0.75
+      "coverage": 1.0
     },
     {
       "py_file": "powerline/lint/markedjson/tokens.py",

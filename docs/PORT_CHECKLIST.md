@@ -156,7 +156,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/renderers/shell/__init__.py` ↔ `src/ported/renderers/shell/mod.rs` | 157 | 1 | 2 | 7 | 509 | 10 | 95 |
 | [x] | `powerline/lib/unicode.py` ↔ `src/ported/lib/unicode.rs` | 221 | 8 | 1 | 0 | 246 | 11 | 125 |
 | [x] | `powerline/segments/common/net.py` ↔ `src/ported/segments/common/net.rs` | 254 | 2 | 2 | 6 | 663 | 17 | 129 |
-| [x] | `powerline/lint/__init__.py` ↔ `src/ported/lint/mod.rs` | 573 | 8 | 0 | 0 | 698 | 9 | 333 |
+| [x] | `powerline/lint/__init__.py` ↔ `src/ported/lint/mod.rs` | 573 | 8 | 0 | 0 | 1430 | 54 | 430 |
 | [x] | `powerline/lint/markedjson/composer.py` ↔ `src/ported/lint/markedjson/composer.rs` | 80 | 0 | 2 | 9 | 450 | 15 | 52 |
 | [x] | `powerline/lint/markedjson/reader.py` ↔ `src/ported/lint/markedjson/reader.rs` | 107 | 0 | 2 | 9 | 172 | 11 | 111 |
 | [x] | `powerline/renderers/vim.py` ↔ `src/ported/renderers/vim.rs` | 152 | 0 | 1 | 9 | 519 | 11 | 94 |
@@ -170,7 +170,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/bindings/vim/__init__.py` ↔ `src/ported/bindings/vim/mod.rs` | 371 | 11 | 1 | 3 | 252 | 17 | 211 |
 | [x] | `powerline/bindings/ipython/pre_0_11.py` ↔ `src/ported/bindings/ipython/pre_0_11.rs` | 111 | 1 | 7 | 14 | 429 | 23 | 66 |
 | [x] | `powerline/lib/watcher/inotify.py` ↔ `src/ported/lib/watcher/inotify.rs` | 212 | 0 | 5 | 15 | 448 | 17 | 139 |
-| [x] | `powerline/renderer.py` ↔ `src/ported/renderer.rs` | 503 | 1 | 1 | 14 | 1278 | 24 | 370 |
+| [x] | `powerline/renderer.py` ↔ `src/ported/renderer.rs` | 503 | 1 | 1 | 14 | 1275 | 24 | 370 |
 | [x] | `powerline/segments/common/players.py` ↔ `src/ported/segments/common/players.rs` | 522 | 2 | 11 | 13 | 682 | 25 | 274 |
 | [x] | `powerline/lib/vcs/__init__.py` ↔ `src/ported/lib/vcs/mod.rs` | 209 | 9 | 2 | 7 | 634 | 16 | 130 |
 | [x] | `powerline/lint/markedjson/parser.py` ↔ `src/ported/lint/markedjson/parser.rs` | 207 | 0 | 2 | 17 | 575 | 22 | 107 |
@@ -185,7 +185,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/lint/markedjson/scanner.py` ↔ `src/ported/lint/markedjson/scanner.rs` | 283 | 0 | 3 | 29 | 570 | 32 | 174 |
 | [x] | `powerline/lint/spec.py` ↔ `src/ported/lint/spec.rs` | 637 | 0 | 1 | 32 | 1018 | 35 | 320 |
 | [x] | `powerline/segments/vim/__init__.py` ↔ `src/ported/segments/vim/mod.rs` | 650 | 32 | 2 | 2 | 869 | 34 | 330 |
-| [x] | `powerline/__init__.py` ↔ `src/ported/mod.rs` | 813 | 13 | 3 | 32 | 1736 | 49 | 453 |
+| [x] | `powerline/__init__.py` ↔ `src/ported/mod.rs` | 813 | 13 | 3 | 32 | 1784 | 49 | 456 |
 
 ## 🟢 NEAR — every Python fn has a `/// Port of` doc-comment; body density may still be partial (3)
 

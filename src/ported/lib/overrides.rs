@@ -137,6 +137,36 @@ fn build_nested(o: &str, val: Value) -> (String, Value) {
     }
 }
 
+/// Input dispatch for [`parsedotval`] — matches Python's runtime
+/// `type(s) is tuple` discrimination at `powerline/lib/overrides.py:52`.
+///
+/// Python's `parsedotval(s)` takes either a `str` or a pre-split
+/// `(o, val_str)` tuple. Rust can't dispatch on parameter type at
+/// runtime without a sum type, so the input is wrapped here.
+pub enum ParseDotValInput<'a> {
+    /// `s` is a `"K1.K2=VAL"`-shaped string — parsed via
+    /// [`keyvaluesplit`].
+    Str(&'a str),
+    /// `s` is the pre-split `(o, val_str)` tuple — `val_str` is
+    /// re-parsed via [`parse_value`].
+    Tuple(&'a str, &'a str),
+}
+
+/// Port of `parsedotval()` from `powerline/lib/overrides.py:47`.
+///
+/// Dispatches to [`parsedotval_str`] or [`parsedotval_tuple`] based
+/// on the input variant — mirrors Python's runtime
+/// `if type(s) is tuple` branch at py:52.
+///
+/// Returns the nested-shape `(key, value)` per py:60-68 (or the flat
+/// `(o, val)` per py:67-68 when no dots are present).
+pub fn parsedotval(input: ParseDotValInput<'_>) -> Result<(String, Value), String> {
+    match input {
+        ParseDotValInput::Str(s) => parsedotval_str(s),
+        ParseDotValInput::Tuple(o, val) => Ok(parsedotval_tuple(o, val)),
+    }
+}
+
 /// Port of `parse_override_var()` from `powerline/lib/overrides.py:71`.
 ///
 /// Parse a semicolon-separated list of strings into a sequence of values.
@@ -242,5 +272,29 @@ mod tests {
     fn parse_override_var_skips_empty() {
         let items = parse_override_var("a=1;;b=2;");
         assert_eq!(items.len(), 2);
+    }
+
+    #[test]
+    fn parsedotval_dispatches_str_to_keyvaluesplit() {
+        // py:55-56  type(s) is not tuple → keyvaluesplit branch
+        let (key, val) = parsedotval(ParseDotValInput::Str("foo.bar=42")).unwrap();
+        assert_eq!(key, "foo");
+        assert_eq!(val, json!({"bar": 42}));
+    }
+
+    #[test]
+    fn parsedotval_dispatches_tuple_to_parse_value() {
+        // py:52-54  type(s) is tuple → parse_value(val) branch
+        let (key, val) = parsedotval(ParseDotValInput::Tuple("foo.bar", "42")).unwrap();
+        assert_eq!(key, "foo");
+        assert_eq!(val, json!({"bar": 42}));
+    }
+
+    #[test]
+    fn parsedotval_str_no_dot_returns_flat_pair() {
+        // py:67-68  else branch — no dots, return (o, val)
+        let (key, val) = parsedotval(ParseDotValInput::Str("flag=true")).unwrap();
+        assert_eq!(key, "flag");
+        assert_eq!(val, json!(true));
     }
 }
