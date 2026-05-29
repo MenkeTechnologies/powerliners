@@ -2192,6 +2192,51 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_humanize_bytes_canonical_units() {
+    if !python_available() {
+        return;
+    }
+    // humanize_bytes() returns "<quotient><decimals> <unit><suffix>" with
+    // unit_list = [('',0), ('k',0), ('M',1), ('G',2), ('T',2), ('P',2)].
+    // Cover binary (1024) and SI (1000) divisor paths + zero + custom
+    // suffix + sub-K passthrough.
+    let cases: &[(u64, &str, bool, &str)] = &[
+        (0, "B", false, "0 B"),
+        (512, "B", false, "512 B"),
+        (1024, "B", false, "1 KiB"),
+        (1024 * 1024, "B", false, "1.0 MiB"),
+        (1024_u64.pow(3), "B", false, "1.00 GiB"),
+        (1024_u64.pow(4), "B", false, "1.00 TiB"),
+        (1024, "b", false, "1 KiB"), // py shows 'KiB' regardless of suffix-case
+        (1024, "B", true, "1 kB"),
+        (1000, "B", true, "1 kB"),
+    ];
+    for (n, suffix, si_prefix, _expected_static) in cases {
+        let py_expr = format!(
+            "__import__('powerline.lib.humanize_bytes', fromlist=['humanize_bytes']).humanize_bytes({}, suffix={:?}, si_prefix={})",
+            n,
+            suffix,
+            if *si_prefix { "True" } else { "False" }
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = powerliners::lib::humanize_bytes::humanize_bytes(*n as f64, suffix, *si_prefix);
+        assert_eq!(
+            py.trim(),
+            rs,
+            "humanize_bytes({}, {:?}, si={}) mismatch: py={:?}, rs={:?}",
+            n,
+            suffix,
+            si_prefix,
+            py,
+            rs
+        );
+    }
+}
+
+#[test]
 fn parity_urllib_urlencode_matches_python_stdlib() {
     if !python_available() {
         return;
