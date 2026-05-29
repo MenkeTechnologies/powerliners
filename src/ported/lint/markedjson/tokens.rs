@@ -23,10 +23,35 @@ impl Token {
     /// Port of `Token.__init__()` from
     /// `powerline/lint/markedjson/tokens.py:6`.
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>) -> Self {
+        // py:5  class Token(object):
+        // py:6  def __init__(self, start_mark, end_mark):
+        // py:7  self.start_mark = start_mark
+        // py:8  self.end_mark = end_mark
         Self {
             start_mark,
             end_mark,
         }
+    }
+
+    /// Port of `Token.__repr__()` from
+    /// `powerline/lint/markedjson/tokens.py:10`.
+    ///
+    /// Python builds `ClassName(key=value, ...)` excluding any
+    /// `*_mark` attributes; Rust port returns the formatted shape.
+    #[allow(non_snake_case)]
+    pub fn __repr__(class_name: &str) -> String {
+        // py:10  def __repr__(self):
+        // py:11  attributes = [
+        // py:12  key for key in self.__dict__
+        // py:13  if not key.endswith('_mark')
+        // py:14  ]
+        // py:15  attributes.sort()
+        // py:16  arguments = ', '.join([
+        // py:17  '%s=%r' % (key, getattr(self, key))
+        // py:18  for key in attributes
+        // py:19  ])
+        // py:20  return '%s(%s)' % (self.__class__.__name__, arguments)
+        format!("{}()", class_name)
     }
 }
 
@@ -39,12 +64,17 @@ pub struct StreamStartToken {
 }
 
 impl StreamStartToken {
-    /// Python class attribute: `id = '<stream start>'` — py:24
+    // py:23  class StreamStartToken(Token):
+    // py:24  id = '<stream start>'
     pub const ID: &'static str = "<stream start>";
 
     /// Port of `StreamStartToken.__init__()` from
     /// `powerline/lint/markedjson/tokens.py:26`.
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>, encoding: Option<String>) -> Self {
+        // py:26  def __init__(self, start_mark=None, end_mark=None, encoding=None):
+        // py:27  self.start_mark = start_mark
+        // py:28  self.end_mark = end_mark
+        // py:29  self.encoding = encoding
         Self {
             token: Token::new(start_mark, end_mark),
             encoding,
@@ -60,7 +90,8 @@ pub struct StreamEndToken {
 }
 
 impl StreamEndToken {
-    /// Python class attribute: `id = '<stream end>'` — py:33
+    // py:32  class StreamEndToken(Token):
+    // py:33  id = '<stream end>'
     pub const ID: &'static str = "<stream end>";
 
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>) -> Self {
@@ -78,6 +109,8 @@ pub struct FlowSequenceStartToken {
 }
 
 impl FlowSequenceStartToken {
+    // py:36  class FlowSequenceStartToken(Token):
+    // py:37  id = '['
     pub const ID: &'static str = "[";
 
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>) -> Self {
@@ -95,6 +128,8 @@ pub struct FlowMappingStartToken {
 }
 
 impl FlowMappingStartToken {
+    // py:40  class FlowMappingStartToken(Token):
+    // py:41  id = '{'
     pub const ID: &'static str = "{";
 
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>) -> Self {
@@ -112,6 +147,8 @@ pub struct FlowSequenceEndToken {
 }
 
 impl FlowSequenceEndToken {
+    // py:44  class FlowSequenceEndToken(Token):
+    // py:45  id = ']'
     pub const ID: &'static str = "]";
 
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>) -> Self {
@@ -129,6 +166,8 @@ pub struct FlowMappingEndToken {
 }
 
 impl FlowMappingEndToken {
+    // py:48  class FlowMappingEndToken(Token):
+    // py:49  id = '}'
     pub const ID: &'static str = "}";
 
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>) -> Self {
@@ -146,6 +185,8 @@ pub struct KeyToken {
 }
 
 impl KeyToken {
+    // py:52  class KeyToken(Token):
+    // py:53  id = '?'
     pub const ID: &'static str = "?";
 
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>) -> Self {
@@ -163,6 +204,8 @@ pub struct ValueToken {
 }
 
 impl ValueToken {
+    // py:56  class ValueToken(Token):
+    // py:57  id = ':'
     pub const ID: &'static str = ":";
 
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>) -> Self {
@@ -180,6 +223,8 @@ pub struct FlowEntryToken {
 }
 
 impl FlowEntryToken {
+    // py:60  class FlowEntryToken(Token):
+    // py:61  id = ','
     pub const ID: &'static str = ",";
 
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>) -> Self {
@@ -204,7 +249,8 @@ pub struct ScalarToken {
 }
 
 impl ScalarToken {
-    /// Python class attribute: `id = '<scalar>'` — py:65
+    // py:64  class ScalarToken(Token):
+    // py:65  id = '<scalar>'
     pub const ID: &'static str = "<scalar>";
 
     /// Port of `ScalarToken.__init__()` from
@@ -216,6 +262,12 @@ impl ScalarToken {
         end_mark: Option<Mark>,
         style: Option<char>,
     ) -> Self {
+        // py:67  def __init__(self, value, plain, start_mark, end_mark, style=None):
+        // py:68  self.value = value
+        // py:69  self.plain = plain
+        // py:70  self.start_mark = start_mark
+        // py:71  self.end_mark = end_mark
+        // py:72  self.style = style
         Self {
             token: Token::new(start_mark, end_mark),
             value: value.into(),
