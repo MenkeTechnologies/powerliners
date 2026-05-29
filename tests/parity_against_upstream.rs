@@ -822,6 +822,51 @@ fn parity_urllib_urlencode() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// lint/inspect.py — formatconfigargspec
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_formatconfigargspec_args_only() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "__import__('powerline.lint.inspect', fromlist=['formatconfigargspec']).formatconfigargspec(['a', 'b', 'c'])"
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let args = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+    let rs = powerliners::lint::inspect::formatconfigargspec(&args, &[]);
+    assert_eq!(
+        py, rs,
+        "formatconfigargspec(args, no_defaults) mismatch: py={:?}, rs={:?}",
+        py, rs
+    );
+}
+
+#[test]
+fn parity_formatconfigargspec_with_defaults() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "__import__('powerline.lint.inspect', fromlist=['formatconfigargspec']).formatconfigargspec(['a', 'b', 'c'], defaults=(1, 2))"
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let args = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+    let defaults = vec!["1".to_string(), "2".to_string()];
+    let rs = powerliners::lint::inspect::formatconfigargspec(&args, &defaults);
+    assert_eq!(
+        py, rs,
+        "formatconfigargspec(args, defaults) mismatch: py={:?}, rs={:?}",
+        py, rs
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // lib/config.py — load_json_config
 // ─────────────────────────────────────────────────────────────────────
 
