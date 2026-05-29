@@ -2192,6 +2192,62 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_encoding_preferred_helpers_all_return_utf8() {
+    if !python_available() {
+        return;
+    }
+    // Six getters in powerline.lib.encoding must all return a
+    // UTF-8 family string. Verify by normalizing case and stripping
+    // '-' (Python returns 'UTF-8' for most, 'utf-8' for
+    // file_name_encoding).
+    let mappings: &[(&str, fn() -> &'static str)] = &[
+        ("get_preferred_input_encoding", || {
+            powerliners::lib::encoding::get_preferred_input_encoding()
+        }),
+        ("get_preferred_output_encoding", || {
+            powerliners::lib::encoding::get_preferred_output_encoding()
+        }),
+        ("get_preferred_arguments_encoding", || {
+            powerliners::lib::encoding::get_preferred_arguments_encoding()
+        }),
+        ("get_preferred_environment_encoding", || {
+            powerliners::lib::encoding::get_preferred_environment_encoding()
+        }),
+        ("get_preferred_file_contents_encoding", || {
+            powerliners::lib::encoding::get_preferred_file_contents_encoding()
+        }),
+        ("get_preferred_file_name_encoding", || {
+            powerliners::lib::encoding::get_preferred_file_name_encoding()
+        }),
+    ];
+    for (name, rs_fn) in mappings {
+        let py_expr = format!(
+            "__import__('powerline.lib.encoding', fromlist=['{0}']).{0}()",
+            name
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = rs_fn();
+        assert_eq!(
+            py.trim().to_lowercase().replace('-', ""),
+            rs.to_lowercase().replace('-', ""),
+            "{}() mismatch: py={:?}, rs={:?}",
+            name,
+            py,
+            rs
+        );
+        assert!(
+            rs.to_lowercase().contains("utf"),
+            "{}() should return UTF-8 family, got {:?}",
+            name,
+            rs
+        );
+    }
+}
+
+#[test]
 fn parity_shell_which_finds_and_misses_consistently() {
     if !python_available() {
         return;
