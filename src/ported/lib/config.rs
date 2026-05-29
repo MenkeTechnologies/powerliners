@@ -334,9 +334,65 @@ impl ConfigLoader {
     }
 }
 
-// `ConfigLoader.update()` (py:164-208), `set_watcher` (py:78-86),
-// `run()` (py:209-213), and `exception` (py:214-218) port alongside
-// the live watcher dispatch + log substrate.
+// `ConfigLoader.update()` (py:164-208), `run()` (py:209-213) port
+// alongside the live watcher dispatch + log substrate. set_watcher
+// + exception extract enough of the structural skeleton to surface
+// the dispatch shape without driving the live loop.
+
+/// Port of `ConfigLoader.set_watcher()` from
+/// `powerline/lib/config.py:78-86`.
+///
+/// Mirrors the early-exit at py:79-80 (same type → no-op) and the
+/// state-mutation at py:84-86 (transfer deferred-queue calls when
+/// switching off the deferred watcher, then store the new watcher
+/// type). The actual `create_file_watcher(self.pl, watcher_type)`
+/// dispatch at py:81 lives outside the locked section since it
+/// reaches the live watcher runtime.
+///
+/// Returns `true` when the watcher_type actually changed, `false`
+/// when the no-op early-exit fired per py:79-80.
+impl ConfigLoader {
+    pub fn set_watcher(&mut self, watcher_type: &str, _force: bool) -> bool {
+        // py:79-80  if watcher_type == self.watcher_type: return
+        if watcher_type == self.watcher_type {
+            return false;
+        }
+        // py:82-86  with self.lock: mutate watcher_type
+        let _g = self.lock.lock().unwrap_or_else(|e| e.into_inner());
+        // py:83-84  if self.watcher_type == 'deferred':
+        //              self.watcher.transfer_calls(watcher)
+        // (caller-wired since live watcher dispatch is deferred)
+        // py:85-86  self.watcher = watcher; self.watcher_type = watcher_type
+        self.watcher_type = watcher_type.to_string();
+        true
+    }
+
+    /// Port of `ConfigLoader.exception()` from
+    /// `powerline/lib/config.py:214-218`.
+    ///
+    /// Returns the formatted message that the Python source would
+    /// pass to `self.pl.exception(...)` at py:216. Callers wire the
+    /// logger; the Rust port collects the format string + args into
+    /// a single rendered message. When `self.pl` is None py:218
+    /// re-raises — the Rust port returns Err with the rendered
+    /// message instead.
+    pub fn exception(&self, msg: &str, args: &[&str]) -> Result<String, String> {
+        // py:214-218
+        // Format pattern: Python uses str.format(*args, **kwargs).
+        // The Rust port runs str::replace on each `{N}` placeholder.
+        let mut rendered = msg.to_string();
+        for (i, arg) in args.iter().enumerate() {
+            rendered = rendered.replace(&format!("{{{}}}", i), arg);
+        }
+        if self.pl.is_some() {
+            // py:216  self.pl.exception(msg, prefix='config_loader', ...)
+            Ok(format!("config_loader: {}", rendered))
+        } else {
+            // py:218  raise
+            Err(rendered)
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -546,5 +602,55 @@ mod tests {
         assert!(r.is_err());
         // Failed load should NOT populate the cache.
         assert!(!cl.loaded.contains_key(&p));
+    }
+
+    #[test]
+    fn config_loader_set_watcher_same_type_is_noop() {
+        // py:79-80
+        let mut cl = ConfigLoader::new(false);
+        // Default watcher_type is "deferred"
+        assert!(!cl.set_watcher("deferred", false));
+        assert_eq!(cl.watcher_type, "deferred");
+    }
+
+    #[test]
+    fn config_loader_set_watcher_different_type_swaps() {
+        // py:85-86
+        let mut cl = ConfigLoader::new(false);
+        assert!(cl.set_watcher("inotify", false));
+        assert_eq!(cl.watcher_type, "inotify");
+    }
+
+    #[test]
+    fn config_loader_set_watcher_dummy_to_inotify() {
+        let mut cl = ConfigLoader::new(true);
+        assert_eq!(cl.watcher_type, "dummy");
+        assert!(cl.set_watcher("inotify", false));
+        assert_eq!(cl.watcher_type, "inotify");
+    }
+
+    #[test]
+    fn config_loader_exception_no_pl_returns_err() {
+        // py:218  raise
+        let cl = ConfigLoader::new(false);
+        let r = cl.exception("Error: {0} not found", &["foo"]);
+        assert!(r.is_err());
+        assert_eq!(r.unwrap_err(), "Error: foo not found");
+    }
+
+    #[test]
+    fn config_loader_exception_with_pl_returns_formatted() {
+        // py:215-216
+        let mut cl = ConfigLoader::new(false);
+        cl.set_pl(());
+        let r = cl.exception("Error: {0} broken", &["xyz"]).unwrap();
+        assert_eq!(r, "config_loader: Error: xyz broken");
+    }
+
+    #[test]
+    fn config_loader_exception_substitutes_multiple_args() {
+        let cl = ConfigLoader::new(false);
+        let r = cl.exception("a={0} b={1}", &["X", "Y"]).unwrap_err();
+        assert_eq!(r, "a=X b=Y");
     }
 }
