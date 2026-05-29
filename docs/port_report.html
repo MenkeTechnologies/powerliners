@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">857</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3573</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">83.4%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">859</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3574</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">83.6%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -371,8 +371,8 @@ columns:
   <!-- SYM py_file=powerline/pdb.py rs_file=src/ported/pdb.rs rs_exists=True py_fn_total=5 ported_count=5 missing_count=0 rs_extra_count=14 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/pdb.py -->
   <!-- BEGIN-GROUP py_file=powerline/segments/__init__.py -->
-  <tr class="partial"><td><code>segments/__init__.py</code></td><td>✔ <code>segments/mod.rs</code></td><td>5</td><td><code>omitted_args</code>, <code>additional_args</code>, <code>with_docstring</code></td><td><code>argspecobjs</code>, <code>argspecobjs</code></td><td><code>segment_defaults_are_empty</code>, <code>with_docstring_passes_through</code></td><td class="coverage">60%</td></tr>
-  <!-- SYM py_file=powerline/segments/__init__.py rs_file=src/ported/segments/mod.rs rs_exists=True py_fn_total=5 ported_count=3 missing_count=2 rs_extra_count=2 coverage=0.6000 -->
+  <tr class="full"><td><code>segments/__init__.py</code></td><td>✔ <code>segments/mod.rs</code></td><td>5</td><td><code>argspecobjs</code>, <code>argspecobjs</code>, <code>omitted_args</code>, <code>additional_args</code>, <code>with_docstring</code></td><td>—</td><td><code>segment_defaults_are_empty</code>, <code>with_docstring_passes_through</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/segments/__init__.py rs_file=src/ported/segments/mod.rs rs_exists=True py_fn_total=5 ported_count=5 missing_count=0 rs_extra_count=2 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/segments/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/segments/pdb.py -->
   <tr class="full"><td><code>segments/pdb.py</code></td><td>✔ <code>segments/pdb.rs</code></td><td>5</td><td><code>current_line</code>, <code>current_file</code>, <code>current_code_name</code>, <code>current_context</code>, <code>stack_depth</code></td><td>—</td><td><code>sample</code>, <code>current_line_returns_lineno_as_string</code>, <code>current_file_basename_true_returns_filename_only</code>, <code>current_file_basename_false_returns_full_path</code>, <code>current_code_name_returns_co_name</code>, <code>current_context_returns_co_name_for_normal_function</code>, <code>current_context_substitutes_module_with_basename</code>, <code>stack_depth_default_subtracts_initial</code>, <code>stack_depth_full_stack_returns_raw_len</code></td><td class="coverage">100%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 126,
-    "rs_fns_in_ported": 3573,
-    "ported_fns": 857,
-    "coverage": 0.8336575875486382
+    "rs_fns_in_ported": 3574,
+    "ported_fns": 859,
+    "coverage": 0.835603112840467
   },
   "rows": [
     {
@@ -4589,19 +4589,18 @@ columns:
       "rs_exists": true,
       "py_fn_total": 5,
       "ported_fns": [
+        "argspecobjs",
+        "argspecobjs",
         "omitted_args",
         "additional_args",
         "with_docstring"
       ],
-      "missing_fns": [
-        "argspecobjs",
-        "argspecobjs"
-      ],
+      "missing_fns": [],
       "rs_extra_fns": [
         "segment_defaults_are_empty",
         "with_docstring_passes_through"
       ],
-      "coverage": 0.6
+      "coverage": 1.0
     },
     {
       "py_file": "powerline/segments/pdb.py",

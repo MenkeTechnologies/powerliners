@@ -111,7 +111,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/renderers/ipython/__init__.py` ↔ `src/ported/renderers/ipython/mod.rs` | 28 | 0 | 1 | 3 | 152 | 4 | 16 |
 | [x] | `powerline/lib/memoize.py` ↔ `src/ported/lib/memoize.rs` | 30 | 1 | 1 | 2 | 129 | 5 | 28 |
 | [x] | `powerline/renderers/pdb.py` ↔ `src/ported/renderers/pdb.rs` | 36 | 0 | 1 | 3 | 152 | 6 | 28 |
-| [x] | `powerline/segments/__init__.py` ↔ `src/ported/segments/mod.rs` | 46 | 1 | 1 | 2 | 36 | 4 | 25 |
+| [x] | `powerline/segments/__init__.py` ↔ `src/ported/segments/mod.rs` | 46 | 1 | 1 | 2 | 39 | 5 | 27 |
 | [x] | `powerline/bindings/wm/__init__.py` ↔ `src/ported/bindings/wm/mod.rs` | 47 | 3 | 0 | 0 | 110 | 6 | 31 |
 | [x] | `powerline/bindings/ipython/since_7.py` ↔ `src/ported/bindings/ipython/since_7.rs` | 60 | 0 | 2 | 3 | 330 | 8 | 53 |
 | [x] | `powerline/bindings/ipython/since_5.py` ↔ `src/ported/bindings/ipython/since_5.rs` | 62 | 0 | 2 | 3 | 367 | 7 | 59 |
