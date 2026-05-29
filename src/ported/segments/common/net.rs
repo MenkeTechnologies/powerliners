@@ -44,7 +44,14 @@ pub fn hostname<F>(
 where
     F: FnOnce() -> String,
 {
-    // py:24-28  _POWERLINE_RUNNING_SHELL_TESTS UUID short-circuit
+    // py:16  @requires_segment_info
+    // py:17  def hostname(pl, segment_info, only_if_ssh=False, exclude_domain=False):
+    // py:18-24  docstring
+    // py:25  if (
+    // py:26  segment_info['environ'].get('_POWERLINE_RUNNING_SHELL_TESTS')
+    // py:27  == 'ee5bcdc6-b749-11e7-9456-50465d597777'
+    // py:28  ):
+    // py:29  return 'hostname'
     if let Some(test_uuid) = environ
         .get("_POWERLINE_RUNNING_SHELL_TESTS")
         .and_then(|v| v.as_str())
@@ -53,7 +60,8 @@ where
             return Some("hostname".to_string());
         }
     }
-    // py:29-30  if only_if_ssh and not SSH_CLIENT: return None
+    // py:30  if only_if_ssh and not segment_info['environ'].get('SSH_CLIENT'):
+    // py:31  return None
     if only_if_ssh
         && !environ
             .get("SSH_CLIENT")
@@ -63,7 +71,9 @@ where
     {
         return None;
     }
-    // py:31-33  exclude_domain → split on '.' first
+    // py:32  if exclude_domain:
+    // py:33  return socket.gethostname().split('.')[0]
+    // py:34  return socket.gethostname()
     let h = hostname_lookup();
     if exclude_domain {
         Some(h.split('.').next().unwrap_or(&h).to_string())
@@ -81,16 +91,19 @@ pub fn _external_ip<F>(read: F) -> Option<String>
 where
     F: FnOnce() -> Option<String>,
 {
-    // py:37  return urllib_read(query_url).strip()
+    // py:37  def _external_ip(query_url='http://ipv4.icanhazip.com/'):
+    // py:38  return urllib_read(query_url).strip()
     read().map(|s| s.trim().to_string())
 }
 
 /// Port of `ExternalIpSegment.render()` from
 /// `powerline/segments/common/net.py:51`.
 pub fn external_ip_render(ip: Option<&str>) -> Option<Vec<Value>> {
-    // py:52-53  if not ip: return None
+    // py:51  def render(self, ip, **kwargs):
+    // py:52  if not ip:
+    // py:53  return None
     let ip = ip.filter(|s| !s.is_empty())?;
-    // py:54  return [{contents, divider_highlight_group}]
+    // py:54  return [{'contents': ip, 'divider_highlight_group': 'background:divider'}]
     Some(vec![json!({
         "contents": ip,
         "divider_highlight_group": "background:divider",
@@ -100,7 +113,19 @@ pub fn external_ip_render(ip: Option<&str>) -> Option<Vec<Value>> {
 /// Returns the `_interface_starts` priority dict from
 /// `powerline/segments/common/net.py:79-91`.
 pub fn interface_starts() -> &'static [(&'static str, i32)] {
-    // py:79-91  ordered by Python dict-iteration sense (LinkedHashMap-equivalent)
+    // py:79  _interface_starts = {
+    // py:80  'eth':      10,  # Regular ethernet adapters         : eth1
+    // py:81  'enp':      10,  # Regular ethernet adapters, Gentoo : enp2s0
+    // py:82  'en':       10,  # OS X                              : en0
+    // py:83  'ath':       9,  # Atheros WiFi adapters             : ath0
+    // py:84  'wlan':      9,  # Other WiFi adapters               : wlan1
+    // py:85  'wlp':       9,  # Other WiFi adapters, Gentoo       : wlp5s0
+    // py:86  'teredo':    1,  # miredo interface                  : teredo
+    // py:87  'lo':      -10,  # Loopback interface                : lo
+    // py:88  'docker':   -5,  # Docker bridge interface           : docker0
+    // py:89  'vmnet':    -5,  # VMWare bridge interface           : vmnet1
+    // py:90  'vboxnet':  -5,  # VirtualBox bridge interface       : vboxnet0
+    // py:91  }
     &[
         ("eth", 10),
         ("enp", 10),
@@ -119,6 +144,7 @@ pub fn interface_starts() -> &'static [(&'static str, i32)] {
 /// Compiled prefix regex for `_interface_key`. Matches the alpha
 /// prefix + optional first digit (or end-of-string).
 pub fn _interface_start_re() -> &'static Regex {
+    // py:93  _interface_start_re = re.compile(r'^([a-z]+?)(\d|$)')
     static R: OnceLock<Regex> = OnceLock::new();
     R.get_or_init(|| Regex::new(r"^([a-z]+?)(\d|$)").unwrap())
 }
@@ -129,19 +155,28 @@ pub fn _interface_start_re() -> &'static Regex {
 /// Sort key used by `interface='auto'` selection. Higher key wins
 /// (Python sorts with `reverse=True`).
 pub fn _interface_key(interface: &str) -> i64 {
-    // py:95  match = _interface_start_re.match(interface)
+    // py:95  def _interface_key(interface):
+    // py:96  match = _interface_start_re.match(interface)
     let caps = match _interface_start_re().captures(interface) {
         Some(c) => c,
-        // py:104-105  return 0 when no match
+        // py:106  else:
+        // py:107  return 0
         None => return 0,
     };
     let prefix = caps.get(1).map(|m| m.as_str()).unwrap_or("");
-    // py:97-99  base = _interface_starts[prefix] * 100; KeyError → 500
+    // py:97  if match:
+    // py:98  try:
+    // py:99  base = _interface_starts[match.group(1)] * 100
+    // py:100  except KeyError:
+    // py:101  base = 500
     let base = match interface_starts().iter().find(|(p, _)| *p == prefix) {
         Some((_, v)) => (*v as i64) * 100,
         None => 500,
     };
-    // py:100-102  if match.group(2): return base - int(group(2)); else base
+    // py:102  if match.group(2):
+    // py:103  return base - int(match.group(2))
+    // py:104  else:
+    // py:105  return base
     let suffix = caps.get(2).map(|m| m.as_str()).unwrap_or("");
     if let Ok(n) = suffix.parse::<i64>() {
         base - n
@@ -174,7 +209,9 @@ pub fn render_one(
     recv_max: Option<f64>,
     sent_max: Option<f64>,
 ) -> Option<Vec<Value>> {
-    // py:247-248  if not idata or 'prev' not in idata: return None
+    // py:246  def render_one(self, ...):
+    // py:247  if not idata or 'prev' not in idata:
+    // py:248  return None
     let (t1, b1) = prev?;
     let (t2, b2) = last?;
     // py:251  measure_interval = t2 - t1
@@ -186,18 +223,22 @@ pub fn render_one(
         } else {
             sent_format
         };
-        // py:259-262  value = (b2[i] - b1[i]) / interval; ZeroDivisionError → 0
+        // py:259  try:
+        // py:260  value = (b2[i] - b1[i]) / measure_interval
+        // py:261  except ZeroDivisionError:
+        // py:262  value = 0
         let bytes_delta = if i == 0 { b2.0 - b1.0 } else { b2.1 - b1.1 };
         let value = if interval == 0.0 {
             0.0
         } else {
             bytes_delta as f64 / interval
         };
-        // py:264-265  hl_groups = ['network_load_'+key, 'network_load']
+        // py:264  hl_groups = ['network_load_'+key, 'network_load']
         let max = if key == "recv" { recv_max } else { sent_max };
         let is_gradient = max.is_some();
         let mut hl_groups: Vec<String> =
             vec![format!("network_load_{}", key), "network_load".to_string()];
+        // py:266  if max is not None:
         // py:267  hl_groups[:0] = (group + '_gradient' for group in hl_groups)
         if is_gradient {
             let gradient: Vec<String> = hl_groups
@@ -208,14 +249,21 @@ pub fn render_one(
             new_groups.extend(hl_groups);
             hl_groups = new_groups;
         }
-        // py:268-273  build segment
+        // py:268  contents = fmt.format(value=humanize_bytes(value, suffix, si_prefix))
+        // py:269  entry = {
+        // py:270  'contents': contents,
+        // py:271  'divider_highlight_group': 'network_load:divider',
+        // py:272  'highlight_groups': hl_groups,
+        // py:273  }
         let contents = fmt.replace("{value}", &humanize_bytes(value, suffix, si_prefix));
         let mut entry = json!({
             "contents": contents,
             "divider_highlight_group": "network_load:divider",
             "highlight_groups": hl_groups,
         });
-        // py:274-278  gradient_level
+        // py:274  if max is not None:
+        // py:275  level = 100 if value >= max else value * 100 / max
+        // py:276  entry['gradient_level'] = level
         if let Some(m) = max {
             let level = if value >= m { 100.0 } else { value * 100.0 / m };
             entry["gradient_level"] = json!(level);
@@ -240,6 +288,8 @@ pub struct ExternalIpSegment {
 impl ExternalIpSegment {
     /// Port of the `interval` class attribute at
     /// `powerline/segments/common/net.py:42`.
+    // py:41  class ExternalIpSegment(ThreadedSegment):
+    // py:42  interval = 300
     pub const INTERVAL: u64 = 300;
 
     /// Port of the `set_state` keyword default at
@@ -260,7 +310,9 @@ impl ExternalIpSegment {
     /// `set_state(**kwargs)` dispatch at py:46 is the
     /// `ThreadedSegment.set_state` port and is invoked separately.
     pub fn set_state(&mut self, query_url: Option<&str>) {
+        // py:44  def set_state(self, query_url='http://ipv4.icanhazip.com/', **kwargs):
         // py:45  self.query_url = query_url
+        // py:46  super(ExternalIpSegment, self).set_state(**kwargs)
         if let Some(url) = query_url {
             self.query_url = url.to_string();
         }
@@ -276,6 +328,7 @@ impl ExternalIpSegment {
     where
         F: FnOnce(&str) -> Option<String>,
     {
+        // py:48  def update(self, old_ip):
         // py:49  return _external_ip(query_url=self.query_url)
         _external_ip(|| read(&self.query_url))
     }

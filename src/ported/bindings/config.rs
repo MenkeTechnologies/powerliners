@@ -127,27 +127,31 @@ pub struct TmuxConfigFile {
 /// Python uses `os.walk(...)` with `dirs[:] = ()` to prevent recursion;
 /// Rust port iterates the single directory using `read_dir`.
 pub fn list_all_tmux_configs() -> Vec<TmuxConfigFile> {
-    let dir = TMUX_CONFIG_DIRECTORY(); // py:36-37  os.walk(TMUX_CONFIG_DIRECTORY)
+    // py:35  def list_all_tmux_configs():
+    // py:36  '''List all version-specific tmux configuration files'''
+    // py:37  for root, dirs, files in os.walk(TMUX_CONFIG_DIRECTORY):
+    // py:38  dirs[:] = ()
+    let dir = TMUX_CONFIG_DIRECTORY();
     let entries = match std::fs::read_dir(dir) {
         Ok(e) => e,
         Err(_) => return Vec::new(),
     };
 
     let mut out: Vec<TmuxConfigFile> = Vec::new();
+    // py:39  for fname in files:
     for entry in entries.flatten() {
         let fname = entry.file_name();
         let fname_str = match fname.to_str() {
             Some(s) => s,
             None => continue,
         };
+        // py:40  match = CONFIG_FILE_NAME.match(fname)
+        // py:41  if match:
         let captures = match CONFIG_FILE_NAME().captures(fname_str) {
-            // py:39
             Some(c) => c,
             None => continue,
         };
-        // py:41  assert match.group('suffix') is None
-        // (Upstream's assertion fires on suffix-bearing filenames;
-        // mirror it by skipping such files.)
+        // py:42  assert match.group('suffix') is None
         if captures.name("suffix").is_some() {
             continue;
         }
@@ -166,12 +170,21 @@ pub fn list_all_tmux_configs() -> Vec<TmuxConfigFile> {
             Some("minus") => ConfigMatcher::Minus,
             Some(_) => continue,
         };
+        // py:43  yield (
+        // py:44  os.path.join(root, fname),
+        // py:45  CONFIG_MATCHERS[match.group('mod')],
+        // py:46  CONFIG_PRIORITY[match.group('mod')],
+        // py:47  TmuxVersionInfo(
+        // py:48  int(match.group('major')),
+        // py:49  int(match.group('minor')),
+        // py:50  match.group('suffix'),
+        // py:51  ),
+        // py:52  )
         out.push(TmuxConfigFile {
-            path: entry.path(), // py:42  os.path.join(root, fname)
+            path: entry.path(),
             matcher,
             priority: matcher.priority(),
             file_version: TmuxVersionInfo {
-                // py:45-49
                 major,
                 minor,
                 suffix: None,
@@ -190,12 +203,14 @@ pub fn list_all_tmux_configs() -> Vec<TmuxConfigFile> {
 /// matcher applies to `version`. The sort_key encodes upstream's
 /// `priority + minor*10 + major*10000` ordering for source order.
 pub fn get_tmux_configs(version: &TmuxVersionInfo) -> Vec<(PathBuf, i64)> {
+    // py:55  def get_tmux_configs(version):
+    // py:56-59  docstring
+    // py:60  for fname, matcher, priority, file_version in list_all_tmux_configs():
     let mut out = Vec::new();
     for cfg in list_all_tmux_configs() {
-        // py:60
+        // py:61  if matcher(file_version, version):
         if cfg.matcher.applies(&cfg.file_version, version) {
-            // py:61
-            // py:62  priority + file_version.minor * 10 + file_version.major * 10000
+            // py:62  yield (fname, priority + file_version.minor * 10 + file_version.major * 10000)
             let sort_key = (cfg.priority as i64)
                 + (cfg.file_version.minor as i64) * 10
                 + (cfg.file_version.major as i64) * 10_000;
@@ -269,9 +284,10 @@ pub fn TMUX_VAR_RE() -> &'static Regex {
 /// Python returns the string itself when found (py:233) and falls
 /// through to an implicit `None` when missing.
 pub fn check_command(cmd: &str) -> Option<String> {
+    // py:231  def check_command(cmd):
     // py:232  if which(cmd):
+    // py:233  return cmd
     if which(cmd).is_some() {
-        // py:233  return cmd
         Some(cmd.to_string())
     } else {
         None
@@ -285,32 +301,38 @@ pub fn check_command(cmd: &str) -> Option<String> {
 /// via `which()`. Mirrors Python's chained `... or check_command(...)`
 /// fallback at py:252-261.
 pub fn deduce_command() -> Option<String> {
-    // py:254  check_command('powerline')
+    // py:236  def deduce_command():
+    // py:237-251  docstring
+    // py:252  return (
+    // py:253  None
+    // py:254  or check_command('powerline')
     if let Some(c) = check_command("powerline") {
         return Some(c);
     }
-    // py:255  os.path.join(POWERLINE_ROOT, 'scripts', 'powerline')
+    // py:255  or check_command(os.path.join(POWERLINE_ROOT, 'scripts', 'powerline'))
     let p = POWERLINE_ROOT().join("scripts").join("powerline");
     if let Some(c) = check_command(&p.to_string_lossy()) {
         return Some(c);
     }
-    // py:256-257  if which('sh') and which('sed') and which('socat')
+    // py:256  or ((which('sh') and which('sed') and which('socat'))
+    // py:257  and check_command(os.path.join(POWERLINE_ROOT, 'client', 'powerline.sh')))
     if which("sh").is_some() && which("sed").is_some() && which("socat").is_some() {
         let p = POWERLINE_ROOT().join("client").join("powerline.sh");
         if let Some(c) = check_command(&p.to_string_lossy()) {
             return Some(c);
         }
     }
-    // py:258  os.path.join(POWERLINE_ROOT, 'client', 'powerline.py')
+    // py:258  or check_command(os.path.join(POWERLINE_ROOT, 'client', 'powerline.py'))
     let p = POWERLINE_ROOT().join("client").join("powerline.py");
     if let Some(c) = check_command(&p.to_string_lossy()) {
         return Some(c);
     }
-    // py:259  check_command('powerline-render')
+    // py:259  or check_command('powerline-render')
     if let Some(c) = check_command("powerline-render") {
         return Some(c);
     }
-    // py:260  os.path.join(POWERLINE_ROOT, 'scripts', 'powerline-render')
+    // py:260  or check_command(os.path.join(POWERLINE_ROOT, 'scripts', 'powerline-render'))
+    // py:261  )
     let p = POWERLINE_ROOT().join("scripts").join("powerline-render");
     check_command(&p.to_string_lossy())
 }
@@ -323,7 +345,10 @@ pub fn deduce_command() -> Option<String> {
 /// Rust port takes the env-var map directly and substitutes
 /// `$_POWERLINE_<NAME>` occurrences with their stored values.
 pub fn replace_env(s: &str, tmux_environ: &std::collections::HashMap<String, String>) -> String {
-    // py:192-193  TMUX_VAR_RE.subn(replace_cb, s)
+    // py:189  def replace_cb(match):
+    // py:190  return tmux_environ[match.group(1)]
+    // py:192  def replace_env(s):
+    // py:193  return TMUX_VAR_RE.subn(replace_cb, s)[0]
     TMUX_VAR_RE()
         .replace_all(s, |caps: &regex::Captures| {
             let varname = caps.get(1).map(|m| m.as_str()).unwrap_or("");
@@ -343,12 +368,18 @@ pub fn replace_env(s: &str, tmux_environ: &std::collections::HashMap<String, Str
 /// None when the line is a comment (`#…`) or blank (`\n`) per
 /// py:198-199.
 pub fn parse_tmux_file_line(line: &str) -> Option<Vec<String>> {
-    // py:198-199  if line.startswith('#') or line == '\n': continue
+    // py:195  def source_tmux_file_nosource(fname):
+    // py:196  with open(fname) as fd:
+    // py:197  for line in fd:
+    // py:198  if line.startswith('#') or line == '\n':
+    // py:199  continue
     let trimmed = line.trim_end_matches('\n');
     if trimmed.starts_with('#') || trimmed.is_empty() {
         return None;
     }
-    // py:200  shlex.split(line)
+    // py:200  args = shlex.split(line)
+    // py:201  args = [args[0]] + [replace_env(arg) for arg in args[1:]]
+    // py:202  run_tmux_command(*args)
     Some(shlex_split(trimmed))
 }
 
@@ -394,7 +425,22 @@ fn shlex_split(s: &str) -> Vec<String> {
 /// (`priority + minor*10 + major*10000` per `get_tmux_configs`),
 /// ascending so older versions are sourced first per py:69.
 pub fn sorted_tmux_configs(version: &TmuxVersionInfo) -> Vec<(PathBuf, i64)> {
-    // py:75  sorted(get_tmux_configs(tmux_version), key=lambda v: v[1])
+    // py:65  def source_tmux_files(pl, args, tmux_version=None, source_tmux_file=source_tmux_file):
+    // py:66-72  docstring
+    // py:73  tmux_version = tmux_version or get_tmux_version(pl)
+    // py:74  source_tmux_file(os.path.join(TMUX_CONFIG_DIRECTORY, 'powerline-base.conf'))
+    // py:75  for fname, priority in sorted(get_tmux_configs(tmux_version), key=(lambda v: v[1])):
+    // py:76  source_tmux_file(fname)
+    // py:77  if not os.environ.get('POWERLINE_COMMAND'):
+    // py:78  cmd = deduce_command()
+    // py:79  if cmd:
+    // py:80  set_tmux_environment('POWERLINE_COMMAND', deduce_command(), remove=False)
+    // py:81  try:
+    // py:82  run_tmux_command('refresh-client')
+    // py:83  except subprocess.CalledProcessError:
+    // py:84  # On tmux-2.0 this command may fail for whatever reason. Since it is
+    // py:85  # critical just ignore the failure.
+    // py:86  pass
     let mut entries = get_tmux_configs(version);
     entries.sort_by_key(|(_, priority)| *priority);
     entries
@@ -412,16 +458,23 @@ pub fn uses_check_env_vars(
     shell: Option<&str>,
     environ: &std::collections::HashMap<String, String>,
 ) -> bool {
+    // py:272  def uses(pl, args):
+    // py:273  component = args.component
+    // py:274  if not component:
+    // py:275  raise ValueError('Must specify component')
+    // py:276  shell = args.shell
     // py:277  template = 'POWERLINE_NO_{shell}_{component}'
     let component_upper = component.to_uppercase();
+    // py:278  for sh in (shell, 'shell') if shell else ('shell'):
     let shells: Vec<&str> = match shell {
         Some(s) => vec![s, "shell"],
         None => vec!["shell"],
     };
     for sh in shells {
-        // py:279  varname = template.format(shell=sh.upper(), component=...)
+        // py:279  varname = template.format(shell=sh.upper(), component=component.upper())
         let varname = format!("POWERLINE_NO_{}_{}", sh.to_uppercase(), component_upper);
-        // py:280-281  if os.environ.get(varname): sys.exit(1)
+        // py:280  if os.environ.get(varname):
+        // py:281  sys.exit(1)
         if environ
             .get(&varname)
             .map(|s| !s.is_empty())

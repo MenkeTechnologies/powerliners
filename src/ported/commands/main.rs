@@ -36,7 +36,12 @@ use std::collections::HashMap;
 /// The Rust port matches the Python 3 branch — every `&str` is already
 /// valid UTF-8 by construction.
 pub fn arg_to_unicode(s: &str) -> String {
-    // py:23
+    // py:17  if sys.version_info < (3,):
+    // py:18  encoding = get_preferred_arguments_encoding()
+    // py:20  def arg_to_unicode(s):
+    // py:21  return unicode(s, encoding, 'replace') if not isinstance(s, unicode) else s
+    // py:22  else:
+    // py:23  def arg_to_unicode(s):
     // py:24  return s
     u(s)
 }
@@ -63,12 +68,13 @@ pub enum IntOrSig {
 }
 
 pub fn int_or_sig(s: &str) -> Result<IntOrSig, String> {
-    // py:75
+    // py:75  def int_or_sig(s):
+    // py:76  if s.startswith('sig'):
     if s.starts_with("sig") {
-        // py:76
-        Ok(IntOrSig::Sig(u(s))) // py:77  return u(s)
+        // py:77  return u(s)
+        Ok(IntOrSig::Sig(u(s)))
     } else {
-        // py:78
+        // py:78  else:
         // py:79  return int(s)
         s.parse::<i32>()
             .map(IntOrSig::Int)
@@ -132,9 +138,14 @@ pub fn finish_args(
     args: &mut Args,
     _is_daemon: bool,
 ) -> Result<(), String> {
+    // py:27  def finish_args(parser, environ, args, is_daemon=False):
+    // py:28-42  docstring
     let empty = String::new();
 
-    // py:43-46  config_override
+    // py:43  args.config_override = mergeargs(chain(
+    // py:44  parse_override_var(environ.get('POWERLINE_CONFIG_OVERRIDES', '')),
+    // py:45  (parsedotval(v) for v in args.config_override or ()),
+    // py:46  ))
     let config_env = environ.get("POWERLINE_CONFIG_OVERRIDES").unwrap_or(&empty);
     let mut config_chain: Vec<(String, Value)> = parse_override_var(config_env);
     if let Some(cfg) = args.config_override.as_ref() {
@@ -144,9 +155,12 @@ pub fn finish_args(
             }
         }
     }
-    args.config_override_merged = mergeargs(config_chain, false); // py:43
+    args.config_override_merged = mergeargs(config_chain, false);
 
-    // py:47-50  theme_override
+    // py:47  args.theme_override = mergeargs(chain(
+    // py:48  parse_override_var(environ.get('POWERLINE_THEME_OVERRIDES', '')),
+    // py:49  (parsedotval(v) for v in args.theme_override or ()),
+    // py:50  ))
     let theme_env = environ.get("POWERLINE_THEME_OVERRIDES").unwrap_or(&empty);
     let mut theme_chain: Vec<(String, Value)> = parse_override_var(theme_env);
     if let Some(th) = args.theme_override.as_ref() {
@@ -158,20 +172,27 @@ pub fn finish_args(
     }
     args.theme_override_merged = mergeargs(theme_chain, false);
 
-    // py:51-60  renderer_arg
+    // py:51  if args.renderer_arg:
+    // py:52  args.renderer_arg = mergeargs((parsedotval(v) for v in args.renderer_arg), remove=True)
     if let Some(rargs) = args.renderer_arg.as_ref() {
         if !rargs.is_empty() {
             let renderer_chain: Vec<(String, Value)> = rargs
                 .iter()
                 .filter_map(|v| parsedotval_str(v).ok())
                 .collect();
-            let mut merged = mergeargs(renderer_chain, true).unwrap_or_default(); // py:52
+            let mut merged = mergeargs(renderer_chain, true).unwrap_or_default();
 
-            // py:53-58  pane_id parsing
+            // py:53  if 'pane_id' in args.renderer_arg:
+            // py:54  if isinstance(args.renderer_arg['pane_id'], (bytes, unicode)):
+            // py:55  try:
+            // py:56  args.renderer_arg['pane_id'] = int(args.renderer_arg['pane_id'].lstrip(' %'))
+            // py:57  except ValueError:
+            // py:58  pass
+            // py:59  if 'client_id' not in args.renderer_arg:
+            // py:60  args.renderer_arg['client_id'] = args.renderer_arg['pane_id']
             if let Some(pane_id) = merged.get("pane_id").cloned() {
                 let parsed_pane = match &pane_id {
                     Value::String(s) => {
-                        // py:55-58  int(s.lstrip(' %')) or pass on ValueError
                         let stripped = s.trim_start_matches([' ', '%']);
                         stripped.parse::<i64>().ok().map(Value::from)
                     }
@@ -179,7 +200,6 @@ pub fn finish_args(
                 };
                 if let Some(p) = parsed_pane {
                     merged.insert("pane_id".to_string(), p.clone());
-                    // py:59-60  client_id default to pane_id
                     if !merged.contains_key("client_id") {
                         merged.insert("client_id".to_string(), p);
                     }
@@ -191,7 +211,10 @@ pub fn finish_args(
         }
     }
 
-    // py:61-64  config_path: env var paths + args.config_path
+    // py:61  args.config_path = (
+    // py:62  [path for path in environ.get('POWERLINE_CONFIG_PATHS', '').split(':') if path]
+    // py:63  + (args.config_path or [])
+    // py:64  )
     let cp_env = environ.get("POWERLINE_CONFIG_PATHS").unwrap_or(&empty);
     let mut paths: Vec<String> = cp_env
         .split(':')
@@ -203,17 +226,21 @@ pub fn finish_args(
     }
     args.config_path = if paths.is_empty() { None } else { Some(paths) };
 
-    // py:65-71  ext / side validation
+    // py:65  if args.ext[0].startswith('wm.'):
     let ext0 = args.ext.first().cloned().unwrap_or_default();
-    if ext0.starts_with("wm.") { // py:65
-         // py:66-69  WM bindings require daemon; wm_threads check deferred
-         // until bindings/wm/ ports.
+    if ext0.starts_with("wm.") {
+        // py:66  if not is_daemon:
+        // py:67  parser.error('WM bindings must be used with daemon only')
+        // py:68  elif args.ext[0][3:] not in wm_threads:
+        // py:69  parser.error('WM binding not found')
     } else if args.side.is_none() {
-        // py:70
-        return Err("expected one argument".to_string()); // py:71
+        // py:70  elif not args.side:
+        // py:71  parser.error('expected one argument')
+        return Err("expected one argument".to_string());
     }
 
-    Ok(()) // py:72
+    // py:72  return args
+    Ok(())
 }
 
 /// Port of `get_argparser()` from `powerline/commands/main.py:82`.
@@ -229,14 +256,20 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
     use crate::ported::bindings::wm::wm_threads;
     use crate::ported::commands::lint::{ArgAction, ArgParser, Argument};
 
-    // py:88  ', '.join(('`wm.' + key + '`' for key in wm_threads.keys()))
+    // py:82  def get_argparser(ArgumentParser=argparse.ArgumentParser):
+    // py:83  parser = ArgumentParser(description='Powerline prompt and statusline script.')
+    // py:84  parser.add_argument(
+    // py:85  'ext', nargs=1,
+    // py:86  help='Extension: application for which powerline command is launched '
+    // py:87  '(usually `shell\' or `tmux\'). Also supports `wm.\' extensions: '
+    // py:88  + ', '.join(('`wm.' + key + '\'' for key in wm_threads.keys())) + '.'
+    // py:89  )
     let wm_keys: Vec<String> = wm_threads().keys().map(|k| format!("`wm.{}'", k)).collect();
     let wm_help = wm_keys.join(", ");
 
     ArgParser {
-        description: "Powerline prompt and statusline script.".to_string(), // py:83
+        description: "Powerline prompt and statusline script.".to_string(),
         arguments: vec![
-            // py:84-89  ext (positional, nargs=1)
             Argument {
                 flags: vec!["ext".into()],
                 action: ArgAction::Store,
@@ -247,7 +280,14 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
                     wm_help
                 ),
             },
-            // py:90-97  side (positional, nargs='?', choices=...)
+            // py:90  parser.add_argument(
+            // py:91  'side', nargs='?', choices=('left', 'right', 'above', 'aboveleft'),
+            // py:92  help='Side: `left\' and `right\' represent left and right side '
+            // py:93  'respectively, `above\' emits lines that are supposed to be printed '
+            // py:94  'just above the prompt and `aboveleft\' is like concatenating '
+            // py:95  '`above\' with `left\' with the exception that only one Python '
+            // py:96  'instance is used in this case. May be omitted for `wm.*\' extensions.'
+            // py:97  )
             Argument {
                 flags: vec!["side".into()],
                 action: ArgAction::Store,
@@ -259,7 +299,14 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
                        instance is used in this case. May be omitted for `wm.*' extensions."
                     .into(),
             },
-            // py:98-105  -r / --renderer-module
+            // py:98  parser.add_argument(
+            // py:99  '-r', '--renderer-module', metavar='MODULE', type=str,
+            // py:100  help='Renderer module. Usually something like `.bash\' or `.zsh\' '
+            // py:101  '(with leading dot) which is `powerline.renderers.{ext}{MODULE}\', '
+            // py:102  'may also be full module name (must contain at least one dot or '
+            // py:103  'end with a dot in case it is top-level module) or '
+            // py:104  '`powerline.renderers\' submodule (in case there are no dots).'
+            // py:105  )
             Argument {
                 flags: vec!["-r".into(), "--renderer-module".into()],
                 action: ArgAction::Store,
@@ -271,21 +318,32 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
                        `powerline.renderers' submodule (in case there are no dots)."
                     .into(),
             },
-            // py:106-109  -w / --width
+            // py:106  parser.add_argument(
+            // py:107  '-w', '--width', type=int,
+            // py:108  help='Maximum prompt with. Triggers truncation of some segments.'
+            // py:109  )
             Argument {
                 flags: vec!["-w".into(), "--width".into()],
                 action: ArgAction::Store,
                 metavar: None,
                 help: "Maximum prompt with. Triggers truncation of some segments.".into(),
             },
-            // py:110-113  --last-exit-code
+            // py:110  parser.add_argument(
+            // py:111  '--last-exit-code', metavar='INT', type=int_or_sig,
+            // py:112  help='Last exit code.'
+            // py:113  )
             Argument {
                 flags: vec!["--last-exit-code".into()],
                 action: ArgAction::Store,
                 metavar: Some("INT".into()),
                 help: "Last exit code.".into(),
             },
-            // py:114-119  --last-pipe-status
+            // py:114  parser.add_argument(
+            // py:115  '--last-pipe-status', metavar='LIST', default='',
+            // py:116  type=lambda s: [int_or_sig(status) for status in s.split()],
+            // py:117  help='Like above, but is supposed to contain space-separated array '
+            // py:118  'of statuses, representing exit statuses of commands in one pipe.'
+            // py:119  )
             Argument {
                 flags: vec!["--last-pipe-status".into()],
                 action: ArgAction::Store,
@@ -294,14 +352,28 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
                        of statuses, representing exit statuses of commands in one pipe."
                     .into(),
             },
-            // py:120-123  --jobnum
+            // py:120  parser.add_argument(
+            // py:121  '--jobnum', metavar='INT', type=int,
+            // py:122  help='Number of jobs.'
+            // py:123  )
             Argument {
                 flags: vec!["--jobnum".into()],
                 action: ArgAction::Store,
                 metavar: Some("INT".into()),
                 help: "Number of jobs.".into(),
             },
-            // py:124-135  -c / --config-override
+            // py:124  parser.add_argument(
+            // py:125  '-c', '--config-override', metavar='KEY.KEY=VALUE', type=arg_to_unicode,
+            // py:126  action='append',
+            // py:127  help='Configuration overrides for `config.json\'. Is translated to a '
+            // py:128  'dictionary and merged with the dictionary obtained from actual '
+            // py:129  'JSON configuration: KEY.KEY=VALUE is translated to '
+            // py:130  '`{"KEY": {"KEY": VALUE}}\' and then merged recursively. '
+            // py:131  'VALUE may be any JSON value, values that are not '
+            // py:132  '`null\', `true\', `false\', start with digit, `{\', `[\' '
+            // py:133  'are treated like strings. If VALUE is omitted '
+            // py:134  'then corresponding key is removed.'
+            // py:135  )
             Argument {
                 flags: vec!["-c".into(), "--config-override".into()],
                 action: ArgAction::Append,
@@ -316,7 +388,13 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
                        then corresponding key is removed."
                     .into(),
             },
-            // py:136-142  -t / --theme-override
+            // py:136  parser.add_argument(
+            // py:137  '-t', '--theme-override', metavar='THEME.KEY.KEY=VALUE', type=arg_to_unicode,
+            // py:138  action='append',
+            // py:139  help='Like above, but theme-specific. THEME should point to '
+            // py:140  'an existing and used theme to have any effect, but it is fine '
+            // py:141  'to use any theme here.'
+            // py:142  )
             Argument {
                 flags: vec!["-t".into(), "--theme-override".into()],
                 action: ArgAction::Append,
@@ -326,7 +404,15 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
                        to use any theme here."
                     .into(),
             },
-            // py:143-151  -R / --renderer-arg
+            // py:143  parser.add_argument(
+            // py:144  '-R', '--renderer-arg',
+            // py:145  metavar='KEY=VAL', type=arg_to_unicode, action='append',
+            // py:146  help='Like above, but provides argument for renderer. Is supposed '
+            // py:147  'to be used only by shell bindings to provide various data like '
+            // py:148  'last-exit-code or last-pipe-status (they are not using '
+            // py:149  '`--renderer-arg\' for historical reasons: `--renderer-arg\' '
+            // py:150  'was added later).'
+            // py:151  )
             Argument {
                 flags: vec!["-R".into(), "--renderer-arg".into()],
                 action: ArgAction::Append,
@@ -338,7 +424,12 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
                        was added later)."
                     .into(),
             },
-            // py:152-157  -p / --config-path
+            // py:152  parser.add_argument(
+            // py:153  '-p', '--config-path', action='append', metavar='PATH',
+            // py:154  help='Path to configuration directory. If it is present then '
+            // py:155  'configuration files will only be sought in the provided path. '
+            // py:156  'May be provided multiple times to search in a list of directories.'
+            // py:157  )
             Argument {
                 flags: vec!["-p".into(), "--config-path".into()],
                 action: ArgAction::Append,
@@ -348,7 +439,15 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
                        May be provided multiple times to search in a list of directories."
                     .into(),
             },
-            // py:158-166  --socket
+            // py:158  parser.add_argument(
+            // py:159  '--socket', metavar='ADDRESS', type=str,
+            // py:160  help='Socket address to use in daemon clients. Is always UNIX domain '
+            // py:161  'socket on linux and file socket on Mac OS X. Not used here, '
+            // py:162  'present only for compatibility with other powerline clients. '
+            // py:163  'This argument must always be the first one and be in a form '
+            // py:164  '`--socket ADDRESS\': no `=\' or short form allowed '
+            // py:165  '(in other powerline clients, not here).'
+            // py:166  )
             Argument {
                 flags: vec!["--socket".into()],
                 action: ArgAction::Store,
@@ -362,6 +461,60 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
                     .into(),
             },
         ],
+    }
+    // py:167  return parser
+}
+
+/// Port of `write_output()` from `powerline/commands/main.py:170`.
+///
+/// Renders the prompt/statusline through the supplied `render`/`render_above`
+/// closures and pushes each output chunk through `write`.
+pub fn write_output<W, R, A>(args: &mut Args, mut write: W, mut render_above: A, mut render: R)
+where
+    W: FnMut(&str),
+    R: FnMut(Option<i32>, &str) -> String,
+    A: FnMut(Option<i32>) -> Vec<String>,
+{
+    // py:170  def write_output(args, powerline, segment_info, write):
+    // py:171  if args.renderer_arg:
+    // py:172  segment_info.update(args.renderer_arg)
+    // (segment_info is owned by caller; renderer_arg already merged)
+
+    // py:173  if args.side.startswith('above'):
+    let side = args.side.clone().unwrap_or_default();
+    if side.starts_with("above") {
+        // py:174  for line in powerline.render_above_lines(
+        // py:175  width=args.width,
+        // py:176  segment_info=segment_info,
+        // py:177  mode=segment_info.get('mode', None),
+        // py:178  ):
+        // py:179  if line:
+        // py:180  write(line + '\n')
+        for line in render_above(args.width) {
+            if !line.is_empty() {
+                write(&format!("{}\n", line));
+            }
+        }
+        // py:181  args.side = args.side[len('above'):]
+        let new_side = side["above".len()..].to_string();
+        args.side = if new_side.is_empty() {
+            None
+        } else {
+            Some(new_side)
+        };
+    }
+
+    // py:183  if args.side:
+    if let Some(s) = args.side.as_ref() {
+        // py:184  rendered = powerline.render(
+        // py:185  width=args.width,
+        // py:186  side=args.side,
+        // py:187  segment_info=segment_info,
+        // py:188  mode=segment_info.get('mode', None),
+        // py:189  )
+        let rendered = render(args.width, s);
+        // py:190  write(rendered)
+        write(&rendered);
     }
 }
 
