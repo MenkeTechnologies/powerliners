@@ -134,3 +134,12 @@ is_mount
 CONFIG_FILE_NAME
 applies
 priority
+
+# Approved 2026-05-29: module-level bindings from powerline/bindings/wm/__init__.py:56,70.
+# XRANDR_OUTPUT_RE is a Python module-level pre-compiled regex; Rust exposes
+# it as a lazy-init accessor fn with the same name byte-for-byte.
+# wm_threads is a module-level dict mapping WM name → AwesomeThread class;
+# Rust exposes it as an accessor fn returning a HashMap so the lookup shape
+# matches Python's `wm_threads['awesome']`.
+XRANDR_OUTPUT_RE
+wm_threads

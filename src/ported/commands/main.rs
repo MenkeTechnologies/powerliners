@@ -216,6 +216,150 @@ pub fn finish_args(
     Ok(()) // py:72
 }
 
+/// Port of `get_argparser()` from `powerline/commands/main.py:82`.
+///
+/// Returns the argument parser for the main `powerline` binary.
+///
+/// Python builds an argparse.ArgumentParser with ~10 arguments:
+/// positional `ext` + `side`, plus flags for `--renderer-module`,
+/// `--width`, `--last-exit-code`, `--last-pipe-status`, `--jobnum`,
+/// `--config-override`, `--theme-override`, `--renderer-arg`,
+/// `--config-path`, `--socket`.
+pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
+    use crate::ported::commands::lint::{ArgAction, ArgParser, Argument};
+    use crate::ported::bindings::wm::wm_threads;
+
+    // py:88  ', '.join(('`wm.' + key + '`' for key in wm_threads.keys()))
+    let wm_keys: Vec<String> = wm_threads()
+        .keys()
+        .map(|k| format!("`wm.{}'", k))
+        .collect();
+    let wm_help = wm_keys.join(", ");
+
+    ArgParser {
+        description: "Powerline prompt and statusline script.".to_string(), // py:83
+        arguments: vec![
+            // py:84-89  ext (positional, nargs=1)
+            Argument {
+                flags: vec!["ext".into()],
+                action: ArgAction::Store,
+                metavar: None,
+                help: format!(
+                    "Extension: application for which powerline command is launched \
+                     (usually `shell' or `tmux'). Also supports `wm.' extensions: {}.",
+                    wm_help
+                ),
+            },
+            // py:90-97  side (positional, nargs='?', choices=...)
+            Argument {
+                flags: vec!["side".into()],
+                action: ArgAction::Store,
+                metavar: None,
+                help: "Side: `left' and `right' represent left and right side \
+                       respectively, `above' emits lines that are supposed to be printed \
+                       just above the prompt and `aboveleft' is like concatenating \
+                       `above' with `left' with the exception that only one Python \
+                       instance is used in this case. May be omitted for `wm.*' extensions.".into(),
+            },
+            // py:98-105  -r / --renderer-module
+            Argument {
+                flags: vec!["-r".into(), "--renderer-module".into()],
+                action: ArgAction::Store,
+                metavar: Some("MODULE".into()),
+                help: "Renderer module. Usually something like `.bash' or `.zsh' \
+                       (with leading dot) which is `powerline.renderers.{ext}{MODULE}', \
+                       may also be full module name (must contain at least one dot or \
+                       end with a dot in case it is top-level module) or \
+                       `powerline.renderers' submodule (in case there are no dots).".into(),
+            },
+            // py:106-109  -w / --width
+            Argument {
+                flags: vec!["-w".into(), "--width".into()],
+                action: ArgAction::Store,
+                metavar: None,
+                help: "Maximum prompt with. Triggers truncation of some segments.".into(),
+            },
+            // py:110-113  --last-exit-code
+            Argument {
+                flags: vec!["--last-exit-code".into()],
+                action: ArgAction::Store,
+                metavar: Some("INT".into()),
+                help: "Last exit code.".into(),
+            },
+            // py:114-119  --last-pipe-status
+            Argument {
+                flags: vec!["--last-pipe-status".into()],
+                action: ArgAction::Store,
+                metavar: Some("LIST".into()),
+                help: "Like above, but is supposed to contain space-separated array \
+                       of statuses, representing exit statuses of commands in one pipe.".into(),
+            },
+            // py:120-123  --jobnum
+            Argument {
+                flags: vec!["--jobnum".into()],
+                action: ArgAction::Store,
+                metavar: Some("INT".into()),
+                help: "Number of jobs.".into(),
+            },
+            // py:124-135  -c / --config-override
+            Argument {
+                flags: vec!["-c".into(), "--config-override".into()],
+                action: ArgAction::Append,
+                metavar: Some("KEY.KEY=VALUE".into()),
+                help: "Configuration overrides for `config.json'. Is translated to a \
+                       dictionary and merged with the dictionary obtained from actual \
+                       JSON configuration: KEY.KEY=VALUE is translated to \
+                       `{\"KEY\": {\"KEY\": VALUE}}' and then merged recursively. \
+                       VALUE may be any JSON value, values that are not \
+                       `null', `true', `false', start with digit, `{', `[' \
+                       are treated like strings. If VALUE is omitted \
+                       then corresponding key is removed.".into(),
+            },
+            // py:136-142  -t / --theme-override
+            Argument {
+                flags: vec!["-t".into(), "--theme-override".into()],
+                action: ArgAction::Append,
+                metavar: Some("THEME.KEY.KEY=VALUE".into()),
+                help: "Like above, but theme-specific. THEME should point to \
+                       an existing and used theme to have any effect, but it is fine \
+                       to use any theme here.".into(),
+            },
+            // py:143-151  -R / --renderer-arg
+            Argument {
+                flags: vec!["-R".into(), "--renderer-arg".into()],
+                action: ArgAction::Append,
+                metavar: Some("KEY=VAL".into()),
+                help: "Like above, but provides argument for renderer. Is supposed \
+                       to be used only by shell bindings to provide various data like \
+                       last-exit-code or last-pipe-status (they are not using \
+                       `--renderer-arg' for historical reasons: `--renderer-arg' \
+                       was added later).".into(),
+            },
+            // py:152-157  -p / --config-path
+            Argument {
+                flags: vec!["-p".into(), "--config-path".into()],
+                action: ArgAction::Append,
+                metavar: Some("PATH".into()),
+                help: "Path to configuration directory. If it is present then \
+                       configuration files will only be sought in the provided path. \
+                       May be provided multiple times to search in a list of directories.".into(),
+            },
+            // py:158-166  --socket
+            Argument {
+                flags: vec!["--socket".into()],
+                action: ArgAction::Store,
+                metavar: Some("ADDRESS".into()),
+                help: "Socket address to use in daemon clients. Is always UNIX domain \
+                       socket on linux and file socket on Mac OS X. Not used here, \
+                       present only for compatibility with other powerline clients. \
+                       This argument must always be the first one and be in a form \
+                       `--socket ADDRESS': no `=' or short form allowed \
+                       (in other powerline clients, not here).".into(),
+            },
+        ],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -338,5 +482,35 @@ mod tests {
         // Python: int("42") = 42; lstrip(' %') strips both.
         assert_eq!(merged.get("pane_id"), Some(&json!(42)));
         assert_eq!(merged.get("client_id"), Some(&json!(42)));
+    }
+
+    #[test]
+    fn get_argparser_has_expected_argument_count() {
+        let p = get_argparser();
+        // py:84-166 — ext + side + 10 flag arguments = 12 total
+        assert_eq!(p.arguments.len(), 12);
+    }
+
+    #[test]
+    fn get_argparser_description_matches_upstream() {
+        let p = get_argparser();
+        assert_eq!(p.description, "Powerline prompt and statusline script.");
+    }
+
+    #[test]
+    fn get_argparser_has_required_flags() {
+        let p = get_argparser();
+        let all_flags: Vec<&str> = p.arguments.iter()
+            .flat_map(|a| a.flags.iter().map(|s| s.as_str()))
+            .collect();
+        for required in [
+            "ext", "side", "-r", "--renderer-module", "-w", "--width",
+            "--last-exit-code", "--last-pipe-status", "--jobnum",
+            "-c", "--config-override", "-t", "--theme-override",
+            "-R", "--renderer-arg", "-p", "--config-path", "--socket",
+        ] {
+            assert!(all_flags.contains(&required),
+                "missing required arg {:?} from get_argparser output", required);
+        }
     }
 }
