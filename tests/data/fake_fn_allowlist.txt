@@ -1412,3 +1412,13 @@ _get_bytes_sysfs
 # touching the dict. Split mirrors the
 # get_theme/get_theme_cached pattern used elsewhere.
 get_matched_theme_cached
+
+# theme.rs::Theme::apply_cursor_space — helper that extracts the
+# inline `1 - (theme_config['cursor_space'] / 100)` formula from
+# Theme.__init__ body at powerline/theme.py:66-69. Python computes
+# the multiplier inline as part of __init__; Rust splits to a
+# pure helper so the formula + KeyError-falls-to-None behaviour
+# can be tested without constructing a full Theme through the
+# unported gen_segment_getter. Same inline-extraction pattern as
+# resolve_renderer_module and other body-extracted helpers.
+apply_cursor_space
