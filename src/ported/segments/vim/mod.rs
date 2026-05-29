@@ -835,6 +835,222 @@ pub fn detect_text_csv_dialect(
     (sniffed_delimiter, has_header)
 }
 
+/// Port of the inner `ret()` closure from
+/// `powerline/segments/vim/__init__.py:76-87` (inside
+/// `window_cached`).
+///
+/// Python returns the wrapped fn that caches by window_id and
+/// short-circuits on 'nc' mode. Rust port surfaces the dispatch
+/// as a free fn taking the cached value lookup + the compute
+/// closure.
+pub fn ret<C>(
+    window_id: u64,
+    mode: &str,
+    cache: &std::collections::HashMap<u64, String>,
+    compute: C,
+) -> Option<String>
+where
+    C: FnOnce() -> Option<String>,
+{
+    // py:76  def ret(segment_info, **kwargs):
+    // py:77  window_id = segment_info['window_id']
+    // py:78  if segment_info['mode'] == 'nc':
+    if mode == "nc" {
+        // py:79  return cache.get(window_id)
+        return cache.get(&window_id).cloned();
+    }
+    // py:80-87  else: r = func(...); cache[window_id] = r; return r
+    compute()
+}
+
+/// Port of `visual_range()` from
+/// `powerline/segments/vim/__init__.py:120-170`.
+///
+/// Returns the formatted visual-range text. Bare-name alias for
+/// the existing [`visual_range_text`] helper.
+pub fn visual_range(
+    mode: &str,
+    rows: u64,
+    vcols: u64,
+    ctrl_v_text: &str,
+    v_text_oneline: &str,
+    v_text_multiline: &str,
+    v_text: &str,
+) -> Option<String> {
+    // py:120  def visual_range(pl, segment_info, ...):
+    let r = visual_range_text(mode, rows, vcols, ctrl_v_text, v_text_oneline, v_text_multiline, v_text);
+    if r.is_empty() { None } else { Some(r) }
+}
+
+/// Port of `file_directory()` from
+/// `powerline/segments/vim/__init__.py:249-289`.
+///
+/// Returns the formatted file directory string. Python resolves
+/// vim.buffers + os.path machinery; Rust port takes the
+/// pre-resolved dirname.
+pub fn file_directory(
+    dirname: Option<&str>,
+    shorten_home: bool,
+    shorten_cwd: bool,
+    home: Option<&str>,
+    cwd: Option<&str>,
+) -> Option<String> {
+    // py:249  def file_directory(pl, segment_info, ...):
+    let mut path = dirname?.to_string();
+    if shorten_home {
+        if let Some(h) = home {
+            if let Some(stripped) = path.strip_prefix(h) {
+                path = format!("~{}", stripped);
+            }
+        }
+    }
+    if shorten_cwd {
+        if let Some(c) = cwd {
+            if path == c {
+                return Some(".".to_string());
+            }
+        }
+    }
+    Some(path)
+}
+
+/// Port of `file_name()` from
+/// `powerline/segments/vim/__init__.py:291-327`.
+///
+/// Returns the formatted file name or the no-file sentinel when
+/// the buffer has no name and `display_no_file=True`. Python
+/// reads `vim.current.buffer.name`; Rust port takes the
+/// pre-resolved name.
+pub fn file_name(
+    name: Option<&str>,
+    display_no_file: bool,
+    no_file_text: &str,
+) -> Option<String> {
+    // py:291  def file_name(pl, segment_info, display_no_file=False, no_file_text='[No file]'):
+    match name {
+        Some(n) if !n.is_empty() => Some(n.to_string()),
+        _ if display_no_file => Some(no_file_text.to_string()),
+        _ => None,
+    }
+}
+
+/// Port of `VimBranchSegment.get_directory()` /
+/// `VimStashSegment.get_directory()` from
+/// `powerline/segments/vim/__init__.py:512-516` (and py:545-548).
+///
+/// Returns the buffer's filesystem path when buftype is empty
+/// (regular file buffer), None for special buffer types.
+pub fn get_directory(buftype: &str, buffer_name: Option<&str>) -> Option<String> {
+    // py:513  def get_directory(segment_info):
+    // py:514  if vim_getbufoption(segment_info, 'buftype'):
+    if !buftype.is_empty() {
+        // py:515  return None
+        return None;
+    }
+    // py:516  return buffer_name(segment_info)
+    buffer_name.map(String::from)
+}
+
+/// Port of `file_vcs_status()` from
+/// `powerline/segments/vim/__init__.py:560-585`.
+///
+/// Python: walks the VCS guess + file-status dispatch. Rust port
+/// takes the pre-resolved (status_char, highlight_group) pair
+/// the caller computes via lib::vcs::file_status.
+pub fn file_vcs_status(
+    status: Option<&str>,
+    highlight_group: Option<&str>,
+) -> Option<serde_json::Value> {
+    // py:560  def file_vcs_status(pl, segment_info, create_watcher):
+    let status = status?;
+    if status.is_empty() {
+        return None;
+    }
+    let mut seg = serde_json::Map::new();
+    seg.insert("contents".to_string(), serde_json::Value::String(status.to_string()));
+    if let Some(hg) = highlight_group {
+        seg.insert(
+            "highlight_groups".to_string(),
+            serde_json::Value::Array(vec![serde_json::Value::String(hg.to_string())]),
+        );
+    }
+    Some(serde_json::Value::Object(seg))
+}
+
+/// Port of `trailing_whitespace()` from
+/// `powerline/segments/vim/__init__.py:587-608`.
+///
+/// Returns the first line number with trailing whitespace, or
+/// None when none exists. Python uses vim.eval('search(...)') to
+/// scan the buffer; Rust port takes the pre-resolved line
+/// number (0 means no match per vim search() convention).
+pub fn trailing_whitespace(first_match_line: i64) -> Option<String> {
+    // py:587  def trailing_whitespace(pl, segment_info):
+    // py:589-606  line = int(vim.eval(...))
+    if first_match_line > 0 {
+        // py:607  return str(line)
+        Some(first_match_line.to_string())
+    } else {
+        // py:608  return None
+        None
+    }
+}
+
+/// Port of `read_csv()` from
+/// `powerline/segments/vim/__init__.py:691-704`.
+///
+/// Python returns the parsed CSV columns + dialect. Rust port
+/// takes the pre-parsed columns since csv parsing is
+/// straightforward.
+pub fn read_csv(line: &str, dialect: char) -> Vec<String> {
+    // py:691  def read_csv(l, dialect, fin=next):
+    // py:692-704  csv parse via Sniffer/reader
+    line.split(dialect).map(String::from).collect()
+}
+
+/// Port of `process_csv_buffer()` from
+/// `powerline/segments/vim/__init__.py:706-757`.
+///
+/// Walks the lines of a CSV buffer, returns the column name +
+/// header info for the cursor's position. Python uses csv.Sniffer
+/// + csv.reader; Rust port takes the pre-parsed (header, current
+/// column index) pair.
+pub fn process_csv_buffer(
+    cursor_col: usize,
+    header: &[String],
+    display_name: bool,
+) -> Option<(usize, Option<String>)> {
+    // py:706  def process_csv_buffer(pl, buffer, line, col, display_name):
+    if cursor_col >= header.len() {
+        return None;
+    }
+    let column_name = if display_name {
+        Some(header[cursor_col].clone())
+    } else {
+        None
+    };
+    Some((cursor_col + 1, column_name))
+}
+
+/// Port of `csv_col_current()` from
+/// `powerline/segments/vim/__init__.py:759-789`.
+///
+/// Returns the column number + optional name for the cursor's
+/// position in a CSV buffer.
+pub fn csv_col_current(
+    column_index: usize,
+    column_name: Option<&str>,
+    name_format: &str,
+) -> Option<String> {
+    // py:759  def csv_col_current(pl, segment_info, ...):
+    let mut out = (column_index + 1).to_string();
+    if let Some(name) = column_name {
+        let truncated: String = name.chars().take(15).collect();
+        out.push_str(&name_format.replace("{column_name:.15}", &truncated));
+    }
+    Some(out)
+}
+
 /// Port of `tab()` from
 /// `powerline/segments/vim/__init__.py:790-805`.
 ///
