@@ -168,11 +168,24 @@ fn build_configs(ext: &str) -> Result<Configs, String> {
     let colorscheme_json =
         load_cascade(&cs_levels, &paths).ok_or_else(|| format!("no colorscheme for {}", ext))?;
 
-    let top_theme = main
+    // py:324-328  default_top_theme cascade:
+    //   1. user `common.default_top_theme` (explicit override)
+    //   2. else `get_default_theme(encoding.startswith(utf|ucs))`
+    //      → `powerline_terminus` on UTF-8 / `ascii` on legacy
+    // Mirrors `finish_common_config` at `powerline/__init__.py:313`.
+    use powerliners::ported::get_default_theme;
+    use powerliners::ported::lib::encoding::get_preferred_output_encoding;
+    let user_top_theme = main
         .get("common")
         .and_then(|c| c.get("default_top_theme"))
         .and_then(|v| v.as_str())
-        .unwrap_or("powerline");
+        .map(String::from);
+    let computed_top_theme = {
+        let enc = get_preferred_output_encoding().to_lowercase();
+        get_default_theme(enc.starts_with("utf") || enc.starts_with("ucs"))
+    };
+    let top_theme: String = user_top_theme.unwrap_or_else(|| computed_top_theme.to_string());
+    let top_theme = top_theme.as_str();
     // py:806-810 / py:821-823  Theme cascade has THREE layers:
     // 1. `themes/<top_theme>` (cross-ext defaults: dividers, spaces)
     // 2. `themes/<ext>/__main__` (per-ext defaults: segment_data,
