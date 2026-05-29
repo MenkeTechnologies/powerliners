@@ -2192,6 +2192,59 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_parsedotval_nests_dotted_keys() {
+    if !python_available() {
+        return;
+    }
+    // parsedotval('a.b.c=42') returns ('a', {'b': {'c': 42}}) — the
+    // outermost dotted segment becomes the key, remaining segments
+    // build a recursive nested dict containing the JSON-parsed value.
+    let cases: &[(&str, &str, &str)] = &[
+        ("a.b=2", "a", r#"{"b":2}"#),
+        ("x.y.z=42", "x", r#"{"y":{"z":42}}"#),
+        ("flag=true", "flag", "true"),
+        ("s=hello", "s", r#""hello""#),
+        ("nested=null", "nested", "null"),
+    ];
+    for (input, expected_key, expected_value_json) in cases {
+        let py_expr = format!(
+            "(lambda r: __import__('json').dumps(r))(__import__('powerline.lib.overrides', fromlist=['parsedotval']).parsedotval({:?}))",
+            input
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_arr: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        assert_eq!(
+            py_arr[0].as_str(),
+            Some(*expected_key),
+            "fixture key drift for {:?}",
+            input
+        );
+        let expected_value: serde_json::Value =
+            serde_json::from_str(expected_value_json).expect("expected value JSON malformed");
+        assert_eq!(
+            py_arr[1], expected_value,
+            "fixture value drift for {:?}",
+            input
+        );
+        let (rs_key, rs_val) =
+            powerliners::lib::overrides::parsedotval_str(input).expect("Rust parsedotval failed");
+        assert_eq!(
+            rs_key, *expected_key,
+            "Rust parsedotval_str({:?}) key mismatch",
+            input
+        );
+        assert_eq!(
+            rs_val, expected_value,
+            "Rust parsedotval_str({:?}) value mismatch",
+            input
+        );
+    }
+}
+
+#[test]
 fn parity_mergeargs_nested_dict_recursive_merge() {
     if !python_available() {
         return;
