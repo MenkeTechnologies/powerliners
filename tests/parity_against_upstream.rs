@@ -2155,6 +2155,42 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_spec_copy_preserves_state_and_independent() {
+    if !python_available() {
+        return;
+    }
+    // Verify Spec.copy() preserves all builder state AND mutations to
+    // the copy don't affect the original.
+    let py_orig = match py_eval(
+        "(lambda s: '{},{}'.format(s.isoptional, s.cmsg))(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().type(str).optional().context_message('msg'))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_copy = match py_eval(
+        "(lambda s: '{},{}'.format(s.copy().isoptional, s.copy().cmsg))(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().type(str).optional().context_message('msg'))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py_orig, "True,msg");
+    assert_eq!(py_copy, "True,msg");
+
+    use powerliners::lint::spec::{Spec, SpecType};
+    let orig = Spec::new()
+        .type_check(&[SpecType::Unicode])
+        .optional()
+        .context_message("msg");
+    let mut copy = orig.copy();
+    assert!(copy.isoptional);
+    assert_eq!(copy.cmsg, "msg");
+    // Mutate copy, verify original unchanged
+    copy.isoptional = false;
+    assert!(orig.isoptional, "Rust orig.isoptional should still be true");
+    assert!(!copy.isoptional);
+}
+
+#[test]
 fn parity_pick_gradient_value_with_5_element_grad() {
     if !python_available() {
         return;
