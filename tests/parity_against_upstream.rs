@@ -2192,6 +2192,61 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_colorscheme_get_highlighting_resolves_full_record() {
+    if !python_available() {
+        return;
+    }
+    // get_highlighting(groups, mode, gradient_level=None) returns:
+    //   {'fg': (cterm, hex), 'bg': (cterm, hex), 'attrs': flag_int}
+    let cs_config = r#"{
+        "groups": {"normal": {"fg": "white", "bg": "black", "attrs": ["bold"]}},
+        "mode_translations": {}
+    }"#;
+    let colors_config = r#"{
+        "colors": {"white": [15, "ffffff"], "black": [16, "000000"]},
+        "gradients": {}
+    }"#;
+    let py_expr = format!(
+        "(lambda c: __import__('json').dumps({{k: (list(v) if isinstance(v, tuple) else v) for k, v in c.get_highlighting(['normal'], 'default').items()}}, sort_keys=True))(__import__('powerline.colorscheme', fromlist=['Colorscheme']).Colorscheme({cs}, {col}))",
+        cs = cs_config, col = colors_config
+    );
+    let py = match py_eval(&py_expr) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+
+    let cs_map: serde_json::Map<String, serde_json::Value> =
+        serde_json::from_str(cs_config).unwrap();
+    let col_map: serde_json::Map<String, serde_json::Value> =
+        serde_json::from_str(colors_config).unwrap();
+    let c = powerliners::colorscheme::Colorscheme::new(&cs_map, &col_map);
+    let rs = c
+        .get_highlighting(&["normal".to_string()], Some("default"), None)
+        .expect("Rust get_highlighting failed");
+
+    let py_fg = py_value["fg"].as_array().expect("py fg");
+    let rs_fg = rs["fg"].as_array().expect("rs fg");
+    assert_eq!(py_fg[0].as_i64(), rs_fg[0].as_i64(), "fg cterm");
+    assert_eq!(py_fg[1].as_u64(), rs_fg[1].as_u64(), "fg hex");
+    let py_bg = py_value["bg"].as_array().expect("py bg");
+    let rs_bg = rs["bg"].as_array().expect("rs bg");
+    assert_eq!(py_bg[0].as_i64(), rs_bg[0].as_i64(), "bg cterm");
+    assert_eq!(py_bg[1].as_u64(), rs_bg[1].as_u64(), "bg hex");
+
+    assert_eq!(
+        py_value["attrs"].as_u64(),
+        rs["attrs"].as_u64(),
+        "attrs flag mismatch"
+    );
+    assert_eq!(
+        rs["attrs"].as_u64(),
+        Some(1),
+        "Rust attrs flag should be 1 for bold"
+    );
+}
+
+#[test]
 fn parity_colorscheme_get_group_props_with_mode_translation() {
     if !python_available() {
         return;
