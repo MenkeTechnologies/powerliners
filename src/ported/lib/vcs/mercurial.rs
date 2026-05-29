@@ -135,6 +135,23 @@ impl Repository {
         }
     }
 
+    /// Port of `Repository._repo()` from
+    /// `powerline/lib/vcs/mercurial.py:36-39`.
+    ///
+    /// Python opens an `hglib` connection per call (per the inline
+    /// comment at py:37-38: "cannot create this object once and use
+    /// always; when repository updates functions emit invalid
+    /// results"). The Rust port has no hglib equivalent; the helper
+    /// returns the canonical repo directory path so downstream
+    /// shell-based hg invocations can re-resolve via `--cwd <path>`
+    /// without re-canonicalizing.
+    pub fn _repo<'a>(&'a self, _directory: &std::path::Path) -> &'a std::path::Path {
+        // py:36  def _repo(self, directory):
+        // py:37-38  comment: cannot cache hglib handle
+        // py:39  return hglib.open(directory)
+        &self.directory
+    }
+
     /// Port of `Repository.status()` from
     /// `powerline/lib/vcs/mercurial.py:39`.
     ///
