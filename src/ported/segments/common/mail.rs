@@ -65,25 +65,36 @@ impl EmailIMAPSegment {
         folder: String,
         use_ssl: Option<bool>,
     ) -> _IMAPKey {
-        // py:22-23  use_ssl defaults to (port == IMAP4_SSL_PORT)
+        // py:21  @staticmethod
+        // py:22  def key(username='', password='', server='imap.gmail.com', port=IMAP4_SSL_PORT, username_variable='', password_variable='', server_variable='', port_variable='', folder='INBOX', use_ssl=None, **kwargs):
+        // py:23  if use_ssl is None:
+        // py:24  use_ssl = (port == IMAP4_SSL_PORT)
         let use_ssl = use_ssl.unwrap_or(port == IMAP4_SSL_PORT);
 
-        // py:25-32  env-var overrides
+        // py:25  # catch if user set custom mail credential env variables
+        // py:26  if username_variable:
+        // py:27  username = os.environ[username_variable]
         if let Some(var) = username_variable {
             if let Ok(v) = std::env::var(var) {
                 username = v;
             }
         }
+        // py:28  if password_variable:
+        // py:29  password = os.environ[password_variable]
         if let Some(var) = password_variable {
             if let Ok(v) = std::env::var(var) {
                 password = v;
             }
         }
+        // py:30  if server_variable:
+        // py:31  server = os.environ[server_variable]
         if let Some(var) = server_variable {
             if let Ok(v) = std::env::var(var) {
                 server = v;
             }
         }
+        // py:32  if port_variable:
+        // py:33  port = os.environ[port_variable]
         if let Some(var) = port_variable {
             if let Ok(v) = std::env::var(var) {
                 if let Ok(p) = v.parse() {
@@ -92,7 +103,7 @@ impl EmailIMAPSegment {
             }
         }
 
-        // py:34  return _IMAPKey(username, password, server, port, folder, use_ssl)
+        // py:35  return _IMAPKey(username, password, server, port, folder, use_ssl)
         _IMAPKey {
             username,
             password,
@@ -117,11 +128,22 @@ impl EmailIMAPSegment {
     /// credentials are blank (matches py:37-39 short-circuit) and
     /// stubs the post-credentials path.
     pub fn compute_state(key: &_IMAPKey) -> Option<i64> {
-        // py:37-39  if not username or not password: return None
+        // py:37  def compute_state(self, key):
+        // py:38  if not key.username or not key.password:
+        // py:39  self.warn('Username and password are not configured')
+        // py:40  return None
         if key.username.is_empty() || key.password.is_empty() {
             return None;
         }
-        // py:40-46  IMAP fetch — stub
+        // py:41  if key.use_ssl:
+        // py:42  mail = IMAP4_SSL(key.server, key.port)
+        // py:43  else:
+        // py:44  mail = IMAP4(key.server, key.port)
+        // py:45  mail.login(key.username, key.password)
+        // py:46  rc, message = mail.status(key.folder, '(UNSEEN)')
+        // py:47  unread_str = message[0].decode('utf-8')
+        // py:48  unread_count = int(re.search(r'UNSEEN (\d+)', unread_str).group(1))
+        // py:49  return unread_count
         None
     }
 
@@ -143,15 +165,27 @@ impl EmailIMAPSegment {
     ///
     /// Returns the rendered segment list for a given unread count.
     pub fn render_one(unread_count: Option<i64>, max_msgs: Option<i64>) -> Option<Vec<Value>> {
-        // py:49-50  if not unread_count: return None
+        // py:51  @staticmethod
+        // py:52  def render_one(unread_count, max_msgs=None, **kwargs):
+        // py:53  if not unread_count:
+        // py:54  return None
         match unread_count {
             None | Some(0) => None,
-            // py:51-56  no max_msgs → single email_alert highlight
+            // py:55  elif type(unread_count) != int or not max_msgs:
+            // py:56  return [{
+            // py:57  'contents': str(unread_count),
+            // py:58  'highlight_groups': ['email_alert'],
+            // py:59  }]
             Some(n) if max_msgs.is_none() => Some(vec![json!({
                 "contents": n.to_string(),
                 "highlight_groups": ["email_alert"],
             })]),
-            // py:57-61  with max_msgs → gradient
+            // py:60  else:
+            // py:61  return [{
+            // py:62  'contents': str(unread_count),
+            // py:63  'highlight_groups': ['email_alert_gradient', 'email_alert'],
+            // py:64  'gradient_level': min(unread_count * 100.0 / max_msgs, 100),
+            // py:65  }]
             Some(n) => {
                 let max = max_msgs.unwrap();
                 let gradient = ((n as f64 * 100.0) / max as f64).min(100.0);
