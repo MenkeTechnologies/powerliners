@@ -409,7 +409,11 @@ pub fn process_segment_lister<L, D, C>(
     display_condition: D,
     contents_func: C,
 ) where
-    L: Fn(&(), &Map<String, Value>, &Map<String, Value>) -> Vec<(Map<String, Value>, Map<String, Value>)>,
+    L: Fn(
+        &(),
+        &Map<String, Value>,
+        &Map<String, Value>,
+    ) -> Vec<(Map<String, Value>, Map<String, Value>)>,
     D: Fn(&(), &Map<String, Value>, Option<&str>, &Map<String, Value>) -> bool,
     C: Fn(&(), &Map<String, Value>, &Map<String, Value>) -> Option<Value>,
 {
@@ -435,17 +439,13 @@ pub fn process_segment_lister<L, D, C>(
                     subsegment_owned.insert(k.clone(), v.clone());
                 }
                 // py:117  if 'priority_multiplier' in subsegment_update and subsegment['priority']:
-                if let Some(mult) = subsegment_update.get("priority_multiplier").and_then(|v| v.as_f64())
+                if let Some(mult) = subsegment_update
+                    .get("priority_multiplier")
+                    .and_then(|v| v.as_f64())
                 {
-                    if let Some(prio) = subsegment_owned
-                        .get("priority")
-                        .and_then(|v| v.as_f64())
-                    {
+                    if let Some(prio) = subsegment_owned.get("priority").and_then(|v| v.as_f64()) {
                         // py:118  subsegment['priority'] *= subsegment_update['priority_multiplier']
-                        subsegment_owned.insert(
-                            "priority".to_string(),
-                            Value::from(prio * mult),
-                        );
+                        subsegment_owned.insert("priority".to_string(), Value::from(prio * mult));
                     }
                 }
             }
@@ -558,8 +558,16 @@ pub fn process_segment<C>(
                 let keys: [(&str, isize, Value); 4] = [
                     ("before", 0, Value::String(String::new())),
                     ("after", -1, Value::String(String::new())),
-                    ("draw_soft_divider", draw_divider_position, Value::Bool(true)),
-                    ("draw_hard_divider", draw_divider_position, Value::Bool(true)),
+                    (
+                        "draw_soft_divider",
+                        draw_divider_position,
+                        Value::Bool(true),
+                    ),
+                    (
+                        "draw_hard_divider",
+                        draw_divider_position,
+                        Value::Bool(true),
+                    ),
                 ];
                 for (key, i, newval) in keys {
                     // py:195-199  try ... except KeyError: pass
@@ -610,17 +618,9 @@ pub fn process_segment<C>(
                         // py:206  append = lambda item: parsed_segments.insert(pslen, item)
                         // `pslen` is captured at the start of the loop in Python so
                         // inserts go in iteration-reversed order from a fixed index.
-                        // Rust mirrors by always inserting at the same `pslen`.
-                        let pslen = parsed_segments.len()
-                            - parsed_segments
-                                .iter()
-                                .rev()
-                                .take_while(|_| true)
-                                .count()
-                                .min(0);
-                        // Simpler equivalent: insert at the snapshot `pslen` taken
-                        // before the loop. Track it via the running index.
-                        let _ = pslen;
+                        // Rust mirrors by always inserting at the same `pslen`, which
+                        // resolves to the current length here (the loop appends below).
+                        let _pslen = parsed_segments.len();
                         parsed_segments.push(Value::Object(segment_copy));
                     }
                 }
@@ -682,196 +682,198 @@ where
     let get_module_attr = std::sync::Arc::new(get_module_attr);
 
     // py:319-448  def get(segment, side):
-    Box::new(move |segment: &Map<String, Value>, side: &str| -> Option<Map<String, Value>> {
-        // py:320  segment_type = segment.get('type', 'function')
-        let segment_type = segment
-            .get("type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("function")
-            .to_string();
+    Box::new(
+        move |segment: &Map<String, Value>, side: &str| -> Option<Map<String, Value>> {
+            // py:320  segment_type = segment.get('type', 'function')
+            let segment_type = segment
+                .get("type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("function")
+                .to_string();
 
-        // py:321-325  segment_getters[segment_type] (function/string/segment_list)
-        if !matches!(segment_type.as_str(), "function" | "string" | "segment_list") {
-            return None;
-        }
+            // py:321-325  segment_getters[segment_type] (function/string/segment_list)
+            if !matches!(
+                segment_type.as_str(),
+                "function" | "string" | "segment_list"
+            ) {
+                return None;
+            }
 
-        // py:327-331  contents, _contents_func, module, function_name, name = get_segment_info(data, segment)
-        let (function_name, module, name): (String, String, Option<String>) =
-            if segment_type == "string" {
-                // py:73-75  get_string: returns ('contents', None, None, None, name)
-                let n = segment
-                    .get("name")
-                    .and_then(|v| v.as_str())
-                    .map(String::from);
-                (String::new(), String::new(), n)
-            } else {
-                // py:61-70  get_function
-                let raw = segment.get("function").and_then(|v| v.as_str())?;
-                let (m, fname) = match raw.rfind('.') {
-                    Some(idx) => (raw[..idx].to_string(), raw[idx + 1..].to_string()),
-                    None => (default_module.clone(), raw.to_string()),
+            // py:327-331  contents, _contents_func, module, function_name, name = get_segment_info(data, segment)
+            let (function_name, module, name): (String, String, Option<String>) =
+                if segment_type == "string" {
+                    // py:73-75  get_string: returns ('contents', None, None, None, name)
+                    let n = segment
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .map(String::from);
+                    (String::new(), String::new(), n)
+                } else {
+                    // py:61-70  get_function
+                    let raw = segment.get("function").and_then(|v| v.as_str())?;
+                    let (m, fname) = match raw.rfind('.') {
+                        Some(idx) => (raw[..idx].to_string(), raw[idx + 1..].to_string()),
+                        None => (default_module.clone(), raw.to_string()),
+                    };
+                    // py:67-69  function = get_module_attr(module, fname); if not function: raise
+                    if !get_module_attr(&m, &fname) {
+                        return None;
+                    }
+                    let n = segment
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .map(String::from);
+                    (fname, m, n)
                 };
-                // py:67-69  function = get_module_attr(module, fname); if not function: raise
-                if !get_module_attr(&m, &fname) {
-                    return None;
-                }
-                let n = segment
-                    .get("name")
-                    .and_then(|v| v.as_str())
-                    .map(String::from);
-                (fname, m, n)
+
+            // py:343-346  highlight_groups
+            let highlight_groups: Vec<Value> = if segment_type == "function" {
+                vec![Value::String(function_name.clone())]
+            } else {
+                segment
+                    .get("highlight_groups")
+                    .and_then(|v| v.as_array())
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        name.clone()
+                            .map(|n| vec![Value::String(n)])
+                            .unwrap_or_default()
+                    })
             };
 
-        // py:343-346  highlight_groups
-        let highlight_groups: Vec<Value> = if segment_type == "function" {
-            vec![Value::String(function_name.clone())]
-        } else {
-            segment
-                .get("highlight_groups")
-                .and_then(|v| v.as_array())
-                .cloned()
-                .unwrap_or_else(|| {
-                    name.clone()
-                        .map(|n| vec![Value::String(n)])
-                        .unwrap_or_default()
-                })
-        };
-
-        // py:401-414  contents_func stored as id "module.function_name"
-        let contents_func_id = if module.is_empty() {
-            String::new()
-        } else {
-            format!("{}.{}", module, function_name)
-        };
-
-        // py:422-448  build the prepared segment dict
-        let mut out: Map<String, Value> = Map::new();
-        out.insert(
-            "name".to_string(),
-            Value::String(name.clone().unwrap_or_else(|| function_name.clone())),
-        );
-        out.insert("type".to_string(), Value::String(segment_type.clone()));
-        out.insert("highlight_groups".to_string(), Value::Array(highlight_groups));
-        out.insert("divider_highlight_group".to_string(), Value::Null);
-        out.insert(
-            "before".to_string(),
-            segment
-                .get("before")
-                .cloned()
-                .unwrap_or_else(|| Value::String(String::new())),
-        );
-        out.insert(
-            "after".to_string(),
-            segment
-                .get("after")
-                .cloned()
-                .unwrap_or_else(|| Value::String(String::new())),
-        );
-        out.insert(
-            "contents_func".to_string(),
-            Value::String(contents_func_id),
-        );
-        // py:430  'contents': contents — string types have a contents value
-        out.insert(
-            "contents".to_string(),
-            if segment_type == "string" {
-                segment
-                    .get("contents")
-                    .cloned()
-                    .unwrap_or(Value::Null)
+            // py:401-414  contents_func stored as id "module.function_name"
+            let contents_func_id = if module.is_empty() {
+                String::new()
             } else {
-                Value::Null
-            },
-        );
-        // py:431  'literal_contents': (0, '')
-        out.insert(
-            "literal_contents".to_string(),
-            Value::Array(vec![Value::from(0), Value::String(String::new())]),
-        );
-        out.insert(
-            "priority".to_string(),
-            segment.get("priority").cloned().unwrap_or(Value::Null),
-        );
-        out.insert(
-            "draw_hard_divider".to_string(),
-            segment
-                .get("draw_hard_divider")
-                .cloned()
-                .unwrap_or(Value::Bool(true)),
-        );
-        out.insert(
-            "draw_soft_divider".to_string(),
-            segment
-                .get("draw_soft_divider")
-                .cloned()
-                .unwrap_or(Value::Bool(true)),
-        );
-        out.insert(
-            "draw_inner_divider".to_string(),
-            segment
-                .get("draw_inner_divider")
-                .cloned()
-                .unwrap_or(Value::Bool(false)),
-        );
-        out.insert("side".to_string(), Value::String(side.to_string()));
-        out.insert(
-            "width".to_string(),
-            segment.get("width").cloned().unwrap_or(Value::Null),
-        );
-        out.insert(
-            "align".to_string(),
-            segment
-                .get("align")
-                .cloned()
-                .unwrap_or_else(|| Value::String("l".to_string())),
-        );
-        out.insert("expand".to_string(), Value::Null);
-        out.insert("truncate".to_string(), Value::Null);
-        out.insert("startup".to_string(), Value::Null);
-        out.insert("shutdown".to_string(), Value::Null);
-        out.insert("_rendered_raw".to_string(), Value::String(String::new()));
-        out.insert("_rendered_hl".to_string(), Value::String(String::new()));
-        out.insert("_len".to_string(), Value::Null);
-        out.insert("_contents_len".to_string(), Value::Null);
-        // py:349-353  args = ... (passed through if present, for the dispatcher)
-        if let Some(a) = segment.get("args") {
-            out.insert("args".to_string(), a.clone());
-        } else {
-            // include any inline args (interface, format, etc.) from the
-            // theme spec under a flat "args" map so the dispatcher can
-            // pass them as **kwargs. Skip known segment-spec keys.
-            let mut inline_args: Map<String, Value> = Map::new();
-            const SPEC_KEYS: &[&str] = &[
-                "function",
-                "name",
-                "type",
-                "args",
-                "before",
-                "after",
-                "draw_hard_divider",
-                "draw_soft_divider",
-                "draw_inner_divider",
-                "priority",
-                "width",
-                "align",
-                "highlight_groups",
-                "include_function",
-                "exclude_function",
-                "include_modes",
-                "exclude_modes",
-            ];
-            for (k, v) in segment {
-                if !SPEC_KEYS.contains(&k.as_str()) {
-                    inline_args.insert(k.clone(), v.clone());
+                format!("{}.{}", module, function_name)
+            };
+
+            // py:422-448  build the prepared segment dict
+            let mut out: Map<String, Value> = Map::new();
+            out.insert(
+                "name".to_string(),
+                Value::String(name.clone().unwrap_or_else(|| function_name.clone())),
+            );
+            out.insert("type".to_string(), Value::String(segment_type.clone()));
+            out.insert(
+                "highlight_groups".to_string(),
+                Value::Array(highlight_groups),
+            );
+            out.insert("divider_highlight_group".to_string(), Value::Null);
+            out.insert(
+                "before".to_string(),
+                segment
+                    .get("before")
+                    .cloned()
+                    .unwrap_or_else(|| Value::String(String::new())),
+            );
+            out.insert(
+                "after".to_string(),
+                segment
+                    .get("after")
+                    .cloned()
+                    .unwrap_or_else(|| Value::String(String::new())),
+            );
+            out.insert("contents_func".to_string(), Value::String(contents_func_id));
+            // py:430  'contents': contents — string types have a contents value
+            out.insert(
+                "contents".to_string(),
+                if segment_type == "string" {
+                    segment.get("contents").cloned().unwrap_or(Value::Null)
+                } else {
+                    Value::Null
+                },
+            );
+            // py:431  'literal_contents': (0, '')
+            out.insert(
+                "literal_contents".to_string(),
+                Value::Array(vec![Value::from(0), Value::String(String::new())]),
+            );
+            out.insert(
+                "priority".to_string(),
+                segment.get("priority").cloned().unwrap_or(Value::Null),
+            );
+            out.insert(
+                "draw_hard_divider".to_string(),
+                segment
+                    .get("draw_hard_divider")
+                    .cloned()
+                    .unwrap_or(Value::Bool(true)),
+            );
+            out.insert(
+                "draw_soft_divider".to_string(),
+                segment
+                    .get("draw_soft_divider")
+                    .cloned()
+                    .unwrap_or(Value::Bool(true)),
+            );
+            out.insert(
+                "draw_inner_divider".to_string(),
+                segment
+                    .get("draw_inner_divider")
+                    .cloned()
+                    .unwrap_or(Value::Bool(false)),
+            );
+            out.insert("side".to_string(), Value::String(side.to_string()));
+            out.insert(
+                "width".to_string(),
+                segment.get("width").cloned().unwrap_or(Value::Null),
+            );
+            out.insert(
+                "align".to_string(),
+                segment
+                    .get("align")
+                    .cloned()
+                    .unwrap_or_else(|| Value::String("l".to_string())),
+            );
+            out.insert("expand".to_string(), Value::Null);
+            out.insert("truncate".to_string(), Value::Null);
+            out.insert("startup".to_string(), Value::Null);
+            out.insert("shutdown".to_string(), Value::Null);
+            out.insert("_rendered_raw".to_string(), Value::String(String::new()));
+            out.insert("_rendered_hl".to_string(), Value::String(String::new()));
+            out.insert("_len".to_string(), Value::Null);
+            out.insert("_contents_len".to_string(), Value::Null);
+            // py:349-353  args = ... (passed through if present, for the dispatcher)
+            if let Some(a) = segment.get("args") {
+                out.insert("args".to_string(), a.clone());
+            } else {
+                // include any inline args (interface, format, etc.) from the
+                // theme spec under a flat "args" map so the dispatcher can
+                // pass them as **kwargs. Skip known segment-spec keys.
+                let mut inline_args: Map<String, Value> = Map::new();
+                const SPEC_KEYS: &[&str] = &[
+                    "function",
+                    "name",
+                    "type",
+                    "args",
+                    "before",
+                    "after",
+                    "draw_hard_divider",
+                    "draw_soft_divider",
+                    "draw_inner_divider",
+                    "priority",
+                    "width",
+                    "align",
+                    "highlight_groups",
+                    "include_function",
+                    "exclude_function",
+                    "include_modes",
+                    "exclude_modes",
+                ];
+                for (k, v) in segment {
+                    if !SPEC_KEYS.contains(&k.as_str()) {
+                        inline_args.insert(k.clone(), v.clone());
+                    }
+                }
+                if !inline_args.is_empty() {
+                    out.insert("args".to_string(), Value::Object(inline_args));
                 }
             }
-            if !inline_args.is_empty() {
-                out.insert("args".to_string(), Value::Object(inline_args));
-            }
-        }
 
-        Some(out)
-    })
+            Some(out)
+        },
+    )
 }
 
 /// Port of module-level binding `get_fallback_segment` from
