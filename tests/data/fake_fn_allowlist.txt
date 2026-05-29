@@ -995,3 +995,20 @@ powerline_prompt_style_invalidation_hash
 # the parse so the synthetic-name decoder can be tested
 # without the pygments token-tree dispatch around it.
 parse_token_attrs
+
+# WrappedOrigin::wrapper / WrappedOrigin::origin are Rust accessor
+# methods on the WrappedOrigin struct, the port's analog of Python's
+# attribute assignment `r.powerline_origin = wrapped` at
+# lib/__init__.py:9. Python reads the attribute via dot syntax; Rust
+# can't attach arbitrary attributes to fn items so the port exposes
+# them as struct-field accessor methods.
+wrapper
+origin
+
+# add_divider_highlight_group_to_list is the list-input variant of
+# add_divider_highlight_group at lib/__init__.py:14. Python applies
+# the same decorator regardless of whether the wrapped function
+# returns a string or a list of segments; Rust splits into two
+# functions since the return-type discrimination at runtime needs
+# trait dispatch.
+add_divider_highlight_group_to_list
