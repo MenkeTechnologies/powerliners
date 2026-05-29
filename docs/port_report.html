@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">656</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3527</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">63.8%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">657</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3528</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">63.9%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -375,8 +375,8 @@ columns:
   <!-- SYM py_file=powerline/segments/common/vcs.py rs_file=src/ported/segments/common/vcs.rs rs_exists=True py_fn_total=4 ported_count=2 missing_count=2 rs_extra_count=29 coverage=0.5000 -->
   <!-- END-GROUP py_file=powerline/segments/common/vcs.py -->
   <!-- BEGIN-GROUP py_file=powerline/segments/common/wthr.py -->
-  <tr class="partial"><td><code>segments/common/wthr.py</code></td><td>✔ <code>segments/common/wthr.rs</code></td><td>4</td><td><code>get_request_url</code>, <code>compute_state</code>, <code>render_one</code></td><td><code>key</code></td><td><code>weather_conditions_codes</code>, <code>weather_conditions_icons</code>, <code>temp_conversions</code>, <code>temp_units</code>, <code>weather_key</code>, <code>compute_state_from_response</code>, <code>pick_icon</code>, <code>temp_gradient_level</code>, <code>weather_api_key_matches_upstream</code>, <code>weather_interval_matches_upstream</code>, <code>weather_conditions_codes_maps_thunderstorm_to_stormy</code>, <code>weather_conditions_codes_maps_rain_to_rainy</code>, <code>weather_conditions_codes_maps_511_to_snowy</code>, <code>weather_conditions_codes_maps_clear_sky_to_sunny</code>, <code>weather_conditions_codes_maps_clouds_to_cloudy</code>, <code>weather_conditions_icons_table_matches_upstream</code>, <code>temp_conversions_kelvin_to_celsius</code>, <code>temp_conversions_kelvin_to_fahrenheit</code>, <code>temp_conversions_kelvin_to_kelvin_is_passthrough</code>, <code>temp_units_matches_upstream</code>, <code>weather_key_uses_default_api_key_when_unset</code>, <code>weather_key_respects_custom_api_key</code>, <code>compute_state_from_response_parses_owm_payload</code>, <code>compute_state_from_response_unknown_code_returns_unknown_icon</code>, <code>compute_state_from_response_empty_returns_none</code>, <code>compute_state_from_response_malformed_returns_none</code>, <code>pick_icon_uses_override_when_present</code>, <code>pick_icon_falls_back_to_default_table</code>, <code>pick_icon_unknown_returns_ukn</code>, <code>temp_gradient_level_below_coldest_returns_zero</code>, <code>temp_gradient_level_above_hottest_returns_100</code>, <code>temp_gradient_level_midpoint_returns_50</code>, <code>render_one_no_weather_returns_none</code>, <code>render_one_emits_two_segments</code>, <code>render_one_icon_segment_appends_trailing_space</code>, <code>render_one_temp_segment_emits_gradient_level</code>, <code>render_one_temp_segment_renders_default_format</code>, <code>render_one_custom_temp_format</code>, <code>render_one_emits_weather_condition_groups</code>, <code>render_one_temp_segment_groups_match_upstream</code>, <code>render_one_uses_custom_icon_override</code>, <code>render_one_emits_background_divider_on_both</code></td><td class="coverage">75%</td></tr>
-  <!-- SYM py_file=powerline/segments/common/wthr.py rs_file=src/ported/segments/common/wthr.rs rs_exists=True py_fn_total=4 ported_count=3 missing_count=1 rs_extra_count=42 coverage=0.7500 -->
+  <tr class="full"><td><code>segments/common/wthr.py</code></td><td>✔ <code>segments/common/wthr.rs</code></td><td>4</td><td><code>key</code>, <code>get_request_url</code>, <code>compute_state</code>, <code>render_one</code></td><td>—</td><td><code>weather_conditions_codes</code>, <code>weather_conditions_icons</code>, <code>temp_conversions</code>, <code>temp_units</code>, <code>weather_key</code>, <code>compute_state_from_response</code>, <code>pick_icon</code>, <code>temp_gradient_level</code>, <code>weather_api_key_matches_upstream</code>, <code>weather_interval_matches_upstream</code>, <code>weather_conditions_codes_maps_thunderstorm_to_stormy</code>, <code>weather_conditions_codes_maps_rain_to_rainy</code>, <code>weather_conditions_codes_maps_511_to_snowy</code>, <code>weather_conditions_codes_maps_clear_sky_to_sunny</code>, <code>weather_conditions_codes_maps_clouds_to_cloudy</code>, <code>weather_conditions_icons_table_matches_upstream</code>, <code>temp_conversions_kelvin_to_celsius</code>, <code>temp_conversions_kelvin_to_fahrenheit</code>, <code>temp_conversions_kelvin_to_kelvin_is_passthrough</code>, <code>temp_units_matches_upstream</code>, <code>weather_key_uses_default_api_key_when_unset</code>, <code>weather_key_respects_custom_api_key</code>, <code>compute_state_from_response_parses_owm_payload</code>, <code>compute_state_from_response_unknown_code_returns_unknown_icon</code>, <code>compute_state_from_response_empty_returns_none</code>, <code>compute_state_from_response_malformed_returns_none</code>, <code>pick_icon_uses_override_when_present</code>, <code>pick_icon_falls_back_to_default_table</code>, <code>pick_icon_unknown_returns_ukn</code>, <code>temp_gradient_level_below_coldest_returns_zero</code>, <code>temp_gradient_level_above_hottest_returns_100</code>, <code>temp_gradient_level_midpoint_returns_50</code>, <code>render_one_no_weather_returns_none</code>, <code>render_one_emits_two_segments</code>, <code>render_one_icon_segment_appends_trailing_space</code>, <code>render_one_temp_segment_emits_gradient_level</code>, <code>render_one_temp_segment_renders_default_format</code>, <code>render_one_custom_temp_format</code>, <code>render_one_emits_weather_condition_groups</code>, <code>render_one_temp_segment_groups_match_upstream</code>, <code>render_one_uses_custom_icon_override</code>, <code>render_one_emits_background_divider_on_both</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/segments/common/wthr.py rs_file=src/ported/segments/common/wthr.rs rs_exists=True py_fn_total=4 ported_count=4 missing_count=0 rs_extra_count=42 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/segments/common/wthr.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/debug.py -->
   <tr class="full"><td><code>lib/debug.py</code></td><td>✔ <code>lib/debug.rs</code></td><td>3</td><td><code>print_cycles</code>, <code>print_path</code>, <code>recurse</code></td><td>—</td><td><code>print_cycles_is_no_op</code>, <code>print_path_is_no_op</code>, <code>recurse_is_no_op</code></td><td class="coverage">100%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3527,
-    "ported_fns": 656,
-    "coverage": 0.6381322957198443
+    "rs_fns_in_ported": 3528,
+    "ported_fns": 657,
+    "coverage": 0.6391050583657587
   },
   "rows": [
     {
@@ -4107,13 +4107,12 @@ columns:
       "rs_exists": true,
       "py_fn_total": 4,
       "ported_fns": [
+        "key",
         "get_request_url",
         "compute_state",
         "render_one"
       ],
-      "missing_fns": [
-        "key"
-      ],
+      "missing_fns": [],
       "rs_extra_fns": [
         "weather_conditions_codes",
         "weather_conditions_icons",
@@ -4158,7 +4157,7 @@ columns:
         "render_one_uses_custom_icon_override",
         "render_one_emits_background_divider_on_both"
       ],
-      "coverage": 0.75
+      "coverage": 1.0
     },
     {
       "py_file": "powerline/lib/debug.py",
