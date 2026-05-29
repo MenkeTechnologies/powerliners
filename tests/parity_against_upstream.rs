@@ -1583,6 +1583,65 @@ fn parity_surrogate_pair_to_character() {
 // ─────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────
+// renderer.py — NBSP constant (U+00A0 non-breaking space)
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_renderer_nbsp_constant() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval("hex(ord(__import__('powerline.renderer', fromlist=['NBSP']).NBSP))") {
+        Some(v) => v,
+        None => return,
+    };
+    // Python outputs "0xa0"; Rust NBSP is "\u{a0}" → expect single char U+00A0.
+    assert_eq!(py, "0xa0", "Python NBSP codepoint mismatch");
+    let rs = powerliners::ported::renderer::NBSP;
+    let rs_chars: Vec<char> = rs.chars().collect();
+    assert_eq!(rs_chars.len(), 1, "Rust NBSP must be exactly 1 char");
+    assert_eq!(
+        rs_chars[0] as u32, 0xA0,
+        "Rust NBSP codepoint != 0xA0 (got 0x{:X})",
+        rs_chars[0] as u32
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// segments/common/players.py — _convert_seconds_str (string-input branch)
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_players_convert_seconds_str_handles_comma_decimal() {
+    if !python_available() {
+        return;
+    }
+    // The Python source's _convert_seconds detects str input, swaps
+    // commas for dots, and parses as float. Test the comma-decimal
+    // branch by passing a string with a comma.
+    let cases = ["3,5", "60,1", "125,9", "0,0", "59,99"];
+    for input in cases {
+        let py_expr = format!(
+            "__import__('powerline.segments.common.players', fromlist=['_convert_seconds'])._convert_seconds({:?})",
+            input
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = match powerliners::segments::common::players::_convert_seconds_str(input) {
+            Some(v) => v,
+            None => panic!("Rust _convert_seconds_str({:?}) returned None", input),
+        };
+        assert_eq!(
+            py, rs,
+            "_convert_seconds_str({:?}) mismatch: py={:?}, rs={:?}",
+            input, py, rs
+        );
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // lib/path.py — realpath
 // ─────────────────────────────────────────────────────────────────────
 
