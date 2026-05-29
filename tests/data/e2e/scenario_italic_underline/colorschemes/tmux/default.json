@@ -1,0 +1,10 @@
+{
+	"name": "Italic Underline",
+	"groups": {
+		"sg_italic":    { "fg": "white", "bg": "red", "attrs": ["italic"] },
+		"sg_underline": { "fg": "black", "bg": "green", "attrs": ["underline"] },
+		"sg_both":      { "fg": "white", "bg": "blue", "attrs": ["italic", "underline"] },
+		"background": { "fg": "white", "bg": "gray0", "attrs": [] },
+		"background:divider": { "fg": "gray2", "bg": "gray0", "attrs": [] }
+	}
+}

@@ -1,0 +1,14 @@
+{
+	"name": "Palette 16",
+	"groups": {
+		"sg_r":  { "fg": "white",   "bg": "red",     "attrs": [] },
+		"sg_g":  { "fg": "black",   "bg": "green",   "attrs": [] },
+		"sg_y":  { "fg": "black",   "bg": "yellow",  "attrs": [] },
+		"sg_bl": { "fg": "white",   "bg": "blue",    "attrs": [] },
+		"sg_m":  { "fg": "white",   "bg": "magenta", "attrs": [] },
+		"sg_c":  { "fg": "black",   "bg": "cyan",    "attrs": [] },
+		"sg_brm":{ "fg": "brblack", "bg": "brmagenta","attrs": [] },
+		"background": { "fg": "white", "bg": "gray0", "attrs": [] },
+		"background:divider": { "fg": "gray2", "bg": "gray0", "attrs": [] }
+	}
+}

@@ -1,0 +1,7 @@
+{
+	"name": "Empty",
+	"groups": {
+		"background": { "fg": "white", "bg": "gray0", "attrs": [] },
+		"background:divider": { "fg": "white", "bg": "gray0", "attrs": [] }
+	}
+}

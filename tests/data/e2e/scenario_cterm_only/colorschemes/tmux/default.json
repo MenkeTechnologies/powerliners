@@ -1,0 +1,9 @@
+{
+	"name": "Cterm Only",
+	"groups": {
+		"sg_x":  { "fg": "c231", "bg": "c100", "attrs": ["bold"] },
+		"sg_y":  { "fg": "c16",  "bg": "c200", "attrs": [] },
+		"background": { "fg": "c231", "bg": "gray0", "attrs": [] },
+		"background:divider": { "fg": "gray2", "bg": "gray0", "attrs": [] }
+	}
+}

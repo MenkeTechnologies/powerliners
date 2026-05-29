@@ -1,0 +1,15 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 1,
+	"segments": {
+		"left": [
+			{ "type": "string", "name": "l1", "contents": "ONE",   "highlight_groups": ["sg_l1"] },
+			{ "type": "string", "name": "l2", "contents": "TWO",   "highlight_groups": ["sg_l2"] },
+			{ "type": "string", "name": "l3", "contents": "THREE", "highlight_groups": ["sg_l3"] },
+			{ "type": "string", "name": "l4", "contents": "FOUR",  "highlight_groups": ["sg_l4"] }
+		]
+	}
+}

@@ -1,0 +1,17 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 1,
+	"segments": {
+		"right": [
+			{
+				"type": "string",
+				"name": "tabby",
+				"contents": "A\tB",
+				"highlight_groups": ["sg_tab"]
+			}
+		]
+	}
+}

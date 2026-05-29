@@ -1,0 +1,13 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 3,
+	"segments": {
+		"right": [
+			{ "type": "string", "name": "p", "contents": "PEE", "highlight_groups": ["sg_p"] },
+			{ "type": "string", "name": "q", "contents": "QUEUE", "highlight_groups": ["sg_q"] }
+		]
+	}
+}

@@ -1,0 +1,13 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 1,
+	"segments": {
+		"right": [
+			{ "type": "string", "name": "party",  "contents": "🎉PARTY",  "highlight_groups": ["sg_party"] },
+			{ "type": "string", "name": "rocket", "contents": "🚀GO", "highlight_groups": ["sg_rocket"] }
+		]
+	}
+}

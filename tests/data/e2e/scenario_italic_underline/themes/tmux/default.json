@@ -1,0 +1,14 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 1,
+	"segments": {
+		"right": [
+			{ "type": "string", "name": "i",  "contents": "ITAL", "highlight_groups": ["sg_italic"] },
+			{ "type": "string", "name": "u",  "contents": "UND",  "highlight_groups": ["sg_underline"] },
+			{ "type": "string", "name": "iu", "contents": "IU",   "highlight_groups": ["sg_both"] }
+		]
+	}
+}

@@ -144,6 +144,152 @@ python3 scripts/gen_port_report.py
 
 ---
 
+## `> MIGRATION TUTORIAL`
+
+Drop-in replacement for the Python `powerline-daemon`. The C client
+shipped with `powerline-status` (installed via `pip install
+powerline-status`) talks to our daemon unchanged — same wire format,
+same `EOF\0\0` shutdown, same `/tmp/powerline-ipc-$UID` socket path.
+
+### Step 1: Build the Rust daemon
+
+```sh
+git clone https://github.com/MenkeTechnologies/powerliners
+cd powerliners
+cargo build --release --bin powerline-daemon
+```
+
+The release binary lands at `target/release/powerline-daemon`.
+
+### Step 2: Verify parity against your config
+
+Before swapping anything, run the daemon against a copy of your real
+config root and confirm the rendered tmux markup matches what you
+currently see:
+
+```sh
+# Spawn our daemon on a throwaway socket
+POWERLINE_CONFIG_PATHS=~/.config/powerline \
+  ./target/release/powerline-daemon \
+  --foreground \
+  --socket /tmp/powerliners-probe &
+
+# Render the right side via the wire protocol
+python3 <<'PY'
+import socket
+s = socket.socket(socket.AF_UNIX)
+s.connect("/tmp/powerliners-probe")
+s.send(b"2\x00tmux\x00right\x00/tmp\x00HOME=/tmp\x00\x00")
+print(s.recv(8192).decode("utf-8", "replace"))
+PY
+
+# Compare against the Python upstream (powerline-status must be installed)
+powerline-render tmux right -p ~/.config/powerline
+```
+
+If the two outputs match byte-for-byte for your common segments,
+proceed. If they don't, file an issue with the divergence — the suite
+covers 36 byte-for-byte scenarios but real configs hit
+combinations we haven't asserted on.
+
+### Step 3: Stop the Python daemon
+
+```sh
+powerline-daemon -k
+```
+
+### Step 4: Replace the binary in `$PATH`
+
+The simplest approach is symlinking the Rust binary into a directory
+that comes before `powerline-status`'s `~/.local/bin` (or wherever
+`pip` put it) in your `$PATH`:
+
+```sh
+ln -sf "$(pwd)/target/release/powerline-daemon" /usr/local/bin/powerline-daemon
+# verify the new resolution
+which powerline-daemon   # must report the symlink, not the Python script
+```
+
+The Python C client at `~/.local/bin/powerline` (or `powerline-render`
+as fallback) does NOT need to be replaced — it speaks the same wire
+protocol to whichever daemon is bound to the socket.
+
+### Step 5: Restart tmux
+
+Your existing `~/.tmux.conf` invocations work unchanged. The
+canonical line:
+
+```tmux
+run-shell -b "powerline-daemon -q &>/dev/null || exit 0"
+```
+
+now spawns the Rust binary. Kill and reattach tmux to confirm:
+
+```sh
+tmux kill-server
+tmux new-session
+```
+
+The status bar should look identical. The `powerline-daemon` process
+in `ps aux` should now be a `target/release/powerline-daemon` invocation
+rather than the Python shebang.
+
+### Step 6: Confirm
+
+```sh
+ps -p $(cat /tmp/powerline-ipc-$UID.pid) -o args=
+# expected: /usr/local/bin/powerline-daemon -q
+ls -la $(which powerline-daemon)
+# expected: lrwxr-xr-x  ... -> .../target/release/powerline-daemon
+```
+
+### Rollback
+
+Re-resolve `powerline-daemon` to the Python script:
+
+```sh
+powerline-daemon -k
+rm /usr/local/bin/powerline-daemon
+which powerline-daemon   # should now resolve to ~/.local/bin/powerline-daemon (Python)
+powerline-daemon -q
+```
+
+Everything is byte-compatible — no config edits, no `.tmux.conf` edits,
+no shell-rc edits.
+
+### Known divergences from Python upstream
+
+These are the *only* areas where output may differ. Each is documented
+under the test suite's "inherent divergence" notes:
+
+1. **Live-data segments** (`cpu_load_percent`, `network_load`, ...) are
+   sampled per-render via subprocess probes in our daemon; the Python
+   upstream uses `psutil` with a different sampling cadence. Numeric
+   values may differ by a sampling-window's worth of data; the
+   markup framing is identical.
+2. **Threaded segment caching**: Python's `ThreadedSegment` polls in a
+   background thread and renders the last-known value; our daemon
+   samples on-demand. Latency profile differs (we may block briefly
+   when network/disk segments hit); output content matches.
+3. **psutil-only features**: Python upstream errors loudly when
+   `psutil` is missing and skips affected segments. Our daemon resolves
+   the same data via OS subprocess probes (`top`, `vm_stat`,
+   `netstat`, `pmset`, `uptime`) and renders successfully.
+4. **`-m mode` propagation**: The Rust client argv parser doesn't yet
+   route `-m insert` through to the renderer's mode parameter; without
+   an explicit mode, `mode_translations` colorscheme groups are inert
+   (matching Python's behavior with no mode).
+
+For everything else — markup, escaping (`#` → `##[]`, control chars
+via `translate_np`), dividers (hard/soft/multi-char/empty/single-char),
+colorscheme resolution (alias chains, fallback groups, gradients,
+cterm/truecolor encoding with falsy-hex fallback), attrs (bold +
+italics + underline bit-packed), `outer_padding`, `spaces`, left/right
+side handling, empty sides, `before`/`after` wrapping, Unicode contents
+— the byte stream is identical.
+
+---
+
 ## `> LICENSE`
 
 [MIT](https://opensource.org/licenses/MIT). Theme JSON files in `powerline/config/themes/` remain under their upstream licenses.

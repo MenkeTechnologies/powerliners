@@ -906,39 +906,47 @@ impl Renderer {
             }
 
             // py:364  segments_priority = iter(segments_priority)
-            let mut sp_iter = segments_priority.iter().copied();
+            // Snapshot the priority-ordered VALUES before any removal so
+            // subsequent `segments.remove(value)` matches across shifted
+            // indices. Python uses `segments.remove(segment)` which finds
+            // by identity; serde_json::Value's `PartialEq` gives us the
+            // same find-and-remove semantics.
+            let mut drop_order: Vec<Value> = segments_priority
+                .iter()
+                .map(|i| segments[*i].clone())
+                .collect();
 
             // py:365  if current_width > width and len(segments) > 100:
             if current_width > width && segments.len() > 100 {
                 // py:366-373  fast variant: drop segments while diff > 0
                 let mut diff = current_width as i64 - width as i64;
-                let mut to_drop: Vec<usize> = Vec::new();
-                for idx in sp_iter.by_ref() {
-                    to_drop.push(idx);
-                    diff -= segments[idx]
+                let mut consumed = 0usize;
+                for victim in &drop_order {
+                    let seg_len = victim
                         .get("_len")
                         .and_then(|v| v.as_i64())
                         .unwrap_or(0);
+                    if let Some(pos) = segments.iter().position(|s| s == victim) {
+                        segments.remove(pos);
+                    }
+                    consumed += 1;
+                    diff -= seg_len;
                     if diff <= 0 {
                         break;
                     }
                 }
-                // sh-style drop in descending order so indices stay valid.
-                to_drop.sort_unstable_by(|a, b| b.cmp(a));
-                for idx in to_drop {
-                    segments.remove(idx);
-                }
+                drop_order.drain(..consumed);
                 // py:374  current_width = self._render_length(theme, segments, divider_widths)
                 current_width = self._render_length(theme, &mut segments, &divider_widths);
             }
             // py:375  if current_width > width:
             if current_width > width {
-                // py:376-383  slow variant: drop, re-measure, stop when fits
-                let mut remaining: Vec<usize> = sp_iter.collect();
-                remaining.sort_unstable_by(|a, b| b.cmp(a));
-                for idx in remaining {
-                    if idx < segments.len() {
-                        segments.remove(idx);
+                // py:376-383  slow variant: drop, re-measure, stop when fits.
+                // Walk in priority-descending order; find each by VALUE
+                // (Python `segments.remove(segment)` semantics).
+                for victim in &drop_order {
+                    if let Some(pos) = segments.iter().position(|s| s == victim) {
+                        segments.remove(pos);
                     }
                     current_width = self._render_length(theme, &mut segments, &divider_widths);
                     if current_width <= width {

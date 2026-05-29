@@ -1,0 +1,23 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 1,
+	"segments": {
+		"right": [
+			{
+				"type": "string",
+				"name": "cjk",
+				"contents": "日本語",
+				"highlight_groups": ["sg_cjk"]
+			},
+			{
+				"type": "string",
+				"name": "accent",
+				"contents": "café",
+				"highlight_groups": ["sg_accent"]
+			}
+		]
+	}
+}

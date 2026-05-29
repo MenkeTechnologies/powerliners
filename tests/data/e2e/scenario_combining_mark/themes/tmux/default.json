@@ -1,0 +1,17 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 1,
+	"segments": {
+		"right": [
+			{
+				"type": "string",
+				"name": "combo",
+				"contents": "éf́ǵ",
+				"highlight_groups": ["sg_combo"]
+			}
+		]
+	}
+}

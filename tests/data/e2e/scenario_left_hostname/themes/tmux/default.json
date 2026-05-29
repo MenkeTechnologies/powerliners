@@ -1,0 +1,14 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 1,
+	"segments": {
+		"left": [
+			{
+				"function": "powerline.segments.common.net.hostname"
+			}
+		]
+	}
+}

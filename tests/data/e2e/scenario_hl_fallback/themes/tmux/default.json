@@ -1,0 +1,17 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 1,
+	"segments": {
+		"right": [
+			{
+				"type": "string",
+				"name": "fallback",
+				"contents": "FB",
+				"highlight_groups": ["sg_missing", "sg_present"]
+			}
+		]
+	}
+}
