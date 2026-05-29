@@ -41,7 +41,11 @@ pub mod zsh;
 ///
 /// Splits a 24-bit RGB int into `(r, g, b)` byte components.
 pub fn int_to_rgb(num: u32) -> (u8, u8, u8) {
-    // py:10-13  bitfield extraction
+    // py:9   def int_to_rgb(num):
+    // py:10  r = (num >> 16) & 0xff
+    // py:11  g = (num >> 8) & 0xff
+    // py:12  b = num & 0xff
+    // py:13  return r, g, b
     let r = ((num >> 16) & 0xff) as u8;
     let g = ((num >> 8) & 0xff) as u8;
     let b = (num & 0xff) as u8;
@@ -110,6 +114,11 @@ impl PromptRenderer {
     /// Port of `PromptRenderer.__init__()` from
     /// `powerline/renderers/shell/__init__.py:18`.
     pub fn new() -> Self {
+        // py:16  class PromptRenderer(Renderer):
+        // py:17  '''Powerline generic prompt segment renderer'''
+        // py:19  def __init__(self, old_widths=None, **kwargs):
+        // py:20  super(PromptRenderer, self).__init__(**kwargs)
+        // py:21  self.old_widths = old_widths if old_widths is not None else {}
         Self {
             old_widths: HashMap::new(),
         }
@@ -121,7 +130,9 @@ impl PromptRenderer {
     /// Returns the `client_id` from `segment_info`, or None when
     /// the key isn't present.
     pub fn get_client_id(segment_info: &serde_json::Map<String, serde_json::Value>) -> Option<u64> {
-        // py:33-34  segment_info.get('client_id')
+        // py:23  def get_client_id(self, segment_info):
+        // py:24-35  docstring
+        // py:36  return segment_info.get('client_id') if isinstance(segment_info, dict) else None
         segment_info.get("client_id").and_then(|v| v.as_u64())
     }
 }
@@ -283,13 +294,24 @@ impl ShellRenderer {
         escape: bool,
         term: Option<&str>,
     ) -> String {
-        // py:117  ansi = [0]
+        // py:108  def hlstyle(self, fg=None, bg=None, attrs=None, escape=True, **kwargs):
+        // py:109-114  docstring
+        // py:115  ansi = [0]
         let mut ansi: Vec<u32> = vec![0];
+        // py:116  is_fbterm = self.used_term_escape_style == 'fbterm'
         let style = self.term_escape_style.resolve(term);
         let is_fbterm = style == TermEscapeStyle::Fbterm;
+        // py:117  term_truecolor = not is_fbterm and self.term_truecolor
         let term_truecolor = !is_fbterm && self.term_truecolor;
 
-        // py:121-128  fg
+        // py:118  if fg is not None:
+        // py:119  if fg is False or fg[0] is False:
+        // py:120  ansi += [39]
+        // py:121  else:
+        // py:122  if term_truecolor:
+        // py:123  ansi += [38, 2] + list(int_to_rgb(fg[1]))
+        // py:124  else:
+        // py:125  ansi += [38, 5, fg[0]]
         if let Some(f) = fg {
             if term_truecolor && f.truecolor.is_some() {
                 let (r, g, b) = int_to_rgb(f.truecolor.unwrap());
@@ -298,7 +320,14 @@ impl ShellRenderer {
                 ansi.extend_from_slice(&[38, 5, f.cterm as u32]);
             }
         }
-        // py:129-136  bg
+        // py:126  if bg is not None:
+        // py:127  if bg is False or bg[0] is False:
+        // py:128  ansi += [49]
+        // py:129  else:
+        // py:130  if term_truecolor:
+        // py:131  ansi += [48, 2] + list(int_to_rgb(bg[1]))
+        // py:132  else:
+        // py:133  ansi += [48, 5, bg[0]]
         if let Some(b) = bg {
             if term_truecolor && b.truecolor.is_some() {
                 let (r, g, bl) = int_to_rgb(b.truecolor.unwrap());
@@ -307,26 +336,45 @@ impl ShellRenderer {
                 ansi.extend_from_slice(&[48, 5, b.cterm as u32]);
             }
         }
-        // py:137-149  attrs
+        // py:134  if attrs is not None:
+        // py:135  if attrs is False:
+        // py:136  ansi += [22]
+        // py:137  else:
+        // py:138  if attrs & ATTR_BOLD:
+        // py:139  ansi += [1]
+        // py:140  elif attrs & ATTR_ITALIC:
+        // py:141  # Note: is likely not to work or even be inverse in place of italic.
+        // py:143  ansi += [3]
+        // py:144  elif attrs & ATTR_UNDERLINE:
+        // py:145  ansi += [4]
         if let Some(a) = attrs {
             if a & ATTR_BOLD != 0 {
                 ansi.push(1);
             } else if a & ATTR_ITALIC != 0 {
-                // py:145-147  italic
                 ansi.push(3);
             } else if a & ATTR_UNDERLINE != 0 {
                 ansi.push(4);
             }
         }
 
-        // py:150-160  emit (fbterm-special or xterm-standard)
+        // py:146  if is_fbterm:
+        // py:147  r = []
+        // py:148  while ansi:
+        // py:149  cur_ansi = ansi.pop(0)
+        // py:150  if cur_ansi == 38:
+        // py:151  ansi.pop(0)
+        // py:152  r.append('\033[1;{0}}}'.format(ansi.pop(0)))
+        // py:153  elif cur_ansi == 48:
+        // py:154  ansi.pop(0)
+        // py:155  r.append('\033[2;{0}}}'.format(ansi.pop(0)))
+        // py:156  else:
+        // py:157  r.append('\033[{0}m'.format(cur_ansi))
+        // py:158  r = ''.join(r)
         let r = if is_fbterm {
-            // py:151-160  fbterm sequence dispatch
             let mut out = String::new();
             let mut iter = ansi.into_iter();
             while let Some(cur) = iter.next() {
                 if cur == 38 {
-                    // py:155  pop the '5' then the index
                     iter.next();
                     let idx = iter.next().unwrap_or(0);
                     out.push_str(&format!("\x1b[1;{}}}", idx));
@@ -340,22 +388,24 @@ impl ShellRenderer {
             }
             out
         } else {
-            // py:161-162  xterm standard
+            // py:159  else:
+            // py:160  r = '\033[{0}m'.format(';'.join(str(attr) for attr in ansi))
             let joined: Vec<String> = ansi.into_iter().map(|n| n.to_string()).collect();
             format!("\x1b[{}m", joined.join(";"))
         };
 
-        // py:163-167  tmux / screen passthrough escapes
+        // py:161  if self.tmux_escape:
+        // py:162  r = '\033Ptmux;' + r.replace('\033', '\033\033') + '\033\\'
+        // py:163  elif self.screen_escape:
+        // py:164  r = '\033P' + r.replace('\033', '\033\033') + '\033\\'
         let r = if self.tmux_escape {
-            // py:164  '\033Ptmux;' + r.replace('\033', '\033\033') + '\033\\'
             format!("\x1bPtmux;{}\x1b\\", r.replace('\x1b', "\x1b\x1b"))
         } else if self.screen_escape {
-            // py:166  '\033P' + r.replace('\033', '\033\033') + '\033\\'
             format!("\x1bP{}\x1b\\", r.replace('\x1b', "\x1b\x1b"))
         } else {
             r
         };
-        // py:168  return start + r + end if escape else r
+        // py:165  return self.escape_hl_start + r + self.escape_hl_end if escape else r
         if escape {
             format!("{}{}{}", self.escape_hl_start, r, self.escape_hl_end)
         } else {

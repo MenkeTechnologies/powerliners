@@ -66,7 +66,11 @@ pub fn requires_filesystem_watcher<F>(func: F) -> F {
 /// Returns a fresh `{'left': [], 'right': []}` dict representing one
 /// rendered line of the statusline.
 pub fn new_empty_segment_line() -> Map<String, Value> {
-    // py:21-24
+    // py:20  def new_empty_segment_line():
+    // py:21  return {
+    // py:22  'left': [],
+    // py:23  'right': []
+    // py:24  }
     let mut m = Map::new();
     m.insert("left".to_string(), Value::Array(Vec::new()));
     m.insert("right".to_string(), Value::Array(Vec::new()));
@@ -79,7 +83,8 @@ pub fn new_empty_segment_line() -> Map<String, Value> {
 ///
 /// Right-aligned expand: pad on the left.
 pub fn add_spaces_left(_pl: &(), amount: usize, segment: &Map<String, Value>) -> String {
-    // py:28
+    // py:27  def add_spaces_left(pl, amount, segment):
+    // py:28  return (' ' * amount) + segment['contents']
     let contents = segment
         .get("contents")
         .and_then(|v| v.as_str())
@@ -93,7 +98,8 @@ pub fn add_spaces_left(_pl: &(), amount: usize, segment: &Map<String, Value>) ->
 ///
 /// Left-aligned expand: pad on the right.
 pub fn add_spaces_right(_pl: &(), amount: usize, segment: &Map<String, Value>) -> String {
-    // py:32
+    // py:31  def add_spaces_right(pl, amount, segment):
+    // py:32  return segment['contents'] + (' ' * amount)
     let contents = segment
         .get("contents")
         .and_then(|v| v.as_str())
@@ -111,9 +117,10 @@ pub fn add_spaces_right(_pl: &(), amount: usize, segment: &Map<String, Value>) -
 /// return (' ' * (amount + remainder)) + segment['contents'] + (' ' * amount)
 /// ```
 pub fn add_spaces_center(_pl: &(), amount: usize, segment: &Map<String, Value>) -> String {
+    // py:35  def add_spaces_center(pl, amount, segment):
     // py:36  amount, remainder = divmod(amount, 2)
     let (half, remainder) = (amount / 2, amount % 2);
-    // py:37
+    // py:37  return (' ' * (amount + remainder)) + segment['contents'] + (' ' * amount)
     let contents = segment
         .get("contents")
         .and_then(|v| v.as_str())
@@ -137,8 +144,12 @@ pub fn add_spaces_center(_pl: &(), amount: usize, segment: &Map<String, Value>) 
 // The fn-pointer return type mirrors the upstream Python protocol shape.
 #[allow(clippy::type_complexity)]
 pub fn expand_functions(align: char) -> Option<fn(&(), usize, &Map<String, Value>) -> String> {
+    // py:40  expand_functions = {
+    // py:41  'l': add_spaces_right,
+    // py:42  'r': add_spaces_left,
+    // py:43  'c': add_spaces_center,
+    // py:44  }
     match align {
-        // py:40-44
         'l' => Some(add_spaces_right),
         'r' => Some(add_spaces_left),
         'c' => Some(add_spaces_center),
@@ -191,6 +202,38 @@ impl Theme {
     /// `gen_segment_getter`; this constructor surfaces just the
     /// post-init shape so the accessor methods can be exercised.
     pub fn new() -> Self {
+        // py:47  class Theme(object):
+        // py:48  def __init__(self,
+        // py:49  ext,
+        // py:50  theme_config,
+        // py:51  common_config,
+        // py:52  pl,
+        // py:53  get_module_attr,
+        // py:54  top_theme,
+        // py:55  colorscheme,
+        // py:56  main_theme_config=None,
+        // py:57  run_once=False,
+        // py:58  shutdown_event=None):
+        // py:59  self.colorscheme = colorscheme
+        // py:60  self.dividers = theme_config['dividers']
+        // py:61  self.dividers = dict((
+        // py:62  (key, dict((k, u(v))
+        // py:63  for k, v in val.items()))
+        // py:64  for key, val in self.dividers.items()
+        // py:65  ))
+        // py:66  try:
+        // py:67  self.cursor_space_multiplier = 1 - (theme_config['cursor_space'] / 100)
+        // py:68  except KeyError:
+        // py:69  self.cursor_space_multiplier = None
+        // py:70  self.cursor_columns = theme_config.get('cursor_columns')
+        // py:71  self.spaces = theme_config['spaces']
+        // py:72  self.outer_padding = int(theme_config.get('outer_padding', 1))
+        // py:73  self.segments = []
+        // py:74  self.EMPTY_SEGMENT = {
+        // py:75  'contents': None,
+        // py:76  'highlight': {'fg': False, 'bg': False, 'attrs': 0}
+        // py:77  }
+        // py:78  self.pl = pl
         Self {
             colorscheme: Value::Null,
             dividers: Map::new(),
@@ -199,7 +242,6 @@ impl Theme {
             spaces: 0,
             outer_padding: 1,
             segments: Vec::new(),
-            // py:74-77  EMPTY_SEGMENT shape
             empty_segment: serde_json::json!({
                 "contents": Value::Null,
                 "highlight": {"fg": false, "bg": false, "attrs": 0},
@@ -227,7 +269,14 @@ impl Theme {
     /// segment names in `shutdown_called` for test assertion since
     /// segment dispatch closures aren't reachable here.
     pub fn shutdown(&self) {
-        // py:108-114
+        // py:107  def shutdown(self):
+        // py:108  for line in self.segments:
+        // py:109  for segments in line.values():
+        // py:110  for segment in segments:
+        // py:111  try:
+        // py:112  segment['shutdown']()
+        // py:113  except TypeError:
+        // py:114  pass
         let mut log = self
             .shutdown_called
             .lock()
@@ -239,9 +288,7 @@ impl Theme {
                     None => continue,
                 };
                 for segment in segments {
-                    // py:111-114  try segment['shutdown'](); except TypeError: pass
                     if let Some(name) = segment.get("name").and_then(|v| v.as_str()) {
-                        // Only record when 'shutdown' is non-None per py:112
                         if segment.get("shutdown").is_some_and(|v| !v.is_null()) {
                             log.push(name.to_string());
                         }
@@ -258,6 +305,8 @@ impl Theme {
     /// Returns the divider char from the
     /// `dividers[side][type]` nested dict.
     pub fn get_divider(&self, side: &str, divider_type: &str) -> Option<String> {
+        // py:116  def get_divider(self, side='left', type='soft'):
+        // py:117  '''Return segment divider.'''
         // py:118  return self.dividers[side][type]
         self.dividers
             .get(side)
@@ -270,6 +319,7 @@ impl Theme {
     /// Port of `Theme.get_spaces()` from
     /// `powerline/theme.py:120-121`.
     pub fn get_spaces(&self) -> i64 {
+        // py:120  def get_spaces(self):
         // py:121  return self.spaces
         self.spaces
     }
@@ -277,8 +327,70 @@ impl Theme {
     /// Port of `Theme.get_line_number()` from
     /// `powerline/theme.py:123-124`.
     pub fn get_line_number(&self) -> usize {
+        // py:123  def get_line_number(self):
         // py:124  return len(self.segments)
         self.segments.len()
+    }
+
+    /// Port of `Theme.get_segments()` from
+    /// `powerline/theme.py:126-182`.
+    ///
+    /// **Status:** stub. Returns empty Vec since the segment-dispatch
+    /// substrate (process_segment, expand_functions wiring) hasn't
+    /// landed yet.
+    pub fn get_segments(
+        &self,
+        _side: Option<&str>,
+        _line: usize,
+        _segment_info: Option<&Value>,
+        _mode: Option<&str>,
+    ) -> Vec<Value> {
+        // py:126  def get_segments(self, side=None, line=0, segment_info=None, mode=None):
+        // py:127-135  docstring
+        // py:136  for side in [side] if side else ['left', 'right']:
+        // py:137  parsed_segments = []
+        // py:138  for segment in self.segments[line][side]:
+        // py:139  if segment['display_condition'](self.pl, segment_info, mode):
+        // py:140  process_segment(
+        // py:141  self.pl,
+        // py:142  side,
+        // py:143  segment_info,
+        // py:144  parsed_segments,
+        // py:145  segment,
+        // py:146  mode,
+        // py:147  self.colorscheme,
+        // py:148  )
+        // py:149  for segment in parsed_segments:
+        // py:150  self.pl.prefix = segment['name']
+        // py:151  try:
+        // py:152  width = segment['width']
+        // py:153  align = segment['align']
+        // py:154  if width == 'auto' and segment['expand'] is None:
+        // py:155  segment['expand'] = expand_functions.get(align)
+        // py:156  if segment['expand'] is None:
+        // py:157  self.pl.error('Align argument must be "r", "l" or "c", not "{0}"', align)
+        // py:159  try:
+        // py:160  segment['contents'] = segment['before'] + u(
+        // py:161  segment['contents'] if segment['contents'] is not None else ''
+        // py:162  ) + segment['after']
+        // py:163  except Exception as e:
+        // py:164  self.pl.exception('Failed to compute segment contents: {0}', str(e))
+        // py:165  segment['contents'] = safe_unicode(segment.get('contents'))
+        // py:166  # Align segment contents
+        // py:167  if segment['width'] and segment['width'] != 'auto':
+        // py:168  if segment['align'] == 'l':
+        // py:169  segment['contents'] = segment['contents'].ljust(segment['width'])
+        // py:170  elif segment['align'] == 'r':
+        // py:171  segment['contents'] = segment['contents'].rjust(segment['width'])
+        // py:172  elif segment['align'] == 'c':
+        // py:173  segment['contents'] = segment['contents'].center(segment['width'])
+        // py:177  yield segment.copy()
+        // py:178  except Exception as e:
+        // py:179  self.pl.exception('Failed to compute segment: {0}', str(e))
+        // py:180  fallback = get_fallback_segment()
+        // py:181  fallback.update(side=side)
+        // py:182  yield fallback
+        Vec::new()
     }
 }
 
