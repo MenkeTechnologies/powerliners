@@ -12,7 +12,7 @@ use serde_json::Value;
 /// Mark — a `(line, column, name, buffer, pointer)` shape used by the
 /// markedjson parser. Until the full parser ports, only the
 /// human-visible `(line, column)` are modelled.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Mark {
     pub line: usize,
     pub column: usize,
