@@ -211,3 +211,12 @@ NERD_TREE_RE
 # of finder names. Rust exposes it as a lazy OnceLock-backed
 # HashSet accessor with the same name byte-for-byte.
 FINDERS_WITHOUT_PATH
+
+# Approved 2026-05-29: test-driveable variant of workspace_lister from
+# powerline/listers/i3wm.py:23. Python's `workspace_lister` calls
+# `get_i3_connection().get_workspaces()` inline, making the filter
+# logic impossible to test without a live i3 connection. Rust splits
+# the data-supplier from the filter logic so the filter (only_show +
+# output match) is independently testable. Same observable semantics
+# as Python when called via workspace_lister().
+workspace_lister_for
