@@ -8,6 +8,20 @@ authors = ["MenkeTechnologies <linux.dev25@gmail.com>"]
 repository = "https://github.com/MenkeTechnologies/powerliners"
 readme = "README.md"
 
+# Exclude development-only directories from the published crate.
+# - vendor/    upstream powerline-status checkout (parity-test fixture)
+# - tests/    integration tests (lib unit tests live in src/)
+# - docs/     HTML / Markdown reports — repo-local, not crate API
+# - scripts/  Python codegen + audit-tool scripts (not Rust source)
+# - .github/  CI config
+exclude = [
+    "vendor/**",
+    "tests/**",
+    "docs/**",
+    "scripts/**",
+    ".github/**",
+]
+
 [lib]
 name = "powerliners"
 path = "src/lib.rs"
