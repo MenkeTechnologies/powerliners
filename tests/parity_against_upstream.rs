@@ -2192,6 +2192,79 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_token_ids_match_python_class_attrs() {
+    if !python_available() {
+        return;
+    }
+    // Each Token subclass has a class-level `id` attribute used by
+    // parser-state machines. Pin all 10 IDs match between ports.
+    let cases: &[(&str, &str, &str)] = &[
+        (
+            "StreamStartToken",
+            "<stream start>",
+            powerliners::lint::markedjson::tokens::StreamStartToken::ID,
+        ),
+        (
+            "StreamEndToken",
+            "<stream end>",
+            powerliners::lint::markedjson::tokens::StreamEndToken::ID,
+        ),
+        (
+            "FlowSequenceStartToken",
+            "[",
+            powerliners::lint::markedjson::tokens::FlowSequenceStartToken::ID,
+        ),
+        (
+            "FlowMappingStartToken",
+            "{",
+            powerliners::lint::markedjson::tokens::FlowMappingStartToken::ID,
+        ),
+        (
+            "FlowSequenceEndToken",
+            "]",
+            powerliners::lint::markedjson::tokens::FlowSequenceEndToken::ID,
+        ),
+        (
+            "FlowMappingEndToken",
+            "}",
+            powerliners::lint::markedjson::tokens::FlowMappingEndToken::ID,
+        ),
+        (
+            "KeyToken",
+            "?",
+            powerliners::lint::markedjson::tokens::KeyToken::ID,
+        ),
+        (
+            "ValueToken",
+            ":",
+            powerliners::lint::markedjson::tokens::ValueToken::ID,
+        ),
+        (
+            "FlowEntryToken",
+            ",",
+            powerliners::lint::markedjson::tokens::FlowEntryToken::ID,
+        ),
+        (
+            "ScalarToken",
+            "<scalar>",
+            powerliners::lint::markedjson::tokens::ScalarToken::ID,
+        ),
+    ];
+    for (name, expected, rs_id) in cases {
+        let py_expr = format!(
+            "__import__('powerline.lint.markedjson.tokens', fromlist=[{name:?}]).{name}.id",
+            name = name
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(py.as_str(), *expected, "Python {}.id fixture drift", name);
+        assert_eq!(*rs_id, *expected, "Rust {}::ID mismatch", name);
+    }
+}
+
+#[test]
 fn parity_markedjson_repl_formats_codepoint_as_hex() {
     if !python_available() {
         return;
