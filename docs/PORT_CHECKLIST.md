@@ -165,7 +165,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/ipython.py` ↔ `src/ported/ipython.rs` | 51 | 0 | 3 | 11 | 252 | 13 | 38 |
 | [x] | `powerline/renderers/ipython/since_5.py` ↔ `src/ported/renderers/ipython/since_5.rs` | 100 | 0 | 3 | 11 | 389 | 17 | 71 |
 | [x] | `powerline/theme.py` ↔ `src/ported/theme.rs` | 151 | 6 | 1 | 6 | 444 | 13 | 148 |
-| [x] | `powerline/lint/markedjson/markedvalue.py` ↔ `src/ported/lint/markedjson/markedvalue.rs` | 115 | 4 | 6 | 9 | 248 | 14 | 116 |
+| [x] | `powerline/lint/markedjson/markedvalue.py` ↔ `src/ported/lint/markedjson/markedvalue.rs` | 115 | 4 | 6 | 9 | 274 | 17 | 132 |
 | [x] | `powerline/bindings/config.py` ↔ `src/ported/bindings/config.rs` | 232 | 11 | 1 | 2 | 600 | 20 | 151 |
 | [x] | `powerline/bindings/vim/__init__.py` ↔ `src/ported/bindings/vim/mod.rs` | 371 | 11 | 1 | 3 | 252 | 17 | 211 |
 | [x] | `powerline/bindings/ipython/pre_0_11.py` ↔ `src/ported/bindings/ipython/pre_0_11.rs` | 111 | 1 | 7 | 14 | 429 | 23 | 66 |

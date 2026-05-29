@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">601</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3398</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">58.5%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">604</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3404</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">58.8%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -155,8 +155,8 @@ columns:
   <!-- SYM py_file=powerline/bindings/config.py rs_file=src/ported/bindings/config.rs rs_exists=True py_fn_total=18 ported_count=11 missing_count=7 rs_extra_count=49 coverage=0.6111 -->
   <!-- END-GROUP py_file=powerline/bindings/config.py -->
   <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/markedvalue.py -->
-  <tr class="partial"><td><code>lint/markedjson/markedvalue.py</code></td><td>✔ <code>lint/markedjson/markedvalue.rs</code></td><td>17</td><td><code>_proc_partition</code>, <code>rpartition</code>, <code>partition</code>, <code>setmerged</code>, <code>update</code>, <code>copy</code>, <code>gen_marked_value</code>, <code>copy</code></td><td><code>gen_new</code>, <code>__new__</code>, <code>gen_init</code>, <code>__init__</code>, <code>gen_getnewargs</code>, <code>__getnewargs__</code>, <code>__new__</code>, <code>__setitem__</code>, <code>__init__</code></td><td><code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>mk</code>, <code>marked_unicode_carries_value_and_mark</code>, <code>marked_unicode_partition_returns_three_parts</code>, <code>marked_unicode_rpartition_returns_three_parts</code>, <code>marked_unicode_partition_no_sep_returns_first_in_pre</code>, <code>marked_dict_carries_keydict_for_every_key</code>, <code>marked_dict_copy_clones_value_and_keydict</code>, <code>marked_dict_update_adds_to_keydict</code>, <code>gen_marked_value_dispatches_on_value_type</code>, <code>marked_int_carries_i64</code>, <code>marked_float_carries_f64</code></td><td class="coverage">47%</td></tr>
-  <!-- SYM py_file=powerline/lint/markedjson/markedvalue.py rs_file=src/ported/lint/markedjson/markedvalue.rs rs_exists=True py_fn_total=17 ported_count=8 missing_count=9 rs_extra_count=17 coverage=0.4706 -->
+  <tr class="partial"><td><code>lint/markedjson/markedvalue.py</code></td><td>✔ <code>lint/markedjson/markedvalue.rs</code></td><td>17</td><td><code>gen_new</code>, <code>gen_init</code>, <code>gen_getnewargs</code>, <code>_proc_partition</code>, <code>rpartition</code>, <code>partition</code>, <code>setmerged</code>, <code>update</code>, <code>copy</code>, <code>gen_marked_value</code>, <code>copy</code></td><td><code>__new__</code>, <code>__init__</code>, <code>__getnewargs__</code>, <code>__new__</code>, <code>__setitem__</code>, <code>__init__</code></td><td><code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>mk</code>, <code>marked_unicode_carries_value_and_mark</code>, <code>marked_unicode_partition_returns_three_parts</code>, <code>marked_unicode_rpartition_returns_three_parts</code>, <code>marked_unicode_partition_no_sep_returns_first_in_pre</code>, <code>marked_dict_carries_keydict_for_every_key</code>, <code>marked_dict_copy_clones_value_and_keydict</code>, <code>marked_dict_update_adds_to_keydict</code>, <code>gen_marked_value_dispatches_on_value_type</code>, <code>marked_int_carries_i64</code>, <code>marked_float_carries_f64</code>, <code>gen_new_returns_value_mark_pair</code>, <code>gen_init_passes_value_through</code>, <code>gen_getnewargs_returns_value_mark_pair</code></td><td class="coverage">65%</td></tr>
+  <!-- SYM py_file=powerline/lint/markedjson/markedvalue.py rs_file=src/ported/lint/markedjson/markedvalue.rs rs_exists=True py_fn_total=17 ported_count=11 missing_count=6 rs_extra_count=20 coverage=0.6471 -->
   <!-- END-GROUP py_file=powerline/lint/markedjson/markedvalue.py -->
   <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/parser.py -->
   <tr class="partial"><td><code>lint/markedjson/parser.py</code></td><td>✔ <code>lint/markedjson/parser.rs</code></td><td>17</td><td><code>dispose</code>, <code>check_event</code>, <code>peek_event</code>, <code>get_event</code>, <code>parse_stream_start</code>, <code>parse_implicit_document_start</code>, <code>parse_document_start</code>, <code>parse_document_end</code>, <code>parse_document_content</code>, <code>parse_node</code>, <code>parse_flow_sequence_first_entry</code>, <code>parse_flow_sequence_entry</code>, <code>parse_flow_sequence_entry_mapping_end</code>, <code>parse_flow_mapping_first_key</code>, <code>parse_flow_mapping_key</code>, <code>parse_flow_mapping_value</code></td><td><code>__init__</code></td><td><code>fmt</code>, <code>token_kind</code>, <code>token_start_mark</code>, <code>token_end_mark</code>, <code>token_id</code>, <code>check_token</code>, <code>peek_token</code>, <code>get_token</code>, <code>default</code>, <code>new</code>, <code>dispatch_state</code>, <code>new</code>, <code>check_token</code>, <code>peek_token</code>, <code>get_token</code>, <code>ss</code>, <code>se</code>, <code>scalar</code>, <code>parser_error_implements_error_traits</code>, <code>parser_starts_at_stream_start_state</code>, <code>dispose_clears_state_machine</code>, <code>check_event_with_no_choices_returns_true</code>, <code>check_event_matches_stream_start</code>, <code>check_event_rejects_wrong_kind</code>, <code>get_event_drains_stream_start_then_stream_end</code>, <code>parse_node_scalar_emits_scalar_event</code>, <code>parse_node_flow_seq_emits_sequence_start</code>, <code>parse_node_flow_map_emits_mapping_start</code>, <code>any_token_kind_dispatches_correctly</code>, <code>any_token_id_strings_match_upstream</code>, <code>parse_simple_scalar_stream_end_to_end</code>, <code>token_marks_round_trip</code>, <code>typed_events_constructable_from_events_module</code></td><td class="coverage">94%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3398,
-    "ported_fns": 601,
-    "coverage": 0.5846303501945526
+    "rs_fns_in_ported": 3404,
+    "ported_fns": 604,
+    "coverage": 0.5875486381322957
   },
   "rows": [
     {
@@ -1623,6 +1623,9 @@ columns:
       "rs_exists": true,
       "py_fn_total": 17,
       "ported_fns": [
+        "gen_new",
+        "gen_init",
+        "gen_getnewargs",
         "_proc_partition",
         "rpartition",
         "partition",
@@ -1633,11 +1636,8 @@ columns:
         "copy"
       ],
       "missing_fns": [
-        "gen_new",
         "__new__",
-        "gen_init",
         "__init__",
-        "gen_getnewargs",
         "__getnewargs__",
         "__new__",
         "__setitem__",
@@ -1660,9 +1660,12 @@ columns:
         "marked_dict_update_adds_to_keydict",
         "gen_marked_value_dispatches_on_value_type",
         "marked_int_carries_i64",
-        "marked_float_carries_f64"
+        "marked_float_carries_f64",
+        "gen_new_returns_value_mark_pair",
+        "gen_init_passes_value_through",
+        "gen_getnewargs_returns_value_mark_pair"
       ],
-      "coverage": 0.47058823529411764
+      "coverage": 0.6470588235294118
     },
     {
       "py_file": "powerline/lint/markedjson/parser.py",
