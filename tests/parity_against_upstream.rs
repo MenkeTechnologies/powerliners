@@ -2192,6 +2192,62 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_echoerr_call_defaults_indent_from_self() {
+    if !python_available() {
+        return;
+    }
+    // EchoErr.__call__ — py:202-205:
+    //   kwargs = kwargs.copy()
+    //   kwargs.setdefault('indent', self.indent)
+    //   self.echoerr(**kwargs)
+    let py_default = match py_eval(
+        "(lambda EE: (lambda captured: (EE(lambda **kw: captured.update(kw), object(), indent=4)(context='ctx', problem='prob'), captured.get('indent'))[1])({}))(__import__('powerline.lint.markedjson.error', fromlist=['EchoErr']).EchoErr)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(
+        py_default.trim(),
+        "4",
+        "Python EchoErr default indent fixture drift"
+    );
+
+    let py_override = py_eval(
+        "(lambda EE: (lambda captured: (EE(lambda **kw: captured.update(kw), object(), indent=4)(context='ctx', indent=10), captured.get('indent'))[1])({}))(__import__('powerline.lint.markedjson.error', fromlist=['EchoErr']).EchoErr)"
+    ).expect("py_eval failed");
+    assert_eq!(
+        py_override.trim(),
+        "10",
+        "Python EchoErr explicit indent passthrough fixture drift"
+    );
+
+    use powerliners::lint::markedjson::error::EchoErr;
+    let e = EchoErr::new(4);
+
+    let kwargs = serde_json::Map::from_iter(vec![
+        ("context".to_string(), serde_json::Value::from("ctx")),
+        ("problem".to_string(), serde_json::Value::from("prob")),
+    ]);
+    let out = e.call(kwargs);
+    assert_eq!(
+        out["indent"].as_u64(),
+        Some(4),
+        "Rust default indent must equal self.indent"
+    );
+
+    let kwargs2 = serde_json::Map::from_iter(vec![
+        ("context".to_string(), serde_json::Value::from("ctx")),
+        ("indent".to_string(), serde_json::Value::from(10)),
+    ]);
+    let out2 = e.call(kwargs2);
+    assert_eq!(
+        out2["indent"].as_u64(),
+        Some(10),
+        "Rust explicit indent must pass through"
+    );
+}
+
+#[test]
 fn parity_mark_equality_uses_name_line_column_only() {
     if !python_available() {
         return;
