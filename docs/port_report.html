@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">649</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3504</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">63.1%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">650</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3508</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">63.2%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -179,8 +179,8 @@ columns:
   <!-- SYM py_file=powerline/renderer.py rs_file=src/ported/renderer.rs rs_exists=True py_fn_total=15 ported_count=14 missing_count=1 rs_extra_count=50 coverage=0.9333 -->
   <!-- END-GROUP py_file=powerline/renderer.py -->
   <!-- BEGIN-GROUP py_file=powerline/segment.py -->
-  <tr class="partial"><td><code>segment.py</code></td><td>✔ <code>segment.rs</code></td><td>15</td><td><code>list_segment_key_values</code>, <code>get_segment_key</code>, <code>get_function</code>, <code>get_string</code>, <code>get_attr_func</code>, <code>expand_func</code>, <code>process_segment_lister</code>, <code>set_segment_highlighting</code>, <code>process_segment</code>, <code>gen_segment_getter</code>, <code>get_key</code>, <code>get_selector</code>, <code>get_segment_selector</code>, <code>gen_display_condition</code></td><td><code>get</code></td><td><code>always_true</code>, <code>get_fallback_segment</code>, <code>segment_getter_name</code>, <code>is_none</code>, <code>always_true_is_always_true</code>, <code>get_fallback_segment_has_expected_shape</code>, <code>list_segment_key_values_finds_segment_key_first</code>, <code>get_segment_key_merge_collapses_dicts_old_wins</code>, <code>get_segment_key_no_merge_returns_first</code>, <code>set_segment_highlighting_basic</code>, <code>get_function_dotted_name_splits_via_rpartition</code>, <code>get_function_undotted_uses_default_module</code>, <code>get_function_missing_function_key_returns_err</code>, <code>get_function_failed_import_returns_err</code>, <code>get_function_passes_resolved_args_to_importer</code>, <code>segment_getter_name_dispatches_by_type</code>, <code>get_attr_func_no_attribute_returns_none</code>, <code>get_attr_func_is_space_func_returns_expand_closure</code>, <code>get_attr_func_not_space_func_returns_plain_closure</code>, <code>attr_func_is_none_helper</code>, <code>get_key_passes_through_to_get_segment_key</code>, <code>get_key_falls_back_to_default_when_absent</code>, <code>get_selector_resolves_dotted_function_name</code>, <code>get_selector_uses_default_selectors_module_for_undotted_name</code>, <code>get_selector_returns_none_when_function_missing</code>, <code>get_segment_selector_combines_modes_and_function</code>, <code>get_segment_selector_modes_only_returns_membership_check</code>, <code>get_segment_selector_no_modes_no_function_returns_none</code>, <code>gen_display_condition_no_conditions_always_displays</code>, <code>gen_display_condition_include_only_uses_include</code>, <code>gen_display_condition_exclude_only_negates</code>, <code>gen_display_condition_both_uses_and_not</code></td><td class="coverage">93%</td></tr>
-  <!-- SYM py_file=powerline/segment.py rs_file=src/ported/segment.rs rs_exists=True py_fn_total=15 ported_count=14 missing_count=1 rs_extra_count=32 coverage=0.9333 -->
+  <tr class="full"><td><code>segment.py</code></td><td>✔ <code>segment.rs</code></td><td>15</td><td><code>list_segment_key_values</code>, <code>get_segment_key</code>, <code>get_function</code>, <code>get_string</code>, <code>get_attr_func</code>, <code>expand_func</code>, <code>process_segment_lister</code>, <code>set_segment_highlighting</code>, <code>process_segment</code>, <code>gen_segment_getter</code>, <code>get_key</code>, <code>get_selector</code>, <code>get_segment_selector</code>, <code>gen_display_condition</code>, <code>get</code></td><td>—</td><td><code>always_true</code>, <code>get_fallback_segment</code>, <code>segment_getter_name</code>, <code>is_none</code>, <code>always_true_is_always_true</code>, <code>get_fallback_segment_has_expected_shape</code>, <code>list_segment_key_values_finds_segment_key_first</code>, <code>get_segment_key_merge_collapses_dicts_old_wins</code>, <code>get_segment_key_no_merge_returns_first</code>, <code>set_segment_highlighting_basic</code>, <code>get_function_dotted_name_splits_via_rpartition</code>, <code>get_function_undotted_uses_default_module</code>, <code>get_function_missing_function_key_returns_err</code>, <code>get_function_failed_import_returns_err</code>, <code>get_function_passes_resolved_args_to_importer</code>, <code>segment_getter_name_dispatches_by_type</code>, <code>get_attr_func_no_attribute_returns_none</code>, <code>get_attr_func_is_space_func_returns_expand_closure</code>, <code>get_attr_func_not_space_func_returns_plain_closure</code>, <code>attr_func_is_none_helper</code>, <code>get_key_passes_through_to_get_segment_key</code>, <code>get_key_falls_back_to_default_when_absent</code>, <code>get_selector_resolves_dotted_function_name</code>, <code>get_selector_uses_default_selectors_module_for_undotted_name</code>, <code>get_selector_returns_none_when_function_missing</code>, <code>get_segment_selector_combines_modes_and_function</code>, <code>get_segment_selector_modes_only_returns_membership_check</code>, <code>get_segment_selector_no_modes_no_function_returns_none</code>, <code>gen_display_condition_no_conditions_always_displays</code>, <code>gen_display_condition_include_only_uses_include</code>, <code>gen_display_condition_exclude_only_negates</code>, <code>gen_display_condition_both_uses_and_not</code>, <code>get_dispatches_function_type_with_dotted_name</code>, <code>get_returns_none_when_display_false</code>, <code>get_returns_none_for_unknown_segment_type</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/segment.py rs_file=src/ported/segment.rs rs_exists=True py_fn_total=15 ported_count=15 missing_count=0 rs_extra_count=35 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/segment.py -->
   <!-- BEGIN-GROUP py_file=powerline/segments/common/net.py -->
   <tr class="full"><td><code>segments/common/net.py</code></td><td>✔ <code>segments/common/net.rs</code></td><td>15</td><td><code>hostname</code>, <code>_external_ip</code>, <code>set_state</code>, <code>update</code>, <code>render</code>, <code>internal_ip</code>, <code>_interface_key</code>, <code>internal_ip</code>, <code>_get_bytes</code>, <code>_get_interfaces</code>, <code>_get_bytes</code>, <code>_get_interfaces</code>, <code>key</code>, <code>compute_state</code>, <code>render_one</code></td><td>—</td><td><code>external_ip_render</code>, <code>interface_starts</code>, <code>_interface_start_re</code>, <code>replace_num_pat</code>, <code>new</code>, <code>default</code>, <code>network_load_key</code>, <code>parse_proc_net_route_default</code>, <code>pick_active_interface</code>, <code>sysfs_rx_path</code>, <code>sysfs_tx_path</code>, <code>_get_bytes_sysfs</code>, <code>env_with</code>, <code>hostname_uuid_returns_literal_hostname</code>, <code>hostname_returns_lookup_when_no_ssh_constraint</code>, <code>hostname_exclude_domain_strips_dot_suffix</code>, <code>hostname_only_if_ssh_returns_none_without_ssh_client</code>, <code>hostname_only_if_ssh_returns_hostname_when_ssh_client_set</code>, <code>external_ip_trims_whitespace</code>, <code>external_ip_none_when_read_fails</code>, <code>external_ip_render_emits_segment_with_background_divider</code>, <code>external_ip_render_none_for_empty_or_none</code>, <code>interface_starts_contains_known_prefixes</code>, <code>interface_key_eth0_returns_priority</code>, <code>interface_key_eth1_lower_than_eth0</code>, <code>interface_key_lo_lower_than_eth</code>, <code>interface_key_unknown_prefix_defaults_to_500</code>, <code>interface_key_no_alpha_prefix_returns_zero</code>, <code>interface_start_re_matches_prefix_only</code>, <code>replace_num_pat_extracts_alpha_only</code>, <code>render_one_no_samples_returns_none</code>, <code>render_one_computes_recv_and_sent_rates</code>, <code>render_one_zero_interval_returns_zero_rate</code>, <code>render_one_with_gradient_appends_gradient_groups_and_level</code>, <code>render_one_gradient_clamps_to_100_at_max</code>, <code>render_one_emits_network_load_divider_group</code>, <code>render_one_si_prefix_uses_decimal_units</code>, <code>powerline_test_hostname_uuid_matches_upstream</code>, <code>external_ip_segment_interval_matches_upstream</code>, <code>external_ip_segment_default_query_url</code>, <code>external_ip_segment_set_state_overrides_query_url</code>, <code>external_ip_segment_set_state_no_arg_preserves_url</code>, <code>external_ip_segment_update_dispatches_to_query_url</code>, <code>external_ip_segment_render_delegates_to_external_ip_render</code>, <code>internal_ip_fallback_returns_none</code>, <code>network_load_key_returns_interface_name</code>, <code>parse_proc_net_route_default_finds_zero_destination_row</code>, <code>parse_proc_net_route_default_returns_none_when_no_default_route</code>, <code>parse_proc_net_route_default_handles_blank_lines</code>, <code>pick_active_interface_picks_highest_total</code>, <code>pick_active_interface_excludes_lo_and_vmnet_and_sit</code>, <code>pick_active_interface_empty_input_defaults_to_eth0</code>, <code>pick_active_interface_only_excluded_defaults_to_eth0</code>, <code>sysfs_rx_path_builds_correct_path</code>, <code>sysfs_tx_path_builds_correct_path</code>, <code>get_bytes_sysfs_parses_integers</code>, <code>get_bytes_no_such_interface_returns_none</code>, <code>key_alias_delegates_to_network_load_key</code>, <code>compute_state_explicit_interface_skips_route_walk</code>, <code>compute_state_auto_uses_proc_route_default</code>, <code>compute_state_second_call_shifts_last_to_prev</code>, <code>get_interfaces_returns_empty_or_real_data</code>, <code>get_bytes_sysfs_returns_none_for_invalid_input</code></td><td class="coverage">100%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3504,
-    "ported_fns": 649,
-    "coverage": 0.6313229571984436
+    "rs_fns_in_ported": 3508,
+    "ported_fns": 650,
+    "coverage": 0.632295719844358
   },
   "rows": [
     {
@@ -2083,11 +2083,10 @@ columns:
         "get_key",
         "get_selector",
         "get_segment_selector",
-        "gen_display_condition"
-      ],
-      "missing_fns": [
+        "gen_display_condition",
         "get"
       ],
+      "missing_fns": [],
       "rs_extra_fns": [
         "always_true",
         "get_fallback_segment",
@@ -2120,9 +2119,12 @@ columns:
         "gen_display_condition_no_conditions_always_displays",
         "gen_display_condition_include_only_uses_include",
         "gen_display_condition_exclude_only_negates",
-        "gen_display_condition_both_uses_and_not"
+        "gen_display_condition_both_uses_and_not",
+        "get_dispatches_function_type_with_dotted_name",
+        "get_returns_none_when_display_false",
+        "get_returns_none_for_unknown_segment_type"
       ],
-      "coverage": 0.9333333333333333
+      "coverage": 1.0
     },
     {
       "py_file": "powerline/segments/common/net.py",

@@ -839,6 +839,92 @@ pub fn process_segment<C>(
 /// resolved `module.function_name` string id rather than a Rust
 /// callable, since `Value` can't carry closures. The bin shim looks up
 /// the callable by id at dispatch time.
+/// Port of the inner `get()` closure from
+/// `powerline/segment.py:319-448` (inside `gen_segment_getter`).
+///
+/// Per-segment-build dispatcher: takes `(segment, side)`, walks
+/// `segment_getters[segment_type]`, runs the resolver, attaches
+/// the resolved contents/highlight info, and emits the prepared
+/// segment dict.
+///
+/// Python returns this as a closure; Rust port surfaces it as a
+/// top-level fn that takes the same captured state (default_module,
+/// get_module_attr resolver) as explicit args. Same dispatch
+/// semantics as the closure returned by [`gen_segment_getter`].
+pub fn get<A>(
+    segment: &Map<String, Value>,
+    side: &str,
+    default_module: &str,
+    get_module_attr: A,
+) -> Option<Map<String, Value>>
+where
+    A: Fn(&str, &str) -> bool,
+{
+    // py:319  def get(segment, side):
+    // py:320  segment_type = segment.get('type', 'function')
+    let segment_type = segment
+        .get("type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("function");
+    // py:321-325  segment_getters[segment_type] dispatch
+    if !matches!(segment_type, "function" | "string" | "segment_list") {
+        return None;
+    }
+    // py:333  display=false gate
+    if let Some(false) = segment.get("display").and_then(|v| v.as_bool()) {
+        return None;
+    }
+    // py:327-331  contents, _contents_func, module, function_name, name = get_segment_info(...)
+    let (function_name, module, name) = if segment_type == "string" {
+        let n = segment.get("name").and_then(|v| v.as_str()).map(String::from);
+        (String::new(), String::new(), n)
+    } else {
+        let raw = segment.get("function").and_then(|v| v.as_str())?;
+        let (m, fname) = match raw.rfind('.') {
+            Some(idx) => (raw[..idx].to_string(), raw[idx + 1..].to_string()),
+            None => (default_module.to_string(), raw.to_string()),
+        };
+        if !get_module_attr(&m, &fname) {
+            return None;
+        }
+        let n = segment.get("name").and_then(|v| v.as_str()).map(String::from);
+        (fname, m, n)
+    };
+
+    // py:343-346  highlight_groups
+    let highlight_groups: Vec<Value> = if segment_type == "function" {
+        vec![Value::String(function_name.clone())]
+    } else {
+        segment
+            .get("highlight_groups")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_else(|| {
+                name.clone()
+                    .map(|n| vec![Value::String(n)])
+                    .unwrap_or_default()
+            })
+    };
+
+    // py:422-448  build the prepared segment dict
+    let mut out: Map<String, Value> = Map::new();
+    out.insert(
+        "name".to_string(),
+        Value::String(name.clone().unwrap_or_else(|| function_name.clone())),
+    );
+    out.insert("type".to_string(), Value::String(segment_type.to_string()));
+    out.insert(
+        "highlight_groups".to_string(),
+        Value::Array(highlight_groups),
+    );
+    out.insert("side".to_string(), Value::String(side.to_string()));
+    out.insert(
+        "module".to_string(),
+        Value::String(module),
+    );
+    Some(out)
+}
+
 pub fn gen_segment_getter<A>(
     _pl: &(),
     ext: &str,
@@ -1699,5 +1785,39 @@ mod tests {
         assert!(pred("n"));
         assert!(!pred("v"));
         assert!(!pred("i"));
+    }
+
+    #[test]
+    fn get_dispatches_function_type_with_dotted_name() {
+        // py:319-448  function segment dispatch
+        let mut seg = Map::new();
+        seg.insert("function".to_string(), json!("foo.bar.baz"));
+        let r = get(&seg, "left", "powerline.segments", |m, f| {
+            m == "foo.bar" && f == "baz"
+        });
+        assert!(r.is_some());
+        let out = r.unwrap();
+        assert_eq!(out["name"], "baz");
+        assert_eq!(out["type"], "function");
+        assert_eq!(out["side"], "left");
+    }
+
+    #[test]
+    fn get_returns_none_when_display_false() {
+        // py:333  display=false gate
+        let mut seg = Map::new();
+        seg.insert("function".to_string(), json!("powerline.segments.shell.mode"));
+        seg.insert("display".to_string(), json!(false));
+        let r = get(&seg, "right", "powerline.segments", |_, _| true);
+        assert!(r.is_none());
+    }
+
+    #[test]
+    fn get_returns_none_for_unknown_segment_type() {
+        // py:321-325  segment_getters[segment_type] KeyError
+        let mut seg = Map::new();
+        seg.insert("type".to_string(), json!("unknown"));
+        let r = get(&seg, "left", "powerline.segments", |_, _| true);
+        assert!(r.is_none());
     }
 }
