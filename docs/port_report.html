@@ -105,15 +105,27 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">657</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">803</div><div class="l">ported fns</div></div>
   <div class="stat-card"><div class="n">3528</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">63.9%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">78.1%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
   <thead><tr>
     <th>upstream py</th><th>rust port</th><th>py fns</th><th>ported</th><th>missing</th><th>rs extra</th><th class="coverage">cov</th>
   </tr></thead><tbody>
+  <!-- BEGIN-GROUP py_file=powerline/bindings/vim/__init__.py -->
+  <tr class="partial"><td><code>bindings/vim/__init__.py</code></td><td>✔ <code>bindings/vim/mod.rs</code></td><td>60</td><td><code>get_vim_encoding</code>, <code>get_vim_encoding</code>, <code>get_vim_encoding</code>, <code>get_vim_encoding</code>, <code>python_to_vim</code>, <code>str_to_bytes</code>, <code>str_to_bytes</code>, <code>vim_get_autoload_func</code>, <code>vim_func_exists</code>, <code>vim_func_exists</code>, <code>bufvar_exists</code>, <code>vim_global_exists</code>, <code>bufvar_exists</code>, <code>vim_global_exists</code>, <code>vim_command_exists</code>, <code>vim_getbufoption</code>, <code>vim_getbufoption</code>, <code>current_tabpage</code>, <code>list_tabpages</code>, <code>buffer_name</code>, <code>buffer_name</code>, <code>powerline_vim_strtrans_error</code>, <code>create_ruby_dpowerline</code></td><td><code>unicode_eval</code>, <code>unicode_eval</code>, <code>safe_bytes_eval</code>, <code>eval_bytes</code>, <code>eval_unicode</code>, <code>vim_get_func</code>, <code>__init__</code>, <code>__call__</code>, <code>vim_getvar</code>, <code>vim_getwinvar</code>, <code>vim_getvar</code>, <code>vim_getwinvar</code>, <code>getbufvar</code>, <code>_vim_to_python</code>, <code>vim_getoption</code>, <code>vim_setoption</code>, <code>vim_getoption</code>, <code>vim_setoption</code>, <code>list_tabpage_buffers_segment_info</code>, <code>__nonzero__</code>, <code>get_buffer</code>, <code>__init__</code>, <code>__getitem__</code>, <code>get</code>, <code>__init__</code>, <code>buffer</code>, <code>__init__</code>, <code>__eq__</code>, <code>window</code>, <code>_last_tab_nr</code>, <code>__getitem__</code>, <code>list_tabpage_buffers_segment_info</code>, <code>__getitem__</code>, <code>get</code>, <code>__setitem__</code>, <code>register_buffer_cache</code>, <code>on_bwipe</code></td><td><code>vim_environ_value_escape</code>, <code>vim_environ_set_command</code>, <code>vim_environ_get_expr</code>, <code>buffer_name_returns_set_value</code>, <code>vim_getbufoption_returns_value_if_set</code>, <code>list_tabpages_empty_when_no_vim</code>, <code>get_vim_encoding_returns_utf8_fallback</code>, <code>python_to_vim_unicode_quotes_and_escapes</code>, <code>python_to_vim_plain_string</code>, <code>python_to_vim_int_emits_ascii_digits</code>, <code>python_to_vim_float_emits_ascii_digits</code>, <code>python_to_vim_list_emits_bracketed_csv</code>, <code>python_to_vim_empty_list</code>, <code>python_to_vim_bool_emits_0_or_1</code>, <code>str_to_bytes_returns_utf8_bytes</code>, <code>vim_environ_value_escape_quotes_double_quote</code>, <code>vim_environ_value_escape_escapes_backslash</code>, <code>vim_environ_value_escape_newline_becomes_backslash_n</code>, <code>vim_environ_value_escape_strips_null_byte</code>, <code>vim_environ_set_command_builds_let_form</code>, <code>vim_environ_set_command_escapes_value</code>, <code>vim_environ_get_expr_builds_dollar_key</code>, <code>powerline_vim_strtrans_error_emits_hex_per_byte</code>, <code>powerline_vim_strtrans_error_empty_input</code></td><td class="coverage">38%</td></tr>
+  <!-- SYM py_file=powerline/bindings/vim/__init__.py rs_file=src/ported/bindings/vim/mod.rs rs_exists=True py_fn_total=60 ported_count=23 missing_count=37 rs_extra_count=24 coverage=0.3833 -->
+  <!-- END-GROUP py_file=powerline/bindings/vim/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/__init__.py -->
+  <tr class="partial"><td><code>__init__.py</code></td><td>✔ <code>mod.rs</code></td><td>48</td><td><code>_config_loader_condition</code>, <code>_find_config_files</code>, <code>critical</code>, <code>exception</code>, <code>info</code>, <code>error</code>, <code>warn</code>, <code>debug</code>, <code>get_fallback_logger</code>, <code>_generate_change_callback</code>, <code>get_config_paths</code>, <code>generate_config_finder</code>, <code>load_config</code>, <code>_set_log_handlers</code>, <code>create_logger</code>, <code>get_default_theme</code>, <code>finish_common_config</code>, <code>reraise</code>, <code>gen_module_attr_getter</code>, <code>_get_log_keys</code>, <code>init</code>, <code>create_logger</code>, <code>create_renderer</code>, <code>setup_components</code>, <code>get_config_paths</code>, <code>load_config</code>, <code>_purge_configs</code>, <code>load_main_config</code>, <code>_load_hierarhical_config</code>, <code>load_colorscheme_config</code>, <code>load_theme_config</code>, <code>load_colors_config</code>, <code>get_local_themes</code>, <code>update_renderer</code>, <code>render</code>, <code>render_above_lines</code>, <code>setup</code>, <code>do_setup</code>, <code>reload</code>, <code>shutdown</code>, <code>exception</code></td><td><code>__init__</code>, <code>_log</code>, <code>on_file_change</code>, <code>get_module_attr</code>, <code>__init__</code>, <code>__enter__</code>, <code>__exit__</code></td><td><code>fmt</code>, <code>new</code>, <code>format_message</code>, <code>log</code>, <code>not_intercepted_error_implements_error</code>, <code>config_loader_condition_returns_path_when_exists</code>, <code>config_loader_condition_returns_none_when_missing</code>, <code>config_loader_condition_returns_none_when_none</code>, <code>find_config_files_error_when_not_found</code>, <code>find_config_files_appends_json_suffix_to_message</code>, <code>get_default_theme_unicode_returns_powerline_terminus</code>, <code>get_default_theme_non_unicode_returns_ascii</code>, <code>finish_common_config_fills_default_top_theme_for_utf8</code>, <code>finish_common_config_fills_default_top_theme_for_ucs</code>, <code>finish_common_config_fills_default_top_theme_for_ascii</code>, <code>finish_common_config_fills_all_defaults</code>, <code>finish_common_config_log_file_defaults_to_list_with_null</code>, <code>finish_common_config_wraps_non_list_log_file</code>, <code>finish_common_config_preserves_supplied_values</code>, <code>finish_common_config_expands_tilde_in_paths</code>, <code>powerline_logger_format_includes_ext_prefix_message</code>, <code>powerline_logger_format_overrides_prefix</code>, <code>powerline_logger_log_captures_message</code>, <code>get_config_paths_includes_plugin_path_first</code>, <code>get_config_paths_includes_xdg_config_home</code>, <code>LOG_KEYS</code>, <code>resolve_renderer_module</code>, <code>load_colorscheme_config_levels</code>, <code>load_theme_config_levels</code>, <code>load_config_instance</code>, <code>powerline_exception</code>, <code>enter</code>, <code>exit</code>, <code>_load_hierarhical_config_instance</code>, <code>create_logger_instance</code>, <code>instantiate_renderer</code>, <code>log_keys_has_four_entries</code>, <code>default_update_interval_is_two</code>, <code>get_log_keys_filters_dict_to_log_keys_only</code>, <code>get_log_keys_empty_input_returns_empty</code>, <code>get_log_keys_no_log_keys_returns_empty</code>, <code>generate_change_callback_sets_key_true_on_invocation</code>, <code>generate_change_callback_overwrites_existing_value</code>, <code>powerline_init_resolves_default_renderer_module</code>, <code>powerline_init_run_once_flag</code>, <code>powerline_init_populates_cr_kwargs_for_all_four_keys</code>, <code>powerline_create_renderer_assembles_renderer_options</code>, <code>powerline_instantiate_renderer_invokes_factory_with_options</code>, <code>powerline_instantiate_renderer_propagates_factory_none_as_import_error</code>, <code>powerline_create_renderer_caches_prev_common_config</code>, <code>resolve_renderer_module_undotted_uses_renderers_prefix</code>, <code>resolve_renderer_module_leading_dot_appends_to_ext</code>, <code>resolve_renderer_module_trailing_dot_strips_dot</code>, <code>resolve_renderer_module_dotted_passes_through</code>, <code>resolve_renderer_module_empty_str_uses_default</code>, <code>setup_components_base_is_no_op</code>, <code>get_local_themes_base_returns_none</code>, <code>do_setup_base_is_no_op</code>, <code>powerline_get_config_paths_delegates_to_module_fn</code>, <code>get_fallback_logger_returns_powerline_fallback_pair</code>, <code>generate_config_finder_dispatches_to_find_config_files</code>, <code>generate_config_finder_returns_err_when_missing</code>, <code>load_config_loads_single_file</code>, <code>load_config_merges_multiple_paths</code>, <code>load_colorscheme_config_levels_returns_three_levels</code>, <code>load_theme_config_levels_appends_ext_name</code>, <code>powerline_shutdown_sets_event</code>, <code>powerline_shutdown_no_event_set_when_flag_false</code>, <code>powerline_setup_clears_shutdown_event_and_calls_do_setup</code>, <code>powerline_load_main_config_dispatches_to_main_kind</code>, <code>powerline_load_colors_config_dispatches_to_colors_kind</code>, <code>load_hierarhical_config_merges_levels</code>, <code>load_hierarhical_config_errors_when_no_levels_load</code>, <code>load_hierarhical_config_ignores_specified_levels</code>, <code>load_hierarhical_config_ignore_levels_skipped_in_loaded_count</code>, <code>powerline_load_config_instance_dispatches_through_finder_and_load_fn</code>, <code>powerline_purge_configs_returns_function_id_pair</code>, <code>powerline_load_colorscheme_config_walks_three_levels</code>, <code>powerline_load_theme_config_appends_ext_name_level</code>, <code>powerline_exception_defaults_prefix_to_powerline</code>, <code>powerline_exception_explicit_prefix_used</code>, <code>powerline_exception_no_pl_returns_fallback_flag</code>, <code>powerline_enter_is_no_op</code>, <code>powerline_exit_sets_shutdown_event</code>, <code>update_renderer_no_pending_kwargs_returns_false</code>, <code>update_renderer_success_returns_true</code>, <code>update_renderer_failure_with_existing_renderer_returns_false</code>, <code>update_renderer_failure_without_existing_renderer_returns_err</code>, <code>render_success_returns_rendered_string</code>, <code>render_failure_returns_failed_message_without_width</code>, <code>render_failure_with_output_width_returns_message_and_len</code>, <code>render_update_renderer_failure_routes_to_failed</code>, <code>render_above_lines_success_returns_yielded_lines</code>, <code>render_above_lines_failure_yields_single_failed_line</code>, <code>load_hierarhical_config_instance_delegates_to_module_fn</code>, <code>create_logger_instance_builds_powerline_logger_for_ext</code>, <code>reload_runs_all_three_phases_in_order</code>, <code>reload_stops_on_clear_modules_error</code>, <code>reload_propagates_reconstruct_error</code>, <code>reraise_returns_message_unchanged</code>, <code>gen_module_attr_getter_routes_through_lookup</code></td><td class="coverage">85%</td></tr>
+  <!-- SYM py_file=powerline/__init__.py rs_file=src/ported/mod.rs rs_exists=True py_fn_total=48 ported_count=41 missing_count=7 rs_extra_count=101 coverage=0.8542 -->
+  <!-- END-GROUP py_file=powerline/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/vim/__init__.py -->
+  <tr class="partial"><td><code>segments/vim/__init__.py</code></td><td>✔ <code>segments/vim/mod.rs</code></td><td>37</td><td><code>window_cached</code>, <code>mode</code>, <code>modified_indicator</code>, <code>tab_modified_indicator</code>, <code>paste_indicator</code>, <code>readonly_indicator</code>, <code>file_scheme</code>, <code>file_size</code>, <code>file_format</code>, <code>file_encoding</code>, <code>file_bom</code>, <code>file_type</code>, <code>window_title</code>, <code>line_percent</code>, <code>position</code>, <code>line_current</code>, <code>line_count</code>, <code>col_current</code>, <code>virtcol_current</code>, <code>modified_buffers</code>, <code>tabnr</code>, <code>bufnr</code>, <code>winnr</code>, <code>detect_text_csv_dialect</code>, <code>tab</code></td><td><code>ret</code>, <code>visual_range</code>, <code>file_directory</code>, <code>file_name</code>, <code>get_directory</code>, <code>get_directory</code>, <code>file_vcs_status</code>, <code>trailing_whitespace</code>, <code>read_csv</code>, <code>read_csv</code>, <code>process_csv_buffer</code>, <code>csv_col_current</code></td><td><code>vim_modes</code>, <code>mode_translation</code>, <code>position_value</code>, <code>line_percent_value</code>, <code>visual_range_text</code>, <code>file_size_text</code>, <code>default_position_strings</code>, <code>SCHEME_RE</code>, <code>vim_modes_has_24_entries</code>, <code>vim_modes_normal_translates_to_normal</code>, <code>vim_modes_visual_line_translates</code>, <code>vim_modes_insert_translates</code>, <code>vim_modes_terminal_translates</code>, <code>mode_translation_falls_back_to_vim_modes</code>, <code>mode_translation_unknown_returns_input</code>, <code>mode_translation_override_takes_precedence</code>, <code>mode_translation_override_with_no_match_falls_through</code>, <code>position_value_all_visible_returns_all</code>, <code>position_value_at_top_returns_top</code>, <code>position_value_at_bottom_returns_bottom</code>, <code>position_value_middle_returns_percent</code>, <code>line_percent_value_zero_total_returns_zero</code>, <code>line_percent_value_at_start_is_low</code>, <code>line_percent_value_at_end_is_100</code>, <code>line_percent_value_midpoint_is_50</code>, <code>visual_range_text_blockwise_uses_ctrl_v_format</code>, <code>visual_range_text_visual_oneline_uses_v_oneline</code>, <code>visual_range_text_visual_multiline_uses_v_multiline</code>, <code>visual_range_text_v_line_uses_v_block_text</code>, <code>visual_range_text_normal_mode_returns_empty</code>, <code>file_size_text_zero_returns_none</code>, <code>file_size_text_positive_formats_via_humanize_bytes</code>, <code>default_position_strings_matches_upstream</code>, <code>window_cached_passes_function_through</code>, <code>scheme_re_matches_zipfile_prefix</code>, <code>scheme_re_accepts_digit_prefix</code>, <code>scheme_re_no_match_when_no_colon</code>, <code>mode_returns_none_for_nc</code>, <code>mode_translates_normal</code>, <code>mode_translates_visual_block_via_caret_v</code>, <code>mode_trims_unknown_suffix</code>, <code>mode_override_takes_precedence</code>, <code>mode_empty_returns_bug</code>, <code>modified_indicator_returns_text_when_modified</code>, <code>paste_indicator_returns_text_when_paste_enabled</code>, <code>readonly_indicator_returns_text_when_readonly</code>, <code>file_scheme_extracts_prefix</code>, <code>file_scheme_returns_none_for_no_scheme</code>, <code>file_scheme_returns_none_for_empty_name</code>, <code>file_format_returns_value_or_none</code>, <code>file_encoding_returns_value_or_none</code>, <code>file_bom_returns_bom_or_none</code>, <code>file_type_returns_value_or_none</code>, <code>line_percent_no_gradient_returns_string</code>, <code>line_percent_with_gradient_returns_list</code>, <code>line_percent_at_first_line_emits_one</code>, <code>line_percent_at_last_line_emits_100</code>, <code>position_top_when_winline_first_is_one_and_not_all</code>, <code>position_all_when_window_shows_entire_buffer</code>, <code>position_bottom_when_winline_last_is_buffer_end</code>, <code>position_middle_emits_percentage</code>, <code>position_gradient_emits_full_dict</code>, <code>line_current_returns_cursor_row</code>, <code>line_count_returns_buffer_len</code>, <code>col_current_adds_one_to_zero_based_col</code>, <code>virtcol_current_no_gradient_omits_level</code>, <code>virtcol_current_with_gradient_computes_level</code>, <code>virtcol_current_clamps_gradient_to_100</code>, <code>virtcol_current_zero_textwidth_gives_zero_gradient</code>, <code>modified_buffers_with_empty_list_returns_none</code>, <code>modified_buffers_joins_list_with_prefix</code>, <code>modified_buffers_uses_custom_separator</code>, <code>tabnr_shows_current_when_flag_set</code>, <code>tabnr_hides_current_when_flag_unset</code>, <code>tabnr_shows_other_tabnr_regardless_of_flag</code>, <code>bufnr_show_current_paths</code>, <code>winnr_show_current_paths</code>, <code>csv_sniff_lines_constant</code>, <code>csv_parse_lines_constant</code>, <code>tab_modified_indicator_returns_segment_when_modified</code>, <code>tab_modified_indicator_returns_none_when_no_modified</code>, <code>window_title_returns_value_when_set</code>, <code>window_title_returns_none_when_unset</code>, <code>file_size_clamps_negative_to_zero</code>, <code>file_size_humanizes_byte_count</code>, <code>detect_text_csv_dialect_auto_uses_caller_has_header</code>, <code>detect_text_csv_dialect_non_auto_uses_display_name</code>, <code>tab_returns_segment_with_tabnr_marker</code>, <code>tab_end_emits_empty_tabnr</code>, <code>tab_returns_none_when_no_tabnr</code></td><td class="coverage">68%</td></tr>
+  <!-- SYM py_file=powerline/segments/vim/__init__.py rs_file=src/ported/segments/vim/mod.rs rs_exists=True py_fn_total=37 ported_count=25 missing_count=12 rs_extra_count=90 coverage=0.6757 -->
+  <!-- END-GROUP py_file=powerline/segments/vim/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/lint/spec.py -->
   <tr class="partial"><td><code>lint/spec.py</code></td><td>✔ <code>lint/spec.rs</code></td><td>32</td><td><code>update</code>, <code>copy</code>, <code>_update</code>, <code>unknown_spec</code>, <code>unknown_msg</code>, <code>context_message</code>, <code>check_type</code>, <code>check_func</code>, <code>check_list</code>, <code>check_either</code>, <code>check_tuple</code>, <code>check_printable</code>, <code>printable</code>, <code>len</code>, <code>cmp</code>, <code>unsigned</code>, <code>list</code>, <code>tuple</code>, <code>func</code>, <code>re</code>, <code>ident</code>, <code>oneof</code>, <code>error</code>, <code>either</code>, <code>optional</code>, <code>required</code>, <code>match_checks</code></td><td><code>__init__</code>, <code>type</code>, <code>match</code>, <code>__getitem__</code>, <code>__setitem__</code></td><td><code>NON_PRINTABLE_RE</code>, <code>ok</code>, <code>failed</code>, <code>default</code>, <code>new</code>, <code>type_check</code>, <code>regex</code>, <code>get</code>, <code>set</code>, <code>check_list_walk</code>, <code>match_dispatch</code>, <code>non_printable_re_matches_control_chars</code>, <code>non_printable_re_allows_printable</code>, <code>check_result_ok_is_proceed_true_no_problem</code>, <code>check_result_failed_is_proceed_false_with_problem</code>, <code>spec_new_starts_empty</code>, <code>spec_update_registers_key_spec</code>, <code>spec_optional_sets_isoptional</code>, <code>spec_required_clears_isoptional</code>, <code>spec_context_message_stores_msg</code>, <code>spec_printable_sets_flag</code>, <code>spec_unsigned_sets_flag</code>, <code>spec_ident_sets_flag_and_regex</code>, <code>spec_type_check_registers_allowed_types</code>, <code>spec_regex_stores_pattern</code>, <code>spec_oneof_stores_values</code>, <code>spec_error_stores_msg</code>, <code>spec_len_stores_constraint</code>, <code>spec_cmp_stores_constraint</code>, <code>spec_copy_clones_all_fields</code>, <code>check_printable_accepts_normal_text</code>, <code>check_printable_rejects_control_char</code>, <code>check_type_object_matches_dict</code>, <code>check_type_array_matches_list</code>, <code>check_type_string_matches_unicode</code>, <code>check_type_bool_matches_bool</code>, <code>check_type_number_matches_float</code>, <code>check_type_null_matches_null</code>, <code>check_type_mismatch_returns_failed</code>, <code>check_list_aggregates_results</code>, <code>check_list_any_failure_marks_had_problem</code>, <code>check_either_short_circuits_on_first_success</code>, <code>check_either_all_fail_returns_failed</code>, <code>cmp_enum_variants_match_python_operators</code>, <code>list_pins_type_to_list_and_pushes_item_spec</code>, <code>tuple_pins_eq_length_when_no_optionals</code>, <code>tuple_uses_le_when_trailing_optionals_present</code>, <code>tuple_sets_type_to_list</code>, <code>tuple_empty_specs_yields_eq_zero_length</code>, <code>either_pushes_all_variants_to_specs</code>, <code>either_empty_variants_leaves_specs_empty</code>, <code>match_checks_all_pass_returns_true</code>, <code>match_checks_records_hadproblem_but_continues</code>, <code>match_checks_stops_early_on_no_proceed</code>, <code>match_checks_empty_returns_ok</code>, <code>unknown_msg_returns_self_for_chaining</code>, <code>unknown_spec_pushes_key_and_value_specs</code>, <code>check_func_returns_proceed_hadproblem_pair</code>, <code>check_func_propagates_hadproblem</code>, <code>check_func_stops_on_no_proceed</code>, <code>check_tuple_walks_each_item_with_corresponding_spec</code>, <code>check_tuple_early_exits_on_no_proceed</code>, <code>check_tuple_records_hadproblem_but_continues_when_proceed_true</code>, <code>check_list_walk_walks_all_items</code>, <code>check_list_walk_early_exits_on_no_proceed</code>, <code>check_list_walk_records_hadproblem_but_continues</code>, <code>check_list_walk_empty_returns_ok</code>, <code>match_dispatch_top_check_failure_returns_early</code>, <code>match_dispatch_no_keys_returns_top_check_result</code>, <code>match_dispatch_walks_registered_keys</code>, <code>match_dispatch_missing_required_key_sets_hadproblem</code>, <code>match_dispatch_missing_optional_key_does_not_set_hadproblem</code>, <code>match_dispatch_propagates_key_check_hadproblem</code>, <code>match_dispatch_early_exits_on_key_no_proceed</code>, <code>match_dispatch_non_map_value_short_circuits_after_top_check</code>, <code>func_registers_name_via_error_msg_slot</code>, <code>get_retrieves_registered_key_spec</code>, <code>get_missing_key_returns_none</code>, <code>set_inserts_spec_under_key</code>, <code>set_overwrites_existing_key</code>, <code>_update_copies_all_constraint_fields</code>, <code>_update_deep_copies_nested_specs</code>, <code>_update_copies_keys_map</code></td><td class="coverage">84%</td></tr>
   <!-- SYM py_file=powerline/lint/spec.py rs_file=src/ported/lint/spec.rs rs_exists=True py_fn_total=32 ported_count=27 missing_count=5 rs_extra_count=83 coverage=0.8438 -->
@@ -146,6 +158,14 @@ columns:
   <tr class="partial"><td><code>lint/markedjson/constructor.py</code></td><td>✔ <code>lint/markedjson/constructor.rs</code></td><td>23</td><td><code>marked</code>, <code>f</code>, <code>check_data</code>, <code>get_data</code>, <code>get_single_data</code>, <code>construct_document</code>, <code>construct_object</code>, <code>construct_scalar</code>, <code>construct_sequence</code>, <code>construct_mapping</code>, <code>add_constructor</code>, <code>construct_scalar</code>, <code>flatten_mapping</code>, <code>construct_mapping</code>, <code>construct_yaml_null</code>, <code>construct_yaml_bool</code>, <code>construct_yaml_int</code>, <code>construct_yaml_float</code>, <code>construct_yaml_str</code>, <code>construct_yaml_seq</code>, <code>construct_yaml_map</code>, <code>construct_undefined</code></td><td><code>__init__</code></td><td><code>fmt</code>, <code>default</code>, <code>new</code>, <code>default</code>, <code>new</code>, <code>composed_id</code>, <code>marked_any_to_json</code>, <code>mk_scalar</code>, <code>mk_seq</code>, <code>mk_map</code>, <code>constructor_error_implements_error_traits</code>, <code>marked_wraps_value_with_mark</code>, <code>add_constructor_registers_tag</code>, <code>add_constructor_none_maps_to_catchall_key</code>, <code>construct_object_unknown_tag_returns_error</code>, <code>construct_object_catchall_fires_for_unknown_tag</code>, <code>construct_scalar_returns_marked_unicode</code>, <code>construct_scalar_rejects_sequence_node</code>, <code>construct_sequence_returns_vec_of_marked_values</code>, <code>construct_sequence_rejects_scalar_node</code>, <code>construct_mapping_returns_marked_dict</code>, <code>construct_yaml_null_returns_null</code>, <code>construct_yaml_bool_parses_true_string</code>, <code>construct_yaml_bool_parses_false_string</code>, <code>construct_yaml_int_positive</code>, <code>construct_yaml_int_negative</code>, <code>construct_yaml_int_zero</code>, <code>construct_yaml_float_parses_decimal</code>, <code>construct_yaml_str_returns_string</code>, <code>construct_yaml_seq_builds_marked_list</code>, <code>construct_yaml_map_builds_marked_dict</code>, <code>construct_undefined_always_errors</code>, <code>constructor_new_registers_all_eight_tags</code>, <code>construct_object_dispatches_int_constructor</code>, <code>base_constructor_new_initialises_empty_state</code>, <code>check_data_returns_input</code>, <code>get_data_returns_none_when_no_node</code>, <code>get_single_data_returns_none_when_no_node</code>, <code>construct_document_resets_constructed_objects_after_construction</code>, <code>construct_document_resets_deep_construct_after_construction</code>, <code>get_data_with_node_returns_constructed_value</code>, <code>get_single_data_with_node_returns_constructed_value</code>, <code>f_closure_wraps_construct_result_with_mark</code></td><td class="coverage">96%</td></tr>
   <!-- SYM py_file=powerline/lint/markedjson/constructor.py rs_file=src/ported/lint/markedjson/constructor.rs rs_exists=True py_fn_total=23 ported_count=22 missing_count=1 rs_extra_count=43 coverage=0.9565 -->
   <!-- END-GROUP py_file=powerline/lint/markedjson/constructor.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/pdb/__init__.py -->
+  <tr class="partial"><td><code>bindings/pdb/__init__.py</code></td><td>✔ <code>bindings/pdb/mod.rs</code></td><td>22</td><td><code>use_powerline_prompt</code>, <code>main</code></td><td><code>__new__</code>, <code>__len__</code>, <code>__getitem__</code>, <code>__getslice__</code>, <code>add</code>, <code>__add__</code>, <code>__radd__</code>, <code>__unicode__</code>, <code>__new__</code>, <code>__str__</code>, <code>__getitem__</code>, <code>__getslice__</code>, <code>add</code>, <code>__add__</code>, <code>__radd__</code>, <code>encode</code>, <code>prompt</code>, <code>prompt</code>, <code>prompt</code>, <code>__init__</code></td><td><code>new</code>, <code>powerline_render_result_is_string_alias</code>, <code>use_powerline_prompt_flags_class_name</code>, <code>main_emits_advice_without_panic</code></td><td class="coverage">9%</td></tr>
+  <!-- SYM py_file=powerline/bindings/pdb/__init__.py rs_file=src/ported/bindings/pdb/mod.rs rs_exists=True py_fn_total=22 ported_count=2 missing_count=20 rs_extra_count=4 coverage=0.0909 -->
+  <!-- END-GROUP py_file=powerline/bindings/pdb/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/zsh/__init__.py -->
+  <tr class="partial"><td><code>bindings/zsh/__init__.py</code></td><td>✔ <code>bindings/zsh/mod.rs</code></td><td>21</td><td><code>shutdown</code>, <code>get_var_config</code>, <code>string</code>, <code>get</code>, <code>precmd</code>, <code>do_setup</code>, <code>reload</code>, <code>reload_config</code></td><td><code>config_override</code>, <code>theme_override</code>, <code>config_path</code>, <code>jobnum</code>, <code>__getitem__</code>, <code>__contains__</code>, <code>zsh_expand</code>, <code>init</code>, <code>__init__</code>, <code>__str__</code>, <code>__del__</code>, <code>set_prompt</code>, <code>setup</code></td><td><code>used_powerlines</code>, <code>ext</code>, <code>new</code>, <code>config_path_from_var</code>, <code>args_config_override</code>, <code>args_theme_override</code>, <code>args_config_path</code>, <code>args_jobnum</code>, <code>contains</code>, <code>zsh_expand_fallback_steps</code>, <code>set_prompt_zpyvar_name</code>, <code>build_segment_info</code>, <code>del_restore</code>, <code>new</code>, <code>default</code>, <code>next_id</code>, <code>new</code>, <code>setup_entry</code>, <code>reset_used</code>, <code>args_ext_matches_upstream</code>, <code>args_renderer_module_matches_upstream</code>, <code>args_new_defaults_to_empty_pipe_status_and_zero_exit_code</code>, <code>get_var_config_none_returns_none</code>, <code>get_var_config_dict_parses_via_parsedotval</code>, <code>get_var_config_string_parses_via_parse_override_var</code>, <code>get_var_config_unknown_type_returns_none</code>, <code>config_path_from_var_none_returns_none</code>, <code>config_path_from_var_string_splits_on_colon</code>, <code>config_path_from_var_string_filters_empty_entries</code>, <code>config_path_from_var_list_preserves_entries</code>, <code>string_decodes_bytes_to_utf8</code>, <code>environment_get_returns_value_when_present</code>, <code>environment_get_returns_default_when_absent</code>, <code>environment_contains_true_when_present</code>, <code>environment_contains_false_when_absent</code>, <code>set_prompt_zpyvar_name_prepends_zpython_powerline</code>, <code>build_segment_info_contains_all_expected_keys</code>, <code>build_segment_info_none_mode_becomes_null</code>, <code>prompt_new_stores_state</code>, <code>zsh_powerline_new_assigns_unique_id</code>, <code>zsh_powerline_precmd_sets_args</code>, <code>zsh_powerline_do_setup_emits_five_prompt_pairs</code>, <code>zsh_powerline_do_setup_marks_above_only_for_ps1</code>, <code>zsh_powerline_do_setup_registers_in_used_powerlines</code>, <code>shutdown_iterates_registered_powerlines</code>, <code>reload_iterates_registered_powerlines</code>, <code>reload_config_iterates_registered_powerlines</code>, <code>setup_entry_returns_fresh_powerline</code>, <code>args_config_override_delegates_to_get_var_config</code>, <code>args_config_override_none_input_returns_none</code>, <code>args_theme_override_delegates_to_get_var_config</code>, <code>args_config_path_splits_string_on_colon</code>, <code>args_config_path_filters_empty_segments</code>, <code>args_config_path_passes_array_through</code>, <code>args_config_path_none_input_returns_none</code>, <code>args_jobnum_passes_through</code>, <code>zsh_expand_fallback_builds_local_var_command</code>, <code>prompt_del_restore_returns_var_value_pair</code>, <code>prompt_del_restore_returns_none_when_no_savedps</code>, <code>prompt_del_restore_returns_none_when_savedps_empty</code></td><td class="coverage">38%</td></tr>
+  <!-- SYM py_file=powerline/bindings/zsh/__init__.py rs_file=src/ported/bindings/zsh/mod.rs rs_exists=True py_fn_total=21 ported_count=8 missing_count=13 rs_extra_count=60 coverage=0.3810 -->
+  <!-- END-GROUP py_file=powerline/bindings/zsh/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/config.py -->
   <tr class="partial"><td><code>lib/config.py</code></td><td>✔ <code>lib/config.rs</code></td><td>21</td><td><code>open_file</code>, <code>load_json_config</code>, <code>watch</code>, <code>watch</code>, <code>unwatch</code>, <code>transfer_calls</code>, <code>set_watcher</code>, <code>set_pl</code>, <code>set_interval</code>, <code>register</code>, <code>register_missing</code>, <code>unregister_functions</code>, <code>unregister_missing</code>, <code>load</code>, <code>update</code>, <code>run</code>, <code>exception</code></td><td><code>__call__</code>, <code>__init__</code>, <code>__call__</code>, <code>__init__</code></td><td><code>check</code>, <code>default</code>, <code>new</code>, <code>check</code>, <code>default</code>, <code>new</code>, <code>tmp_json</code>, <code>open_file_reads_utf8_contents</code>, <code>load_json_config_parses_basic</code>, <code>load_json_config_returns_err_on_bad_json</code>, <code>dummy_watcher_always_returns_false</code>, <code>deferred_watcher_queues_calls</code>, <code>config_loader_run_once_uses_dummy_watcher_type</code>, <code>config_loader_default_uses_deferred_watcher_type</code>, <code>config_loader_set_pl_records_value</code>, <code>config_loader_set_interval_records_value</code>, <code>config_loader_register_adds_function_to_watched_path</code>, <code>config_loader_register_dedupes_function_id</code>, <code>config_loader_register_missing_adds_pair_to_key</code>, <code>config_loader_unregister_functions_drops_path_when_empty</code>, <code>config_loader_unregister_functions_keeps_path_with_remaining_functions</code>, <code>config_loader_unregister_functions_clears_loaded_entry</code>, <code>config_loader_unregister_missing_drops_key_when_empty</code>, <code>config_loader_load_calls_load_fn_on_cache_miss</code>, <code>config_loader_load_returns_cached_value_on_hit</code>, <code>config_loader_load_propagates_load_fn_errors</code>, <code>config_loader_set_watcher_same_type_is_noop</code>, <code>config_loader_set_watcher_different_type_swaps</code>, <code>config_loader_set_watcher_dummy_to_inotify</code>, <code>config_loader_exception_no_pl_returns_err</code>, <code>config_loader_exception_with_pl_returns_formatted</code>, <code>config_loader_exception_substitutes_multiple_args</code>, <code>config_loader_update_dispatches_modified_paths</code>, <code>config_loader_update_skips_unmodified_paths</code>, <code>config_loader_update_load_error_surfaces</code>, <code>config_loader_update_resolves_missing_via_condition</code>, <code>config_loader_run_exits_immediately_when_shutdown_event_set</code>, <code>config_loader_run_exits_when_interval_is_none</code></td><td class="coverage">81%</td></tr>
   <!-- SYM py_file=powerline/lib/config.py rs_file=src/ported/lib/config.rs rs_exists=True py_fn_total=21 ported_count=17 missing_count=4 rs_extra_count=38 coverage=0.8095 -->
@@ -170,6 +190,10 @@ columns:
   <tr class="partial"><td><code>bindings/ipython/pre_0_11.py</code></td><td>✔ <code>bindings/ipython/pre_0_11.rs</code></td><td>16</td><td><code>prompt_count</code>, <code>set_p_str</code>, <code>set_colors</code>, <code>set_p_str</code>, <code>auto_rewrite</code>, <code>set_p_str</code>, <code>init</code>, <code>ipython_magic</code>, <code>do_setup</code>, <code>setup</code>, <code>late_startup_hook</code></td><td><code>__init__</code>, <code>__init__</code>, <code>__str__</code>, <code>__str__</code>, <code>__call__</code></td><td><code>rspace</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>to_p_str</code>, <code>new</code>, <code>new</code>, <code>default</code>, <code>new</code>, <code>default</code>, <code>new</code>, <code>set_powerline</code>, <code>call</code>, <code>fake_render</code>, <code>rspace_matches_trailing_whitespace</code>, <code>rspace_matches_empty_at_end_of_no_trailing_space</code>, <code>ipython_info_prompt_count_returns_value</code>, <code>powerline_prompt_set_p_str_stashes_render_result</code>, <code>powerline_prompt_set_colors_is_noop</code>, <code>powerline_prompt_init_sets_pad_left_false</code>, <code>powerline_prompt_init_preserves_sep_when_supplied</code>, <code>powerline_prompt1_advances_count_and_snapshots_last_prompt</code>, <code>powerline_prompt1_set_p_str_counts_trailing_spaces</code>, <code>powerline_prompt1_set_p_str_zero_trailing_spaces</code>, <code>powerline_prompt1_auto_rewrite_pads_with_nrspaces</code>, <code>powerline_prompt_out_pads_with_last_in_nrspaces</code>, <code>powerline_prompt2_inherits_padding_behaviour</code>, <code>powerline_prompt2_is_prompt_true</code>, <code>powerline_prompt_out_is_not_a_prompt</code>, <code>configurable_init_pins_pre_5_renderer</code>, <code>configurable_init_stashes_all_three_overrides</code>, <code>ipython_magic_reload_succeeds</code>, <code>ipython_magic_other_errors</code>, <code>do_setup_installs_three_prompts_and_wires_hook</code>, <code>shutdown_hook_call_returns_try_next</code>, <code>shutdown_hook_call_skips_when_target_dead</code>, <code>setup_returns_pair_of_powerline_and_hook</code>, <code>late_startup_hook_dispatches_setup_then_returns_try_next</code></td><td class="coverage">69%</td></tr>
   <!-- SYM py_file=powerline/bindings/ipython/pre_0_11.py rs_file=src/ported/bindings/ipython/pre_0_11.rs rs_exists=True py_fn_total=16 ported_count=11 missing_count=5 rs_extra_count=38 coverage=0.6875 -->
   <!-- END-GROUP py_file=powerline/bindings/ipython/pre_0_11.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/vcs/__init__.py -->
+  <tr class="partial"><td><code>lib/vcs/__init__.py</code></td><td>✔ <code>lib/vcs/mod.rs</code></td><td>16</td><td><code>generate_directories</code>, <code>get_branch_name</code>, <code>update_maps</code>, <code>invalidate</code>, <code>ignore_files</code>, <code>cache_and_get</code>, <code>tree_status</code>, <code>guess</code></td><td><code>file_watcher</code>, <code>branch_watcher</code>, <code>__init__</code>, <code>get_file_status</code>, <code>__init__</code>, <code>__call__</code>, <code>get_fallback_create_watcher</code>, <code>debug</code></td><td><code>is_mount</code>, <code>is_mount</code>, <code>branch_name_cache</code>, <code>branch_lock</code>, <code>file_status_lock</code>, <code>default</code>, <code>new</code>, <code>file_status_cache</code>, <code>default</code>, <code>new</code>, <code>call</code>, <code>tree_status_cache</code>, <code>matches</code>, <code>vcs_props</code>, <code>guess_vcs_at_directory</code>, <code>file_watcher_initialised</code>, <code>branch_watcher_initialised</code>, <code>generate_directories_walks_up_from_cwd</code>, <code>generate_directories_terminates_at_root</code>, <code>reset_caches</code>, <code>file_status_cache_new_starts_empty</code>, <code>file_status_cache_update_maps_registers_ignore_files</code>, <code>file_status_cache_invalidate_clears_dirstate_dependents</code>, <code>file_status_cache_invalidate_clears_ignore_dependents</code>, <code>file_status_cache_extra_ignore_files_are_included</code>, <code>tree_status_cache_caches_status_on_first_call</code>, <code>tree_status_cache_call_invalidates_on_watcher_change</code>, <code>tree_status_cache_call_uses_cache_when_unchanged</code>, <code>tree_status_cache_call_swallows_os_error_and_uses_cache</code>, <code>get_branch_name_caches_within_process</code>, <code>get_branch_name_changed_flag_refreshes_cache</code>, <code>tree_status_delegates_to_cache</code>, <code>vcs_props_contains_three_entries</code>, <code>vcs_props_git_uses_exists_check</code>, <code>vcs_props_mercurial_uses_isdir_check</code>, <code>vcs_check_exists_matches_existing_path</code>, <code>vcs_check_isdir_only_matches_directories</code>, <code>vcs_check_exists_no_match_for_nonexistent_path</code>, <code>guess_vcs_at_directory_detects_git_repo</code>, <code>guess_vcs_at_directory_detects_mercurial_repo</code>, <code>guess_vcs_at_directory_returns_none_for_non_repo</code>, <code>guess_walks_parent_directories_to_find_repo</code>, <code>guess_returns_none_when_no_repo_in_chain</code>, <code>file_watcher_initialised_returns_bool</code>, <code>branch_watcher_initialised_returns_bool</code></td><td class="coverage">50%</td></tr>
+  <!-- SYM py_file=powerline/lib/vcs/__init__.py rs_file=src/ported/lib/vcs/mod.rs rs_exists=True py_fn_total=16 ported_count=8 missing_count=8 rs_extra_count=45 coverage=0.5000 -->
+  <!-- END-GROUP py_file=powerline/lib/vcs/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/watcher/inotify.py -->
   <tr class="partial"><td><code>lib/watcher/inotify.py</code></td><td>✔ <code>lib/watcher/inotify.rs</code></td><td>15</td><td><code>expire_watches</code>, <code>process_event</code>, <code>unwatch</code>, <code>watch</code>, <code>is_watching</code>, <code>close</code>, <code>watch_tree</code>, <code>add_watches</code>, <code>add_watch</code>, <code>process_event</code></td><td><code>__init__</code>, <code>__call__</code>, <code>__init__</code>, <code>__init__</code>, <code>__call__</code></td><td><code>fmt</code>, <code>fmt</code>, <code>fmt</code>, <code>new</code>, <code>now</code>, <code>query</code>, <code>mark_modified</code>, <code>new</code>, <code>query</code>, <code>no_such_dir_implements_error_traits</code>, <code>base_dir_changed_implements_error_traits</code>, <code>dir_too_large_message_matches_upstream</code>, <code>file_watcher_init_multiplies_expire_time_by_60</code>, <code>file_watcher_watch_stores_wd_in_state</code>, <code>file_watcher_watch_does_not_overwrite_existing</code>, <code>file_watcher_unwatch_removes_state_and_calls_rm</code>, <code>file_watcher_unwatch_unknown_path_no_op</code>, <code>file_watcher_is_watching_false_when_not_registered</code>, <code>file_watcher_query_returns_modified_flag_and_resets</code>, <code>file_watcher_query_unknown_path_returns_true</code>, <code>file_watcher_query_calls_read_callback</code>, <code>file_watcher_close_unwatches_all_paths</code>, <code>tree_watcher_is_dummy_false</code>, <code>tree_watcher_init_modified_true</code>, <code>tree_watcher_add_watch_dir_stores_both_maps</code>, <code>tree_watcher_add_watch_file_returns_false</code>, <code>tree_watcher_add_watch_failure_returns_false_and_no_state</code>, <code>tree_watcher_process_event_q_overflow_triggers_rescan</code>, <code>tree_watcher_process_event_unknown_wd_ignored</code>, <code>tree_watcher_process_event_create_returns_add_child_watch</code>, <code>tree_watcher_process_event_delete_self_on_basedir_returns_base_dir_changed</code>, <code>tree_watcher_process_event_ignored_event_does_not_set_modified</code>, <code>tree_watcher_query_returns_and_resets_modified</code>, <code>process_event_outcome_acknowledged_for_modified_only</code>, <code>file_watcher_expire_watches_removes_expired_entries</code>, <code>tree_watcher_watch_tree_resets_and_calls_add_watches</code>, <code>tree_watcher_add_watches_skips_already_known_paths</code>, <code>tree_watcher_add_watches_records_wd_on_success</code></td><td class="coverage">67%</td></tr>
   <!-- SYM py_file=powerline/lib/watcher/inotify.py rs_file=src/ported/lib/watcher/inotify.rs rs_exists=True py_fn_total=15 ported_count=10 missing_count=5 rs_extra_count=38 coverage=0.6667 -->
@@ -230,6 +254,10 @@ columns:
   <tr class="partial"><td><code>segments/common/env.py</code></td><td>✔ <code>segments/common/env.rs</code></td><td>10</td><td><code>environment</code>, <code>virtualenv</code>, <code>argspecobjs</code>, <code>omitted_args</code>, <code>get_shortened_path</code>, <code>_get_user</code>, <code>_get_user</code>, <code>_get_user</code>, <code>user</code></td><td><code>__call__</code></td><td><code>cwd_segments</code>, <code>_geteuid</code>, <code>env_with</code>, <code>environment_returns_value_when_set</code>, <code>environment_returns_none_when_unset</code>, <code>virtualenv_returns_last_path_component_from_virtual_env</code>, <code>virtualenv_skips_ignored_names_and_walks_to_parent</code>, <code>virtualenv_falls_back_to_conda_when_no_virtualenv</code>, <code>virtualenv_ignore_venv_skips_virtual_env</code>, <code>virtualenv_no_env_returns_none</code>, <code>get_shortened_path_not_found_returns_sentinel</code>, <code>get_shortened_path_shortens_home_prefix</code>, <code>get_shortened_path_no_home_returns_full_path</code>, <code>get_shortened_path_shorten_home_false_passes_through</code>, <code>cwd_segments_root_path</code>, <code>cwd_segments_multi_component</code>, <code>cwd_segments_dir_shorten_len_truncates_non_leaf</code>, <code>cwd_segments_dir_limit_depth_adds_ellipsis</code>, <code>cwd_segments_use_path_separator_appends_to_non_last_and_strips_last</code>, <code>cwd_segments_divider_group_set_on_all</code>, <code>cwd_segments_draw_inner_divider_inverse_of_use_path_separator</code>, <code>cwd_segments_empty_string_yields_root_segment</code>, <code>user_test_uuid_returns_user_verbatim</code>, <code>user_returns_username_with_user_highlight_for_non_root</code>, <code>user_root_gets_superuser_highlight</code>, <code>user_hidden_returns_none</code>, <code>user_hide_domain_strips_at_suffix</code>, <code>user_hide_domain_no_at_passes_through</code>, <code>get_user_reads_environ_user_variable</code>, <code>powerline_test_user_uuid_matches_upstream</code>, <code>cwd_segment_argspecobjs_yields_get_shortened_path</code>, <code>cwd_segment_omitted_args_for_get_shortened_path_is_empty</code>, <code>cwd_segment_omitted_args_for_unknown_method_is_empty</code>, <code>geteuid_returns_non_negative</code></td><td class="coverage">90%</td></tr>
   <!-- SYM py_file=powerline/segments/common/env.py rs_file=src/ported/segments/common/env.rs rs_exists=True py_fn_total=10 ported_count=9 missing_count=1 rs_extra_count=34 coverage=0.9000 -->
   <!-- END-GROUP py_file=powerline/segments/common/env.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/__init__.py -->
+  <tr class="partial"><td><code>lint/__init__.py</code></td><td>✔ <code>lint/mod.rs</code></td><td>9</td><td><code>open_file</code>, <code>generate_json_config_loader</code>, <code>register_common_names</code>, <code>load_json_file</code>, <code>updated_with_config</code>, <code>find_all_ext_config_files</code>, <code>dict2</code>, <code>check</code></td><td><code>load_json_config</code></td><td><code>function_name_re</code>, <code>strip_json_suffix</code>, <code>top_theme_spec</code>, <code>ext_theme_spec</code>, <code>log_format_spec</code>, <code>log_level_spec</code>, <code>term_color_spec</code>, <code>true_color_spec</code>, <code>colors_spec</code>, <code>mode_translations_value_spec</code>, <code>top_colorscheme_spec</code>, <code>vim_mode_spec</code>, <code>shell_mode_spec</code>, <code>divider_spec</code>, <code>ext_spec</code>, <code>gen_components_spec</code>, <code>args_spec</code>, <code>segment_module_spec</code>, <code>exinclude_spec</code>, <code>highlight_group_spec</code>, <code>_highlight_group_spec</code>, <code>vim_colorscheme_spec</code>, <code>shell_colorscheme_spec</code>, <code>segment_spec_base</code>, <code>subsegment_spec</code>, <code>segment_spec</code>, <code>segments_spec</code>, <code>segdict_spec</code>, <code>divside_spec</code>, <code>segment_data_value_spec</code>, <code>dividers_spec</code>, <code>spaces_spec</code>, <code>common_theme_spec</code>, <code>top_theme_structure_spec</code>, <code>main_theme_spec</code>, <code>log_file_spec</code>, <code>common_spec</code>, <code>ext_block_spec</code>, <code>main_spec</code>, <code>theme_spec</code>, <code>color_spec</code>, <code>name_spec</code>, <code>group_name_spec</code>, <code>attrs_spec</code>, <code>group_spec</code>, <code>groups_spec</code>, <code>colorscheme_spec</code>, <code>tmp_dir</code>, <code>function_name_re_matches_simple_name</code>, <code>function_name_re_matches_dotted_path</code>, <code>function_name_re_rejects_starting_digit</code>, <code>function_name_re_rejects_special_chars</code>, <code>open_file_reads_bytes</code>, <code>open_file_missing_returns_error</code>, <code>load_json_file_parses_valid_config</code>, <code>load_json_file_missing_returns_error</code>, <code>load_json_file_invalid_json_sets_hadproblem</code>, <code>updated_with_config_merges_results_into_dict</code>, <code>updated_with_config_no_path_no_op</code>, <code>dict2_shallow_copies_inner_dicts</code>, <code>dict2_passes_non_dict_values_through</code>, <code>strip_json_suffix_removes_suffix</code>, <code>strip_json_suffix_passes_through_when_absent</code>, <code>load_json_result_struct_fields_accessible</code>, <code>register_common_names_inserts_player_alias</code>, <code>generate_json_config_loader_loads_valid_config_and_flag_stays_false</code>, <code>generate_json_config_loader_missing_file_does_not_set_flag</code>, <code>find_all_ext_config_files_yields_ext_scoped_entry</code>, <code>find_all_ext_config_files_yields_top_level_entry</code>, <code>find_all_ext_config_files_yields_error_for_non_directory</code>, <code>find_all_ext_config_files_skips_nonexistent_root_silently</code>, <code>find_all_ext_config_files_yields_error_for_non_json_file_in_subdir</code>, <code>colorscheme_spec_registers_required_groups_key</code>, <code>group_spec_constructs_without_panic</code>, <code>groups_spec_attrs_spec_color_spec_constructible</code>, <code>check_against_clean_fixture_returns_false</code>, <code>check_rejects_colorscheme_missing_groups</code>, <code>check_rejects_double_underscore_filenames</code>, <code>check_rejects_theme_segments_left_not_array</code>, <code>check_rejects_parse_error</code>, <code>find_all_ext_config_files_walks_multiple_search_paths</code>, <code>ext_spec_carries_required_keys</code>, <code>divider_spec_has_printable_and_len_constraint</code>, <code>term_color_spec_is_unsigned_le_255</code>, <code>true_color_spec_has_hex_regex</code>, <code>colors_spec_has_colors_and_gradients_keys</code>, <code>vim_mode_spec_contains_known_modes</code>, <code>shell_mode_spec_has_regex</code>, <code>top_colorscheme_spec_has_mt_optional</code>, <code>args_spec_has_pl_and_segment_info_optional</code>, <code>gen_components_spec_lists_oneof_components</code>, <code>segment_spec_base_has_all_segment_keys</code>, <code>segment_spec_has_segments_and_type_keys</code>, <code>subsegment_spec_excludes_segment_list_from_type</code>, <code>segdict_spec_has_left_and_right</code>, <code>spaces_spec_has_unsigned_le_2</code>, <code>common_theme_spec_has_cursor_keys</code>, <code>theme_spec_has_segments_key</code>, <code>top_theme_structure_spec_includes_non_breaking_spaces</code>, <code>main_spec_has_common_and_ext_blocks</code>, <code>common_spec_has_log_and_watcher_keys</code>, <code>ext_block_spec_has_known_extensions</code>, <code>log_file_spec_is_optional_with_either</code></td><td class="coverage">89%</td></tr>
+  <!-- SYM py_file=powerline/lint/__init__.py rs_file=src/ported/lint/mod.rs rs_exists=True py_fn_total=9 ported_count=8 missing_count=1 rs_extra_count=103 coverage=0.8889 -->
+  <!-- END-GROUP py_file=powerline/lint/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/composer.py -->
   <tr class="partial"><td><code>lint/markedjson/composer.py</code></td><td>✔ <code>lint/markedjson/composer.rs</code></td><td>9</td><td><code>check_node</code>, <code>get_node</code>, <code>get_single_node</code>, <code>compose_document</code>, <code>compose_node</code>, <code>compose_scalar_node</code>, <code>compose_sequence_node</code>, <code>compose_mapping_node</code></td><td><code>__init__</code></td><td><code>fmt</code>, <code>kind</code>, <code>node</code>, <code>start_mark</code>, <code>check_event</code>, <code>get_event</code>, <code>descend_resolver</code>, <code>ascend_resolver</code>, <code>resolve</code>, <code>new</code>, <code>check_event</code>, <code>get_event</code>, <code>descend_resolver</code>, <code>ascend_resolver</code>, <code>resolve</code>, <code>composer_error_implements_error_traits</code>, <code>check_node_drops_stream_start_and_returns_true_if_doc_remaining</code>, <code>check_node_returns_false_at_stream_end</code>, <code>compose_document_returns_scalar_node</code>, <code>compose_node_dispatches_scalar</code>, <code>compose_node_dispatches_sequence</code>, <code>compose_node_dispatches_mapping</code>, <code>compose_scalar_node_resolves_tag_when_none</code>, <code>get_single_node_errors_on_two_documents</code>, <code>get_single_node_returns_single_document</code>, <code>get_single_node_returns_none_on_empty_stream</code>, <code>any_event_kind_dispatches_correctly</code>, <code>composed_node_start_mark_returns_underlying_mark</code></td><td class="coverage">89%</td></tr>
   <!-- SYM py_file=powerline/lint/markedjson/composer.py rs_file=src/ported/lint/markedjson/composer.rs rs_exists=True py_fn_total=9 ported_count=8 missing_count=1 rs_extra_count=28 coverage=0.8889 -->
@@ -246,10 +274,18 @@ columns:
   <tr class="partial"><td><code>renderers/ipython/since_7.py</code></td><td>✔ <code>renderers/ipython/since_7.rs</code></td><td>8</td><td><code>style_rules</code>, <code>invalidation_hash</code>, <code>get_segment_info</code>, <code>hl_join</code>, <code>hl</code>, <code>hlstyle</code>, <code>get_client_id</code></td><td><code>__init__</code></td><td><code>used_styles</code>, <code>seen</code>, <code>default</code>, <code>new</code>, <code>default</code>, <code>new</code>, <code>attrs_to_attr_names</code>, <code>build_token_name</code>, <code>build_style_rule</code>, <code>reset_globals</code>, <code>used_styles_starts_empty_after_reset</code>, <code>ipython_pygments_renderer_init_translates_space</code>, <code>hl_join_flattens_segments</code>, <code>hl_join_empty_returns_empty</code>, <code>attrs_to_attr_names_zero_is_empty</code>, <code>attrs_to_attr_names_all_three</code>, <code>build_token_name_with_fg_bg_attrs</code>, <code>build_token_name_with_no_truecolor_emits_empty_hex_segments</code>, <code>build_style_rule_includes_attrs_fg_bg</code>, <code>build_style_rule_no_colors_emits_bare_directives</code>, <code>hl_emits_token_name_and_contents</code>, <code>hl_registers_style_rule_on_first_call</code>, <code>hl_deduplicates_repeated_token_name</code>, <code>hl_emits_distinct_token_names_for_different_styles</code>, <code>hlstyle_returns_empty</code>, <code>get_client_id_is_stable_for_same_instance</code>, <code>powerline_prompt_style_style_rules_returns_used_styles_snapshot</code>, <code>powerline_prompt_style_invalidation_hash_returns_non_empty</code>, <code>get_segment_info_wraps_then_dispatches</code></td><td class="coverage">88%</td></tr>
   <!-- SYM py_file=powerline/renderers/ipython/since_7.py rs_file=src/ported/renderers/ipython/since_7.rs rs_exists=True py_fn_total=8 ported_count=7 missing_count=1 rs_extra_count=29 coverage=0.8750 -->
   <!-- END-GROUP py_file=powerline/renderers/ipython/since_7.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/shell/__init__.py -->
+  <tr class="partial"><td><code>renderers/shell/__init__.py</code></td><td>✔ <code>renderers/shell/mod.rs</code></td><td>8</td><td><code>int_to_rgb</code>, <code>get_client_id</code>, <code>hlstyle</code>, <code>get_theme</code></td><td><code>__init__</code>, <code>do_render</code>, <code>render</code>, <code>do_render</code></td><td><code>resolve</code>, <code>default</code>, <code>new</code>, <code>default</code>, <code>new</code>, <code>render_matcher_info</code>, <code>do_render_resolve_style</code>, <code>int_to_rgb_extracts_components</code>, <code>term_escape_style_auto_resolves_fbterm</code>, <code>term_escape_style_auto_resolves_xterm_for_other_term</code>, <code>term_escape_style_auto_resolves_xterm_when_term_unset</code>, <code>term_escape_style_pinned_value_passthrough</code>, <code>prompt_renderer_get_client_id_returns_value</code>, <code>prompt_renderer_get_client_id_returns_none_when_absent</code>, <code>shell_renderer_default_field_values_match_upstream</code>, <code>hlstyle_no_args_returns_just_reset_sequence</code>, <code>hlstyle_fg_cterm_emits_38_5_n</code>, <code>hlstyle_fg_truecolor_emits_38_2_rgb_when_enabled</code>, <code>hlstyle_truecolor_disabled_on_fbterm</code>, <code>hlstyle_bg_emits_48_5_n</code>, <code>hlstyle_attrs_bold_emits_1</code>, <code>hlstyle_attrs_italic_emits_3</code>, <code>hlstyle_attrs_underline_emits_4</code>, <code>hlstyle_combined_fg_bg_attrs</code>, <code>hlstyle_escape_true_wraps_with_hl_start_and_end</code>, <code>hlstyle_tmux_escape_wraps_with_dcs</code>, <code>hlstyle_screen_escape_wraps_with_dcs</code>, <code>render_matcher_info_pulls_local_theme</code>, <code>render_matcher_info_returns_none_when_unset</code>, <code>do_render_resolve_style_auto_dispatches_fbterm</code>, <code>do_render_resolve_style_auto_defaults_to_xterm</code>, <code>do_render_resolve_style_pinned_value_passes_through</code>, <code>shell_renderer_get_theme_no_matcher_returns_self_theme</code>, <code>shell_renderer_get_theme_empty_string_returns_self_theme</code>, <code>shell_renderer_get_theme_returns_existing_local_theme</code>, <code>shell_renderer_get_theme_constructs_lazy_theme</code>, <code>shell_renderer_get_theme_caches_constructed_theme</code>, <code>shell_renderer_get_theme_missing_matcher_returns_null</code></td><td class="coverage">50%</td></tr>
+  <!-- SYM py_file=powerline/renderers/shell/__init__.py rs_file=src/ported/renderers/shell/mod.rs rs_exists=True py_fn_total=8 ported_count=4 missing_count=4 rs_extra_count=38 coverage=0.5000 -->
+  <!-- END-GROUP py_file=powerline/renderers/shell/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/bindings/qtile/widget.py -->
   <tr class="partial"><td><code>bindings/qtile/widget.py</code></td><td>✔ <code>bindings/qtile/widget.rs</code></td><td>7</td><td><code>do_setup</code>, <code>update</code>, <code>cmd_update</code>, <code>cmd_get</code>, <code>timer_setup</code>, <code>_configure</code></td><td><code>__init__</code></td><td><code>default</code>, <code>new</code>, <code>new</code>, <code>with_defaults</code>, <code>calculated_constant_matches_libqtile_sentinel</code>, <code>qtile_powerline_do_setup_assigns_powerline_attribute</code>, <code>powerline_text_box_defaults_match_upstream_signature</code>, <code>update_interval_overrides_timeout_when_supplied</code>, <code>update_interval_falls_back_to_timeout_when_none</code>, <code>update_skips_when_not_configured</code>, <code>update_renders_and_draws_when_configured</code>, <code>update_passes_side_left_for_left_widget</code>, <code>cmd_get_returns_current_text</code>, <code>cmd_update_delegates_to_update</code>, <code>timer_setup_first_call_flips_flag</code>, <code>timer_setup_subsequent_calls_no_op</code>, <code>configure_marks_widget_configured_and_runs_timer_setup</code>, <code>configure_skips_relayout_when_layout_markup_already_true</code>, <code>update_returns_true_unconditionally</code>, <code>bar_draw_calls_accumulate_across_updates</code></td><td class="coverage">86%</td></tr>
   <!-- SYM py_file=powerline/bindings/qtile/widget.py rs_file=src/ported/bindings/qtile/widget.rs rs_exists=True py_fn_total=7 ported_count=6 missing_count=1 rs_extra_count=20 coverage=0.8571 -->
   <!-- END-GROUP py_file=powerline/bindings/qtile/widget.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/tmux/__init__.py -->
+  <tr class="full"><td><code>bindings/tmux/__init__.py</code></td><td>✔ <code>bindings/tmux/mod.rs</code></td><td>7</td><td><code>get_tmux_executable_name</code>, <code>_run_tmux</code>, <code>run_tmux_command</code>, <code>get_tmux_output</code>, <code>set_tmux_environment</code>, <code>source_tmux_file</code>, <code>get_tmux_version</code></td><td>—</td><td><code>NON_DIGITS</code>, <code>DIGITS</code>, <code>NON_LETTERS</code>, <code>get_tmux_executable_name_defaults_to_tmux</code>, <code>get_tmux_executable_name_uses_env_var</code>, <code>version_regexes_strip_correctly</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/bindings/tmux/__init__.py rs_file=src/ported/bindings/tmux/mod.rs rs_exists=True py_fn_total=7 ported_count=7 missing_count=0 rs_extra_count=6 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/tmux/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/dict.py -->
   <tr class="full"><td><code>lib/dict.py</code></td><td>✔ <code>lib/dict.rs</code></td><td>7</td><td><code>mergeargs</code>, <code>_clear_special_values</code>, <code>mergedicts</code>, <code>mergedefaults</code>, <code>_setmerged</code>, <code>mergedicts_copy</code>, <code>updated</code></td><td>—</td><td><code>REMOVE_THIS_KEY</code>, <code>obj</code>, <code>mergedicts_overwrites_scalar</code>, <code>mergedicts_recurses_into_nested</code>, <code>mergedicts_remove_this_key_deletes</code>, <code>mergedefaults_keeps_existing</code>, <code>mergedicts_copy_does_not_mutate_inputs</code>, <code>mergeargs_empty_returns_none</code>, <code>mergeargs_folds_pairs</code>, <code>updated_does_not_mutate_input</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/lib/dict.py rs_file=src/ported/lib/dict.rs rs_exists=True py_fn_total=7 ported_count=7 missing_count=0 rs_extra_count=10 coverage=1.0000 -->
@@ -310,10 +346,18 @@ columns:
   <tr class="full"><td><code>shell.py</code></td><td>✔ <code>shell.rs</code></td><td>6</td><td><code>init</code>, <code>load_main_config</code>, <code>load_theme_config</code>, <code>get_config_paths</code>, <code>get_local_themes</code>, <code>do_setup</code></td><td>—</td><td><code>init_stores_args_and_returns_ext_first</code>, <code>init_empty_ext_returns_empty_string</code>, <code>load_main_config_overlays_config_override</code>, <code>load_main_config_no_override_leaves_base</code>, <code>load_theme_config_overlays_matching_theme</code>, <code>load_theme_config_ignores_non_matching_theme</code>, <code>load_theme_config_no_overrides_leaves_base</code>, <code>get_config_paths_returns_args_value_when_set</code>, <code>get_config_paths_returns_none_when_args_empty</code>, <code>get_local_themes_empty_input_returns_empty</code>, <code>get_local_themes_wraps_each_value_in_config_key</code>, <code>get_local_themes_loaded_config_picks_up_theme_override</code>, <code>do_setup_assigns_powerline_attribute</code>, <code>shell_args_default_has_empty_fields</code>, <code>load_main_config_overlay_recurses_into_nested_dict</code>, <code>local_theme_input_with_non_string_value_uses_empty_theme_name</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/shell.py rs_file=src/ported/shell.rs rs_exists=True py_fn_total=6 ported_count=6 missing_count=0 rs_extra_count=16 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/shell.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/wm/__init__.py -->
+  <tr class="partial"><td><code>bindings/wm/__init__.py</code></td><td>✔ <code>bindings/wm/mod.rs</code></td><td>5</td><td><code>i3_subscribe</code>, <code>get_i3_connection</code>, <code>get_connected_xrandr_outputs</code></td><td><code>__init__</code>, <code>run</code></td><td><code>XRANDR_OUTPUT_RE</code>, <code>wm_threads</code>, <code>default_update_interval_matches_upstream</code>, <code>xrandr_regex_matches_standard_line</code>, <code>xrandr_regex_handles_non_primary</code>, <code>get_connected_xrandr_outputs_returns_empty_when_xrandr_unavailable</code>, <code>wm_threads_registers_awesome</code></td><td class="coverage">60%</td></tr>
+  <!-- SYM py_file=powerline/bindings/wm/__init__.py rs_file=src/ported/bindings/wm/mod.rs rs_exists=True py_fn_total=5 ported_count=3 missing_count=2 rs_extra_count=7 coverage=0.6000 -->
+  <!-- END-GROUP py_file=powerline/bindings/wm/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/commands/config.py -->
   <tr class="partial"><td><code>commands/config.py</code></td><td>✔ <code>commands/config.rs</code></td><td>5</td><td><code>parse_args</code>, <code>get_argparser</code></td><td><code>__init__</code>, <code>__call__</code>, <code>__str__</code></td><td><code>name</code>, <code>binding_function_name</code>, <code>call</code>, <code>fmt</code>, <code>TMUX_ACTIONS</code>, <code>SHELL_ACTIONS</code>, <code>tmux_action_from_name</code>, <code>shell_action_from_name</code>, <code>new</code>, <code>str_function_names_match_upstream</code>, <code>str_function_display_round_trips_via_name</code>, <code>tmux_actions_has_three_entries</code>, <code>shell_actions_has_two_entries</code>, <code>tmux_action_lookup_unknown_returns_none</code>, <code>get_argparser_description_matches_upstream</code>, <code>get_argparser_includes_subcommand_handles</code>, <code>shell_action_lookup_command_and_uses</code>, <code>str_function_binding_names_match_python_module_attrs</code>, <code>str_function_call_returns_binding_function_name</code>, <code>config_arg_parser_parse_args_requires_function</code>, <code>config_arg_parser_parse_args_returns_function_when_set</code>, <code>config_arg_parser_round_trips_underlying_argparser</code></td><td class="coverage">40%</td></tr>
   <!-- SYM py_file=powerline/commands/config.py rs_file=src/ported/commands/config.rs rs_exists=True py_fn_total=5 ported_count=2 missing_count=3 rs_extra_count=22 coverage=0.4000 -->
   <!-- END-GROUP py_file=powerline/commands/config.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/__init__.py -->
+  <tr class="full"><td><code>lib/__init__.py</code></td><td>✔ <code>lib/mod.rs</code></td><td>5</td><td><code>wraps_saveargs</code>, <code>dec</code>, <code>add_divider_highlight_group</code>, <code>dec</code>, <code>f</code></td><td>—</td><td><code>new</code>, <code>wrapper</code>, <code>origin</code>, <code>add_divider_highlight_group_to_list</code>, <code>wrapped_origin_exposes_both_callables</code>, <code>wrapped_origin_accessors_match_fields</code>, <code>add_divider_highlight_group_wraps_non_empty_string</code>, <code>add_divider_highlight_group_none_input_returns_none</code>, <code>add_divider_highlight_group_empty_string_returns_none</code>, <code>add_divider_highlight_group_to_list_injects_divider_into_each_entry</code>, <code>add_divider_highlight_group_to_list_preserves_existing_dividers</code>, <code>add_divider_highlight_group_to_list_empty_returns_none</code>, <code>add_divider_highlight_group_to_list_none_returns_none</code>, <code>add_divider_highlight_group_custom_highlight_string</code>, <code>add_divider_highlight_group_invokes_inner_func_each_call</code>, <code>wraps_saveargs_returns_wrapper_origin_pair</code>, <code>dec_returns_wrapped_origin_pair</code>, <code>f_returns_single_segment_list_for_non_empty_contents</code>, <code>f_returns_none_for_empty_contents</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/lib/__init__.py rs_file=src/ported/lib/mod.rs rs_exists=True py_fn_total=5 ported_count=5 missing_count=0 rs_extra_count=19 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/lib/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/shell.py -->
   <tr class="full"><td><code>lib/shell.py</code></td><td>✔ <code>lib/shell.rs</code></td><td>5</td><td><code>run_cmd</code>, <code>asrun</code>, <code>readlines</code>, <code>which</code>, <code>_access_check</code></td><td>—</td><td><code>run_cmd_echo_returns_stdout</code>, <code>run_cmd_missing_command_returns_none</code>, <code>run_cmd_no_strip_keeps_trailing_newline</code>, <code>which_finds_echo</code>, <code>which_missing_returns_none</code>, <code>readlines_returns_per_line</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/lib/shell.py rs_file=src/ported/lib/shell.rs rs_exists=True py_fn_total=5 ported_count=5 missing_count=0 rs_extra_count=6 coverage=1.0000 -->
@@ -326,6 +370,10 @@ columns:
   <tr class="full"><td><code>pdb.py</code></td><td>✔ <code>pdb.rs</code></td><td>5</td><td><code>init</code>, <code>do_setup</code>, <code>load_main_config</code>, <code>load_theme_config</code>, <code>get_config_paths</code></td><td>—</td><td><code>default</code>, <code>new</code>, <code>init_pins_ext_and_renderer_module_to_pdb</code>, <code>do_setup_does_not_panic</code>, <code>load_main_config_no_env_leaves_base_untouched</code>, <code>load_main_config_overlays_from_env</code>, <code>load_main_config_empty_env_leaves_base_untouched</code>, <code>load_theme_config_overlays_matching_name</code>, <code>load_theme_config_ignores_non_matching_name</code>, <code>load_theme_config_no_env_leaves_base_untouched</code>, <code>get_config_paths_reads_colon_separated_env</code>, <code>get_config_paths_filters_empty_entries</code>, <code>get_config_paths_empty_returns_empty_vec</code>, <code>get_config_paths_empty_env_string_returns_empty</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/pdb.py rs_file=src/ported/pdb.rs rs_exists=True py_fn_total=5 ported_count=5 missing_count=0 rs_extra_count=14 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/pdb.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/__init__.py -->
+  <tr class="partial"><td><code>segments/__init__.py</code></td><td>✔ <code>segments/mod.rs</code></td><td>5</td><td><code>omitted_args</code>, <code>additional_args</code>, <code>with_docstring</code></td><td><code>argspecobjs</code>, <code>argspecobjs</code></td><td><code>segment_defaults_are_empty</code>, <code>with_docstring_passes_through</code></td><td class="coverage">60%</td></tr>
+  <!-- SYM py_file=powerline/segments/__init__.py rs_file=src/ported/segments/mod.rs rs_exists=True py_fn_total=5 ported_count=3 missing_count=2 rs_extra_count=2 coverage=0.6000 -->
+  <!-- END-GROUP py_file=powerline/segments/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/segments/pdb.py -->
   <tr class="full"><td><code>segments/pdb.py</code></td><td>✔ <code>segments/pdb.rs</code></td><td>5</td><td><code>current_line</code>, <code>current_file</code>, <code>current_code_name</code>, <code>current_context</code>, <code>stack_depth</code></td><td>—</td><td><code>sample</code>, <code>current_line_returns_lineno_as_string</code>, <code>current_file_basename_true_returns_filename_only</code>, <code>current_file_basename_false_returns_full_path</code>, <code>current_code_name_returns_co_name</code>, <code>current_context_returns_co_name_for_normal_function</code>, <code>current_context_substitutes_module_with_basename</code>, <code>stack_depth_default_subtracts_initial</code>, <code>stack_depth_full_stack_returns_raw_len</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/segments/pdb.py rs_file=src/ported/segments/pdb.rs rs_exists=True py_fn_total=5 ported_count=5 missing_count=0 rs_extra_count=9 coverage=1.0000 -->
@@ -382,6 +430,14 @@ columns:
   <tr class="full"><td><code>lib/debug.py</code></td><td>✔ <code>lib/debug.rs</code></td><td>3</td><td><code>print_cycles</code>, <code>print_path</code>, <code>recurse</code></td><td>—</td><td><code>print_cycles_is_no_op</code>, <code>print_path_is_no_op</code>, <code>recurse_is_no_op</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/lib/debug.py rs_file=src/ported/lib/debug.rs rs_exists=True py_fn_total=3 ported_count=3 missing_count=0 rs_extra_count=3 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/lib/debug.py -->
+  <!-- BEGIN-GROUP py_file=powerline/matchers/vim/__init__.py -->
+  <tr class="full"><td><code>matchers/vim/__init__.py</code></td><td>✔ <code>matchers/vim/mod.rs</code></td><td>3</td><td><code>help</code>, <code>cmdwin</code>, <code>quickfix</code></td><td>—</td><td><code>info_with_buftype</code>, <code>help_matches_help_buftype</code>, <code>quickfix_matches_quickfix_buftype</code>, <code>cmdwin_matches_command_line_buffer</code>, <code>cmdwin_matches_path_prefixed_buffer</code>, <code>cmdwin_rejects_other_buffers</code>, <code>cmdwin_returns_false_for_empty_name</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/matchers/vim/__init__.py rs_file=src/ported/matchers/vim/mod.rs rs_exists=True py_fn_total=3 ported_count=3 missing_count=0 rs_extra_count=7 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/matchers/vim/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/ipython/__init__.py -->
+  <tr class="full"><td><code>renderers/ipython/__init__.py</code></td><td>✔ <code>renderers/ipython/mod.rs</code></td><td>3</td><td><code>get_segment_info</code>, <code>get_theme</code>, <code>shutdown</code></td><td>—</td><td><code>default</code>, <code>new</code>, <code>get_segment_info_patches_ipython_key</code>, <code>get_theme_in_returns_self_theme</code>, <code>get_theme_returns_existing_local_theme</code>, <code>get_theme_constructs_lazy_theme_from_config</code>, <code>get_theme_caches_constructed_theme</code>, <code>shutdown_records_main_theme_first</code>, <code>shutdown_walks_local_themes_with_theme_key</code>, <code>get_theme_missing_matcher_returns_null</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/renderers/ipython/__init__.py rs_file=src/ported/renderers/ipython/mod.rs rs_exists=True py_fn_total=3 ported_count=3 missing_count=0 rs_extra_count=10 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/ipython/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/segments/common/mail.py -->
   <tr class="full"><td><code>segments/common/mail.py</code></td><td>✔ <code>segments/common/mail.rs</code></td><td>3</td><td><code>key</code>, <code>compute_state</code>, <code>render_one</code></td><td>—</td><td><code>unseen_re</code>, <code>parse_unseen_count</code>, <code>imap4_ssl_port_matches_upstream</code>, <code>interval_matches_upstream</code>, <code>key_use_ssl_defaults_to_port_eq_ssl_port</code>, <code>key_use_ssl_explicit_overrides_default</code>, <code>parse_unseen_count_extracts_n</code>, <code>render_one_none_returns_none</code>, <code>render_one_zero_returns_none</code>, <code>render_one_no_max_emits_email_alert</code>, <code>render_one_with_max_includes_gradient</code>, <code>render_one_clamps_gradient_at_100</code>, <code>compute_state_returns_none_without_credentials</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/segments/common/mail.py rs_file=src/ported/segments/common/mail.rs rs_exists=True py_fn_total=3 ported_count=3 missing_count=0 rs_extra_count=13 coverage=1.0000 -->
@@ -406,6 +462,10 @@ columns:
   <tr class="full"><td><code>lib/path.py</code></td><td>✔ <code>lib/path.rs</code></td><td>2</td><td><code>realpath</code>, <code>join</code></td><td>—</td><td><code>realpath_of_cwd_is_absolute</code>, <code>realpath_of_missing_path_is_absolute_join_with_cwd</code>, <code>join_concatenates_components_in_order</code>, <code>join_empty_returns_empty_path</code>, <code>join_absolute_component_resets</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/lib/path.py rs_file=src/ported/lib/path.rs rs_exists=True py_fn_total=2 ported_count=2 missing_count=0 rs_extra_count=5 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/lib/path.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/watcher/__init__.py -->
+  <tr class="full"><td><code>lib/watcher/__init__.py</code></td><td>✔ <code>lib/watcher/mod.rs</code></td><td>2</td><td><code>create_file_watcher</code>, <code>create_tree_watcher</code></td><td>—</td><td><code>watch</code>, <code>unwatch</code>, <code>check</code>, <code>close</code>, <code>watch</code>, <code>unwatch</code>, <code>check</code>, <code>close</code>, <code>create_file_watcher_returns_a_watcher</code>, <code>create_file_watcher_stat_explicit</code>, <code>create_file_watcher_inotify_falls_back_to_stat_on_non_linux</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/lib/watcher/__init__.py rs_file=src/ported/lib/watcher/mod.rs rs_exists=True py_fn_total=2 ported_count=2 missing_count=0 rs_extra_count=11 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/lib/watcher/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/lint/inspect.py -->
   <tr class="full"><td><code>lint/inspect.py</code></td><td>✔ <code>lint/inspect.rs</code></td><td>2</td><td><code>getconfigargspec</code>, <code>formatconfigargspec</code></td><td>—</td><td><code>formatconfigargspec_empty_args</code>, <code>formatconfigargspec_args_without_defaults</code>, <code>formatconfigargspec_args_with_trailing_defaults</code>, <code>formatconfigargspec_all_args_default</code>, <code>formatconfigargspec_one_arg_one_default</code>, <code>getconfigargspec_returns_empty_until_registry_lands</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/lint/inspect.py rs_file=src/ported/lint/inspect.rs rs_exists=True py_fn_total=2 ported_count=2 missing_count=0 rs_extra_count=6 coverage=1.0000 -->
@@ -466,6 +526,10 @@ columns:
   <tr class="full"><td><code>lib/url.py</code></td><td>✔ <code>lib/url.rs</code></td><td>1</td><td><code>urllib_read</code></td><td>—</td><td><code>urllib_urlencode</code>, <code>percent_encode</code>, <code>urllib_read_returns_none_stub</code>, <code>urllib_urlencode_simple</code>, <code>urllib_urlencode_escapes_spaces_as_plus</code>, <code>urllib_urlencode_percent_escapes_non_safe</code>, <code>urllib_urlencode_preserves_safe_chars</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/lib/url.py rs_file=src/ported/lib/url.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=7 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/lib/url.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/__init__.py -->
+  <tr class="full"><td><code>lint/markedjson/__init__.py</code></td><td>✔ <code>lint/markedjson/mod.rs</code></td><td>1</td><td><code>load</code></td><td>—</td><td><code>tmp_json</code>, <code>load_returns_value_and_no_error</code>, <code>load_reports_error_on_bad_json</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/lint/markedjson/__init__.py rs_file=src/ported/lint/markedjson/mod.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=3 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/markedjson/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/lint/selfcheck.py -->
   <tr class="full"><td><code>lint/selfcheck.py</code></td><td>✔ <code>lint/selfcheck.rs</code></td><td>1</td><td><code>havemarks</code></td><td>—</td><td><code>havemarks_walks_nested_structure</code>, <code>havemarks_empty_input_ok</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/lint/selfcheck.py rs_file=src/ported/lint/selfcheck.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=2 coverage=1.0000 -->
@@ -530,74 +594,10 @@ columns:
   <tr class="full"><td><code>version.py</code></td><td>✔ <code>version.rs</code></td><td>1</td><td><code>get_version</code></td><td>—</td><td><code>version_constant_matches_upstream</code>, <code>get_version_returns_nonempty</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/version.py rs_file=src/ported/version.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=2 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/version.py -->
-  <!-- BEGIN-GROUP py_file=powerline/bindings/vim/__init__.py -->
-  <tr class="zero"><td><code>bindings/vim/__init__.py</code></td><td>✘ <code>bindings/vim/__init__.rs</code></td><td>60</td><td>—</td><td><code>get_vim_encoding</code>, <code>get_vim_encoding</code>, <code>get_vim_encoding</code>, <code>get_vim_encoding</code>, <code>python_to_vim</code>, <code>str_to_bytes</code>, <code>unicode_eval</code>, <code>str_to_bytes</code>, <code>unicode_eval</code>, <code>safe_bytes_eval</code>, <code>eval_bytes</code>, <code>eval_unicode</code>, <code>vim_get_func</code>, <code>__init__</code>, <code>__call__</code>, <code>vim_get_autoload_func</code>, <code>vim_func_exists</code>, <code>vim_func_exists</code>, <code>vim_getvar</code>, <code>bufvar_exists</code>, <code>vim_getwinvar</code>, <code>vim_global_exists</code>, <code>vim_getvar</code>, <code>bufvar_exists</code>, <code>vim_getwinvar</code>, <code>vim_global_exists</code>, <code>vim_command_exists</code>, <code>getbufvar</code>, <code>_vim_to_python</code>, <code>vim_getbufoption</code>, <code>vim_getoption</code>, <code>vim_setoption</code>, <code>vim_getbufoption</code>, <code>vim_getoption</code>, <code>vim_setoption</code>, <code>list_tabpage_buffers_segment_info</code>, <code>__nonzero__</code>, <code>get_buffer</code>, <code>__init__</code>, <code>__getitem__</code>, <code>get</code>, <code>__init__</code>, <code>buffer</code>, <code>__init__</code>, <code>__eq__</code>, <code>window</code>, <code>_last_tab_nr</code>, <code>current_tabpage</code>, <code>list_tabpages</code>, <code>__getitem__</code>, <code>list_tabpage_buffers_segment_info</code>, <code>__getitem__</code>, <code>get</code>, <code>__setitem__</code>, <code>buffer_name</code>, <code>buffer_name</code>, <code>powerline_vim_strtrans_error</code>, <code>register_buffer_cache</code>, <code>on_bwipe</code>, <code>create_ruby_dpowerline</code></td><td>—</td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/bindings/vim/__init__.py rs_file=src/ported/bindings/vim/__init__.rs rs_exists=False py_fn_total=60 ported_count=0 missing_count=60 rs_extra_count=0 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/bindings/vim/__init__.py -->
-  <!-- BEGIN-GROUP py_file=powerline/__init__.py -->
-  <tr class="zero"><td><code>__init__.py</code></td><td>✘ <code>__init__.rs</code></td><td>48</td><td>—</td><td><code>_config_loader_condition</code>, <code>_find_config_files</code>, <code>__init__</code>, <code>_log</code>, <code>critical</code>, <code>exception</code>, <code>info</code>, <code>error</code>, <code>warn</code>, <code>debug</code>, <code>get_fallback_logger</code>, <code>_generate_change_callback</code>, <code>on_file_change</code>, <code>get_config_paths</code>, <code>generate_config_finder</code>, <code>load_config</code>, <code>_set_log_handlers</code>, <code>create_logger</code>, <code>get_default_theme</code>, <code>finish_common_config</code>, <code>reraise</code>, <code>gen_module_attr_getter</code>, <code>get_module_attr</code>, <code>_get_log_keys</code>, <code>__init__</code>, <code>init</code>, <code>create_logger</code>, <code>create_renderer</code>, <code>setup_components</code>, <code>get_config_paths</code>, <code>load_config</code>, <code>_purge_configs</code>, <code>load_main_config</code>, <code>_load_hierarhical_config</code>, <code>load_colorscheme_config</code>, <code>load_theme_config</code>, <code>load_colors_config</code>, <code>get_local_themes</code>, <code>update_renderer</code>, <code>render</code>, <code>render_above_lines</code>, <code>setup</code>, <code>do_setup</code>, <code>reload</code>, <code>shutdown</code>, <code>__enter__</code>, <code>__exit__</code>, <code>exception</code></td><td>—</td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/__init__.py rs_file=src/ported/__init__.rs rs_exists=False py_fn_total=48 ported_count=0 missing_count=48 rs_extra_count=0 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/__init__.py -->
-  <!-- BEGIN-GROUP py_file=powerline/segments/vim/__init__.py -->
-  <tr class="zero"><td><code>segments/vim/__init__.py</code></td><td>✘ <code>segments/vim/__init__.rs</code></td><td>37</td><td>—</td><td><code>window_cached</code>, <code>ret</code>, <code>mode</code>, <code>visual_range</code>, <code>modified_indicator</code>, <code>tab_modified_indicator</code>, <code>paste_indicator</code>, <code>readonly_indicator</code>, <code>file_scheme</code>, <code>file_directory</code>, <code>file_name</code>, <code>file_size</code>, <code>file_format</code>, <code>file_encoding</code>, <code>file_bom</code>, <code>file_type</code>, <code>window_title</code>, <code>line_percent</code>, <code>position</code>, <code>line_current</code>, <code>line_count</code>, <code>col_current</code>, <code>virtcol_current</code>, <code>modified_buffers</code>, <code>get_directory</code>, <code>get_directory</code>, <code>file_vcs_status</code>, <code>trailing_whitespace</code>, <code>tabnr</code>, <code>bufnr</code>, <code>winnr</code>, <code>detect_text_csv_dialect</code>, <code>read_csv</code>, <code>read_csv</code>, <code>process_csv_buffer</code>, <code>csv_col_current</code>, <code>tab</code></td><td>—</td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/segments/vim/__init__.py rs_file=src/ported/segments/vim/__init__.rs rs_exists=False py_fn_total=37 ported_count=0 missing_count=37 rs_extra_count=0 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/segments/vim/__init__.py -->
-  <!-- BEGIN-GROUP py_file=powerline/bindings/pdb/__init__.py -->
-  <tr class="zero"><td><code>bindings/pdb/__init__.py</code></td><td>✘ <code>bindings/pdb/__init__.rs</code></td><td>22</td><td>—</td><td><code>__new__</code>, <code>__len__</code>, <code>__getitem__</code>, <code>__getslice__</code>, <code>add</code>, <code>__add__</code>, <code>__radd__</code>, <code>__unicode__</code>, <code>__new__</code>, <code>__str__</code>, <code>__getitem__</code>, <code>__getslice__</code>, <code>add</code>, <code>__add__</code>, <code>__radd__</code>, <code>encode</code>, <code>use_powerline_prompt</code>, <code>prompt</code>, <code>prompt</code>, <code>prompt</code>, <code>main</code>, <code>__init__</code></td><td>—</td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/bindings/pdb/__init__.py rs_file=src/ported/bindings/pdb/__init__.rs rs_exists=False py_fn_total=22 ported_count=0 missing_count=22 rs_extra_count=0 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/bindings/pdb/__init__.py -->
-  <!-- BEGIN-GROUP py_file=powerline/bindings/zsh/__init__.py -->
-  <tr class="zero"><td><code>bindings/zsh/__init__.py</code></td><td>✘ <code>bindings/zsh/__init__.rs</code></td><td>21</td><td>—</td><td><code>shutdown</code>, <code>get_var_config</code>, <code>config_override</code>, <code>theme_override</code>, <code>config_path</code>, <code>jobnum</code>, <code>string</code>, <code>__getitem__</code>, <code>get</code>, <code>__contains__</code>, <code>zsh_expand</code>, <code>init</code>, <code>precmd</code>, <code>do_setup</code>, <code>__init__</code>, <code>__str__</code>, <code>__del__</code>, <code>set_prompt</code>, <code>reload</code>, <code>reload_config</code>, <code>setup</code></td><td>—</td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/bindings/zsh/__init__.py rs_file=src/ported/bindings/zsh/__init__.rs rs_exists=False py_fn_total=21 ported_count=0 missing_count=21 rs_extra_count=0 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/bindings/zsh/__init__.py -->
-  <!-- BEGIN-GROUP py_file=powerline/lib/vcs/__init__.py -->
-  <tr class="zero"><td><code>lib/vcs/__init__.py</code></td><td>✘ <code>lib/vcs/__init__.rs</code></td><td>16</td><td>—</td><td><code>generate_directories</code>, <code>file_watcher</code>, <code>branch_watcher</code>, <code>get_branch_name</code>, <code>__init__</code>, <code>update_maps</code>, <code>invalidate</code>, <code>ignore_files</code>, <code>get_file_status</code>, <code>__init__</code>, <code>cache_and_get</code>, <code>__call__</code>, <code>tree_status</code>, <code>guess</code>, <code>get_fallback_create_watcher</code>, <code>debug</code></td><td>—</td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/lib/vcs/__init__.py rs_file=src/ported/lib/vcs/__init__.rs rs_exists=False py_fn_total=16 ported_count=0 missing_count=16 rs_extra_count=0 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/lib/vcs/__init__.py -->
-  <!-- BEGIN-GROUP py_file=powerline/lint/__init__.py -->
-  <tr class="zero"><td><code>lint/__init__.py</code></td><td>✘ <code>lint/__init__.rs</code></td><td>9</td><td>—</td><td><code>open_file</code>, <code>generate_json_config_loader</code>, <code>load_json_config</code>, <code>register_common_names</code>, <code>load_json_file</code>, <code>updated_with_config</code>, <code>find_all_ext_config_files</code>, <code>dict2</code>, <code>check</code></td><td>—</td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/lint/__init__.py rs_file=src/ported/lint/__init__.rs rs_exists=False py_fn_total=9 ported_count=0 missing_count=9 rs_extra_count=0 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/lint/__init__.py -->
-  <!-- BEGIN-GROUP py_file=powerline/renderers/shell/__init__.py -->
-  <tr class="zero"><td><code>renderers/shell/__init__.py</code></td><td>✘ <code>renderers/shell/__init__.rs</code></td><td>8</td><td>—</td><td><code>int_to_rgb</code>, <code>__init__</code>, <code>get_client_id</code>, <code>do_render</code>, <code>render</code>, <code>do_render</code>, <code>hlstyle</code>, <code>get_theme</code></td><td>—</td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/renderers/shell/__init__.py rs_file=src/ported/renderers/shell/__init__.rs rs_exists=False py_fn_total=8 ported_count=0 missing_count=8 rs_extra_count=0 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/renderers/shell/__init__.py -->
-  <!-- BEGIN-GROUP py_file=powerline/bindings/tmux/__init__.py -->
-  <tr class="zero"><td><code>bindings/tmux/__init__.py</code></td><td>✘ <code>bindings/tmux/__init__.rs</code></td><td>7</td><td>—</td><td><code>get_tmux_executable_name</code>, <code>_run_tmux</code>, <code>run_tmux_command</code>, <code>get_tmux_output</code>, <code>set_tmux_environment</code>, <code>source_tmux_file</code>, <code>get_tmux_version</code></td><td>—</td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/bindings/tmux/__init__.py rs_file=src/ported/bindings/tmux/__init__.rs rs_exists=False py_fn_total=7 ported_count=0 missing_count=7 rs_extra_count=0 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/bindings/tmux/__init__.py -->
-  <!-- BEGIN-GROUP py_file=powerline/bindings/wm/__init__.py -->
-  <tr class="zero"><td><code>bindings/wm/__init__.py</code></td><td>✘ <code>bindings/wm/__init__.rs</code></td><td>5</td><td>—</td><td><code>i3_subscribe</code>, <code>__init__</code>, <code>run</code>, <code>get_i3_connection</code>, <code>get_connected_xrandr_outputs</code></td><td>—</td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/bindings/wm/__init__.py rs_file=src/ported/bindings/wm/__init__.rs rs_exists=False py_fn_total=5 ported_count=0 missing_count=5 rs_extra_count=0 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/bindings/wm/__init__.py -->
-  <!-- BEGIN-GROUP py_file=powerline/lib/__init__.py -->
-  <tr class="zero"><td><code>lib/__init__.py</code></td><td>✘ <code>lib/__init__.rs</code></td><td>5</td><td>—</td><td><code>wraps_saveargs</code>, <code>dec</code>, <code>add_divider_highlight_group</code>, <code>dec</code>, <code>f</code></td><td>—</td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/lib/__init__.py rs_file=src/ported/lib/__init__.rs rs_exists=False py_fn_total=5 ported_count=0 missing_count=5 rs_extra_count=0 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/lib/__init__.py -->
-  <!-- BEGIN-GROUP py_file=powerline/segments/__init__.py -->
-  <tr class="zero"><td><code>segments/__init__.py</code></td><td>✘ <code>segments/__init__.rs</code></td><td>5</td><td>—</td><td><code>argspecobjs</code>, <code>argspecobjs</code>, <code>omitted_args</code>, <code>additional_args</code>, <code>with_docstring</code></td><td>—</td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/segments/__init__.py rs_file=src/ported/segments/__init__.rs rs_exists=False py_fn_total=5 ported_count=0 missing_count=5 rs_extra_count=0 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/segments/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/nodes.py -->
   <tr class="zero"><td><code>lint/markedjson/nodes.py</code></td><td>✔ <code>lint/markedjson/nodes.rs</code></td><td>4</td><td>—</td><td><code>__init__</code>, <code>__repr__</code>, <code>__init__</code>, <code>__init__</code></td><td><code>new</code>, <code>fmt</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>node_carries_tag_value_and_marks</code>, <code>scalar_node_id_matches_upstream</code>, <code>scalar_node_carries_style</code>, <code>sequence_node_id_matches_upstream</code>, <code>mapping_node_id_matches_upstream</code>, <code>collection_node_carries_flow_style</code>, <code>node_display_matches_upstream_repr_shape</code></td><td class="coverage">0%</td></tr>
   <!-- SYM py_file=powerline/lint/markedjson/nodes.py rs_file=src/ported/lint/markedjson/nodes.rs rs_exists=True py_fn_total=4 ported_count=0 missing_count=4 rs_extra_count=13 coverage=0.0000 -->
   <!-- END-GROUP py_file=powerline/lint/markedjson/nodes.py -->
-  <!-- BEGIN-GROUP py_file=powerline/matchers/vim/__init__.py -->
-  <tr class="zero"><td><code>matchers/vim/__init__.py</code></td><td>✘ <code>matchers/vim/__init__.rs</code></td><td>3</td><td>—</td><td><code>help</code>, <code>cmdwin</code>, <code>quickfix</code></td><td>—</td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/matchers/vim/__init__.py rs_file=src/ported/matchers/vim/__init__.rs rs_exists=False py_fn_total=3 ported_count=0 missing_count=3 rs_extra_count=0 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/matchers/vim/__init__.py -->
-  <!-- BEGIN-GROUP py_file=powerline/renderers/ipython/__init__.py -->
-  <tr class="zero"><td><code>renderers/ipython/__init__.py</code></td><td>✘ <code>renderers/ipython/__init__.rs</code></td><td>3</td><td>—</td><td><code>get_segment_info</code>, <code>get_theme</code>, <code>shutdown</code></td><td>—</td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/renderers/ipython/__init__.py rs_file=src/ported/renderers/ipython/__init__.rs rs_exists=False py_fn_total=3 ported_count=0 missing_count=3 rs_extra_count=0 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/renderers/ipython/__init__.py -->
-  <!-- BEGIN-GROUP py_file=powerline/lib/watcher/__init__.py -->
-  <tr class="zero"><td><code>lib/watcher/__init__.py</code></td><td>✘ <code>lib/watcher/__init__.rs</code></td><td>2</td><td>—</td><td><code>create_file_watcher</code>, <code>create_tree_watcher</code></td><td>—</td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/lib/watcher/__init__.py rs_file=src/ported/lib/watcher/__init__.rs rs_exists=False py_fn_total=2 ported_count=0 missing_count=2 rs_extra_count=0 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/lib/watcher/__init__.py -->
-  <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/__init__.py -->
-  <tr class="zero"><td><code>lint/markedjson/__init__.py</code></td><td>✘ <code>lint/markedjson/__init__.rs</code></td><td>1</td><td>—</td><td><code>load</code></td><td>—</td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/lint/markedjson/__init__.py rs_file=src/ported/lint/markedjson/__init__.rs rs_exists=False py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=0 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/lint/markedjson/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/bindings/__init__.py -->
   <tr class="zero"><td><code>bindings/__init__.py</code></td><td>✘ <code>bindings/__init__.rs</code></td><td>0</td><td>—</td><td>—</td><td>—</td><td class="coverage">0%</td></tr>
   <!-- SYM py_file=powerline/bindings/__init__.py rs_file=src/ported/bindings/__init__.rs rs_exists=False py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=0 coverage=0.0000 -->
@@ -674,12 +674,411 @@ columns:
   "totals": {
     "py_files": 137,
     "py_fns": 1028,
-    "rs_files_in_ported": 110,
+    "rs_files_in_ported": 126,
     "rs_fns_in_ported": 3528,
-    "ported_fns": 657,
-    "coverage": 0.6391050583657587
+    "ported_fns": 803,
+    "coverage": 0.7811284046692607
   },
   "rows": [
+    {
+      "py_file": "powerline/bindings/vim/__init__.py",
+      "rs_file": "src/ported/bindings/vim/mod.rs",
+      "rs_exists": true,
+      "py_fn_total": 60,
+      "ported_fns": [
+        "get_vim_encoding",
+        "get_vim_encoding",
+        "get_vim_encoding",
+        "get_vim_encoding",
+        "python_to_vim",
+        "str_to_bytes",
+        "str_to_bytes",
+        "vim_get_autoload_func",
+        "vim_func_exists",
+        "vim_func_exists",
+        "bufvar_exists",
+        "vim_global_exists",
+        "bufvar_exists",
+        "vim_global_exists",
+        "vim_command_exists",
+        "vim_getbufoption",
+        "vim_getbufoption",
+        "current_tabpage",
+        "list_tabpages",
+        "buffer_name",
+        "buffer_name",
+        "powerline_vim_strtrans_error",
+        "create_ruby_dpowerline"
+      ],
+      "missing_fns": [
+        "unicode_eval",
+        "unicode_eval",
+        "safe_bytes_eval",
+        "eval_bytes",
+        "eval_unicode",
+        "vim_get_func",
+        "__init__",
+        "__call__",
+        "vim_getvar",
+        "vim_getwinvar",
+        "vim_getvar",
+        "vim_getwinvar",
+        "getbufvar",
+        "_vim_to_python",
+        "vim_getoption",
+        "vim_setoption",
+        "vim_getoption",
+        "vim_setoption",
+        "list_tabpage_buffers_segment_info",
+        "__nonzero__",
+        "get_buffer",
+        "__init__",
+        "__getitem__",
+        "get",
+        "__init__",
+        "buffer",
+        "__init__",
+        "__eq__",
+        "window",
+        "_last_tab_nr",
+        "__getitem__",
+        "list_tabpage_buffers_segment_info",
+        "__getitem__",
+        "get",
+        "__setitem__",
+        "register_buffer_cache",
+        "on_bwipe"
+      ],
+      "rs_extra_fns": [
+        "vim_environ_value_escape",
+        "vim_environ_set_command",
+        "vim_environ_get_expr",
+        "buffer_name_returns_set_value",
+        "vim_getbufoption_returns_value_if_set",
+        "list_tabpages_empty_when_no_vim",
+        "get_vim_encoding_returns_utf8_fallback",
+        "python_to_vim_unicode_quotes_and_escapes",
+        "python_to_vim_plain_string",
+        "python_to_vim_int_emits_ascii_digits",
+        "python_to_vim_float_emits_ascii_digits",
+        "python_to_vim_list_emits_bracketed_csv",
+        "python_to_vim_empty_list",
+        "python_to_vim_bool_emits_0_or_1",
+        "str_to_bytes_returns_utf8_bytes",
+        "vim_environ_value_escape_quotes_double_quote",
+        "vim_environ_value_escape_escapes_backslash",
+        "vim_environ_value_escape_newline_becomes_backslash_n",
+        "vim_environ_value_escape_strips_null_byte",
+        "vim_environ_set_command_builds_let_form",
+        "vim_environ_set_command_escapes_value",
+        "vim_environ_get_expr_builds_dollar_key",
+        "powerline_vim_strtrans_error_emits_hex_per_byte",
+        "powerline_vim_strtrans_error_empty_input"
+      ],
+      "coverage": 0.38333333333333336
+    },
+    {
+      "py_file": "powerline/__init__.py",
+      "rs_file": "src/ported/mod.rs",
+      "rs_exists": true,
+      "py_fn_total": 48,
+      "ported_fns": [
+        "_config_loader_condition",
+        "_find_config_files",
+        "critical",
+        "exception",
+        "info",
+        "error",
+        "warn",
+        "debug",
+        "get_fallback_logger",
+        "_generate_change_callback",
+        "get_config_paths",
+        "generate_config_finder",
+        "load_config",
+        "_set_log_handlers",
+        "create_logger",
+        "get_default_theme",
+        "finish_common_config",
+        "reraise",
+        "gen_module_attr_getter",
+        "_get_log_keys",
+        "init",
+        "create_logger",
+        "create_renderer",
+        "setup_components",
+        "get_config_paths",
+        "load_config",
+        "_purge_configs",
+        "load_main_config",
+        "_load_hierarhical_config",
+        "load_colorscheme_config",
+        "load_theme_config",
+        "load_colors_config",
+        "get_local_themes",
+        "update_renderer",
+        "render",
+        "render_above_lines",
+        "setup",
+        "do_setup",
+        "reload",
+        "shutdown",
+        "exception"
+      ],
+      "missing_fns": [
+        "__init__",
+        "_log",
+        "on_file_change",
+        "get_module_attr",
+        "__init__",
+        "__enter__",
+        "__exit__"
+      ],
+      "rs_extra_fns": [
+        "fmt",
+        "new",
+        "format_message",
+        "log",
+        "not_intercepted_error_implements_error",
+        "config_loader_condition_returns_path_when_exists",
+        "config_loader_condition_returns_none_when_missing",
+        "config_loader_condition_returns_none_when_none",
+        "find_config_files_error_when_not_found",
+        "find_config_files_appends_json_suffix_to_message",
+        "get_default_theme_unicode_returns_powerline_terminus",
+        "get_default_theme_non_unicode_returns_ascii",
+        "finish_common_config_fills_default_top_theme_for_utf8",
+        "finish_common_config_fills_default_top_theme_for_ucs",
+        "finish_common_config_fills_default_top_theme_for_ascii",
+        "finish_common_config_fills_all_defaults",
+        "finish_common_config_log_file_defaults_to_list_with_null",
+        "finish_common_config_wraps_non_list_log_file",
+        "finish_common_config_preserves_supplied_values",
+        "finish_common_config_expands_tilde_in_paths",
+        "powerline_logger_format_includes_ext_prefix_message",
+        "powerline_logger_format_overrides_prefix",
+        "powerline_logger_log_captures_message",
+        "get_config_paths_includes_plugin_path_first",
+        "get_config_paths_includes_xdg_config_home",
+        "LOG_KEYS",
+        "resolve_renderer_module",
+        "load_colorscheme_config_levels",
+        "load_theme_config_levels",
+        "load_config_instance",
+        "powerline_exception",
+        "enter",
+        "exit",
+        "_load_hierarhical_config_instance",
+        "create_logger_instance",
+        "instantiate_renderer",
+        "log_keys_has_four_entries",
+        "default_update_interval_is_two",
+        "get_log_keys_filters_dict_to_log_keys_only",
+        "get_log_keys_empty_input_returns_empty",
+        "get_log_keys_no_log_keys_returns_empty",
+        "generate_change_callback_sets_key_true_on_invocation",
+        "generate_change_callback_overwrites_existing_value",
+        "powerline_init_resolves_default_renderer_module",
+        "powerline_init_run_once_flag",
+        "powerline_init_populates_cr_kwargs_for_all_four_keys",
+        "powerline_create_renderer_assembles_renderer_options",
+        "powerline_instantiate_renderer_invokes_factory_with_options",
+        "powerline_instantiate_renderer_propagates_factory_none_as_import_error",
+        "powerline_create_renderer_caches_prev_common_config",
+        "resolve_renderer_module_undotted_uses_renderers_prefix",
+        "resolve_renderer_module_leading_dot_appends_to_ext",
+        "resolve_renderer_module_trailing_dot_strips_dot",
+        "resolve_renderer_module_dotted_passes_through",
+        "resolve_renderer_module_empty_str_uses_default",
+        "setup_components_base_is_no_op",
+        "get_local_themes_base_returns_none",
+        "do_setup_base_is_no_op",
+        "powerline_get_config_paths_delegates_to_module_fn",
+        "get_fallback_logger_returns_powerline_fallback_pair",
+        "generate_config_finder_dispatches_to_find_config_files",
+        "generate_config_finder_returns_err_when_missing",
+        "load_config_loads_single_file",
+        "load_config_merges_multiple_paths",
+        "load_colorscheme_config_levels_returns_three_levels",
+        "load_theme_config_levels_appends_ext_name",
+        "powerline_shutdown_sets_event",
+        "powerline_shutdown_no_event_set_when_flag_false",
+        "powerline_setup_clears_shutdown_event_and_calls_do_setup",
+        "powerline_load_main_config_dispatches_to_main_kind",
+        "powerline_load_colors_config_dispatches_to_colors_kind",
+        "load_hierarhical_config_merges_levels",
+        "load_hierarhical_config_errors_when_no_levels_load",
+        "load_hierarhical_config_ignores_specified_levels",
+        "load_hierarhical_config_ignore_levels_skipped_in_loaded_count",
+        "powerline_load_config_instance_dispatches_through_finder_and_load_fn",
+        "powerline_purge_configs_returns_function_id_pair",
+        "powerline_load_colorscheme_config_walks_three_levels",
+        "powerline_load_theme_config_appends_ext_name_level",
+        "powerline_exception_defaults_prefix_to_powerline",
+        "powerline_exception_explicit_prefix_used",
+        "powerline_exception_no_pl_returns_fallback_flag",
+        "powerline_enter_is_no_op",
+        "powerline_exit_sets_shutdown_event",
+        "update_renderer_no_pending_kwargs_returns_false",
+        "update_renderer_success_returns_true",
+        "update_renderer_failure_with_existing_renderer_returns_false",
+        "update_renderer_failure_without_existing_renderer_returns_err",
+        "render_success_returns_rendered_string",
+        "render_failure_returns_failed_message_without_width",
+        "render_failure_with_output_width_returns_message_and_len",
+        "render_update_renderer_failure_routes_to_failed",
+        "render_above_lines_success_returns_yielded_lines",
+        "render_above_lines_failure_yields_single_failed_line",
+        "load_hierarhical_config_instance_delegates_to_module_fn",
+        "create_logger_instance_builds_powerline_logger_for_ext",
+        "reload_runs_all_three_phases_in_order",
+        "reload_stops_on_clear_modules_error",
+        "reload_propagates_reconstruct_error",
+        "reraise_returns_message_unchanged",
+        "gen_module_attr_getter_routes_through_lookup"
+      ],
+      "coverage": 0.8541666666666666
+    },
+    {
+      "py_file": "powerline/segments/vim/__init__.py",
+      "rs_file": "src/ported/segments/vim/mod.rs",
+      "rs_exists": true,
+      "py_fn_total": 37,
+      "ported_fns": [
+        "window_cached",
+        "mode",
+        "modified_indicator",
+        "tab_modified_indicator",
+        "paste_indicator",
+        "readonly_indicator",
+        "file_scheme",
+        "file_size",
+        "file_format",
+        "file_encoding",
+        "file_bom",
+        "file_type",
+        "window_title",
+        "line_percent",
+        "position",
+        "line_current",
+        "line_count",
+        "col_current",
+        "virtcol_current",
+        "modified_buffers",
+        "tabnr",
+        "bufnr",
+        "winnr",
+        "detect_text_csv_dialect",
+        "tab"
+      ],
+      "missing_fns": [
+        "ret",
+        "visual_range",
+        "file_directory",
+        "file_name",
+        "get_directory",
+        "get_directory",
+        "file_vcs_status",
+        "trailing_whitespace",
+        "read_csv",
+        "read_csv",
+        "process_csv_buffer",
+        "csv_col_current"
+      ],
+      "rs_extra_fns": [
+        "vim_modes",
+        "mode_translation",
+        "position_value",
+        "line_percent_value",
+        "visual_range_text",
+        "file_size_text",
+        "default_position_strings",
+        "SCHEME_RE",
+        "vim_modes_has_24_entries",
+        "vim_modes_normal_translates_to_normal",
+        "vim_modes_visual_line_translates",
+        "vim_modes_insert_translates",
+        "vim_modes_terminal_translates",
+        "mode_translation_falls_back_to_vim_modes",
+        "mode_translation_unknown_returns_input",
+        "mode_translation_override_takes_precedence",
+        "mode_translation_override_with_no_match_falls_through",
+        "position_value_all_visible_returns_all",
+        "position_value_at_top_returns_top",
+        "position_value_at_bottom_returns_bottom",
+        "position_value_middle_returns_percent",
+        "line_percent_value_zero_total_returns_zero",
+        "line_percent_value_at_start_is_low",
+        "line_percent_value_at_end_is_100",
+        "line_percent_value_midpoint_is_50",
+        "visual_range_text_blockwise_uses_ctrl_v_format",
+        "visual_range_text_visual_oneline_uses_v_oneline",
+        "visual_range_text_visual_multiline_uses_v_multiline",
+        "visual_range_text_v_line_uses_v_block_text",
+        "visual_range_text_normal_mode_returns_empty",
+        "file_size_text_zero_returns_none",
+        "file_size_text_positive_formats_via_humanize_bytes",
+        "default_position_strings_matches_upstream",
+        "window_cached_passes_function_through",
+        "scheme_re_matches_zipfile_prefix",
+        "scheme_re_accepts_digit_prefix",
+        "scheme_re_no_match_when_no_colon",
+        "mode_returns_none_for_nc",
+        "mode_translates_normal",
+        "mode_translates_visual_block_via_caret_v",
+        "mode_trims_unknown_suffix",
+        "mode_override_takes_precedence",
+        "mode_empty_returns_bug",
+        "modified_indicator_returns_text_when_modified",
+        "paste_indicator_returns_text_when_paste_enabled",
+        "readonly_indicator_returns_text_when_readonly",
+        "file_scheme_extracts_prefix",
+        "file_scheme_returns_none_for_no_scheme",
+        "file_scheme_returns_none_for_empty_name",
+        "file_format_returns_value_or_none",
+        "file_encoding_returns_value_or_none",
+        "file_bom_returns_bom_or_none",
+        "file_type_returns_value_or_none",
+        "line_percent_no_gradient_returns_string",
+        "line_percent_with_gradient_returns_list",
+        "line_percent_at_first_line_emits_one",
+        "line_percent_at_last_line_emits_100",
+        "position_top_when_winline_first_is_one_and_not_all",
+        "position_all_when_window_shows_entire_buffer",
+        "position_bottom_when_winline_last_is_buffer_end",
+        "position_middle_emits_percentage",
+        "position_gradient_emits_full_dict",
+        "line_current_returns_cursor_row",
+        "line_count_returns_buffer_len",
+        "col_current_adds_one_to_zero_based_col",
+        "virtcol_current_no_gradient_omits_level",
+        "virtcol_current_with_gradient_computes_level",
+        "virtcol_current_clamps_gradient_to_100",
+        "virtcol_current_zero_textwidth_gives_zero_gradient",
+        "modified_buffers_with_empty_list_returns_none",
+        "modified_buffers_joins_list_with_prefix",
+        "modified_buffers_uses_custom_separator",
+        "tabnr_shows_current_when_flag_set",
+        "tabnr_hides_current_when_flag_unset",
+        "tabnr_shows_other_tabnr_regardless_of_flag",
+        "bufnr_show_current_paths",
+        "winnr_show_current_paths",
+        "csv_sniff_lines_constant",
+        "csv_parse_lines_constant",
+        "tab_modified_indicator_returns_segment_when_modified",
+        "tab_modified_indicator_returns_none_when_no_modified",
+        "window_title_returns_value_when_set",
+        "window_title_returns_none_when_unset",
+        "file_size_clamps_negative_to_zero",
+        "file_size_humanizes_byte_count",
+        "detect_text_csv_dialect_auto_uses_caller_has_header",
+        "detect_text_csv_dialect_non_auto_uses_display_name",
+        "tab_returns_segment_with_tabnr_marker",
+        "tab_end_emits_empty_tabnr",
+        "tab_returns_none_when_no_tabnr"
+      ],
+      "coverage": 0.6756756756756757
+    },
     {
       "py_file": "powerline/lint/spec.py",
       "rs_file": "src/ported/lint/spec.rs",
@@ -1505,6 +1904,139 @@ columns:
       "coverage": 0.9565217391304348
     },
     {
+      "py_file": "powerline/bindings/pdb/__init__.py",
+      "rs_file": "src/ported/bindings/pdb/mod.rs",
+      "rs_exists": true,
+      "py_fn_total": 22,
+      "ported_fns": [
+        "use_powerline_prompt",
+        "main"
+      ],
+      "missing_fns": [
+        "__new__",
+        "__len__",
+        "__getitem__",
+        "__getslice__",
+        "add",
+        "__add__",
+        "__radd__",
+        "__unicode__",
+        "__new__",
+        "__str__",
+        "__getitem__",
+        "__getslice__",
+        "add",
+        "__add__",
+        "__radd__",
+        "encode",
+        "prompt",
+        "prompt",
+        "prompt",
+        "__init__"
+      ],
+      "rs_extra_fns": [
+        "new",
+        "powerline_render_result_is_string_alias",
+        "use_powerline_prompt_flags_class_name",
+        "main_emits_advice_without_panic"
+      ],
+      "coverage": 0.09090909090909091
+    },
+    {
+      "py_file": "powerline/bindings/zsh/__init__.py",
+      "rs_file": "src/ported/bindings/zsh/mod.rs",
+      "rs_exists": true,
+      "py_fn_total": 21,
+      "ported_fns": [
+        "shutdown",
+        "get_var_config",
+        "string",
+        "get",
+        "precmd",
+        "do_setup",
+        "reload",
+        "reload_config"
+      ],
+      "missing_fns": [
+        "config_override",
+        "theme_override",
+        "config_path",
+        "jobnum",
+        "__getitem__",
+        "__contains__",
+        "zsh_expand",
+        "init",
+        "__init__",
+        "__str__",
+        "__del__",
+        "set_prompt",
+        "setup"
+      ],
+      "rs_extra_fns": [
+        "used_powerlines",
+        "ext",
+        "new",
+        "config_path_from_var",
+        "args_config_override",
+        "args_theme_override",
+        "args_config_path",
+        "args_jobnum",
+        "contains",
+        "zsh_expand_fallback_steps",
+        "set_prompt_zpyvar_name",
+        "build_segment_info",
+        "del_restore",
+        "new",
+        "default",
+        "next_id",
+        "new",
+        "setup_entry",
+        "reset_used",
+        "args_ext_matches_upstream",
+        "args_renderer_module_matches_upstream",
+        "args_new_defaults_to_empty_pipe_status_and_zero_exit_code",
+        "get_var_config_none_returns_none",
+        "get_var_config_dict_parses_via_parsedotval",
+        "get_var_config_string_parses_via_parse_override_var",
+        "get_var_config_unknown_type_returns_none",
+        "config_path_from_var_none_returns_none",
+        "config_path_from_var_string_splits_on_colon",
+        "config_path_from_var_string_filters_empty_entries",
+        "config_path_from_var_list_preserves_entries",
+        "string_decodes_bytes_to_utf8",
+        "environment_get_returns_value_when_present",
+        "environment_get_returns_default_when_absent",
+        "environment_contains_true_when_present",
+        "environment_contains_false_when_absent",
+        "set_prompt_zpyvar_name_prepends_zpython_powerline",
+        "build_segment_info_contains_all_expected_keys",
+        "build_segment_info_none_mode_becomes_null",
+        "prompt_new_stores_state",
+        "zsh_powerline_new_assigns_unique_id",
+        "zsh_powerline_precmd_sets_args",
+        "zsh_powerline_do_setup_emits_five_prompt_pairs",
+        "zsh_powerline_do_setup_marks_above_only_for_ps1",
+        "zsh_powerline_do_setup_registers_in_used_powerlines",
+        "shutdown_iterates_registered_powerlines",
+        "reload_iterates_registered_powerlines",
+        "reload_config_iterates_registered_powerlines",
+        "setup_entry_returns_fresh_powerline",
+        "args_config_override_delegates_to_get_var_config",
+        "args_config_override_none_input_returns_none",
+        "args_theme_override_delegates_to_get_var_config",
+        "args_config_path_splits_string_on_colon",
+        "args_config_path_filters_empty_segments",
+        "args_config_path_passes_array_through",
+        "args_config_path_none_input_returns_none",
+        "args_jobnum_passes_through",
+        "zsh_expand_fallback_builds_local_var_command",
+        "prompt_del_restore_returns_var_value_pair",
+        "prompt_del_restore_returns_none_when_no_savedps",
+        "prompt_del_restore_returns_none_when_savedps_empty"
+      ],
+      "coverage": 0.38095238095238093
+    },
+    {
       "py_file": "powerline/lib/config.py",
       "rs_file": "src/ported/lib/config.rs",
       "rs_exists": true,
@@ -1925,6 +2457,80 @@ columns:
         "late_startup_hook_dispatches_setup_then_returns_try_next"
       ],
       "coverage": 0.6875
+    },
+    {
+      "py_file": "powerline/lib/vcs/__init__.py",
+      "rs_file": "src/ported/lib/vcs/mod.rs",
+      "rs_exists": true,
+      "py_fn_total": 16,
+      "ported_fns": [
+        "generate_directories",
+        "get_branch_name",
+        "update_maps",
+        "invalidate",
+        "ignore_files",
+        "cache_and_get",
+        "tree_status",
+        "guess"
+      ],
+      "missing_fns": [
+        "file_watcher",
+        "branch_watcher",
+        "__init__",
+        "get_file_status",
+        "__init__",
+        "__call__",
+        "get_fallback_create_watcher",
+        "debug"
+      ],
+      "rs_extra_fns": [
+        "is_mount",
+        "is_mount",
+        "branch_name_cache",
+        "branch_lock",
+        "file_status_lock",
+        "default",
+        "new",
+        "file_status_cache",
+        "default",
+        "new",
+        "call",
+        "tree_status_cache",
+        "matches",
+        "vcs_props",
+        "guess_vcs_at_directory",
+        "file_watcher_initialised",
+        "branch_watcher_initialised",
+        "generate_directories_walks_up_from_cwd",
+        "generate_directories_terminates_at_root",
+        "reset_caches",
+        "file_status_cache_new_starts_empty",
+        "file_status_cache_update_maps_registers_ignore_files",
+        "file_status_cache_invalidate_clears_dirstate_dependents",
+        "file_status_cache_invalidate_clears_ignore_dependents",
+        "file_status_cache_extra_ignore_files_are_included",
+        "tree_status_cache_caches_status_on_first_call",
+        "tree_status_cache_call_invalidates_on_watcher_change",
+        "tree_status_cache_call_uses_cache_when_unchanged",
+        "tree_status_cache_call_swallows_os_error_and_uses_cache",
+        "get_branch_name_caches_within_process",
+        "get_branch_name_changed_flag_refreshes_cache",
+        "tree_status_delegates_to_cache",
+        "vcs_props_contains_three_entries",
+        "vcs_props_git_uses_exists_check",
+        "vcs_props_mercurial_uses_isdir_check",
+        "vcs_check_exists_matches_existing_path",
+        "vcs_check_isdir_only_matches_directories",
+        "vcs_check_exists_no_match_for_nonexistent_path",
+        "guess_vcs_at_directory_detects_git_repo",
+        "guess_vcs_at_directory_detects_mercurial_repo",
+        "guess_vcs_at_directory_returns_none_for_non_repo",
+        "guess_walks_parent_directories_to_find_repo",
+        "guess_returns_none_when_no_repo_in_chain",
+        "file_watcher_initialised_returns_bool",
+        "branch_watcher_initialised_returns_bool"
+      ],
+      "coverage": 0.5
     },
     {
       "py_file": "powerline/lib/watcher/inotify.py",
@@ -2877,6 +3483,131 @@ columns:
       "coverage": 0.9
     },
     {
+      "py_file": "powerline/lint/__init__.py",
+      "rs_file": "src/ported/lint/mod.rs",
+      "rs_exists": true,
+      "py_fn_total": 9,
+      "ported_fns": [
+        "open_file",
+        "generate_json_config_loader",
+        "register_common_names",
+        "load_json_file",
+        "updated_with_config",
+        "find_all_ext_config_files",
+        "dict2",
+        "check"
+      ],
+      "missing_fns": [
+        "load_json_config"
+      ],
+      "rs_extra_fns": [
+        "function_name_re",
+        "strip_json_suffix",
+        "top_theme_spec",
+        "ext_theme_spec",
+        "log_format_spec",
+        "log_level_spec",
+        "term_color_spec",
+        "true_color_spec",
+        "colors_spec",
+        "mode_translations_value_spec",
+        "top_colorscheme_spec",
+        "vim_mode_spec",
+        "shell_mode_spec",
+        "divider_spec",
+        "ext_spec",
+        "gen_components_spec",
+        "args_spec",
+        "segment_module_spec",
+        "exinclude_spec",
+        "highlight_group_spec",
+        "_highlight_group_spec",
+        "vim_colorscheme_spec",
+        "shell_colorscheme_spec",
+        "segment_spec_base",
+        "subsegment_spec",
+        "segment_spec",
+        "segments_spec",
+        "segdict_spec",
+        "divside_spec",
+        "segment_data_value_spec",
+        "dividers_spec",
+        "spaces_spec",
+        "common_theme_spec",
+        "top_theme_structure_spec",
+        "main_theme_spec",
+        "log_file_spec",
+        "common_spec",
+        "ext_block_spec",
+        "main_spec",
+        "theme_spec",
+        "color_spec",
+        "name_spec",
+        "group_name_spec",
+        "attrs_spec",
+        "group_spec",
+        "groups_spec",
+        "colorscheme_spec",
+        "tmp_dir",
+        "function_name_re_matches_simple_name",
+        "function_name_re_matches_dotted_path",
+        "function_name_re_rejects_starting_digit",
+        "function_name_re_rejects_special_chars",
+        "open_file_reads_bytes",
+        "open_file_missing_returns_error",
+        "load_json_file_parses_valid_config",
+        "load_json_file_missing_returns_error",
+        "load_json_file_invalid_json_sets_hadproblem",
+        "updated_with_config_merges_results_into_dict",
+        "updated_with_config_no_path_no_op",
+        "dict2_shallow_copies_inner_dicts",
+        "dict2_passes_non_dict_values_through",
+        "strip_json_suffix_removes_suffix",
+        "strip_json_suffix_passes_through_when_absent",
+        "load_json_result_struct_fields_accessible",
+        "register_common_names_inserts_player_alias",
+        "generate_json_config_loader_loads_valid_config_and_flag_stays_false",
+        "generate_json_config_loader_missing_file_does_not_set_flag",
+        "find_all_ext_config_files_yields_ext_scoped_entry",
+        "find_all_ext_config_files_yields_top_level_entry",
+        "find_all_ext_config_files_yields_error_for_non_directory",
+        "find_all_ext_config_files_skips_nonexistent_root_silently",
+        "find_all_ext_config_files_yields_error_for_non_json_file_in_subdir",
+        "colorscheme_spec_registers_required_groups_key",
+        "group_spec_constructs_without_panic",
+        "groups_spec_attrs_spec_color_spec_constructible",
+        "check_against_clean_fixture_returns_false",
+        "check_rejects_colorscheme_missing_groups",
+        "check_rejects_double_underscore_filenames",
+        "check_rejects_theme_segments_left_not_array",
+        "check_rejects_parse_error",
+        "find_all_ext_config_files_walks_multiple_search_paths",
+        "ext_spec_carries_required_keys",
+        "divider_spec_has_printable_and_len_constraint",
+        "term_color_spec_is_unsigned_le_255",
+        "true_color_spec_has_hex_regex",
+        "colors_spec_has_colors_and_gradients_keys",
+        "vim_mode_spec_contains_known_modes",
+        "shell_mode_spec_has_regex",
+        "top_colorscheme_spec_has_mt_optional",
+        "args_spec_has_pl_and_segment_info_optional",
+        "gen_components_spec_lists_oneof_components",
+        "segment_spec_base_has_all_segment_keys",
+        "segment_spec_has_segments_and_type_keys",
+        "subsegment_spec_excludes_segment_list_from_type",
+        "segdict_spec_has_left_and_right",
+        "spaces_spec_has_unsigned_le_2",
+        "common_theme_spec_has_cursor_keys",
+        "theme_spec_has_segments_key",
+        "top_theme_structure_spec_includes_non_breaking_spaces",
+        "main_spec_has_common_and_ext_blocks",
+        "common_spec_has_log_and_watcher_keys",
+        "ext_block_spec_has_known_extensions",
+        "log_file_spec_is_optional_with_either"
+      ],
+      "coverage": 0.8888888888888888
+    },
+    {
       "py_file": "powerline/lint/markedjson/composer.py",
       "rs_file": "src/ported/lint/markedjson/composer.rs",
       "rs_exists": true,
@@ -3054,6 +3785,65 @@ columns:
       "coverage": 0.875
     },
     {
+      "py_file": "powerline/renderers/shell/__init__.py",
+      "rs_file": "src/ported/renderers/shell/mod.rs",
+      "rs_exists": true,
+      "py_fn_total": 8,
+      "ported_fns": [
+        "int_to_rgb",
+        "get_client_id",
+        "hlstyle",
+        "get_theme"
+      ],
+      "missing_fns": [
+        "__init__",
+        "do_render",
+        "render",
+        "do_render"
+      ],
+      "rs_extra_fns": [
+        "resolve",
+        "default",
+        "new",
+        "default",
+        "new",
+        "render_matcher_info",
+        "do_render_resolve_style",
+        "int_to_rgb_extracts_components",
+        "term_escape_style_auto_resolves_fbterm",
+        "term_escape_style_auto_resolves_xterm_for_other_term",
+        "term_escape_style_auto_resolves_xterm_when_term_unset",
+        "term_escape_style_pinned_value_passthrough",
+        "prompt_renderer_get_client_id_returns_value",
+        "prompt_renderer_get_client_id_returns_none_when_absent",
+        "shell_renderer_default_field_values_match_upstream",
+        "hlstyle_no_args_returns_just_reset_sequence",
+        "hlstyle_fg_cterm_emits_38_5_n",
+        "hlstyle_fg_truecolor_emits_38_2_rgb_when_enabled",
+        "hlstyle_truecolor_disabled_on_fbterm",
+        "hlstyle_bg_emits_48_5_n",
+        "hlstyle_attrs_bold_emits_1",
+        "hlstyle_attrs_italic_emits_3",
+        "hlstyle_attrs_underline_emits_4",
+        "hlstyle_combined_fg_bg_attrs",
+        "hlstyle_escape_true_wraps_with_hl_start_and_end",
+        "hlstyle_tmux_escape_wraps_with_dcs",
+        "hlstyle_screen_escape_wraps_with_dcs",
+        "render_matcher_info_pulls_local_theme",
+        "render_matcher_info_returns_none_when_unset",
+        "do_render_resolve_style_auto_dispatches_fbterm",
+        "do_render_resolve_style_auto_defaults_to_xterm",
+        "do_render_resolve_style_pinned_value_passes_through",
+        "shell_renderer_get_theme_no_matcher_returns_self_theme",
+        "shell_renderer_get_theme_empty_string_returns_self_theme",
+        "shell_renderer_get_theme_returns_existing_local_theme",
+        "shell_renderer_get_theme_constructs_lazy_theme",
+        "shell_renderer_get_theme_caches_constructed_theme",
+        "shell_renderer_get_theme_missing_matcher_returns_null"
+      ],
+      "coverage": 0.5
+    },
+    {
       "py_file": "powerline/bindings/qtile/widget.py",
       "rs_file": "src/ported/bindings/qtile/widget.rs",
       "rs_exists": true,
@@ -3092,6 +3882,31 @@ columns:
         "bar_draw_calls_accumulate_across_updates"
       ],
       "coverage": 0.8571428571428571
+    },
+    {
+      "py_file": "powerline/bindings/tmux/__init__.py",
+      "rs_file": "src/ported/bindings/tmux/mod.rs",
+      "rs_exists": true,
+      "py_fn_total": 7,
+      "ported_fns": [
+        "get_tmux_executable_name",
+        "_run_tmux",
+        "run_tmux_command",
+        "get_tmux_output",
+        "set_tmux_environment",
+        "source_tmux_file",
+        "get_tmux_version"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "NON_DIGITS",
+        "DIGITS",
+        "NON_LETTERS",
+        "get_tmux_executable_name_defaults_to_tmux",
+        "get_tmux_executable_name_uses_env_var",
+        "version_regexes_strip_correctly"
+      ],
+      "coverage": 1.0
     },
     {
       "py_file": "powerline/lib/dict.py",
@@ -3583,6 +4398,31 @@ columns:
       "coverage": 1.0
     },
     {
+      "py_file": "powerline/bindings/wm/__init__.py",
+      "rs_file": "src/ported/bindings/wm/mod.rs",
+      "rs_exists": true,
+      "py_fn_total": 5,
+      "ported_fns": [
+        "i3_subscribe",
+        "get_i3_connection",
+        "get_connected_xrandr_outputs"
+      ],
+      "missing_fns": [
+        "__init__",
+        "run"
+      ],
+      "rs_extra_fns": [
+        "XRANDR_OUTPUT_RE",
+        "wm_threads",
+        "default_update_interval_matches_upstream",
+        "xrandr_regex_matches_standard_line",
+        "xrandr_regex_handles_non_primary",
+        "get_connected_xrandr_outputs_returns_empty_when_xrandr_unavailable",
+        "wm_threads_registers_awesome"
+      ],
+      "coverage": 0.6
+    },
+    {
       "py_file": "powerline/commands/config.py",
       "rs_file": "src/ported/commands/config.rs",
       "rs_exists": true,
@@ -3621,6 +4461,42 @@ columns:
         "config_arg_parser_round_trips_underlying_argparser"
       ],
       "coverage": 0.4
+    },
+    {
+      "py_file": "powerline/lib/__init__.py",
+      "rs_file": "src/ported/lib/mod.rs",
+      "rs_exists": true,
+      "py_fn_total": 5,
+      "ported_fns": [
+        "wraps_saveargs",
+        "dec",
+        "add_divider_highlight_group",
+        "dec",
+        "f"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "new",
+        "wrapper",
+        "origin",
+        "add_divider_highlight_group_to_list",
+        "wrapped_origin_exposes_both_callables",
+        "wrapped_origin_accessors_match_fields",
+        "add_divider_highlight_group_wraps_non_empty_string",
+        "add_divider_highlight_group_none_input_returns_none",
+        "add_divider_highlight_group_empty_string_returns_none",
+        "add_divider_highlight_group_to_list_injects_divider_into_each_entry",
+        "add_divider_highlight_group_to_list_preserves_existing_dividers",
+        "add_divider_highlight_group_to_list_empty_returns_none",
+        "add_divider_highlight_group_to_list_none_returns_none",
+        "add_divider_highlight_group_custom_highlight_string",
+        "add_divider_highlight_group_invokes_inner_func_each_call",
+        "wraps_saveargs_returns_wrapper_origin_pair",
+        "dec_returns_wrapped_origin_pair",
+        "f_returns_single_segment_list_for_non_empty_contents",
+        "f_returns_none_for_empty_contents"
+      ],
+      "coverage": 1.0
     },
     {
       "py_file": "powerline/lib/shell.py",
@@ -3707,6 +4583,26 @@ columns:
         "get_config_paths_empty_env_string_returns_empty"
       ],
       "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/segments/__init__.py",
+      "rs_file": "src/ported/segments/mod.rs",
+      "rs_exists": true,
+      "py_fn_total": 5,
+      "ported_fns": [
+        "omitted_args",
+        "additional_args",
+        "with_docstring"
+      ],
+      "missing_fns": [
+        "argspecobjs",
+        "argspecobjs"
+      ],
+      "rs_extra_fns": [
+        "segment_defaults_are_empty",
+        "with_docstring_passes_through"
+      ],
+      "coverage": 0.6
     },
     {
       "py_file": "powerline/segments/pdb.py",
@@ -4178,6 +5074,53 @@ columns:
       "coverage": 1.0
     },
     {
+      "py_file": "powerline/matchers/vim/__init__.py",
+      "rs_file": "src/ported/matchers/vim/mod.rs",
+      "rs_exists": true,
+      "py_fn_total": 3,
+      "ported_fns": [
+        "help",
+        "cmdwin",
+        "quickfix"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "info_with_buftype",
+        "help_matches_help_buftype",
+        "quickfix_matches_quickfix_buftype",
+        "cmdwin_matches_command_line_buffer",
+        "cmdwin_matches_path_prefixed_buffer",
+        "cmdwin_rejects_other_buffers",
+        "cmdwin_returns_false_for_empty_name"
+      ],
+      "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/renderers/ipython/__init__.py",
+      "rs_file": "src/ported/renderers/ipython/mod.rs",
+      "rs_exists": true,
+      "py_fn_total": 3,
+      "ported_fns": [
+        "get_segment_info",
+        "get_theme",
+        "shutdown"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "default",
+        "new",
+        "get_segment_info_patches_ipython_key",
+        "get_theme_in_returns_self_theme",
+        "get_theme_returns_existing_local_theme",
+        "get_theme_constructs_lazy_theme_from_config",
+        "get_theme_caches_constructed_theme",
+        "shutdown_records_main_theme_first",
+        "shutdown_walks_local_themes_with_theme_key",
+        "get_theme_missing_matcher_returns_null"
+      ],
+      "coverage": 1.0
+    },
+    {
       "py_file": "powerline/segments/common/mail.py",
       "rs_file": "src/ported/segments/common/mail.rs",
       "rs_exists": true,
@@ -4302,6 +5245,31 @@ columns:
         "join_concatenates_components_in_order",
         "join_empty_returns_empty_path",
         "join_absolute_component_resets"
+      ],
+      "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/lib/watcher/__init__.py",
+      "rs_file": "src/ported/lib/watcher/mod.rs",
+      "rs_exists": true,
+      "py_fn_total": 2,
+      "ported_fns": [
+        "create_file_watcher",
+        "create_tree_watcher"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "watch",
+        "unwatch",
+        "check",
+        "close",
+        "watch",
+        "unwatch",
+        "check",
+        "close",
+        "create_file_watcher_returns_a_watcher",
+        "create_file_watcher_stat_explicit",
+        "create_file_watcher_inotify_falls_back_to_stat_on_non_linux"
       ],
       "coverage": 1.0
     },
@@ -4612,6 +5580,22 @@ columns:
       "coverage": 1.0
     },
     {
+      "py_file": "powerline/lint/markedjson/__init__.py",
+      "rs_file": "src/ported/lint/markedjson/mod.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [
+        "load"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "tmp_json",
+        "load_returns_value_and_no_error",
+        "load_reports_error_on_bad_json"
+      ],
+      "coverage": 1.0
+    },
+    {
       "py_file": "powerline/lint/selfcheck.py",
       "rs_file": "src/ported/lint/selfcheck.rs",
       "rs_exists": true,
@@ -4859,381 +5843,6 @@ columns:
       "coverage": 1.0
     },
     {
-      "py_file": "powerline/bindings/vim/__init__.py",
-      "rs_file": "src/ported/bindings/vim/__init__.rs",
-      "rs_exists": false,
-      "py_fn_total": 60,
-      "ported_fns": [],
-      "missing_fns": [
-        "get_vim_encoding",
-        "get_vim_encoding",
-        "get_vim_encoding",
-        "get_vim_encoding",
-        "python_to_vim",
-        "str_to_bytes",
-        "unicode_eval",
-        "str_to_bytes",
-        "unicode_eval",
-        "safe_bytes_eval",
-        "eval_bytes",
-        "eval_unicode",
-        "vim_get_func",
-        "__init__",
-        "__call__",
-        "vim_get_autoload_func",
-        "vim_func_exists",
-        "vim_func_exists",
-        "vim_getvar",
-        "bufvar_exists",
-        "vim_getwinvar",
-        "vim_global_exists",
-        "vim_getvar",
-        "bufvar_exists",
-        "vim_getwinvar",
-        "vim_global_exists",
-        "vim_command_exists",
-        "getbufvar",
-        "_vim_to_python",
-        "vim_getbufoption",
-        "vim_getoption",
-        "vim_setoption",
-        "vim_getbufoption",
-        "vim_getoption",
-        "vim_setoption",
-        "list_tabpage_buffers_segment_info",
-        "__nonzero__",
-        "get_buffer",
-        "__init__",
-        "__getitem__",
-        "get",
-        "__init__",
-        "buffer",
-        "__init__",
-        "__eq__",
-        "window",
-        "_last_tab_nr",
-        "current_tabpage",
-        "list_tabpages",
-        "__getitem__",
-        "list_tabpage_buffers_segment_info",
-        "__getitem__",
-        "get",
-        "__setitem__",
-        "buffer_name",
-        "buffer_name",
-        "powerline_vim_strtrans_error",
-        "register_buffer_cache",
-        "on_bwipe",
-        "create_ruby_dpowerline"
-      ],
-      "rs_extra_fns": [],
-      "coverage": 0.0
-    },
-    {
-      "py_file": "powerline/__init__.py",
-      "rs_file": "src/ported/__init__.rs",
-      "rs_exists": false,
-      "py_fn_total": 48,
-      "ported_fns": [],
-      "missing_fns": [
-        "_config_loader_condition",
-        "_find_config_files",
-        "__init__",
-        "_log",
-        "critical",
-        "exception",
-        "info",
-        "error",
-        "warn",
-        "debug",
-        "get_fallback_logger",
-        "_generate_change_callback",
-        "on_file_change",
-        "get_config_paths",
-        "generate_config_finder",
-        "load_config",
-        "_set_log_handlers",
-        "create_logger",
-        "get_default_theme",
-        "finish_common_config",
-        "reraise",
-        "gen_module_attr_getter",
-        "get_module_attr",
-        "_get_log_keys",
-        "__init__",
-        "init",
-        "create_logger",
-        "create_renderer",
-        "setup_components",
-        "get_config_paths",
-        "load_config",
-        "_purge_configs",
-        "load_main_config",
-        "_load_hierarhical_config",
-        "load_colorscheme_config",
-        "load_theme_config",
-        "load_colors_config",
-        "get_local_themes",
-        "update_renderer",
-        "render",
-        "render_above_lines",
-        "setup",
-        "do_setup",
-        "reload",
-        "shutdown",
-        "__enter__",
-        "__exit__",
-        "exception"
-      ],
-      "rs_extra_fns": [],
-      "coverage": 0.0
-    },
-    {
-      "py_file": "powerline/segments/vim/__init__.py",
-      "rs_file": "src/ported/segments/vim/__init__.rs",
-      "rs_exists": false,
-      "py_fn_total": 37,
-      "ported_fns": [],
-      "missing_fns": [
-        "window_cached",
-        "ret",
-        "mode",
-        "visual_range",
-        "modified_indicator",
-        "tab_modified_indicator",
-        "paste_indicator",
-        "readonly_indicator",
-        "file_scheme",
-        "file_directory",
-        "file_name",
-        "file_size",
-        "file_format",
-        "file_encoding",
-        "file_bom",
-        "file_type",
-        "window_title",
-        "line_percent",
-        "position",
-        "line_current",
-        "line_count",
-        "col_current",
-        "virtcol_current",
-        "modified_buffers",
-        "get_directory",
-        "get_directory",
-        "file_vcs_status",
-        "trailing_whitespace",
-        "tabnr",
-        "bufnr",
-        "winnr",
-        "detect_text_csv_dialect",
-        "read_csv",
-        "read_csv",
-        "process_csv_buffer",
-        "csv_col_current",
-        "tab"
-      ],
-      "rs_extra_fns": [],
-      "coverage": 0.0
-    },
-    {
-      "py_file": "powerline/bindings/pdb/__init__.py",
-      "rs_file": "src/ported/bindings/pdb/__init__.rs",
-      "rs_exists": false,
-      "py_fn_total": 22,
-      "ported_fns": [],
-      "missing_fns": [
-        "__new__",
-        "__len__",
-        "__getitem__",
-        "__getslice__",
-        "add",
-        "__add__",
-        "__radd__",
-        "__unicode__",
-        "__new__",
-        "__str__",
-        "__getitem__",
-        "__getslice__",
-        "add",
-        "__add__",
-        "__radd__",
-        "encode",
-        "use_powerline_prompt",
-        "prompt",
-        "prompt",
-        "prompt",
-        "main",
-        "__init__"
-      ],
-      "rs_extra_fns": [],
-      "coverage": 0.0
-    },
-    {
-      "py_file": "powerline/bindings/zsh/__init__.py",
-      "rs_file": "src/ported/bindings/zsh/__init__.rs",
-      "rs_exists": false,
-      "py_fn_total": 21,
-      "ported_fns": [],
-      "missing_fns": [
-        "shutdown",
-        "get_var_config",
-        "config_override",
-        "theme_override",
-        "config_path",
-        "jobnum",
-        "string",
-        "__getitem__",
-        "get",
-        "__contains__",
-        "zsh_expand",
-        "init",
-        "precmd",
-        "do_setup",
-        "__init__",
-        "__str__",
-        "__del__",
-        "set_prompt",
-        "reload",
-        "reload_config",
-        "setup"
-      ],
-      "rs_extra_fns": [],
-      "coverage": 0.0
-    },
-    {
-      "py_file": "powerline/lib/vcs/__init__.py",
-      "rs_file": "src/ported/lib/vcs/__init__.rs",
-      "rs_exists": false,
-      "py_fn_total": 16,
-      "ported_fns": [],
-      "missing_fns": [
-        "generate_directories",
-        "file_watcher",
-        "branch_watcher",
-        "get_branch_name",
-        "__init__",
-        "update_maps",
-        "invalidate",
-        "ignore_files",
-        "get_file_status",
-        "__init__",
-        "cache_and_get",
-        "__call__",
-        "tree_status",
-        "guess",
-        "get_fallback_create_watcher",
-        "debug"
-      ],
-      "rs_extra_fns": [],
-      "coverage": 0.0
-    },
-    {
-      "py_file": "powerline/lint/__init__.py",
-      "rs_file": "src/ported/lint/__init__.rs",
-      "rs_exists": false,
-      "py_fn_total": 9,
-      "ported_fns": [],
-      "missing_fns": [
-        "open_file",
-        "generate_json_config_loader",
-        "load_json_config",
-        "register_common_names",
-        "load_json_file",
-        "updated_with_config",
-        "find_all_ext_config_files",
-        "dict2",
-        "check"
-      ],
-      "rs_extra_fns": [],
-      "coverage": 0.0
-    },
-    {
-      "py_file": "powerline/renderers/shell/__init__.py",
-      "rs_file": "src/ported/renderers/shell/__init__.rs",
-      "rs_exists": false,
-      "py_fn_total": 8,
-      "ported_fns": [],
-      "missing_fns": [
-        "int_to_rgb",
-        "__init__",
-        "get_client_id",
-        "do_render",
-        "render",
-        "do_render",
-        "hlstyle",
-        "get_theme"
-      ],
-      "rs_extra_fns": [],
-      "coverage": 0.0
-    },
-    {
-      "py_file": "powerline/bindings/tmux/__init__.py",
-      "rs_file": "src/ported/bindings/tmux/__init__.rs",
-      "rs_exists": false,
-      "py_fn_total": 7,
-      "ported_fns": [],
-      "missing_fns": [
-        "get_tmux_executable_name",
-        "_run_tmux",
-        "run_tmux_command",
-        "get_tmux_output",
-        "set_tmux_environment",
-        "source_tmux_file",
-        "get_tmux_version"
-      ],
-      "rs_extra_fns": [],
-      "coverage": 0.0
-    },
-    {
-      "py_file": "powerline/bindings/wm/__init__.py",
-      "rs_file": "src/ported/bindings/wm/__init__.rs",
-      "rs_exists": false,
-      "py_fn_total": 5,
-      "ported_fns": [],
-      "missing_fns": [
-        "i3_subscribe",
-        "__init__",
-        "run",
-        "get_i3_connection",
-        "get_connected_xrandr_outputs"
-      ],
-      "rs_extra_fns": [],
-      "coverage": 0.0
-    },
-    {
-      "py_file": "powerline/lib/__init__.py",
-      "rs_file": "src/ported/lib/__init__.rs",
-      "rs_exists": false,
-      "py_fn_total": 5,
-      "ported_fns": [],
-      "missing_fns": [
-        "wraps_saveargs",
-        "dec",
-        "add_divider_highlight_group",
-        "dec",
-        "f"
-      ],
-      "rs_extra_fns": [],
-      "coverage": 0.0
-    },
-    {
-      "py_file": "powerline/segments/__init__.py",
-      "rs_file": "src/ported/segments/__init__.rs",
-      "rs_exists": false,
-      "py_fn_total": 5,
-      "ported_fns": [],
-      "missing_fns": [
-        "argspecobjs",
-        "argspecobjs",
-        "omitted_args",
-        "additional_args",
-        "with_docstring"
-      ],
-      "rs_extra_fns": [],
-      "coverage": 0.0
-    },
-    {
       "py_file": "powerline/lint/markedjson/nodes.py",
       "rs_file": "src/ported/lint/markedjson/nodes.rs",
       "rs_exists": true,
@@ -5260,59 +5869,6 @@ columns:
         "collection_node_carries_flow_style",
         "node_display_matches_upstream_repr_shape"
       ],
-      "coverage": 0.0
-    },
-    {
-      "py_file": "powerline/matchers/vim/__init__.py",
-      "rs_file": "src/ported/matchers/vim/__init__.rs",
-      "rs_exists": false,
-      "py_fn_total": 3,
-      "ported_fns": [],
-      "missing_fns": [
-        "help",
-        "cmdwin",
-        "quickfix"
-      ],
-      "rs_extra_fns": [],
-      "coverage": 0.0
-    },
-    {
-      "py_file": "powerline/renderers/ipython/__init__.py",
-      "rs_file": "src/ported/renderers/ipython/__init__.rs",
-      "rs_exists": false,
-      "py_fn_total": 3,
-      "ported_fns": [],
-      "missing_fns": [
-        "get_segment_info",
-        "get_theme",
-        "shutdown"
-      ],
-      "rs_extra_fns": [],
-      "coverage": 0.0
-    },
-    {
-      "py_file": "powerline/lib/watcher/__init__.py",
-      "rs_file": "src/ported/lib/watcher/__init__.rs",
-      "rs_exists": false,
-      "py_fn_total": 2,
-      "ported_fns": [],
-      "missing_fns": [
-        "create_file_watcher",
-        "create_tree_watcher"
-      ],
-      "rs_extra_fns": [],
-      "coverage": 0.0
-    },
-    {
-      "py_file": "powerline/lint/markedjson/__init__.py",
-      "rs_file": "src/ported/lint/markedjson/__init__.rs",
-      "rs_exists": false,
-      "py_fn_total": 1,
-      "ported_fns": [],
-      "missing_fns": [
-        "load"
-      ],
-      "rs_extra_fns": [],
       "coverage": 0.0
     },
     {
