@@ -311,6 +311,84 @@ impl VimRenderer {
         vec![('%', "%%")]
     }
 
+    /// Port of `VimRenderer.strwidth()` from
+    /// `powerline/renderers/vim.py:76-83`.
+    ///
+    /// Python wraps `vim.strwidth(string)` (a builtin VimL function
+    /// that returns the display width in cells, accounting for
+    /// wide-character and ambiguous-width handling per vim's
+    /// `'ambiwidth'` option).
+    ///
+    /// Rust can't reach vim's strwidth without an RPC bridge; the
+    /// port falls back to char-counting which matches strwidth for
+    /// the ASCII subset used by every powerline highlight name.
+    /// Callers needing exact vim parity should route through the
+    /// existing strwidth in `Renderer` or wire a vim-RPC bridge.
+    pub fn strwidth(string: &str) -> usize {
+        // py:76  if sys.version_info < (3,):
+        // py:77-79  vim.strwidth(string.encode(self.encoding, 'replace'))
+        // py:80-83  Py3: vim.strwidth(string)
+        string.chars().count()
+    }
+
+    /// Port of `VimRenderer.render()` from
+    /// `powerline/renderers/vim.py:88-119`.
+    ///
+    /// Builds the segment_info dict and dispatches to the base
+    /// Renderer.render with vim-specific keys (window, window_id,
+    /// winnr) merged in. Python uses `vim.current.window` to detect
+    /// the active window and pick the mode (`vim_mode()` or `'nc'`
+    /// for inactive windows per py:92-96).
+    ///
+    /// Rust port can't reach vim.current; callers supply
+    /// `is_current_window` + `mode` resolution as args. Returns the
+    /// merged segment_info dict ready for base Renderer.render
+    /// dispatch.
+    pub fn render(
+        renderer_segment_info: &serde_json::Map<String, serde_json::Value>,
+        window: Option<i64>,
+        window_id: Option<u64>,
+        winnr: Option<i64>,
+        is_tabline: bool,
+        is_current_window: bool,
+        current_mode_translation: Option<&str>,
+    ) -> serde_json::Map<String, serde_json::Value> {
+        // py:88  def render(self, window=None, window_id=None, winnr=None, is_tabline=False):
+        // py:90  segment_info = self.segment_info.copy()
+        let mut segment_info = renderer_segment_info.clone();
+        // py:92-96  mode dispatch based on whether window is current
+        let mode = if is_current_window {
+            current_mode_translation.unwrap_or("nc").to_string()
+        } else {
+            "nc".to_string()
+        };
+        // py:97-99  inject (window, window_id, winnr, mode, is_tabline)
+        if let Some(w) = window {
+            segment_info.insert(
+                "window".to_string(),
+                serde_json::Value::Number(w.into()),
+            );
+        }
+        if let Some(wid) = window_id {
+            segment_info.insert(
+                "window_id".to_string(),
+                serde_json::Value::Number(wid.into()),
+            );
+        }
+        if let Some(n) = winnr {
+            segment_info.insert(
+                "winnr".to_string(),
+                serde_json::Value::Number(n.into()),
+            );
+        }
+        segment_info.insert("mode".to_string(), serde_json::Value::String(mode));
+        segment_info.insert(
+            "is_tabline".to_string(),
+            serde_json::Value::Bool(is_tabline),
+        );
+        segment_info
+    }
+
     /// Port of `VimRenderer.reset_highlight()` from
     /// `powerline/renderers/vim.py:121`.
     pub fn reset_highlight(&mut self) {
@@ -796,5 +874,46 @@ mod tests {
         let empty = serde_json::Map::new();
         let result = r.get_segment_info(Some(&empty), "n");
         assert_eq!(result["default"], "yes");
+    }
+
+    #[test]
+    fn strwidth_counts_ascii_chars() {
+        // py:80-83  vim.strwidth(string) — Rust port uses char count
+        assert_eq!(VimRenderer::strwidth("hello"), 5);
+        assert_eq!(VimRenderer::strwidth(""), 0);
+    }
+
+    #[test]
+    fn render_returns_nc_mode_when_not_current_window() {
+        // py:95-96  if window is not vim.current.window → mode = 'nc'
+        let base = serde_json::Map::new();
+        let result = VimRenderer::render(&base, Some(1), Some(42), Some(2), false, false, Some("n"));
+        assert_eq!(
+            result.get("mode"),
+            Some(&serde_json::Value::String("nc".to_string()))
+        );
+    }
+
+    #[test]
+    fn render_uses_supplied_mode_for_current_window() {
+        // py:92-94  if window is vim.current.window → mode = vim_mode()
+        let base = serde_json::Map::new();
+        let result = VimRenderer::render(&base, Some(1), Some(42), Some(2), false, true, Some("INS"));
+        assert_eq!(
+            result.get("mode"),
+            Some(&serde_json::Value::String("INS".to_string()))
+        );
+    }
+
+    #[test]
+    fn render_injects_window_id_and_winnr_keys() {
+        let base = serde_json::Map::new();
+        let result = VimRenderer::render(&base, Some(7), Some(13), Some(2), true, false, None);
+        assert_eq!(result.get("window_id").and_then(|v| v.as_u64()), Some(13));
+        assert_eq!(result.get("winnr").and_then(|v| v.as_i64()), Some(2));
+        assert_eq!(
+            result.get("is_tabline"),
+            Some(&serde_json::Value::Bool(true))
+        );
     }
 }
