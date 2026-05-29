@@ -2192,6 +2192,48 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_lint_dict2_shallow_copies_inner_dicts() {
+    if !python_available() {
+        return;
+    }
+    // dict2(d) — py:389-391:
+    //   return defaultdict(dict, ((k, dict(v)) for k, v in d.items()))
+    // Shallow-copies each inner dict value. Python's defaultdict
+    // behavior on missing keys (auto-create empty dict) is the
+    // observable extra; Rust port returns a plain Map.
+    //
+    // Verify shallow-copy semantics on the present-keys side.
+    let py = match py_eval(
+        "(lambda d: __import__('json').dumps(dict(__import__('powerline.lint').lint.dict2(d)), sort_keys=True))({'a': {'x': 1}, 'b': {'y': 2}})",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    assert_eq!(
+        py_value,
+        serde_json::json!({"a": {"x": 1}, "b": {"y": 2}}),
+        "Python dict2 output drift"
+    );
+
+    let input = serde_json::Map::from_iter(vec![
+        ("a".to_string(), serde_json::json!({"x": 1})),
+        ("b".to_string(), serde_json::json!({"y": 2})),
+    ]);
+    let rs = powerliners::lint::dict2(&input);
+    assert_eq!(
+        rs.get("a").unwrap(),
+        &serde_json::json!({"x": 1}),
+        "Rust dict2 'a' drift"
+    );
+    assert_eq!(
+        rs.get("b").unwrap(),
+        &serde_json::json!({"y": 2}),
+        "Rust dict2 'b' drift"
+    );
+}
+
+#[test]
 fn parity_lint_updated_with_config_merges_load_result() {
     if !python_available() {
         return;
