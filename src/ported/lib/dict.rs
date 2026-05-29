@@ -71,35 +71,37 @@ where
 /// Port of `_clear_special_values()` from `powerline/lib/dict.py:17`.
 ///
 /// Remove REMOVE_THIS_KEY values from a (possibly nested) dictionary.
-/// Iterative walk via an explicit stack (matching the Python code's
-/// `l = [d]; while l: i = l.pop(); ...` shape).
+///
+/// Python uses an explicit stack (`l = [d]; while l: i = l.pop(); ...`)
+/// to avoid recursion-depth limits. The previous Rust port reproduced
+/// that shape via `Vec<*mut Map>`, but `Map<String, Value>` is backed
+/// by a `BTreeMap` whose rebalance on `.remove()` can invalidate
+/// outstanding raw pointers to other entries — leading to UB the
+/// moment a parent dict has both a REMOVE_THIS_KEY entry AND a sibling
+/// nested dict. Recursive descent owns one `&mut Map` at a time and
+/// is correct under aliasing; config-file nesting in practice is
+/// shallow enough that stack depth is a non-issue.
 pub fn _clear_special_values(d: &mut Map<String, Value>) {
-    let mut l: Vec<*mut Map<String, Value>> = vec![d as *mut _]; // py:20
-                                                                 // SAFETY: We only ever push pointers to live `Map`s reachable from
-                                                                 // `d`. Each `Map<String, Value>` is owned by either `d` or a nested
-                                                                 // `Value::Object` inside it; we hold no aliasing references during
-                                                                 // the inner loop, and we never visit the same map twice.
-    while let Some(p) = l.pop() {
-        // py:21-22
-        let i = unsafe { &mut *p };
-        let mut pops: Vec<String> = Vec::new(); // py:23
-        for (k, v) in i.iter_mut() {
-            // py:24
-            // py:25  isinstance check + sentinel identity — see REMOVE_THIS_KEY at py:5
-            if matches!(
-                v.get("__powerliners_remove_this_key__"),
-                Some(Value::Bool(true))
-            ) {
-                // py:25
-                pops.push(k.clone()); // py:26
-            } else if let Value::Object(child) = v {
-                // py:27  isinstance(v, dict)
-                l.push(child as *mut _); // py:28
-            }
+    // py:20  l = [d]
+    // py:21-22  while l: i = l.pop()
+    let mut pops: Vec<String> = Vec::new(); // py:23
+    for (k, v) in d.iter() {
+        // py:24-25  for k, v in i.items(): if v is REMOVE_THIS_KEY:
+        if matches!(
+            v.get("__powerliners_remove_this_key__"),
+            Some(Value::Bool(true))
+        ) {
+            pops.push(k.clone()); // py:26
         }
-        for k in pops {
-            // py:29
-            i.remove(&k); // py:30  i.pop(k)
+    }
+    for k in pops {
+        // py:29-30  for k in pops: i.pop(k)
+        d.remove(&k);
+    }
+    // py:27-28  elif isinstance(v, dict): l.append(v)
+    for (_, v) in d.iter_mut() {
+        if let Value::Object(child) = v {
+            _clear_special_values(child);
         }
     }
 }
