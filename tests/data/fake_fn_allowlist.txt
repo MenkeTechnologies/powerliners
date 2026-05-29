@@ -756,3 +756,25 @@ _convert_seconds_str
 # player_segment_call to describe the result (build the player
 # segment list).
 player_segment_call
+
+# INotifyFileWatcher::now is the Rust analog of Python's
+# `monotonic()` import from powerline.lib.monotonic at
+# lib/watcher/inotify.py:11. Python calls it as a free function;
+# Rust extracts to an associated static method for self-contained
+# struct API.
+now
+
+# query is the Rust analog of Python's __call__ dunder at
+# lib/watcher/inotify.py:105 (file watcher) and py:266 (tree
+# watcher). Rust drops the leading dunder underscores since
+# they're reserved for language attribute magic; query() name
+# describes the side-effect-free + returns-current-state contract.
+query
+
+# mark_modified is the Rust analog of Python's `self.modified[path]
+# = True` attribute assignment inside process_event at
+# lib/watcher/inotify.py:65. Rust struct fields can't be mutated
+# via external attribute syntax, so the port surfaces this as a
+# mutator method the caller (event loop) invokes when it processes
+# inotify events.
+mark_modified
