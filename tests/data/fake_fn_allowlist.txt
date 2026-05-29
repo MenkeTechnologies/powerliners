@@ -897,3 +897,21 @@ width_data
 # extracts to an associated function since the class-body dict
 # initialisation runs at import time and reads from os.environ.
 segment_info
+
+# hexdigits_set() is the Rust accessor for Python's
+# `hexdigits_set = set(hexdigits)` module-level constant at
+# lint/markedjson/scanner.py:11. Python initialises the set at
+# import time from the stdlib `string.hexdigits` constant; Rust
+# uses OnceLock for the same lazy single-init pattern.
+hexdigits_set
+
+# dispatch_fetch_for is the Rust analog of Python's chain of
+# `if ch == '...': return self.fetch_...()` calls inside
+# fetch_more_tokens at lint/markedjson/scanner.py:140-187. Python
+# inlines the dispatch and immediately invokes each branch on
+# `self`; Rust extracts the (char, flow_level) → FetchKind
+# discrimination into a pure function so it can be tested
+# without scaffolding the full Scanner+Reader state machine.
+# The Scanner methods (fetch_stream_end / fetch_flow_collection_*)
+# are still ported separately as named impls.
+dispatch_fetch_for
