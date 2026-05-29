@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">611</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3417</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">59.4%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">616</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3423</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">59.9%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -131,8 +131,8 @@ columns:
   <!-- SYM py_file=powerline/lint/checks.py rs_file=src/ported/lint/checks.rs rs_exists=True py_fn_total=27 ported_count=27 missing_count=0 rs_extra_count=87 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/lint/checks.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/watcher/uv.py -->
-  <tr class="partial"><td><code>lib/watcher/uv.py</code></td><td>✔ <code>lib/watcher/uv.rs</code></td><td>24</td><td><code>import_pyuv</code>, <code>run</code>, <code>join</code>, <code>start_uv_thread</code>, <code>normpath</code>, <code>watch</code>, <code>unwatch</code>, <code>is_watching</code>, <code>watch_directory</code>, <code>watch_one_directory</code></td><td><code>__init__</code>, <code>_async_cb</code>, <code>__init__</code>, <code>_start_watch_1_x</code>, <code>_start_watch_0_x</code>, <code>__del__</code>, <code>__init__</code>, <code>_record_event</code>, <code>_stopped_watching</code>, <code>__call__</code>, <code>__init__</code>, <code>_stopped_watching</code>, <code>_record_event</code>, <code>__call__</code></td><td><code>fmt</code>, <code>new</code>, <code>new</code>, <code>_uv_thread</code>, <code>default</code>, <code>new</code>, <code>watch_count</code>, <code>default</code>, <code>new</code>, <code>record_event</code>, <code>check</code>, <code>event_count</code>, <code>new</code>, <code>record_event</code>, <code>check</code>, <code>ignore</code>, <code>default</code>, <code>new</code>, <code>is_joined</code>, <code>uv_watcher_new_starts_empty</code>, <code>uv_watcher_watch_inserts_path</code>, <code>uv_watcher_watch_idempotent</code>, <code>uv_watcher_unwatch_removes_path</code>, <code>uv_watcher_unwatch_unknown_no_op</code>, <code>uv_watcher_supports_multiple_paths</code>, <code>start_uv_thread_returns_uv_not_found</code>, <code>normpath_returns_string_for_non_existing</code>, <code>uv_file_watcher_events_new_starts_empty</code>, <code>uv_file_watcher_events_record_appends</code>, <code>uv_file_watcher_events_check_returns_true_when_events_present</code>, <code>uv_file_watcher_events_check_consumes_queue</code>, <code>uv_file_watcher_events_check_false_when_empty</code>, <code>_uv_thread_starts_as_none</code>, <code>uv_not_found_implements_error_traits</code>, <code>import_pyuv_returns_uv_not_found_in_stub</code>, <code>uv_file_watcher_new_errors</code>, <code>uv_tree_watcher_new_errors</code>, <code>uv_tree_watcher_events_initial_state_is_modified</code>, <code>uv_tree_watcher_events_check_pops_modified_flag</code>, <code>uv_tree_watcher_events_record_event_sets_modified</code>, <code>uv_tree_watcher_events_ignored_event_does_not_set_modified</code>, <code>uv_tree_watcher_events_is_dummy_false</code>, <code>uv_tree_watcher_events_watch_directory_walks_supplied_list</code>, <code>uv_thread_new_starts_unjoined</code>, <code>uv_thread_join_flips_state</code>, <code>uv_thread_run_is_noop_without_panic</code></td><td class="coverage">42%</td></tr>
-  <!-- SYM py_file=powerline/lib/watcher/uv.py rs_file=src/ported/lib/watcher/uv.rs rs_exists=True py_fn_total=24 ported_count=10 missing_count=14 rs_extra_count=46 coverage=0.4167 -->
+  <tr class="partial"><td><code>lib/watcher/uv.py</code></td><td>✔ <code>lib/watcher/uv.rs</code></td><td>24</td><td><code>import_pyuv</code>, <code>run</code>, <code>join</code>, <code>start_uv_thread</code>, <code>normpath</code>, <code>watch</code>, <code>unwatch</code>, <code>is_watching</code>, <code>_record_event</code>, <code>_stopped_watching</code>, <code>watch_directory</code>, <code>watch_one_directory</code>, <code>_stopped_watching</code>, <code>_record_event</code></td><td><code>__init__</code>, <code>_async_cb</code>, <code>__init__</code>, <code>_start_watch_1_x</code>, <code>_start_watch_0_x</code>, <code>__del__</code>, <code>__init__</code>, <code>__call__</code>, <code>__init__</code>, <code>__call__</code></td><td><code>fmt</code>, <code>new</code>, <code>new</code>, <code>_uv_thread</code>, <code>default</code>, <code>new</code>, <code>watch_count</code>, <code>default</code>, <code>new</code>, <code>record_event</code>, <code>check</code>, <code>event_count</code>, <code>new</code>, <code>record_event</code>, <code>check</code>, <code>ignore</code>, <code>default</code>, <code>new</code>, <code>is_joined</code>, <code>uv_watcher_new_starts_empty</code>, <code>uv_watcher_watch_inserts_path</code>, <code>uv_watcher_watch_idempotent</code>, <code>uv_watcher_unwatch_removes_path</code>, <code>uv_watcher_unwatch_unknown_no_op</code>, <code>uv_watcher_supports_multiple_paths</code>, <code>start_uv_thread_returns_uv_not_found</code>, <code>normpath_returns_string_for_non_existing</code>, <code>uv_file_watcher_events_new_starts_empty</code>, <code>uv_file_watcher_events_record_appends</code>, <code>uv_file_watcher_events_check_returns_true_when_events_present</code>, <code>uv_file_watcher_events_check_consumes_queue</code>, <code>uv_file_watcher_events_check_false_when_empty</code>, <code>_uv_thread_starts_as_none</code>, <code>uv_not_found_implements_error_traits</code>, <code>import_pyuv_returns_uv_not_found_in_stub</code>, <code>uv_file_watcher_new_errors</code>, <code>uv_tree_watcher_new_errors</code>, <code>uv_tree_watcher_events_initial_state_is_modified</code>, <code>uv_tree_watcher_events_check_pops_modified_flag</code>, <code>uv_tree_watcher_events_record_event_sets_modified</code>, <code>uv_tree_watcher_events_ignored_event_does_not_set_modified</code>, <code>uv_tree_watcher_events_is_dummy_false</code>, <code>uv_tree_watcher_events_watch_directory_walks_supplied_list</code>, <code>uv_thread_new_starts_unjoined</code>, <code>uv_thread_join_flips_state</code>, <code>uv_thread_run_is_noop_without_panic</code></td><td class="coverage">58%</td></tr>
+  <!-- SYM py_file=powerline/lib/watcher/uv.py rs_file=src/ported/lib/watcher/uv.rs rs_exists=True py_fn_total=24 ported_count=14 missing_count=10 rs_extra_count=46 coverage=0.5833 -->
   <!-- END-GROUP py_file=powerline/lib/watcher/uv.py -->
   <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/error.py -->
   <tr class="partial"><td><code>lint/markedjson/error.py</code></td><td>✔ <code>lint/markedjson/error.rs</code></td><td>24</td><td><code>repl</code>, <code>strtrans</code>, <code>copy</code>, <code>get_snippet</code>, <code>advance_string</code>, <code>set_old_mark</code>, <code>set_merged_mark</code>, <code>echoerr</code>, <code>echoerr</code>, <code>format_error</code>, <code>next_variant</code>, <code>echo_all</code></td><td><code>__init__</code>, <code>to_string</code>, <code>__str__</code>, <code>__unicode__</code>, <code>__str__</code>, <code>__eq__</code>, <code>__init__</code>, <code>__init__</code>, <code>__call__</code>, <code>__init__</code>, <code>__call__</code>, <code>__nonzero__</code></td><td><code>NON_PRINTABLE_RE</code>, <code>new</code>, <code>to_string_marked</code>, <code>fmt</code>, <code>eq</code>, <code>new</code>, <code>fmt</code>, <code>new</code>, <code>call</code>, <code>new</code>, <code>call</code>, <code>is_truthy</code>, <code>non_printable_re_matches_ctrl_chars</code>, <code>non_printable_re_allows_tab_newline_cr</code>, <code>repl_formats_codepoint_as_hex</code>, <code>strtrans_replaces_tab_with_dashes</code>, <code>strtrans_escapes_non_printable</code>, <code>strtrans_passes_printable_through</code>, <code>rich_mark_new_has_no_old_or_merged</code>, <code>rich_mark_copy_is_equal</code>, <code>rich_mark_get_snippet_none_when_no_buffer</code>, <code>rich_mark_get_snippet_extracts_line</code>, <code>rich_mark_advance_string_offsets_column_and_pointer</code>, <code>rich_mark_set_merged_mark_appends</code>, <code>rich_mark_set_old_mark_chains</code>, <code>rich_mark_eq_compares_name_line_column</code>, <code>rich_mark_to_string_marked_emits_line_column</code>, <code>format_error_combines_context_and_problem</code>, <code>format_error_omits_context_mark_when_same_as_problem_mark</code>, <code>format_error_indent_prefixes_text</code>, <code>marked_error_format_includes_problem</code>, <code>marked_error_implements_error_traits</code>, <code>echoerr_holds_indent</code>, <code>echo_err_call_defaults_indent_to_self_indent</code>, <code>echo_err_call_preserves_explicit_indent</code>, <code>delayed_echo_err_new_empty_message_shift_zero</code>, <code>delayed_echo_err_new_message_shifts_by_4</code>, <code>delayed_echo_err_new_separator_shifts_by_4</code>, <code>delayed_echo_err_call_appends_to_last_variant</code>, <code>delayed_echo_err_call_shifts_indent_by_self_indent</code>, <code>delayed_echo_err_call_defaults_kwargs_indent_to_zero</code>, <code>delayed_echo_err_next_variant_appends_empty_bucket</code>, <code>delayed_echo_err_echo_all_empty_variants_returns_empty</code>, <code>delayed_echo_err_echo_all_emits_message_first</code>, <code>delayed_echo_err_echo_all_emits_separator_between_variants</code>, <code>delayed_echo_err_is_truthy_when_errs_non_empty</code>, <code>delayed_echo_err_echo_all_skips_empty_first_variant_when_subsequent_has_content</code>, <code>echoerr_writes_newline_problem_newline</code></td><td class="coverage">50%</td></tr>
@@ -143,8 +143,8 @@ columns:
   <!-- SYM py_file=powerline/vim.py rs_file=src/ported/vim.rs rs_exists=True py_fn_total=24 ported_count=10 missing_count=14 rs_extra_count=55 coverage=0.4167 -->
   <!-- END-GROUP py_file=powerline/vim.py -->
   <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/constructor.py -->
-  <tr class="partial"><td><code>lint/markedjson/constructor.py</code></td><td>✔ <code>lint/markedjson/constructor.rs</code></td><td>23</td><td><code>marked</code>, <code>check_data</code>, <code>get_data</code>, <code>get_single_data</code>, <code>construct_document</code>, <code>construct_object</code>, <code>construct_scalar</code>, <code>construct_sequence</code>, <code>construct_mapping</code>, <code>add_constructor</code>, <code>construct_scalar</code>, <code>flatten_mapping</code>, <code>construct_mapping</code>, <code>construct_yaml_null</code>, <code>construct_yaml_bool</code>, <code>construct_yaml_int</code>, <code>construct_yaml_float</code>, <code>construct_yaml_str</code>, <code>construct_yaml_seq</code>, <code>construct_yaml_map</code>, <code>construct_undefined</code></td><td><code>f</code>, <code>__init__</code></td><td><code>fmt</code>, <code>default</code>, <code>new</code>, <code>default</code>, <code>new</code>, <code>composed_id</code>, <code>marked_any_to_json</code>, <code>mk_scalar</code>, <code>mk_seq</code>, <code>mk_map</code>, <code>constructor_error_implements_error_traits</code>, <code>marked_wraps_value_with_mark</code>, <code>add_constructor_registers_tag</code>, <code>add_constructor_none_maps_to_catchall_key</code>, <code>construct_object_unknown_tag_returns_error</code>, <code>construct_object_catchall_fires_for_unknown_tag</code>, <code>construct_scalar_returns_marked_unicode</code>, <code>construct_scalar_rejects_sequence_node</code>, <code>construct_sequence_returns_vec_of_marked_values</code>, <code>construct_sequence_rejects_scalar_node</code>, <code>construct_mapping_returns_marked_dict</code>, <code>construct_yaml_null_returns_null</code>, <code>construct_yaml_bool_parses_true_string</code>, <code>construct_yaml_bool_parses_false_string</code>, <code>construct_yaml_int_positive</code>, <code>construct_yaml_int_negative</code>, <code>construct_yaml_int_zero</code>, <code>construct_yaml_float_parses_decimal</code>, <code>construct_yaml_str_returns_string</code>, <code>construct_yaml_seq_builds_marked_list</code>, <code>construct_yaml_map_builds_marked_dict</code>, <code>construct_undefined_always_errors</code>, <code>constructor_new_registers_all_eight_tags</code>, <code>construct_object_dispatches_int_constructor</code>, <code>base_constructor_new_initialises_empty_state</code>, <code>check_data_returns_input</code>, <code>get_data_returns_none_when_no_node</code>, <code>get_single_data_returns_none_when_no_node</code>, <code>construct_document_resets_constructed_objects_after_construction</code>, <code>construct_document_resets_deep_construct_after_construction</code>, <code>get_data_with_node_returns_constructed_value</code>, <code>get_single_data_with_node_returns_constructed_value</code></td><td class="coverage">91%</td></tr>
-  <!-- SYM py_file=powerline/lint/markedjson/constructor.py rs_file=src/ported/lint/markedjson/constructor.rs rs_exists=True py_fn_total=23 ported_count=21 missing_count=2 rs_extra_count=42 coverage=0.9130 -->
+  <tr class="partial"><td><code>lint/markedjson/constructor.py</code></td><td>✔ <code>lint/markedjson/constructor.rs</code></td><td>23</td><td><code>marked</code>, <code>f</code>, <code>check_data</code>, <code>get_data</code>, <code>get_single_data</code>, <code>construct_document</code>, <code>construct_object</code>, <code>construct_scalar</code>, <code>construct_sequence</code>, <code>construct_mapping</code>, <code>add_constructor</code>, <code>construct_scalar</code>, <code>flatten_mapping</code>, <code>construct_mapping</code>, <code>construct_yaml_null</code>, <code>construct_yaml_bool</code>, <code>construct_yaml_int</code>, <code>construct_yaml_float</code>, <code>construct_yaml_str</code>, <code>construct_yaml_seq</code>, <code>construct_yaml_map</code>, <code>construct_undefined</code></td><td><code>__init__</code></td><td><code>fmt</code>, <code>default</code>, <code>new</code>, <code>default</code>, <code>new</code>, <code>composed_id</code>, <code>marked_any_to_json</code>, <code>mk_scalar</code>, <code>mk_seq</code>, <code>mk_map</code>, <code>constructor_error_implements_error_traits</code>, <code>marked_wraps_value_with_mark</code>, <code>add_constructor_registers_tag</code>, <code>add_constructor_none_maps_to_catchall_key</code>, <code>construct_object_unknown_tag_returns_error</code>, <code>construct_object_catchall_fires_for_unknown_tag</code>, <code>construct_scalar_returns_marked_unicode</code>, <code>construct_scalar_rejects_sequence_node</code>, <code>construct_sequence_returns_vec_of_marked_values</code>, <code>construct_sequence_rejects_scalar_node</code>, <code>construct_mapping_returns_marked_dict</code>, <code>construct_yaml_null_returns_null</code>, <code>construct_yaml_bool_parses_true_string</code>, <code>construct_yaml_bool_parses_false_string</code>, <code>construct_yaml_int_positive</code>, <code>construct_yaml_int_negative</code>, <code>construct_yaml_int_zero</code>, <code>construct_yaml_float_parses_decimal</code>, <code>construct_yaml_str_returns_string</code>, <code>construct_yaml_seq_builds_marked_list</code>, <code>construct_yaml_map_builds_marked_dict</code>, <code>construct_undefined_always_errors</code>, <code>constructor_new_registers_all_eight_tags</code>, <code>construct_object_dispatches_int_constructor</code>, <code>base_constructor_new_initialises_empty_state</code>, <code>check_data_returns_input</code>, <code>get_data_returns_none_when_no_node</code>, <code>get_single_data_returns_none_when_no_node</code>, <code>construct_document_resets_constructed_objects_after_construction</code>, <code>construct_document_resets_deep_construct_after_construction</code>, <code>get_data_with_node_returns_constructed_value</code>, <code>get_single_data_with_node_returns_constructed_value</code>, <code>f_closure_wraps_construct_result_with_mark</code></td><td class="coverage">96%</td></tr>
+  <!-- SYM py_file=powerline/lint/markedjson/constructor.py rs_file=src/ported/lint/markedjson/constructor.rs rs_exists=True py_fn_total=23 ported_count=22 missing_count=1 rs_extra_count=43 coverage=0.9565 -->
   <!-- END-GROUP py_file=powerline/lint/markedjson/constructor.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/config.py -->
   <tr class="partial"><td><code>lib/config.py</code></td><td>✔ <code>lib/config.rs</code></td><td>21</td><td><code>open_file</code>, <code>load_json_config</code>, <code>watch</code>, <code>watch</code>, <code>unwatch</code>, <code>transfer_calls</code>, <code>set_watcher</code>, <code>set_pl</code>, <code>set_interval</code>, <code>register</code>, <code>register_missing</code>, <code>unregister_functions</code>, <code>unregister_missing</code>, <code>load</code>, <code>update</code>, <code>run</code>, <code>exception</code></td><td><code>__call__</code>, <code>__init__</code>, <code>__call__</code>, <code>__init__</code></td><td><code>check</code>, <code>default</code>, <code>new</code>, <code>check</code>, <code>default</code>, <code>new</code>, <code>tmp_json</code>, <code>open_file_reads_utf8_contents</code>, <code>load_json_config_parses_basic</code>, <code>load_json_config_returns_err_on_bad_json</code>, <code>dummy_watcher_always_returns_false</code>, <code>deferred_watcher_queues_calls</code>, <code>config_loader_run_once_uses_dummy_watcher_type</code>, <code>config_loader_default_uses_deferred_watcher_type</code>, <code>config_loader_set_pl_records_value</code>, <code>config_loader_set_interval_records_value</code>, <code>config_loader_register_adds_function_to_watched_path</code>, <code>config_loader_register_dedupes_function_id</code>, <code>config_loader_register_missing_adds_pair_to_key</code>, <code>config_loader_unregister_functions_drops_path_when_empty</code>, <code>config_loader_unregister_functions_keeps_path_with_remaining_functions</code>, <code>config_loader_unregister_functions_clears_loaded_entry</code>, <code>config_loader_unregister_missing_drops_key_when_empty</code>, <code>config_loader_load_calls_load_fn_on_cache_miss</code>, <code>config_loader_load_returns_cached_value_on_hit</code>, <code>config_loader_load_propagates_load_fn_errors</code>, <code>config_loader_set_watcher_same_type_is_noop</code>, <code>config_loader_set_watcher_different_type_swaps</code>, <code>config_loader_set_watcher_dummy_to_inotify</code>, <code>config_loader_exception_no_pl_returns_err</code>, <code>config_loader_exception_with_pl_returns_formatted</code>, <code>config_loader_exception_substitutes_multiple_args</code>, <code>config_loader_update_dispatches_modified_paths</code>, <code>config_loader_update_skips_unmodified_paths</code>, <code>config_loader_update_load_error_surfaces</code>, <code>config_loader_update_resolves_missing_via_condition</code>, <code>config_loader_run_exits_immediately_when_shutdown_event_set</code>, <code>config_loader_run_exits_when_interval_is_none</code></td><td class="coverage">81%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3417,
-    "ported_fns": 611,
-    "coverage": 0.5943579766536965
+    "rs_fns_in_ported": 3423,
+    "ported_fns": 616,
+    "coverage": 0.5992217898832685
   },
   "rows": [
     {
@@ -1147,8 +1147,12 @@ columns:
         "watch",
         "unwatch",
         "is_watching",
+        "_record_event",
+        "_stopped_watching",
         "watch_directory",
-        "watch_one_directory"
+        "watch_one_directory",
+        "_stopped_watching",
+        "_record_event"
       ],
       "missing_fns": [
         "__init__",
@@ -1158,12 +1162,8 @@ columns:
         "_start_watch_0_x",
         "__del__",
         "__init__",
-        "_record_event",
-        "_stopped_watching",
         "__call__",
         "__init__",
-        "_stopped_watching",
-        "_record_event",
         "__call__"
       ],
       "rs_extra_fns": [
@@ -1214,7 +1214,7 @@ columns:
         "uv_thread_join_flips_state",
         "uv_thread_run_is_noop_without_panic"
       ],
-      "coverage": 0.4166666666666667
+      "coverage": 0.5833333333333334
     },
     {
       "py_file": "powerline/lint/markedjson/error.py",
@@ -1400,6 +1400,7 @@ columns:
       "py_fn_total": 23,
       "ported_fns": [
         "marked",
+        "f",
         "check_data",
         "get_data",
         "get_single_data",
@@ -1422,7 +1423,6 @@ columns:
         "construct_undefined"
       ],
       "missing_fns": [
-        "f",
         "__init__"
       ],
       "rs_extra_fns": [
@@ -1467,9 +1467,10 @@ columns:
         "construct_document_resets_constructed_objects_after_construction",
         "construct_document_resets_deep_construct_after_construction",
         "get_data_with_node_returns_constructed_value",
-        "get_single_data_with_node_returns_constructed_value"
+        "get_single_data_with_node_returns_constructed_value",
+        "f_closure_wraps_construct_result_with_mark"
       ],
-      "coverage": 0.9130434782608695
+      "coverage": 0.9565217391304348
     },
     {
       "py_file": "powerline/lib/config.py",
