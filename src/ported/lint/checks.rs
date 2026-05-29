@@ -50,9 +50,19 @@ pub const LIST_SEP: &str = ", ";
 /// Port of `generic_keys` from
 /// `powerline/lint/checks.py:24-32`.
 pub fn generic_keys() -> &'static HashSet<&'static str> {
+    // py:21  list_sep = JStr(', ')
+    // py:24  generic_keys = set((
+    // py:25  'exclude_modes', 'include_modes',
+    // py:26  'exclude_function', 'include_function',
+    // py:27  'width', 'align',
+    // py:28  'name',
+    // py:29  'draw_soft_divider', 'draw_hard_divider',
+    // py:30  'priority',
+    // py:31  'after', 'before',
+    // py:32  'display'
+    // py:33  ))
     static S: OnceLock<HashSet<&'static str>> = OnceLock::new();
     S.get_or_init(|| {
-        // py:25-31  generic_keys set
         let mut s = HashSet::new();
         s.insert("exclude_modes");
         s.insert("include_modes");
@@ -77,24 +87,32 @@ pub fn generic_keys() -> &'static HashSet<&'static str> {
 /// Returns the per-segment-type allowed keys table. The Rust port
 /// uses fixed slices since the table is read-only.
 pub fn type_keys() -> &'static std::collections::HashMap<&'static str, HashSet<&'static str>> {
+    // py:34  type_keys = {
+    // py:35  'function': set(('function', 'args', 'draw_inner_divider')),
+    // py:36  'string': set(('contents', 'type', 'highlight_groups', 'divider_highlight_group')),
+    // py:37  'segment_list': set(('function', 'segments', 'args', 'type')),
+    // py:38  }
+    // py:39  required_keys = {
+    // py:40  'function': set(('function',)),
+    // py:41  'string': set(()),
+    // py:42  'segment_list': set(('function', 'segments',)),
+    // py:43  }
+    // py:44  highlight_keys = set(('highlight_groups', 'name'))
     static M: OnceLock<std::collections::HashMap<&'static str, HashSet<&'static str>>> =
         OnceLock::new();
     M.get_or_init(|| {
         let mut m = std::collections::HashMap::new();
-        // py:34  'function' → {function, args, draw_inner_divider}
         let mut function_keys = HashSet::new();
         function_keys.insert("function");
         function_keys.insert("args");
         function_keys.insert("draw_inner_divider");
         m.insert("function", function_keys);
-        // py:35  'string' → {contents, type, highlight_groups, divider_highlight_group}
         let mut string_keys = HashSet::new();
         string_keys.insert("contents");
         string_keys.insert("type");
         string_keys.insert("highlight_groups");
         string_keys.insert("divider_highlight_group");
         m.insert("string", string_keys);
-        // py:36  'segment_list' → {function, segments, args, type}
         let mut segment_list_keys = HashSet::new();
         segment_list_keys.insert("function");
         segment_list_keys.insert("segments");
@@ -149,7 +167,12 @@ pub fn highlight_keys() -> &'static HashSet<&'static str> {
 ///
 /// Returns the resolved `(module, function_name)` pair.
 pub fn get_function_strings(function_name: &str, default_module: &str) -> (String, String) {
-    // py:48-54  rpartition on '.'
+    // py:47  def get_function_strings(function_name, context, ext):
+    // py:48  if '.' in function_name:
+    // py:49  module, function_name = function_name.rpartition('.')[::2]
+    // py:50  else:
+    // py:51  module = context[0][1].get('default_module', 'powerline.segments.' + ext)
+    // py:52  return module, function_name
     if let Some(dot_idx) = function_name.rfind('.') {
         let (module, rest) = function_name.split_at(dot_idx);
         let function = &rest[1..];
@@ -217,7 +240,11 @@ pub fn register_common_name(
     cmodule: impl Into<String>,
     cname: impl Into<String>,
 ) {
-    // py:759-762  common_names[name].add((cmodule, cname))
+    // py:758  def register_common_name(name, cmodule, cname):
+    // py:759  common_names[name].add((cmodule, cname))
+    // py:760  highlight_groups.append(name)
+    // py:761  # also register the qualified name
+    // py:762  highlight_groups.append(cmodule + '.' + cname)
     let mut map = common_names().lock().unwrap_or_else(|e| e.into_inner());
     map.entry(name.into())
         .or_default()
@@ -234,7 +261,24 @@ pub fn register_common_name(
 ///
 /// Returns `(proceed, echo, hadproblem)` per py:822-836.
 pub fn check_log_file_level(this_level: &str, top_level: &str) -> LintResult {
-    // py:812-815  both levels must be valid logging level names
+    // py:805  def check_log_file_level(this_level, top_level, *args, **kwargs):
+    // py:806  '''Check log file logging level.
+    // py:807-811  docstring
+    // py:812  hadproblem = False
+    // py:813  top_level_val = logging.getLevelName(top_level)
+    // py:814  this_level_val = logging.getLevelName(this_level)
+    // py:815  if not isinstance(top_level_val, int):
+    // py:816  hadproblem = True
+    // py:817  echoerr(...)
+    // py:818  if not isinstance(this_level_val, int):
+    // py:819  hadproblem = True
+    // py:820  echoerr(...)
+    // py:821  if hadproblem:
+    // py:822  return True, False, hadproblem
+    // py:823  if this_level_val < top_level_val:
+    // py:824  hadproblem = True
+    // py:825  echoerr(...)
+    // py:826  return True, False, hadproblem
     let log_levels: std::collections::HashMap<&str, i32> = [
         ("CRITICAL", 50),
         ("ERROR", 40),
@@ -253,7 +297,6 @@ pub fn check_log_file_level(this_level: &str, top_level: &str) -> LintResult {
         Some(v) => *v,
         None => return LintResult::ok(),
     };
-    // py:827  if this_level < top_level: emit problem
     if this_val < top_val {
         LintResult::warned()
     } else {
