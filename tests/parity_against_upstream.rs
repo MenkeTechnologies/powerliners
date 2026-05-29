@@ -2155,6 +2155,58 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_segment_segment_getters_keyset() {
+    if !python_available() {
+        return;
+    }
+    // segment_getters is a dict mapping segment-type → resolver fn.
+    // Verify both sides agree on the 3 segment types ('function',
+    // 'segment_list', 'string') AND that the Rust resolver-name
+    // dispatch matches Python's resolver-function dispatch.
+    let py_keys = match py_eval(
+        "list(sorted(__import__('powerline.segment', fromlist=['segment_getters']).segment_getters.keys()))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(
+        py_keys, "['function', 'segment_list', 'string']",
+        "Python segment_getters keys changed"
+    );
+
+    // For each segment type, Python returns get_function or get_string;
+    // the Rust port returns the matching resolver-name string. Verify
+    // they agree on the dispatch direction.
+    let cases: &[(&str, &str)] = &[
+        ("function", "get_function"),
+        ("segment_list", "get_function"),
+        ("string", "get_string"),
+    ];
+    for &(ty, expected_resolver) in cases {
+        let py_expr = format!(
+            "__import__('powerline.segment', fromlist=['segment_getters']).segment_getters[{:?}].__name__",
+            ty
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(
+            py, expected_resolver,
+            "Python segment_getters[{:?}] resolver fn changed",
+            ty
+        );
+        let rs = powerliners::ported::segment::segment_getter_name(ty);
+        assert_eq!(
+            rs.unwrap_or("none"),
+            expected_resolver,
+            "Rust segment_getter_name({:?}) mismatch",
+            ty
+        );
+    }
+}
+
+#[test]
 fn parity_safe_unicode_handles_str_input() {
     if !python_available() {
         return;
