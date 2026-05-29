@@ -167,7 +167,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/theme.py` ↔ `src/ported/theme.rs` | 151 | 6 | 1 | 6 | 444 | 13 | 148 |
 | [x] | `powerline/lint/markedjson/markedvalue.py` ↔ `src/ported/lint/markedjson/markedvalue.rs` | 115 | 4 | 6 | 9 | 274 | 17 | 132 |
 | [x] | `powerline/bindings/config.py` ↔ `src/ported/bindings/config.rs` | 232 | 11 | 1 | 2 | 698 | 25 | 179 |
-| [x] | `powerline/bindings/vim/__init__.py` ↔ `src/ported/bindings/vim/mod.rs` | 371 | 11 | 1 | 3 | 252 | 17 | 211 |
+| [x] | `powerline/bindings/vim/__init__.py` ↔ `src/ported/bindings/vim/mod.rs` | 371 | 11 | 1 | 3 | 335 | 29 | 232 |
 | [x] | `powerline/bindings/ipython/pre_0_11.py` ↔ `src/ported/bindings/ipython/pre_0_11.rs` | 111 | 1 | 7 | 14 | 443 | 24 | 70 |
 | [x] | `powerline/lib/watcher/inotify.py` ↔ `src/ported/lib/watcher/inotify.rs` | 212 | 0 | 5 | 15 | 545 | 19 | 153 |
 | [x] | `powerline/renderer.py` ↔ `src/ported/renderer.rs` | 503 | 1 | 1 | 14 | 1280 | 25 | 373 |

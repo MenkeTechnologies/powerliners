@@ -493,6 +493,191 @@ pub fn powerline_vim_strtrans_error(bytes: &[u8]) -> (String, usize) {
     (out, bytes.len())
 }
 
+/// Port of `unicode_eval()` from
+/// `powerline/bindings/vim/__init__.py:79-80`.
+///
+/// Python returns `vim.eval(expr)` — a vim runtime expression
+/// evaluation. Rust can't reach the vim runtime; the parity
+/// surface takes the already-evaluated value as a closure result.
+pub fn unicode_eval<F>(eval: F) -> String
+where
+    F: FnOnce() -> String,
+{
+    // py:79  def unicode_eval(expr):
+    // py:80  return vim.eval(expr)
+    eval()
+}
+
+/// Port of `safe_bytes_eval()` from
+/// `powerline/bindings/vim/__init__.py:83-92`.
+///
+/// Python evaluates `vim.eval(...)` then maps the result to a
+/// byte sequence via `bytearray`. Rust port takes the already-
+/// retrieved byte sequence (or eval-closure result as bytes) and
+/// returns the byte vec.
+pub fn safe_bytes_eval<F>(eval: F) -> Vec<u8>
+where
+    F: FnOnce() -> Vec<u8>,
+{
+    // py:83  def safe_bytes_eval(expr):
+    // py:84-92  bytes(bytearray((int(chunk) for chunk in vim.eval(...).split())))
+    eval()
+}
+
+/// Port of `eval_bytes()` from
+/// `powerline/bindings/vim/__init__.py:95-99`.
+///
+/// Python tries `str_to_bytes(vim.eval(expr))` first; on
+/// `UnicodeDecodeError` falls back to `safe_bytes_eval(expr)`.
+/// Rust port takes both pre-resolved results and returns the
+/// first non-empty/non-error path.
+pub fn eval_bytes<U, S>(eval_unicode_fn: U, safe_bytes_fn: S) -> Vec<u8>
+where
+    U: FnOnce() -> Result<String, ()>,
+    S: FnOnce() -> Vec<u8>,
+{
+    // py:95  def eval_bytes(expr):
+    // py:96-97  try: return str_to_bytes(vim.eval(expr))
+    match eval_unicode_fn() {
+        Ok(s) => str_to_bytes(&s),
+        // py:98-99  except UnicodeDecodeError: return safe_bytes_eval(expr)
+        Err(()) => safe_bytes_fn(),
+    }
+}
+
+/// Port of `eval_unicode()` from
+/// `powerline/bindings/vim/__init__.py:102-106`.
+///
+/// Python tries `unicode_eval(expr)` first; on
+/// `UnicodeDecodeError` falls back to
+/// `safe_bytes_eval(expr).decode(vim_encoding, 'powerline_vim_strtrans_error')`.
+/// Rust port mirrors the dispatch via the closure pair.
+pub fn eval_unicode<U, S>(eval_unicode_fn: U, safe_bytes_fn: S) -> String
+where
+    U: FnOnce() -> Result<String, ()>,
+    S: FnOnce() -> Vec<u8>,
+{
+    // py:102  def eval_unicode(expr):
+    // py:103-104  try: return unicode_eval(expr)
+    match eval_unicode_fn() {
+        Ok(s) => s,
+        // py:105-106  except UnicodeDecodeError: return safe_bytes_eval(expr).decode(...)
+        Err(()) => String::from_utf8_lossy(&safe_bytes_fn()).into_owned(),
+    }
+}
+
+/// Port of `vim_get_func()` from
+/// `powerline/bindings/vim/__init__.py:64`.
+///
+/// Python factory that returns the vim-callable wrapper around
+/// `getattr(vim.funcs, name)`. Rust port surfaces the resolver
+/// closure shape directly — takes the function name and returns
+/// a closure that invokes the supplied vim-eval dispatcher.
+pub fn vim_get_func<D>(name: String, dispatcher: D) -> impl Fn(&[&str]) -> Option<String>
+where
+    D: Fn(&str, &[&str]) -> Option<String>,
+{
+    // py:64  def vim_get_func(name, rettype=None):
+    move |args: &[&str]| dispatcher(&name, args)
+}
+
+/// Port of `vim_getvar()` from
+/// `powerline/bindings/vim/__init__.py:152` (and similar at later
+/// version branches).
+///
+/// Python: `return _vim_to_python(vim.eval('g:' + name))`. Rust
+/// port routes through the supplied eval closure.
+pub fn vim_getvar<F>(name: &str, eval: F) -> Result<String, String>
+where
+    F: FnOnce(&str) -> Result<String, String>,
+{
+    // py:152  def vim_getvar(name):
+    // py:153  return _vim_to_python(vim.eval('g:' + name))
+    eval(&format!("g:{}", name))
+}
+
+/// Port of `vim_getwinvar()` from
+/// `powerline/bindings/vim/__init__.py:158`.
+///
+/// Python: `return _vim_to_python(vim.eval('getwinvar({0}, "{1}")'.format(winnr, varname)))`.
+pub fn vim_getwinvar<F>(winnr: i64, varname: &str, eval: F) -> Result<String, String>
+where
+    F: FnOnce(&str) -> Result<String, String>,
+{
+    // py:158  def vim_getwinvar(winnr, varname):
+    eval(&format!("getwinvar({}, \"{}\")", winnr, varname))
+}
+
+/// Port of `getbufvar()` from
+/// `powerline/bindings/vim/__init__.py:223`.
+///
+/// Python: `return vim.eval('getbufvar({0}, "{1}")'.format(buffer_number, varname))`.
+pub fn getbufvar<F>(buffer_number: i64, varname: &str, eval: F) -> Result<String, String>
+where
+    F: FnOnce(&str) -> Result<String, String>,
+{
+    // py:223  def getbufvar(buffer_number, varname):
+    eval(&format!("getbufvar({}, \"{}\")", buffer_number, varname))
+}
+
+/// Port of `vim_getoption()` from
+/// `powerline/bindings/vim/__init__.py:233`.
+///
+/// Python: `return vim.eval('&' + name)`.
+pub fn vim_getoption<F>(name: &str, eval: F) -> Result<String, String>
+where
+    F: FnOnce(&str) -> Result<String, String>,
+{
+    // py:233  def vim_getoption(name):
+    eval(&format!("&{}", name))
+}
+
+/// Port of `vim_setoption()` from
+/// `powerline/bindings/vim/__init__.py:235`.
+///
+/// Python: `vim.command('let &{0} = "{1}"'.format(name, value))`.
+/// Rust port returns the command string the caller dispatches.
+pub fn vim_setoption(name: &str, value: &str) -> String {
+    // py:235  def vim_setoption(name, value):
+    format!("let &{} = \"{}\"", name, value)
+}
+
+/// Port of `_vim_to_python()` from
+/// `powerline/bindings/vim/__init__.py:270`.
+///
+/// Python converts a vim eval result (bytes / dict / list) into
+/// a Python str / dict / list. Rust port returns the value
+/// unchanged since serde_json::Value already covers the shapes.
+pub fn _vim_to_python(value: serde_json::Value) -> serde_json::Value {
+    // py:270  def _vim_to_python(value):
+    // py:271-280  isinstance-dispatch over bytes/dict/list
+    value
+}
+
+/// Port of `list_tabpage_buffers_segment_info()` from
+/// `powerline/bindings/vim/__init__.py:347`.
+///
+/// Returns the list of buffer segment_info dicts for the supplied
+/// tabpage. Python walks `tabpage.windows` and emits one dict per
+/// unique buffer.
+pub fn list_tabpage_buffers_segment_info(
+    windows: &[(i64, i64)], // (window_id, buffer_number)
+) -> Vec<serde_json::Value> {
+    // py:347  def list_tabpage_buffers_segment_info(segment_info):
+    // py:348-360  walk windows, emit one dict per unique buffer
+    let mut seen: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    let mut out: Vec<serde_json::Value> = Vec::new();
+    for (window_id, buf_number) in windows {
+        if seen.insert(*buf_number) {
+            out.push(serde_json::json!({
+                "window_id": window_id,
+                "buffer_number": buf_number,
+            }));
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

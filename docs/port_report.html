@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">803</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3528</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">78.1%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">821</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3540</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">79.9%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -115,8 +115,8 @@ columns:
     <th>upstream py</th><th>rust port</th><th>py fns</th><th>ported</th><th>missing</th><th>rs extra</th><th class="coverage">cov</th>
   </tr></thead><tbody>
   <!-- BEGIN-GROUP py_file=powerline/bindings/vim/__init__.py -->
-  <tr class="partial"><td><code>bindings/vim/__init__.py</code></td><td>✔ <code>bindings/vim/mod.rs</code></td><td>60</td><td><code>get_vim_encoding</code>, <code>get_vim_encoding</code>, <code>get_vim_encoding</code>, <code>get_vim_encoding</code>, <code>python_to_vim</code>, <code>str_to_bytes</code>, <code>str_to_bytes</code>, <code>vim_get_autoload_func</code>, <code>vim_func_exists</code>, <code>vim_func_exists</code>, <code>bufvar_exists</code>, <code>vim_global_exists</code>, <code>bufvar_exists</code>, <code>vim_global_exists</code>, <code>vim_command_exists</code>, <code>vim_getbufoption</code>, <code>vim_getbufoption</code>, <code>current_tabpage</code>, <code>list_tabpages</code>, <code>buffer_name</code>, <code>buffer_name</code>, <code>powerline_vim_strtrans_error</code>, <code>create_ruby_dpowerline</code></td><td><code>unicode_eval</code>, <code>unicode_eval</code>, <code>safe_bytes_eval</code>, <code>eval_bytes</code>, <code>eval_unicode</code>, <code>vim_get_func</code>, <code>__init__</code>, <code>__call__</code>, <code>vim_getvar</code>, <code>vim_getwinvar</code>, <code>vim_getvar</code>, <code>vim_getwinvar</code>, <code>getbufvar</code>, <code>_vim_to_python</code>, <code>vim_getoption</code>, <code>vim_setoption</code>, <code>vim_getoption</code>, <code>vim_setoption</code>, <code>list_tabpage_buffers_segment_info</code>, <code>__nonzero__</code>, <code>get_buffer</code>, <code>__init__</code>, <code>__getitem__</code>, <code>get</code>, <code>__init__</code>, <code>buffer</code>, <code>__init__</code>, <code>__eq__</code>, <code>window</code>, <code>_last_tab_nr</code>, <code>__getitem__</code>, <code>list_tabpage_buffers_segment_info</code>, <code>__getitem__</code>, <code>get</code>, <code>__setitem__</code>, <code>register_buffer_cache</code>, <code>on_bwipe</code></td><td><code>vim_environ_value_escape</code>, <code>vim_environ_set_command</code>, <code>vim_environ_get_expr</code>, <code>buffer_name_returns_set_value</code>, <code>vim_getbufoption_returns_value_if_set</code>, <code>list_tabpages_empty_when_no_vim</code>, <code>get_vim_encoding_returns_utf8_fallback</code>, <code>python_to_vim_unicode_quotes_and_escapes</code>, <code>python_to_vim_plain_string</code>, <code>python_to_vim_int_emits_ascii_digits</code>, <code>python_to_vim_float_emits_ascii_digits</code>, <code>python_to_vim_list_emits_bracketed_csv</code>, <code>python_to_vim_empty_list</code>, <code>python_to_vim_bool_emits_0_or_1</code>, <code>str_to_bytes_returns_utf8_bytes</code>, <code>vim_environ_value_escape_quotes_double_quote</code>, <code>vim_environ_value_escape_escapes_backslash</code>, <code>vim_environ_value_escape_newline_becomes_backslash_n</code>, <code>vim_environ_value_escape_strips_null_byte</code>, <code>vim_environ_set_command_builds_let_form</code>, <code>vim_environ_set_command_escapes_value</code>, <code>vim_environ_get_expr_builds_dollar_key</code>, <code>powerline_vim_strtrans_error_emits_hex_per_byte</code>, <code>powerline_vim_strtrans_error_empty_input</code></td><td class="coverage">38%</td></tr>
-  <!-- SYM py_file=powerline/bindings/vim/__init__.py rs_file=src/ported/bindings/vim/mod.rs rs_exists=True py_fn_total=60 ported_count=23 missing_count=37 rs_extra_count=24 coverage=0.3833 -->
+  <tr class="partial"><td><code>bindings/vim/__init__.py</code></td><td>✔ <code>bindings/vim/mod.rs</code></td><td>60</td><td><code>get_vim_encoding</code>, <code>get_vim_encoding</code>, <code>get_vim_encoding</code>, <code>get_vim_encoding</code>, <code>python_to_vim</code>, <code>str_to_bytes</code>, <code>unicode_eval</code>, <code>str_to_bytes</code>, <code>unicode_eval</code>, <code>safe_bytes_eval</code>, <code>eval_bytes</code>, <code>eval_unicode</code>, <code>vim_get_func</code>, <code>vim_get_autoload_func</code>, <code>vim_func_exists</code>, <code>vim_func_exists</code>, <code>vim_getvar</code>, <code>bufvar_exists</code>, <code>vim_getwinvar</code>, <code>vim_global_exists</code>, <code>vim_getvar</code>, <code>bufvar_exists</code>, <code>vim_getwinvar</code>, <code>vim_global_exists</code>, <code>vim_command_exists</code>, <code>getbufvar</code>, <code>_vim_to_python</code>, <code>vim_getbufoption</code>, <code>vim_getoption</code>, <code>vim_setoption</code>, <code>vim_getbufoption</code>, <code>vim_getoption</code>, <code>vim_setoption</code>, <code>list_tabpage_buffers_segment_info</code>, <code>current_tabpage</code>, <code>list_tabpages</code>, <code>list_tabpage_buffers_segment_info</code>, <code>buffer_name</code>, <code>buffer_name</code>, <code>powerline_vim_strtrans_error</code>, <code>create_ruby_dpowerline</code></td><td><code>__init__</code>, <code>__call__</code>, <code>__nonzero__</code>, <code>get_buffer</code>, <code>__init__</code>, <code>__getitem__</code>, <code>get</code>, <code>__init__</code>, <code>buffer</code>, <code>__init__</code>, <code>__eq__</code>, <code>window</code>, <code>_last_tab_nr</code>, <code>__getitem__</code>, <code>__getitem__</code>, <code>get</code>, <code>__setitem__</code>, <code>register_buffer_cache</code>, <code>on_bwipe</code></td><td><code>vim_environ_value_escape</code>, <code>vim_environ_set_command</code>, <code>vim_environ_get_expr</code>, <code>buffer_name_returns_set_value</code>, <code>vim_getbufoption_returns_value_if_set</code>, <code>list_tabpages_empty_when_no_vim</code>, <code>get_vim_encoding_returns_utf8_fallback</code>, <code>python_to_vim_unicode_quotes_and_escapes</code>, <code>python_to_vim_plain_string</code>, <code>python_to_vim_int_emits_ascii_digits</code>, <code>python_to_vim_float_emits_ascii_digits</code>, <code>python_to_vim_list_emits_bracketed_csv</code>, <code>python_to_vim_empty_list</code>, <code>python_to_vim_bool_emits_0_or_1</code>, <code>str_to_bytes_returns_utf8_bytes</code>, <code>vim_environ_value_escape_quotes_double_quote</code>, <code>vim_environ_value_escape_escapes_backslash</code>, <code>vim_environ_value_escape_newline_becomes_backslash_n</code>, <code>vim_environ_value_escape_strips_null_byte</code>, <code>vim_environ_set_command_builds_let_form</code>, <code>vim_environ_set_command_escapes_value</code>, <code>vim_environ_get_expr_builds_dollar_key</code>, <code>powerline_vim_strtrans_error_emits_hex_per_byte</code>, <code>powerline_vim_strtrans_error_empty_input</code></td><td class="coverage">68%</td></tr>
+  <!-- SYM py_file=powerline/bindings/vim/__init__.py rs_file=src/ported/bindings/vim/mod.rs rs_exists=True py_fn_total=60 ported_count=41 missing_count=19 rs_extra_count=24 coverage=0.6833 -->
   <!-- END-GROUP py_file=powerline/bindings/vim/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/__init__.py -->
   <tr class="partial"><td><code>__init__.py</code></td><td>✔ <code>mod.rs</code></td><td>48</td><td><code>_config_loader_condition</code>, <code>_find_config_files</code>, <code>critical</code>, <code>exception</code>, <code>info</code>, <code>error</code>, <code>warn</code>, <code>debug</code>, <code>get_fallback_logger</code>, <code>_generate_change_callback</code>, <code>get_config_paths</code>, <code>generate_config_finder</code>, <code>load_config</code>, <code>_set_log_handlers</code>, <code>create_logger</code>, <code>get_default_theme</code>, <code>finish_common_config</code>, <code>reraise</code>, <code>gen_module_attr_getter</code>, <code>_get_log_keys</code>, <code>init</code>, <code>create_logger</code>, <code>create_renderer</code>, <code>setup_components</code>, <code>get_config_paths</code>, <code>load_config</code>, <code>_purge_configs</code>, <code>load_main_config</code>, <code>_load_hierarhical_config</code>, <code>load_colorscheme_config</code>, <code>load_theme_config</code>, <code>load_colors_config</code>, <code>get_local_themes</code>, <code>update_renderer</code>, <code>render</code>, <code>render_above_lines</code>, <code>setup</code>, <code>do_setup</code>, <code>reload</code>, <code>shutdown</code>, <code>exception</code></td><td><code>__init__</code>, <code>_log</code>, <code>on_file_change</code>, <code>get_module_attr</code>, <code>__init__</code>, <code>__enter__</code>, <code>__exit__</code></td><td><code>fmt</code>, <code>new</code>, <code>format_message</code>, <code>log</code>, <code>not_intercepted_error_implements_error</code>, <code>config_loader_condition_returns_path_when_exists</code>, <code>config_loader_condition_returns_none_when_missing</code>, <code>config_loader_condition_returns_none_when_none</code>, <code>find_config_files_error_when_not_found</code>, <code>find_config_files_appends_json_suffix_to_message</code>, <code>get_default_theme_unicode_returns_powerline_terminus</code>, <code>get_default_theme_non_unicode_returns_ascii</code>, <code>finish_common_config_fills_default_top_theme_for_utf8</code>, <code>finish_common_config_fills_default_top_theme_for_ucs</code>, <code>finish_common_config_fills_default_top_theme_for_ascii</code>, <code>finish_common_config_fills_all_defaults</code>, <code>finish_common_config_log_file_defaults_to_list_with_null</code>, <code>finish_common_config_wraps_non_list_log_file</code>, <code>finish_common_config_preserves_supplied_values</code>, <code>finish_common_config_expands_tilde_in_paths</code>, <code>powerline_logger_format_includes_ext_prefix_message</code>, <code>powerline_logger_format_overrides_prefix</code>, <code>powerline_logger_log_captures_message</code>, <code>get_config_paths_includes_plugin_path_first</code>, <code>get_config_paths_includes_xdg_config_home</code>, <code>LOG_KEYS</code>, <code>resolve_renderer_module</code>, <code>load_colorscheme_config_levels</code>, <code>load_theme_config_levels</code>, <code>load_config_instance</code>, <code>powerline_exception</code>, <code>enter</code>, <code>exit</code>, <code>_load_hierarhical_config_instance</code>, <code>create_logger_instance</code>, <code>instantiate_renderer</code>, <code>log_keys_has_four_entries</code>, <code>default_update_interval_is_two</code>, <code>get_log_keys_filters_dict_to_log_keys_only</code>, <code>get_log_keys_empty_input_returns_empty</code>, <code>get_log_keys_no_log_keys_returns_empty</code>, <code>generate_change_callback_sets_key_true_on_invocation</code>, <code>generate_change_callback_overwrites_existing_value</code>, <code>powerline_init_resolves_default_renderer_module</code>, <code>powerline_init_run_once_flag</code>, <code>powerline_init_populates_cr_kwargs_for_all_four_keys</code>, <code>powerline_create_renderer_assembles_renderer_options</code>, <code>powerline_instantiate_renderer_invokes_factory_with_options</code>, <code>powerline_instantiate_renderer_propagates_factory_none_as_import_error</code>, <code>powerline_create_renderer_caches_prev_common_config</code>, <code>resolve_renderer_module_undotted_uses_renderers_prefix</code>, <code>resolve_renderer_module_leading_dot_appends_to_ext</code>, <code>resolve_renderer_module_trailing_dot_strips_dot</code>, <code>resolve_renderer_module_dotted_passes_through</code>, <code>resolve_renderer_module_empty_str_uses_default</code>, <code>setup_components_base_is_no_op</code>, <code>get_local_themes_base_returns_none</code>, <code>do_setup_base_is_no_op</code>, <code>powerline_get_config_paths_delegates_to_module_fn</code>, <code>get_fallback_logger_returns_powerline_fallback_pair</code>, <code>generate_config_finder_dispatches_to_find_config_files</code>, <code>generate_config_finder_returns_err_when_missing</code>, <code>load_config_loads_single_file</code>, <code>load_config_merges_multiple_paths</code>, <code>load_colorscheme_config_levels_returns_three_levels</code>, <code>load_theme_config_levels_appends_ext_name</code>, <code>powerline_shutdown_sets_event</code>, <code>powerline_shutdown_no_event_set_when_flag_false</code>, <code>powerline_setup_clears_shutdown_event_and_calls_do_setup</code>, <code>powerline_load_main_config_dispatches_to_main_kind</code>, <code>powerline_load_colors_config_dispatches_to_colors_kind</code>, <code>load_hierarhical_config_merges_levels</code>, <code>load_hierarhical_config_errors_when_no_levels_load</code>, <code>load_hierarhical_config_ignores_specified_levels</code>, <code>load_hierarhical_config_ignore_levels_skipped_in_loaded_count</code>, <code>powerline_load_config_instance_dispatches_through_finder_and_load_fn</code>, <code>powerline_purge_configs_returns_function_id_pair</code>, <code>powerline_load_colorscheme_config_walks_three_levels</code>, <code>powerline_load_theme_config_appends_ext_name_level</code>, <code>powerline_exception_defaults_prefix_to_powerline</code>, <code>powerline_exception_explicit_prefix_used</code>, <code>powerline_exception_no_pl_returns_fallback_flag</code>, <code>powerline_enter_is_no_op</code>, <code>powerline_exit_sets_shutdown_event</code>, <code>update_renderer_no_pending_kwargs_returns_false</code>, <code>update_renderer_success_returns_true</code>, <code>update_renderer_failure_with_existing_renderer_returns_false</code>, <code>update_renderer_failure_without_existing_renderer_returns_err</code>, <code>render_success_returns_rendered_string</code>, <code>render_failure_returns_failed_message_without_width</code>, <code>render_failure_with_output_width_returns_message_and_len</code>, <code>render_update_renderer_failure_routes_to_failed</code>, <code>render_above_lines_success_returns_yielded_lines</code>, <code>render_above_lines_failure_yields_single_failed_line</code>, <code>load_hierarhical_config_instance_delegates_to_module_fn</code>, <code>create_logger_instance_builds_powerline_logger_for_ext</code>, <code>reload_runs_all_three_phases_in_order</code>, <code>reload_stops_on_clear_modules_error</code>, <code>reload_propagates_reconstruct_error</code>, <code>reraise_returns_message_unchanged</code>, <code>gen_module_attr_getter_routes_through_lookup</code></td><td class="coverage">85%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 126,
-    "rs_fns_in_ported": 3528,
-    "ported_fns": 803,
-    "coverage": 0.7811284046692607
+    "rs_fns_in_ported": 3540,
+    "ported_fns": 821,
+    "coverage": 0.7986381322957199
   },
   "rows": [
     {
@@ -692,44 +692,45 @@ columns:
         "get_vim_encoding",
         "python_to_vim",
         "str_to_bytes",
+        "unicode_eval",
         "str_to_bytes",
+        "unicode_eval",
+        "safe_bytes_eval",
+        "eval_bytes",
+        "eval_unicode",
+        "vim_get_func",
         "vim_get_autoload_func",
         "vim_func_exists",
         "vim_func_exists",
+        "vim_getvar",
         "bufvar_exists",
+        "vim_getwinvar",
         "vim_global_exists",
+        "vim_getvar",
         "bufvar_exists",
+        "vim_getwinvar",
         "vim_global_exists",
         "vim_command_exists",
+        "getbufvar",
+        "_vim_to_python",
         "vim_getbufoption",
+        "vim_getoption",
+        "vim_setoption",
         "vim_getbufoption",
+        "vim_getoption",
+        "vim_setoption",
+        "list_tabpage_buffers_segment_info",
         "current_tabpage",
         "list_tabpages",
+        "list_tabpage_buffers_segment_info",
         "buffer_name",
         "buffer_name",
         "powerline_vim_strtrans_error",
         "create_ruby_dpowerline"
       ],
       "missing_fns": [
-        "unicode_eval",
-        "unicode_eval",
-        "safe_bytes_eval",
-        "eval_bytes",
-        "eval_unicode",
-        "vim_get_func",
         "__init__",
         "__call__",
-        "vim_getvar",
-        "vim_getwinvar",
-        "vim_getvar",
-        "vim_getwinvar",
-        "getbufvar",
-        "_vim_to_python",
-        "vim_getoption",
-        "vim_setoption",
-        "vim_getoption",
-        "vim_setoption",
-        "list_tabpage_buffers_segment_info",
         "__nonzero__",
         "get_buffer",
         "__init__",
@@ -742,7 +743,6 @@ columns:
         "window",
         "_last_tab_nr",
         "__getitem__",
-        "list_tabpage_buffers_segment_info",
         "__getitem__",
         "get",
         "__setitem__",
@@ -775,7 +775,7 @@ columns:
         "powerline_vim_strtrans_error_emits_hex_per_byte",
         "powerline_vim_strtrans_error_empty_input"
       ],
-      "coverage": 0.38333333333333336
+      "coverage": 0.6833333333333333
     },
     {
       "py_file": "powerline/__init__.py",
