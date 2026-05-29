@@ -141,7 +141,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/bindings/ipython/post_0_11.py` ↔ `src/ported/bindings/ipython/post_0_11.rs` | 102 | 2 | 2 | 4 | 398 | 14 | 76 |
 | [x] | `powerline/lint/markedjson/resolver.py` ↔ `src/ported/lint/markedjson/resolver.rs` | 110 | 0 | 3 | 6 | 252 | 13 | 97 |
 | [x] | `powerline/colorscheme.py` ↔ `src/ported/colorscheme.rs` | 120 | 2 | 1 | 4 | 369 | 12 | 76 |
-| [x] | `powerline/segments/shell.py` ↔ `src/ported/segments/shell.rs` | 157 | 5 | 1 | 1 | 345 | 6 | 91 |
+| [x] | `powerline/segments/shell.py` ↔ `src/ported/segments/shell.rs` | 157 | 5 | 1 | 1 | 389 | 7 | 100 |
 | [x] | `powerline/bindings/qtile/widget.py` ↔ `src/ported/bindings/qtile/widget.rs` | 43 | 0 | 2 | 7 | 227 | 10 | 32 |
 | [x] | `powerline/lint/context.py` ↔ `src/ported/lint/context.rs` | 51 | 1 | 2 | 6 | 168 | 9 | 41 |
 | [x] | `powerline/bindings/tmux/__init__.py` ↔ `src/ported/bindings/tmux/mod.rs` | 57 | 7 | 0 | 0 | 111 | 11 | 32 |
