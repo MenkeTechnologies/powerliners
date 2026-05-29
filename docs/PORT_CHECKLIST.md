@@ -175,7 +175,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/lib/vcs/__init__.py` ↔ `src/ported/lib/vcs/mod.rs` | 209 | 9 | 2 | 7 | 677 | 21 | 153 |
 | [x] | `powerline/lint/markedjson/parser.py` ↔ `src/ported/lint/markedjson/parser.rs` | 207 | 0 | 2 | 17 | 575 | 22 | 107 |
 | [x] | `powerline/lint/markedjson/error.py` ↔ `src/ported/lint/markedjson/error.rs` | 197 | 3 | 4 | 16 | 643 | 24 | 152 |
-| [x] | `powerline/bindings/zsh/__init__.py` ↔ `src/ported/bindings/zsh/mod.rs` | 181 | 7 | 4 | 13 | 590 | 24 | 137 |
+| [x] | `powerline/bindings/zsh/__init__.py` ↔ `src/ported/bindings/zsh/mod.rs` | 181 | 7 | 4 | 13 | 616 | 32 | 145 |
 | [x] | `powerline/lib/config.py` ↔ `src/ported/lib/config.rs` | 179 | 2 | 3 | 19 | 628 | 24 | 156 |
 | [x] | `powerline/lint/markedjson/constructor.py` ↔ `src/ported/lint/markedjson/constructor.rs` | 240 | 1 | 3 | 21 | 722 | 24 | 142 |
 | [x] | `powerline/vim.py` ↔ `src/ported/vim.rs` | 271 | 4 | 2 | 18 | 829 | 35 | 200 |

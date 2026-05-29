@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">849</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3565</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">82.6%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">857</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3573</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">83.4%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -163,8 +163,8 @@ columns:
   <!-- SYM py_file=powerline/bindings/pdb/__init__.py rs_file=src/ported/bindings/pdb/mod.rs rs_exists=True py_fn_total=22 ported_count=2 missing_count=20 rs_extra_count=4 coverage=0.0909 -->
   <!-- END-GROUP py_file=powerline/bindings/pdb/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/bindings/zsh/__init__.py -->
-  <tr class="partial"><td><code>bindings/zsh/__init__.py</code></td><td>✔ <code>bindings/zsh/mod.rs</code></td><td>21</td><td><code>shutdown</code>, <code>get_var_config</code>, <code>string</code>, <code>get</code>, <code>precmd</code>, <code>do_setup</code>, <code>reload</code>, <code>reload_config</code></td><td><code>config_override</code>, <code>theme_override</code>, <code>config_path</code>, <code>jobnum</code>, <code>__getitem__</code>, <code>__contains__</code>, <code>zsh_expand</code>, <code>init</code>, <code>__init__</code>, <code>__str__</code>, <code>__del__</code>, <code>set_prompt</code>, <code>setup</code></td><td><code>used_powerlines</code>, <code>ext</code>, <code>new</code>, <code>config_path_from_var</code>, <code>args_config_override</code>, <code>args_theme_override</code>, <code>args_config_path</code>, <code>args_jobnum</code>, <code>contains</code>, <code>zsh_expand_fallback_steps</code>, <code>set_prompt_zpyvar_name</code>, <code>build_segment_info</code>, <code>del_restore</code>, <code>new</code>, <code>default</code>, <code>next_id</code>, <code>new</code>, <code>setup_entry</code>, <code>reset_used</code>, <code>args_ext_matches_upstream</code>, <code>args_renderer_module_matches_upstream</code>, <code>args_new_defaults_to_empty_pipe_status_and_zero_exit_code</code>, <code>get_var_config_none_returns_none</code>, <code>get_var_config_dict_parses_via_parsedotval</code>, <code>get_var_config_string_parses_via_parse_override_var</code>, <code>get_var_config_unknown_type_returns_none</code>, <code>config_path_from_var_none_returns_none</code>, <code>config_path_from_var_string_splits_on_colon</code>, <code>config_path_from_var_string_filters_empty_entries</code>, <code>config_path_from_var_list_preserves_entries</code>, <code>string_decodes_bytes_to_utf8</code>, <code>environment_get_returns_value_when_present</code>, <code>environment_get_returns_default_when_absent</code>, <code>environment_contains_true_when_present</code>, <code>environment_contains_false_when_absent</code>, <code>set_prompt_zpyvar_name_prepends_zpython_powerline</code>, <code>build_segment_info_contains_all_expected_keys</code>, <code>build_segment_info_none_mode_becomes_null</code>, <code>prompt_new_stores_state</code>, <code>zsh_powerline_new_assigns_unique_id</code>, <code>zsh_powerline_precmd_sets_args</code>, <code>zsh_powerline_do_setup_emits_five_prompt_pairs</code>, <code>zsh_powerline_do_setup_marks_above_only_for_ps1</code>, <code>zsh_powerline_do_setup_registers_in_used_powerlines</code>, <code>shutdown_iterates_registered_powerlines</code>, <code>reload_iterates_registered_powerlines</code>, <code>reload_config_iterates_registered_powerlines</code>, <code>setup_entry_returns_fresh_powerline</code>, <code>args_config_override_delegates_to_get_var_config</code>, <code>args_config_override_none_input_returns_none</code>, <code>args_theme_override_delegates_to_get_var_config</code>, <code>args_config_path_splits_string_on_colon</code>, <code>args_config_path_filters_empty_segments</code>, <code>args_config_path_passes_array_through</code>, <code>args_config_path_none_input_returns_none</code>, <code>args_jobnum_passes_through</code>, <code>zsh_expand_fallback_builds_local_var_command</code>, <code>prompt_del_restore_returns_var_value_pair</code>, <code>prompt_del_restore_returns_none_when_no_savedps</code>, <code>prompt_del_restore_returns_none_when_savedps_empty</code></td><td class="coverage">38%</td></tr>
-  <!-- SYM py_file=powerline/bindings/zsh/__init__.py rs_file=src/ported/bindings/zsh/mod.rs rs_exists=True py_fn_total=21 ported_count=8 missing_count=13 rs_extra_count=60 coverage=0.3810 -->
+  <tr class="partial"><td><code>bindings/zsh/__init__.py</code></td><td>✔ <code>bindings/zsh/mod.rs</code></td><td>21</td><td><code>shutdown</code>, <code>get_var_config</code>, <code>config_override</code>, <code>theme_override</code>, <code>config_path</code>, <code>jobnum</code>, <code>string</code>, <code>get</code>, <code>zsh_expand</code>, <code>init</code>, <code>precmd</code>, <code>do_setup</code>, <code>set_prompt</code>, <code>reload</code>, <code>reload_config</code>, <code>setup</code></td><td><code>__getitem__</code>, <code>__contains__</code>, <code>__init__</code>, <code>__str__</code>, <code>__del__</code></td><td><code>used_powerlines</code>, <code>ext</code>, <code>new</code>, <code>config_path_from_var</code>, <code>args_config_override</code>, <code>args_theme_override</code>, <code>args_config_path</code>, <code>args_jobnum</code>, <code>contains</code>, <code>zsh_expand_fallback_steps</code>, <code>set_prompt_zpyvar_name</code>, <code>build_segment_info</code>, <code>del_restore</code>, <code>new</code>, <code>default</code>, <code>next_id</code>, <code>new</code>, <code>setup_entry</code>, <code>reset_used</code>, <code>args_ext_matches_upstream</code>, <code>args_renderer_module_matches_upstream</code>, <code>args_new_defaults_to_empty_pipe_status_and_zero_exit_code</code>, <code>get_var_config_none_returns_none</code>, <code>get_var_config_dict_parses_via_parsedotval</code>, <code>get_var_config_string_parses_via_parse_override_var</code>, <code>get_var_config_unknown_type_returns_none</code>, <code>config_path_from_var_none_returns_none</code>, <code>config_path_from_var_string_splits_on_colon</code>, <code>config_path_from_var_string_filters_empty_entries</code>, <code>config_path_from_var_list_preserves_entries</code>, <code>string_decodes_bytes_to_utf8</code>, <code>environment_get_returns_value_when_present</code>, <code>environment_get_returns_default_when_absent</code>, <code>environment_contains_true_when_present</code>, <code>environment_contains_false_when_absent</code>, <code>set_prompt_zpyvar_name_prepends_zpython_powerline</code>, <code>build_segment_info_contains_all_expected_keys</code>, <code>build_segment_info_none_mode_becomes_null</code>, <code>prompt_new_stores_state</code>, <code>zsh_powerline_new_assigns_unique_id</code>, <code>zsh_powerline_precmd_sets_args</code>, <code>zsh_powerline_do_setup_emits_five_prompt_pairs</code>, <code>zsh_powerline_do_setup_marks_above_only_for_ps1</code>, <code>zsh_powerline_do_setup_registers_in_used_powerlines</code>, <code>shutdown_iterates_registered_powerlines</code>, <code>reload_iterates_registered_powerlines</code>, <code>reload_config_iterates_registered_powerlines</code>, <code>setup_entry_returns_fresh_powerline</code>, <code>args_config_override_delegates_to_get_var_config</code>, <code>args_config_override_none_input_returns_none</code>, <code>args_theme_override_delegates_to_get_var_config</code>, <code>args_config_path_splits_string_on_colon</code>, <code>args_config_path_filters_empty_segments</code>, <code>args_config_path_passes_array_through</code>, <code>args_config_path_none_input_returns_none</code>, <code>args_jobnum_passes_through</code>, <code>zsh_expand_fallback_builds_local_var_command</code>, <code>prompt_del_restore_returns_var_value_pair</code>, <code>prompt_del_restore_returns_none_when_no_savedps</code>, <code>prompt_del_restore_returns_none_when_savedps_empty</code></td><td class="coverage">76%</td></tr>
+  <!-- SYM py_file=powerline/bindings/zsh/__init__.py rs_file=src/ported/bindings/zsh/mod.rs rs_exists=True py_fn_total=21 ported_count=16 missing_count=5 rs_extra_count=60 coverage=0.7619 -->
   <!-- END-GROUP py_file=powerline/bindings/zsh/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/config.py -->
   <tr class="partial"><td><code>lib/config.py</code></td><td>✔ <code>lib/config.rs</code></td><td>21</td><td><code>open_file</code>, <code>load_json_config</code>, <code>watch</code>, <code>watch</code>, <code>unwatch</code>, <code>transfer_calls</code>, <code>set_watcher</code>, <code>set_pl</code>, <code>set_interval</code>, <code>register</code>, <code>register_missing</code>, <code>unregister_functions</code>, <code>unregister_missing</code>, <code>load</code>, <code>update</code>, <code>run</code>, <code>exception</code></td><td><code>__call__</code>, <code>__init__</code>, <code>__call__</code>, <code>__init__</code></td><td><code>check</code>, <code>default</code>, <code>new</code>, <code>check</code>, <code>default</code>, <code>new</code>, <code>tmp_json</code>, <code>open_file_reads_utf8_contents</code>, <code>load_json_config_parses_basic</code>, <code>load_json_config_returns_err_on_bad_json</code>, <code>dummy_watcher_always_returns_false</code>, <code>deferred_watcher_queues_calls</code>, <code>config_loader_run_once_uses_dummy_watcher_type</code>, <code>config_loader_default_uses_deferred_watcher_type</code>, <code>config_loader_set_pl_records_value</code>, <code>config_loader_set_interval_records_value</code>, <code>config_loader_register_adds_function_to_watched_path</code>, <code>config_loader_register_dedupes_function_id</code>, <code>config_loader_register_missing_adds_pair_to_key</code>, <code>config_loader_unregister_functions_drops_path_when_empty</code>, <code>config_loader_unregister_functions_keeps_path_with_remaining_functions</code>, <code>config_loader_unregister_functions_clears_loaded_entry</code>, <code>config_loader_unregister_missing_drops_key_when_empty</code>, <code>config_loader_load_calls_load_fn_on_cache_miss</code>, <code>config_loader_load_returns_cached_value_on_hit</code>, <code>config_loader_load_propagates_load_fn_errors</code>, <code>config_loader_set_watcher_same_type_is_noop</code>, <code>config_loader_set_watcher_different_type_swaps</code>, <code>config_loader_set_watcher_dummy_to_inotify</code>, <code>config_loader_exception_no_pl_returns_err</code>, <code>config_loader_exception_with_pl_returns_formatted</code>, <code>config_loader_exception_substitutes_multiple_args</code>, <code>config_loader_update_dispatches_modified_paths</code>, <code>config_loader_update_skips_unmodified_paths</code>, <code>config_loader_update_load_error_surfaces</code>, <code>config_loader_update_resolves_missing_via_condition</code>, <code>config_loader_run_exits_immediately_when_shutdown_event_set</code>, <code>config_loader_run_exits_when_interval_is_none</code></td><td class="coverage">81%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 126,
-    "rs_fns_in_ported": 3565,
-    "ported_fns": 849,
-    "coverage": 0.8258754863813229
+    "rs_fns_in_ported": 3573,
+    "ported_fns": 857,
+    "coverage": 0.8336575875486382
   },
   "rows": [
     {
@@ -1949,27 +1949,27 @@ columns:
       "ported_fns": [
         "shutdown",
         "get_var_config",
-        "string",
-        "get",
-        "precmd",
-        "do_setup",
-        "reload",
-        "reload_config"
-      ],
-      "missing_fns": [
         "config_override",
         "theme_override",
         "config_path",
         "jobnum",
-        "__getitem__",
-        "__contains__",
+        "string",
+        "get",
         "zsh_expand",
         "init",
+        "precmd",
+        "do_setup",
+        "set_prompt",
+        "reload",
+        "reload_config",
+        "setup"
+      ],
+      "missing_fns": [
+        "__getitem__",
+        "__contains__",
         "__init__",
         "__str__",
-        "__del__",
-        "set_prompt",
-        "setup"
+        "__del__"
       ],
       "rs_extra_fns": [
         "used_powerlines",
@@ -2033,7 +2033,7 @@ columns:
         "prompt_del_restore_returns_none_when_no_savedps",
         "prompt_del_restore_returns_none_when_savedps_empty"
       ],
-      "coverage": 0.38095238095238093
+      "coverage": 0.7619047619047619
     },
     {
       "py_file": "powerline/lib/config.py",
