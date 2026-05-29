@@ -170,12 +170,86 @@ pub const WEATHER_INTERVAL: u32 = 600;
 /// Returns the `_WeatherKey` for the given args, defaulting the
 /// `weather_api_key` to the upstream `WEATHER_API_KEY` constant.
 pub fn weather_key(location_query: Option<String>, weather_api_key: Option<String>) -> _WeatherKey {
-    // py:114-118  try kwargs['weather_api_key']; except KeyError: WeatherSegment.weather_api_key
+    // py:108  class WeatherSegment(KwThreadedSegment):
+    // py:109  interval = 600
+    // py:110  default_location = None
+    // py:111  location_urls = {}
+    // py:112  weather_api_key = "fbc9549d91a5e4b26c15be0dbdac3460"
+    // py:114  @staticmethod
+    // py:115  def key(location_query=None, **kwargs):
+    // py:116  try:
+    // py:117  weather_api_key = kwargs["weather_api_key"]
+    // py:118  except KeyError:
+    // py:119  weather_api_key = WeatherSegment.weather_api_key
+    // py:120  return _WeatherKey(location_query, weather_api_key)
     let api = weather_api_key.unwrap_or_else(|| WEATHER_API_KEY.to_string());
     _WeatherKey {
         location_query,
         weather_api_key: api,
     }
+}
+
+/// Port of `WeatherSegment.get_request_url()` from
+/// `powerline/segments/common/wthr.py:122`.
+///
+/// **Status:** stub. Builds the OWM URL — the actual freegeoip
+/// fetch + urllib_urlencode rely on network access; the Rust port
+/// surfaces the URL-construction shape.
+pub fn get_request_url(weather_key: &_WeatherKey) -> String {
+    // py:122  def get_request_url(self, weather_key):
+    // py:123  try:
+    // py:124  return self.location_urls[weather_key]
+    // py:125  except KeyError:
+    // py:126  query_data = {
+    // py:127  "appid": weather_key.weather_api_key
+    // py:128  }
+    // py:129  location_query = weather_key.location_query
+    // py:130  if location_query is None:
+    // py:131  location_data = json.loads(urllib_read('https://freegeoip.app/json/'))
+    // py:132  query_data["lat"] = location_data["latitude"]
+    // py:133  query_data["lon"] = location_data["longitude"]
+    // py:134  else:
+    // py:135  query_data["q"] = location_query
+    // py:136  self.location_urls[location_query] = url = (
+    // py:137  "https://api.openweathermap.org/data/2.5/weather?" +
+    // py:138  urllib_urlencode(query_data))
+    // py:139  return url
+    let mut url = String::from("https://api.openweathermap.org/data/2.5/weather?");
+    url.push_str(&format!("appid={}", weather_key.weather_api_key));
+    if let Some(q) = &weather_key.location_query {
+        url.push_str(&format!("&q={}", q));
+    }
+    url
+}
+
+/// Port of `WeatherSegment.compute_state()` from
+/// `powerline/segments/common/wthr.py:141`.
+///
+/// **Status:** stub. The Rust port surfaces the dispatch shape;
+/// the actual urllib_read call requires a network client.
+pub fn compute_state(weather_key: &_WeatherKey) -> Option<(f64, Vec<&'static str>)> {
+    // py:141  def compute_state(self, weather_key):
+    // py:142  url = self.get_request_url(weather_key)
+    let _url = get_request_url(weather_key);
+    // py:143  raw_response = urllib_read(url)
+    // py:144  if not raw_response:
+    // py:145  self.error('Failed to get response')
+    // py:146  return None
+    // py:148  response = json.loads(raw_response)
+    // py:149  try:
+    // py:150  condition = response['weather'][0]
+    // py:151  condition_code = int(condition['id'])
+    // py:152  temp = float(response['main']['temp'])
+    // py:153  except (KeyError, ValueError):
+    // py:154  self.exception('OpenWeatherMap returned malformed or unexpected response: {0}', repr(raw_response))
+    // py:155  return None
+    // py:157  try:
+    // py:158  icon_names = weather_conditions_codes[condition_code]
+    // py:159  except IndexError:
+    // py:160  icon_names = ('unknown',)
+    // py:161  self.error('Unknown condition code: {0}', condition_code)
+    // py:163  return (temp, icon_names)
+    None
 }
 
 /// Port of `WeatherSegment.compute_state` JSON-parse path from
@@ -253,29 +327,56 @@ pub fn render_one(
     temp_coldest: f64,
     temp_hottest: f64,
 ) -> Option<Vec<Value>> {
-    // py:164-165  if not weather: return None
+    // py:165  def render_one(self, weather, icons=None, unit='C', temp_format=None, temp_coldest=-30, temp_hottest=40, **kwargs):
+    // py:166  if not weather:
+    // py:167  return None
     let (temp_k, icon_names) = weather?;
+    // py:169  temp, icon_names = weather
+    // py:171  for icon_name in icon_names:
+    // py:172  if icons:
+    // py:173  if icon_name in icons:
+    // py:174  icon = icons[icon_name]
+    // py:175  break
+    // py:176  else:
+    // py:177  icon = weather_conditions_icons[icon_names[-1]]
     let icon = pick_icon(&icon_names, icons);
-    // py:177  temp_format = temp_format or ('{temp:.0f}' + temp_units[unit])
+    // py:179  temp_format = temp_format or ('{temp:.0f}' + temp_units[unit])
     let default_format = format!("{{temp:.0f}}{}", temp_units(unit));
     let fmt = temp_format.unwrap_or(&default_format);
-    // py:178  converted_temp = temp_conversions[unit](temp)
+    // py:180  converted_temp = temp_conversions[unit](temp)
     let converted_temp = temp_conversions(unit, temp_k);
+    // py:181  if converted_temp <= temp_coldest:
+    // py:182  gradient_level = 0
+    // py:183  elif converted_temp >= temp_hottest:
+    // py:184  gradient_level = 100
+    // py:185  else:
+    // py:186  gradient_level = (converted_temp - temp_coldest) * 100.0 / (temp_hottest - temp_coldest)
     let gradient_level = temp_gradient_level(converted_temp, temp_coldest, temp_hottest);
-    // py:188  groups = ['weather_condition_' + n for n in icon_names] + ['weather_conditions', 'weather']
+    // py:187  groups = ['weather_condition_' + icon_name for icon_name in icon_names] + ['weather_conditions', 'weather']
     let mut groups: Vec<String> = icon_names
         .iter()
         .map(|n| format!("weather_condition_{}", n))
         .collect();
     groups.push("weather_conditions".to_string());
     groups.push("weather".to_string());
-    // py:177  '{temp:.0f}' substitution — `:.0f` means rounded-to-int
     let temp_str = if fmt.contains("{temp:.0f}") {
         fmt.replace("{temp:.0f}", &format!("{:.0}", converted_temp))
     } else {
         fmt.replace("{temp}", &format!("{}", converted_temp))
     };
-    // py:189-201  build two-segment list
+    // py:188  return [
+    // py:189  {
+    // py:190  'contents': icon + ' ',
+    // py:191  'highlight_groups': groups,
+    // py:192  'divider_highlight_group': 'background:divider',
+    // py:193  },
+    // py:194  {
+    // py:195  'contents': temp_format.format(temp=converted_temp),
+    // py:196  'highlight_groups': ['weather_temp_gradient', 'weather_temp', 'weather'],
+    // py:197  'divider_highlight_group': 'background:divider',
+    // py:198  'gradient_level': gradient_level,
+    // py:199  },
+    // py:200  ]
     Some(vec![
         json!({
             "contents": format!("{} ", icon),
