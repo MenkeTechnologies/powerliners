@@ -2155,6 +2155,63 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_lint_checks_type_keys_keyset() {
+    if !python_available() {
+        return;
+    }
+    // type_keys is a dict mapping segment-type strings to a set of
+    // recognised keys. Verify both top-level keys AND the contained
+    // value-sets match between ports.
+    let py_keys = match py_eval(
+        "list(sorted(__import__('powerline.lint.checks', fromlist=['type_keys']).type_keys.keys()))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(
+        py_keys, "['function', 'segment_list', 'string']",
+        "Python type_keys top-level keys changed"
+    );
+    let rs_table = powerliners::lint::checks::type_keys();
+    let mut rs_keys: Vec<&&str> = rs_table.keys().collect();
+    rs_keys.sort();
+    let rs_keys_repr = format!(
+        "[{}]",
+        rs_keys
+            .iter()
+            .map(|s| format!("'{}'", s))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    assert_eq!(
+        py_keys, rs_keys_repr,
+        "Rust type_keys top-level keys differ"
+    );
+
+    // Verify the 'function' entry's value-set matches.
+    let py_fn_keys = match py_eval(
+        "list(sorted(__import__('powerline.lint.checks', fromlist=['type_keys']).type_keys['function']))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let mut rs_fn_keys: Vec<&&str> = rs_table["function"].iter().collect();
+    rs_fn_keys.sort();
+    let rs_fn_repr = format!(
+        "[{}]",
+        rs_fn_keys
+            .iter()
+            .map(|s| format!("'{}'", s))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    assert_eq!(
+        py_fn_keys, rs_fn_repr,
+        "type_keys['function'] set contents differ"
+    );
+}
+
+#[test]
 fn parity_resolver_default_tags_constants() {
     if !python_available() {
         return;
