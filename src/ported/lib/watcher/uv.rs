@@ -180,6 +180,40 @@ impl UvWatcher {
         }
     }
 
+    /// Port of `UvWatcher._start_watch_1_x()` from
+    /// `powerline/lib/watcher/uv.py:88-91`.
+    ///
+    /// Python (pyuv >= 1.0 branch): allocates `pyuv.fs.FSEvent`,
+    /// calls `handle.start(path, 0, partial(self._record_event,
+    /// path))`, and stashes the handle in `self.watches[path]`.
+    ///
+    /// Rust port has no pyuv binding; this records the path in
+    /// `watches` so the path-tracking matches the upstream
+    /// observable state. Returns `true` when the path was newly
+    /// inserted (matches Python's "added" semantics).
+    pub fn _start_watch_1_x(&self, path: &str) -> bool {
+        // py:88  def _start_watch_1_x(self, path):
+        // py:89  handle = pyuv.fs.FSEvent(self.loop)
+        // py:90  handle.start(path, 0, partial(self._record_event, path))
+        // py:91  self.watches[path] = handle
+        let mut watches = self.watches.lock().unwrap_or_else(|e| e.into_inner());
+        watches.insert(path.to_string())
+    }
+
+    /// Port of `UvWatcher._start_watch_0_x()` from
+    /// `powerline/lib/watcher/uv.py:93-97`.
+    ///
+    /// Python (pyuv 0.x branch): same as `_start_watch_1_x` but
+    /// passes the path + 0 to the FSEvent constructor's start
+    /// args. Rust port collapses both branches to the same
+    /// `watches` insert since the libuv dependency isn't wired.
+    pub fn _start_watch_0_x(&self, path: &str) -> bool {
+        // py:93  def _start_watch_0_x(self, path):
+        // py:94-97  self.watches[path] = pyuv.fs.FSEvent(self.loop, path, 0, ...)
+        let mut watches = self.watches.lock().unwrap_or_else(|e| e.into_inner());
+        watches.insert(path.to_string())
+    }
+
     /// Port of `UvWatcher.watch()` from
     /// `powerline/lib/watcher/uv.py:102`.
     ///
@@ -528,6 +562,24 @@ impl UvThread {
         }
     }
 
+    /// Port of `UvThread._async_cb()` from
+    /// `powerline/lib/watcher/uv.py:44-46`.
+    ///
+    /// pyuv's Async-handle callback: stops the libuv event loop
+    /// and closes the async handle. Called when `join()` triggers
+    /// the wake-up via `self.async_handle.send()`.
+    ///
+    /// Rust port has no libuv loop; this surfaces as a documented
+    /// no-op that flips `joined` so subsequent `join()` returns
+    /// without blocking.
+    pub fn _async_cb(&self) {
+        // py:44  def _async_cb(self, handle):
+        // py:45  self.uv_loop.stop()
+        // py:46  self.async_handle.close()
+        let mut joined = self.joined.lock().unwrap_or_else(|e| e.into_inner());
+        *joined = true;
+    }
+
     /// Port of `UvThread.run()` from
     /// `powerline/lib/watcher/uv.py:48-49`.
     ///
@@ -777,5 +829,31 @@ mod tests {
         // py:48-49 stub
         let t = UvThread::new();
         t.run();
+    }
+
+    #[test]
+    fn uv_thread_async_cb_flips_joined() {
+        // py:44-46  stops loop + closes handle; Rust port marks joined
+        let t = UvThread::new();
+        assert!(!t.is_joined());
+        t._async_cb();
+        assert!(t.is_joined());
+    }
+
+    #[test]
+    fn uv_watcher_start_watch_1_x_inserts_path() {
+        // py:88-91
+        let w = UvWatcher::new();
+        assert!(w._start_watch_1_x("/tmp/a"));
+        // Second call returns false (already present)
+        assert!(!w._start_watch_1_x("/tmp/a"));
+    }
+
+    #[test]
+    fn uv_watcher_start_watch_0_x_inserts_path() {
+        // py:93-97
+        let w = UvWatcher::new();
+        assert!(w._start_watch_0_x("/tmp/b"));
+        assert!(!w._start_watch_0_x("/tmp/b"));
     }
 }
