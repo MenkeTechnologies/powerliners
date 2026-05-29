@@ -2192,6 +2192,58 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_format_error_with_shared_mark_omits_duplicate() {
+    if !python_available() {
+        return;
+    }
+    // When context_mark == problem_mark, the context-mark line is
+    // suppressed (py:172-178). The shared mark's snippet appears once
+    // under the problem.
+    let buffer = "line1\nline2\nline3";
+    let py_expr = format!(
+        "(lambda M, fe: fe('Context msg', M('cfg.json', 5, 10, {buf:?}, 12), 'Problem msg', M('cfg.json', 5, 10, {buf:?}, 12), None))(__import__('powerline.lint.markedjson.error', fromlist=['Mark']).Mark, __import__('powerline.lint.markedjson.error', fromlist=['format_error']).format_error)",
+        buf = buffer
+    );
+    let py = match py_eval(&py_expr) {
+        Some(v) => v,
+        None => return,
+    };
+
+    let m1 = powerliners::lint::markedjson::error::RichMark::new(
+        "cfg.json",
+        5,
+        10,
+        Some(buffer.chars().collect()),
+        12,
+    );
+    let m2 = powerliners::lint::markedjson::error::RichMark::new(
+        "cfg.json",
+        5,
+        10,
+        Some(buffer.chars().collect()),
+        12,
+    );
+    let rs = powerliners::lint::markedjson::error::format_error(
+        Some("Context msg"),
+        Some(&m1),
+        Some("Problem msg"),
+        Some(&m2),
+        None,
+        0,
+    );
+    assert_eq!(
+        py.as_str(),
+        &rs,
+        "format_error with shared mark parity mismatch"
+    );
+    assert_eq!(
+        rs.matches("in \"cfg.json\"").count(),
+        1,
+        "Shared mark should emit 'in \"cfg.json\"' exactly once"
+    );
+}
+
+#[test]
 fn parity_format_error_combines_context_problem_note() {
     if !python_available() {
         return;
