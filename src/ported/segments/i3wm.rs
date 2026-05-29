@@ -506,6 +506,78 @@ pub fn build_workspace_entry(
     })
 }
 
+/// Port of `workspace()` segment from
+/// `powerline/segments/i3wm.py:177-238`.
+///
+/// Returns the specified workspace's segment list. Python uses
+/// `get_i3_connection()` + `conn.get_workspaces()` to resolve the
+/// target workspace; Rust port takes the resolved workspace data
+/// as args since the i3ipc connection isn't reachable.
+///
+/// `target` is the resolved workspace (`name`, `num`, `flags`,
+/// `icon`, `multi_icon`); `format` is the format-string template
+/// (default per [`workspace_default_format`]). Returns the
+/// segment dict with `contents` per the format substitution and
+/// `highlight_groups` per [`workspace_groups`].
+pub fn workspace(
+    name: &str,
+    num: i64,
+    flags: WorkspaceFlags,
+    icon: &str,
+    multi_icon: &str,
+    strip: bool,
+    format: Option<&str>,
+) -> Map<String, Value> {
+    // py:207  if format == None: format = '{stripped_name}' if strip else '{name}'
+    let f = format.unwrap_or_else(|| workspace_default_format(strip));
+    // py:232-236  build segment dict — substitute the format placeholders directly.
+    let contents = f
+        .replace("{name}", name)
+        .replace("{stripped_name}", &format_name(name, true))
+        .replace("{number}", &num.to_string())
+        .replace("{icon}", icon)
+        .replace("{multi_icon}", multi_icon);
+    let mut seg = Map::new();
+    seg.insert("contents".to_string(), Value::String(contents));
+    seg.insert(
+        "highlight_groups".to_string(),
+        Value::Array(
+            workspace_groups(flags)
+                .into_iter()
+                .map(Value::String)
+                .collect(),
+        ),
+    );
+    seg
+}
+
+/// Port of `scratchpad()` segment from
+/// `powerline/segments/i3wm.py:276-293`.
+///
+/// Returns the segment list for windows currently on the i3
+/// scratchpad. Python uses
+/// `get_i3_connection().get_tree().descendants()` + filters by
+/// `w.scratchpad_state != 'none'`. Rust port takes the pre-
+/// filtered window list since i3ipc isn't reachable.
+///
+/// Each input tuple is `(scratchpad_state, flags)`. Output dicts
+/// have `contents` from `icons[state]` (defaulting to `'changed'`
+/// per py:288) and `highlight_groups` per [`scratchpad_groups`].
+pub fn scratchpad(
+    windows: &[(&str, ScratchpadFlags)],
+    icons: &Map<String, Value>,
+) -> Vec<Value> {
+    // py:276  def scratchpad(pl, icons=SCRATCHPAD_ICONS):
+    // py:286-293  list comprehension
+    let mut out: Vec<Value> = Vec::with_capacity(windows.len());
+    for (state, flags) in windows {
+        if let Some(entry) = scratchpad_entry(state, flags, icons) {
+            out.push(entry);
+        }
+    }
+    out
+}
+
 /// Port of `workspaces()` segment body trace from
 /// `powerline/segments/i3wm.py:65-174`.
 pub fn workspaces() -> &'static str {
@@ -1043,5 +1115,53 @@ mod tests {
     fn active_window_returns_class_when_title_exceeds_cutoff() {
         let long_title = "a".repeat(200);
         assert_eq!(active_window(&long_title, "MyClass", 100), "MyClass");
+    }
+
+    #[test]
+    fn workspace_uses_supplied_format_string() {
+        // py:207-208 / py:232-236
+        let flags = WorkspaceFlags {
+            focused: true,
+            urgent: false,
+            visible: false,
+        };
+        let seg = workspace("1: web", 1, flags, "🌐", "🌐 ", false, Some("{name}"));
+        assert_eq!(seg["contents"], "1: web");
+        let groups = seg["highlight_groups"].as_array().unwrap();
+        assert!(groups.iter().any(|g| g == "workspace:focused"));
+    }
+
+    #[test]
+    fn workspace_substitutes_stripped_name_when_strip_true() {
+        // py:144-145  stripped_name = format_name(w.name, strip=True)
+        let flags = WorkspaceFlags {
+            focused: false,
+            urgent: false,
+            visible: false,
+        };
+        let seg = workspace("1: web", 1, flags, "", "", true, None);
+        assert_eq!(seg["contents"], "web");
+    }
+
+    #[test]
+    fn scratchpad_emits_one_entry_per_non_none_window() {
+        // py:286-293
+        let mut icons = Map::new();
+        icons.insert("fresh".to_string(), Value::String("O".to_string()));
+        icons.insert("changed".to_string(), Value::String("X".to_string()));
+        let flags = ScratchpadFlags {
+            urgent: false,
+            first_node_focused: true,
+            workspace_name: "1".to_string(),
+        };
+        let windows = vec![
+            ("fresh", flags.clone()),
+            ("changed", flags.clone()),
+            ("none", flags),
+        ];
+        let r = scratchpad(&windows, &icons);
+        assert_eq!(r.len(), 2);
+        assert_eq!(r[0]["contents"], "O");
+        assert_eq!(r[1]["contents"], "X");
     }
 }
