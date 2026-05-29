@@ -1692,3 +1692,12 @@ omitted_args_table
 # is_alive-or-stale-renders. Same body-extraction pattern as
 # resolve_renderer_module.
 call_dispatch
+
+# lint/spec.rs::Spec::check_list_walk — Rust impl of Spec.check_list
+# at powerline/lint/spec.py:257-297, named with the `_walk` suffix
+# to disambiguate from the existing `check_list` free fn already in
+# spec.rs at line 502 (which has a different signature shape).
+# Python's check_list_walk takes the closure-supplied per-item match
+# callback; the standalone check_list above wraps it. Same name-
+# disambiguation pattern as UvTreeWatcherEvents vs UvTreeWatcher.
+check_list_walk

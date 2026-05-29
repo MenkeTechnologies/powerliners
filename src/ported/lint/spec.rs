@@ -469,6 +469,82 @@ impl Spec {
         self.specs.push(value_spec);
         self
     }
+
+    /// Port of `Spec.check_func()` from
+    /// `powerline/lint/spec.py:219-255`.
+    ///
+    /// Runs `func(value)` and returns the (proceed, hadproblem) pair
+    /// per py:255. Rust port takes `func` as a closure returning
+    /// `(proceed, echo, hadproblem)` per py:249.
+    pub fn check_func<F>(value: &str, func: F) -> (bool, bool)
+    where
+        F: FnOnce(&str) -> (bool, bool, bool),
+    {
+        // py:249  proceed, echo, hadproblem = func(value, ...)
+        let (proceed, _echo, hadproblem) = func(value);
+        // py:255  return proceed, hadproblem
+        (proceed, hadproblem)
+    }
+
+    /// Port of `Spec.check_tuple()` from
+    /// `powerline/lint/spec.py:331-357`.
+    ///
+    /// Walks the `(item, spec)` zip per py:345 and runs each item's
+    /// match. `match_one(spec_idx, item_idx, item)` is the
+    /// caller-supplied dispatch closure that runs `self.specs[spec_idx].match(item, ...)`.
+    pub fn check_tuple<F>(
+        &self,
+        values: &[serde_json::Value],
+        start: usize,
+        end: usize,
+        mut match_one: F,
+    ) -> (bool, bool)
+    where
+        F: FnMut(usize, usize, &serde_json::Value) -> (bool, bool),
+    {
+        // py:343-344  hadproblem = False
+        let mut hadproblem = false;
+        let n = end.min(self.specs.len()).saturating_sub(start);
+        let pairs = values.iter().zip(start..start + n).enumerate();
+        for (i, (item, spec_idx)) in pairs {
+            // py:346-352  spec.match(item, ...)
+            let (proceed, ihadproblem) = match_one(spec_idx, i, item);
+            if ihadproblem {
+                hadproblem = true;
+            }
+            if !proceed {
+                return (false, hadproblem);
+            }
+        }
+        // py:357  return True, hadproblem
+        (true, hadproblem)
+    }
+
+    /// Port of `Spec.check_list()` from
+    /// `powerline/lint/spec.py:257-297`.
+    ///
+    /// Walks each item in `values` and validates via `item_match`.
+    /// Returns `(proceed, hadproblem)` per py:297. Early-exits on
+    /// `proceed=false` per py:294-295.
+    pub fn check_list_walk<F>(values: &[serde_json::Value], mut item_match: F) -> (bool, bool)
+    where
+        F: FnMut(usize, &serde_json::Value) -> (bool, bool),
+    {
+        // py:272-273  hadproblem = False
+        let mut hadproblem = false;
+        // py:274  for item in value: ...
+        for (i, item) in values.iter().enumerate() {
+            let (proceed, ihadproblem) = item_match(i, item);
+            if ihadproblem {
+                hadproblem = true;
+            }
+            if !proceed {
+                return (false, hadproblem);
+            }
+        }
+        // py:297  return True, hadproblem
+        (true, hadproblem)
+    }
 }
 
 /// Port of `Spec.check_type()` from
@@ -903,5 +979,156 @@ mod tests {
         let value_spec = Spec::new().type_check(&[SpecType::Float]);
         let s = Spec::new().unknown_spec(key_spec, value_spec);
         assert_eq!(s.specs.len(), 2);
+    }
+
+    #[test]
+    fn check_func_returns_proceed_hadproblem_pair() {
+        // py:249-255
+        let (proceed, hadproblem) = Spec::check_func("hello", |v| {
+            assert_eq!(v, "hello");
+            (true, false, false)
+        });
+        assert!(proceed);
+        assert!(!hadproblem);
+    }
+
+    #[test]
+    fn check_func_propagates_hadproblem() {
+        // py:255
+        let (proceed, hadproblem) = Spec::check_func("bad", |_| (true, true, true));
+        assert!(proceed);
+        assert!(hadproblem);
+    }
+
+    #[test]
+    fn check_func_stops_on_no_proceed() {
+        let (proceed, hadproblem) = Spec::check_func("v", |_| (false, false, true));
+        assert!(!proceed);
+        assert!(hadproblem);
+    }
+
+    #[test]
+    fn check_tuple_walks_each_item_with_corresponding_spec() {
+        // py:345-352
+        let specs = vec![
+            Spec::new().type_check(&[SpecType::Unicode]),
+            Spec::new().type_check(&[SpecType::Float]),
+        ];
+        let s = Spec::new().tuple(specs);
+        let values = vec![serde_json::json!("hello"), serde_json::json!(42)];
+
+        use std::cell::Cell;
+        let calls = Cell::new(0);
+        let (proceed, hadproblem) = s.check_tuple(&values, 0, 2, |spec_idx, item_idx, _item| {
+            calls.set(calls.get() + 1);
+            // Verify spec_idx matches item_idx (1:1 mapping at start=0)
+            assert_eq!(spec_idx, item_idx);
+            (true, false)
+        });
+        assert!(proceed);
+        assert!(!hadproblem);
+        assert_eq!(calls.into_inner(), 2);
+    }
+
+    #[test]
+    fn check_tuple_early_exits_on_no_proceed() {
+        // py:355-356
+        let specs = vec![
+            Spec::new().type_check(&[SpecType::Unicode]),
+            Spec::new().type_check(&[SpecType::Float]),
+        ];
+        let s = Spec::new().tuple(specs);
+        let values = vec![serde_json::json!("hello"), serde_json::json!(42)];
+
+        use std::cell::Cell;
+        let calls = Cell::new(0);
+        let (proceed, hadproblem) = s.check_tuple(&values, 0, 2, |_, _, _| {
+            calls.set(calls.get() + 1);
+            (false, true)
+        });
+        assert!(!proceed);
+        assert!(hadproblem);
+        // Only first item processed
+        assert_eq!(calls.into_inner(), 1);
+    }
+
+    #[test]
+    fn check_tuple_records_hadproblem_but_continues_when_proceed_true() {
+        // py:353-354
+        let specs = vec![
+            Spec::new().type_check(&[SpecType::Unicode]),
+            Spec::new().type_check(&[SpecType::Float]),
+        ];
+        let s = Spec::new().tuple(specs);
+        let values = vec![serde_json::json!("a"), serde_json::json!("b")];
+        let (proceed, hadproblem) = s.check_tuple(&values, 0, 2, |_, i, _| {
+            if i == 0 {
+                (true, true)
+            } else {
+                (true, false)
+            }
+        });
+        assert!(proceed);
+        assert!(hadproblem);
+    }
+
+    #[test]
+    fn check_list_walk_walks_all_items() {
+        // py:274
+        let values = vec![
+            serde_json::json!("a"),
+            serde_json::json!("b"),
+            serde_json::json!("c"),
+        ];
+        use std::cell::Cell;
+        let count = Cell::new(0);
+        let (proceed, hadproblem) = Spec::check_list_walk(&values, |_, _| {
+            count.set(count.get() + 1);
+            (true, false)
+        });
+        assert!(proceed);
+        assert!(!hadproblem);
+        assert_eq!(count.into_inner(), 3);
+    }
+
+    #[test]
+    fn check_list_walk_early_exits_on_no_proceed() {
+        // py:294-295
+        let values = vec![
+            serde_json::json!("a"),
+            serde_json::json!("b"),
+            serde_json::json!("c"),
+        ];
+        use std::cell::Cell;
+        let count = Cell::new(0);
+        let (proceed, hadproblem) = Spec::check_list_walk(&values, |i, _| {
+            count.set(count.get() + 1);
+            if i == 1 {
+                (false, true)
+            } else {
+                (true, false)
+            }
+        });
+        assert!(!proceed);
+        assert!(hadproblem);
+        assert_eq!(count.into_inner(), 2);
+    }
+
+    #[test]
+    fn check_list_walk_records_hadproblem_but_continues() {
+        // py:292-293
+        let values = vec![serde_json::json!("a"), serde_json::json!("b")];
+        let (proceed, hadproblem) = Spec::check_list_walk(&values, |_, _| (true, true));
+        assert!(proceed);
+        assert!(hadproblem);
+    }
+
+    #[test]
+    fn check_list_walk_empty_returns_ok() {
+        // py:297  default no items → ok
+        let values: Vec<serde_json::Value> = vec![];
+        let (proceed, hadproblem) = Spec::check_list_walk(&values, |_, _| (true, true));
+        assert!(proceed);
+        assert!(!hadproblem);
     }
 }
