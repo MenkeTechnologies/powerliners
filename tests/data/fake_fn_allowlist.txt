@@ -275,3 +275,10 @@ parse_unseen_count
 _cpu_count
 _getloadavg
 render_load_format
+
+# Approved 2026-05-29: accessor fn for the module-level compiled regex
+# NON_PRINTABLE_RE from powerline/lint/markedjson/error.py. Imported by
+# reader.py:6 and used in check_printable at py:87-94. Rust exposes
+# it as a lazy OnceLock-backed accessor fn matching the Python
+# identifier byte-for-byte.
+NON_PRINTABLE_RE
