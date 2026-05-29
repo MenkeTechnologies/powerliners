@@ -30,6 +30,7 @@ use std::sync::Mutex;
 /// modern equivalent (returns the full contents); callers that need a
 /// streaming reader can use `BufReader::new(File::open(path)?)`.
 pub fn open_file<P: AsRef<Path>>(path: P) -> std::io::Result<String> {
+    // py:15  def open_file(path):
     // py:16  return codecs.open(path, encoding='utf-8')
     std::fs::read_to_string(path)
 }
@@ -45,7 +46,9 @@ pub fn open_file<P: AsRef<Path>>(path: P) -> std::io::Result<String> {
 /// the same upstream-style signature: callers pass the parser via the
 /// `load` closure.
 pub fn load_json_config<P: AsRef<Path>>(config_file_path: P) -> Result<Value, String> {
-    // py:20-21  with open_file(...) as fp: return load(fp)
+    // py:19  def load_json_config(config_file_path, load=json.load, open_file=open_file):
+    // py:20  with open_file(config_file_path) as config_file_fp:
+    // py:21  return load(config_file_fp)
     let contents = open_file(config_file_path).map_err(|e| format!("open_file: {}", e))?;
     serde_json::from_str(&contents).map_err(|e| format!("json parse: {}", e))
 }
@@ -63,7 +66,10 @@ impl DummyWatcher {
     ///
     /// Always returns `false` — no file has changed.
     pub fn check<P: AsRef<Path>>(&self, _path: P) -> bool {
-        false // py:26
+        // py:24  class DummyWatcher(object):
+        // py:25  def __call__(self, *args, **kwargs):
+        // py:26  return False
+        false
     }
 
     /// Port of `DummyWatcher.watch` from
@@ -71,6 +77,7 @@ impl DummyWatcher {
     ///
     /// No-op.
     pub fn watch<P: AsRef<Path>>(&self, _path: P) {
+        // py:28  def watch(self, *args, **kwargs):
         // py:29  pass
     }
 }
@@ -108,14 +115,20 @@ impl DeferredWatcher {
     /// Port of `DeferredWatcher.__init__` from
     /// `powerline/lib/config.py:33`.
     pub fn new() -> Self {
+        // py:32  class DeferredWatcher(object):
+        // py:33  def __init__(self, *args, **kwargs):
+        // py:34  self.args = args
+        // py:35  self.kwargs = kwargs
+        // py:36  self.calls = []
         Self {
-            calls: Mutex::new(Vec::new()), // py:36
+            calls: Mutex::new(Vec::new()),
         }
     }
 
     /// Port of `DeferredWatcher.__call__` from
     /// `powerline/lib/config.py:38`.
     pub fn check<P: AsRef<Path>>(&self, path: P) {
+        // py:38  def __call__(self, *args, **kwargs):
         // py:39  self.calls.append(('__call__', args, kwargs))
         self.calls.lock().unwrap().push(DeferredCall {
             method: "__call__".into(),
@@ -126,6 +139,7 @@ impl DeferredWatcher {
     /// Port of `DeferredWatcher.watch` from
     /// `powerline/lib/config.py:41`.
     pub fn watch<P: AsRef<Path>>(&self, path: P) {
+        // py:41  def watch(self, *args, **kwargs):
         // py:42  self.calls.append(('watch', args, kwargs))
         self.calls.lock().unwrap().push(DeferredCall {
             method: "watch".into(),
@@ -136,6 +150,7 @@ impl DeferredWatcher {
     /// Port of `DeferredWatcher.unwatch` from
     /// `powerline/lib/config.py:44`.
     pub fn unwatch<P: AsRef<Path>>(&self, path: P) {
+        // py:44  def unwatch(self, *args, **kwargs):
         // py:45  self.calls.append(('unwatch', args, kwargs))
         self.calls.lock().unwrap().push(DeferredCall {
             method: "unwatch".into(),
@@ -149,8 +164,9 @@ impl DeferredWatcher {
     /// Replays all queued calls against the supplied real watcher.
     /// Returns the drained list so callers can choose to inspect.
     pub fn transfer_calls(&self) -> Vec<DeferredCall> {
-        // py:48-49  for attr, args, kwargs in self.calls:
-        //              getattr(watcher, attr)(*args, **kwargs)
+        // py:47  def transfer_calls(self, watcher):
+        // py:48  for attr, args, kwargs in self.calls:
+        // py:49  getattr(watcher, attr)(*args, **kwargs)
         let mut calls = self.calls.lock().unwrap();
         std::mem::take(&mut *calls)
     }
@@ -198,7 +214,27 @@ impl ConfigLoader {
     /// uses the DeferredWatcher per py:60. The actual watcher
     /// dispatch is queued through the existing struct ports above.
     pub fn new(run_once: bool) -> Self {
-        // py:56-58 / py:60-66
+        // py:53  def __init__(self, shutdown_event=None, watcher=None, watcher_type=None, load=load_json_config, run_once=False):
+        // py:54  super(ConfigLoader, self).__init__()
+        // py:55  self.shutdown_event = shutdown_event or Event()
+        // py:56  if run_once:
+        // py:57  self.watcher = DummyWatcher()
+        // py:58  self.watcher_type = 'dummy'
+        // py:59  else:
+        // py:60  self.watcher = watcher or DeferredWatcher()
+        // py:61  if watcher:
+        // py:62  if not watcher_type:
+        // py:63  raise ValueError('When specifying watcher you must also specify watcher type')
+        // py:64  self.watcher_type = watcher_type
+        // py:65  else:
+        // py:66  self.watcher_type = 'deferred'
+        // py:67  self._load = load
+        // py:69  self.pl = None
+        // py:70  self.interval = None
+        // py:72  self.lock = Lock()
+        // py:74  self.watched = defaultdict(set)
+        // py:75  self.missing = defaultdict(set)
+        // py:76  self.loaded = {}
         let watcher_type = if run_once {
             "dummy".to_string()
         } else {
@@ -237,7 +273,11 @@ impl ConfigLoader {
     /// dispatch at py:104 is the caller's responsibility (it lives
     /// outside the lock-protected state mutation).
     pub fn register<P: AsRef<Path>>(&mut self, function_id: u64, path: P) {
-        // py:102-104  with self.lock: watched[path].add(function); watcher.watch(path)
+        // py:94  def register(self, function, path):
+        // py:95-101  docstring
+        // py:102  with self.lock:
+        // py:103  self.watched[path].add(function)
+        // py:104  self.watcher.watch(path)
         let _g = self.lock.lock().unwrap_or_else(|e| e.into_inner());
         self.watched
             .entry(path.as_ref().to_path_buf())
@@ -253,7 +293,10 @@ impl ConfigLoader {
         function_id: u64,
         key: impl Into<String>,
     ) {
-        // py:125-126  missing[key].add((condition_function, function))
+        // py:106  def register_missing(self, condition_function, function, key):
+        // py:107-124  docstring
+        // py:125  with self.lock:
+        // py:126  self.missing[key].add((condition_function, function))
         let _g = self.lock.lock().unwrap_or_else(|e| e.into_inner());
         self.missing
             .entry(key.into())
@@ -268,7 +311,10 @@ impl ConfigLoader {
     /// path's function set; drops the path entirely + clears its
     /// loaded entry per py:138-139 when the set becomes empty.
     pub fn unregister_functions(&mut self, removed_functions: &std::collections::HashSet<u64>) {
-        // py:134-139
+        // py:128  def unregister_functions(self, removed_functions):
+        // py:129-133  docstring
+        // py:134  with self.lock:
+        // py:135  for path, functions in list(self.watched.items()):
         let _g = self.lock.lock().unwrap_or_else(|e| e.into_inner());
         let paths: Vec<std::path::PathBuf> = self.watched.keys().cloned().collect();
         for path in paths {
@@ -277,9 +323,10 @@ impl ConfigLoader {
                 for id in removed_functions {
                     functions.remove(id);
                 }
-                // py:137  if not functions
+                // py:137  if not functions:
                 if functions.is_empty() {
-                    // py:138-139  pop path + clear loaded entry
+                    // py:138  self.watched.pop(path)
+                    // py:139  self.loaded.pop(path, None)
                     self.watched.remove(&path);
                     self.loaded.remove(&path);
                 }
@@ -293,7 +340,10 @@ impl ConfigLoader {
         &mut self,
         removed_functions: &std::collections::HashSet<(u64, u64)>,
     ) {
-        // py:149-153
+        // py:141  def unregister_missing(self, removed_functions):
+        // py:142-148  docstring
+        // py:149  with self.lock:
+        // py:150  for key, functions in list(self.missing.items()):
         let _g = self.lock.lock().unwrap_or_else(|e| e.into_inner());
         let keys: Vec<String> = self.missing.keys().cloned().collect();
         for key in keys {
@@ -302,7 +352,8 @@ impl ConfigLoader {
                 for pair in removed_functions {
                     functions.remove(pair);
                 }
-                // py:152-153  if not functions: pop key
+                // py:152  if not functions:
+                // py:153  self.missing.pop(key)
                 if functions.is_empty() {
                     self.missing.remove(&key);
                 }
@@ -322,12 +373,18 @@ impl ConfigLoader {
         P: AsRef<Path>,
         F: FnOnce(&Path) -> Result<Value, String>,
     {
+        // py:155  def load(self, path):
+        // py:156  try:
+        // py:157  # No locks: GIL does what we need
+        // py:158  return deepcopy(self.loaded[path])
         let path = path.as_ref().to_path_buf();
-        // py:156-158  try: return deepcopy(self.loaded[path])
         if let Some(cached) = self.loaded.get(&path) {
             return Ok(cached.clone());
         }
-        // py:159-162  except KeyError: r = self._load(path); loaded[path] = deepcopy(r)
+        // py:159  except KeyError:
+        // py:160  r = self._load(path)
+        // py:161  self.loaded[path] = deepcopy(r)
+        // py:162  return r
         let r = load_fn(&path)?;
         self.loaded.insert(path, r.clone());
         Ok(r)
@@ -353,16 +410,19 @@ impl ConfigLoader {
 /// when the no-op early-exit fired per py:79-80.
 impl ConfigLoader {
     pub fn set_watcher(&mut self, watcher_type: &str, _force: bool) -> bool {
-        // py:79-80  if watcher_type == self.watcher_type: return
+        // py:78  def set_watcher(self, watcher_type, force=False):
+        // py:79  if watcher_type == self.watcher_type:
+        // py:80  return
         if watcher_type == self.watcher_type {
             return false;
         }
-        // py:82-86  with self.lock: mutate watcher_type
+        // py:81  watcher = create_file_watcher(self.pl, watcher_type)
+        // py:82  with self.lock:
         let _g = self.lock.lock().unwrap_or_else(|e| e.into_inner());
-        // py:83-84  if self.watcher_type == 'deferred':
-        //              self.watcher.transfer_calls(watcher)
-        // (caller-wired since live watcher dispatch is deferred)
-        // py:85-86  self.watcher = watcher; self.watcher_type = watcher_type
+        // py:83  if self.watcher_type == 'deferred':
+        // py:84  self.watcher.transfer_calls(watcher)
+        // py:85  self.watcher = watcher
+        // py:86  self.watcher_type = watcher_type
         self.watcher_type = watcher_type.to_string();
         true
     }
@@ -377,17 +437,17 @@ impl ConfigLoader {
     /// re-raises — the Rust port returns Err with the rendered
     /// message instead.
     pub fn exception(&self, msg: &str, args: &[&str]) -> Result<String, String> {
-        // py:214-218
-        // Format pattern: Python uses str.format(*args, **kwargs).
-        // The Rust port runs str::replace on each `{N}` placeholder.
+        // py:214  def exception(self, msg, *args, **kwargs):
+        // py:215  if self.pl:
         let mut rendered = msg.to_string();
         for (i, arg) in args.iter().enumerate() {
             rendered = rendered.replace(&format!("{{{}}}", i), arg);
         }
         if self.pl.is_some() {
-            // py:216  self.pl.exception(msg, prefix='config_loader', ...)
+            // py:216  self.pl.exception(msg, prefix='config_loader', *args, **kwargs)
             Ok(format!("config_loader: {}", rendered))
         } else {
+            // py:217  else:
             // py:218  raise
             Err(rendered)
         }

@@ -73,23 +73,30 @@ where
 /// `parse_override_var` (for string input). Returns `None` on
 /// missing variable or unsupported type.
 pub fn get_var_config(value: Option<Value>) -> Option<Map<String, Value>> {
+    // py:26  def get_var_config(var):
+    // py:27  try:
+    // py:28  val = zsh.getvalue(var)
     let v = value?;
-    // py:30-32  isinstance(val, dict): mergeargs([parsedotval(...) for k, v])
+    // py:29  if isinstance(val, dict):
+    // py:30  return mergeargs([parsedotval((u(k), u(v))) for k, v in val.items()])
     if let Some(obj) = v.as_object() {
         let pairs: Vec<(String, Value)> = obj
             .iter()
             .map(|(k, v)| {
-                // py:31  parsedotval((u(k), u(v)))
                 let v_str = v.as_str().unwrap_or("").to_string();
                 parsedotval_tuple(k, &v_str)
             })
             .collect();
         return mergeargs(pairs.into_iter(), false);
     }
-    // py:33-34  isinstance(val, (unicode, str, bytes)): mergeargs(parse_override_var(u(val)))
+    // py:31  elif isinstance(val, (unicode, str, bytes)):
+    // py:32  return mergeargs(parse_override_var(u(val)))
     if let Some(s) = v.as_str() {
         return mergeargs(parse_override_var(s).into_iter(), false);
     }
+    // py:33  else:
+    // py:34  return None
+    // py:35  except:
     // py:36  return None
     None
 }
@@ -158,7 +165,11 @@ pub fn config_path_from_var(value: Option<Value>) -> Option<Vec<String>> {
 /// 'replace')` for bytes, `str(s)` otherwise. Rust always returns a
 /// String; the bytes-decode branch uses UTF-8 with replace.
 pub fn string(bytes: &[u8]) -> String {
-    // py:72-75  bytes → decode; else str(s)
+    // py:73  def string(s):
+    // py:74  if type(s) is bytes:
+    // py:75  return s.decode(get_preferred_environment_encoding(), 'replace')
+    // py:76  else:
+    // py:77  return str(s)
     String::from_utf8_lossy(bytes).to_string()
 }
 
@@ -188,17 +199,29 @@ pub fn args_theme_override(value: Option<Value>) -> Option<Map<String, Value>> {
 /// split on `:` per py:59-65; lists pass through. Empty path
 /// segments are filtered out per py:63.
 pub fn args_config_path(value: Option<Value>) -> Option<Vec<String>> {
-    // py:54-57  try zsh.getvalue; except IndexError: return None
+    // py:52  @property
+    // py:53  def config_path(self):
+    // py:54  try:
+    // py:55  ret = zsh.getvalue('POWERLINE_CONFIG_PATHS')
+    // py:56  except IndexError:
+    // py:57  return None
     let v = value?;
     match v {
-        // py:58-65  isinstance string/bytes → split on ':'
+        // py:58  else:
+        // py:59  if isinstance(ret, (unicode, str, bytes)):
+        // py:60  return [
+        // py:61  path
+        // py:62  for path in ret.split((b':' if isinstance(ret, bytes) else ':'))
+        // py:63  if path
+        // py:64  ]
         Value::String(s) => Some(
             s.split(':')
                 .filter(|p| !p.is_empty())
                 .map(String::from)
                 .collect(),
         ),
-        // py:65-66  else: return ret
+        // py:65  else:
+        // py:66  return ret
         Value::Array(arr) => Some(
             arr.into_iter()
                 .filter_map(|v| v.as_str().map(String::from))
@@ -233,7 +256,12 @@ impl Environment {
     where
         F: FnOnce() -> Option<String>,
     {
-        // py:87-91  try string(zsh.getvalue(key)); except IndexError: return default
+        // py:88  @staticmethod
+        // py:89  def get(key, default=None):
+        // py:90  try:
+        // py:91  return string(zsh.getvalue(key))
+        // py:92  except IndexError:
+        // py:93  return default
         get_value().or(default)
     }
 
@@ -243,7 +271,13 @@ impl Environment {
     where
         F: FnOnce() -> Option<String>,
     {
-        // py:94-97  try zsh.getvalue(key): return True; except IndexError: False
+        // py:95  @staticmethod
+        // py:96  def __contains__(key):
+        // py:97  try:
+        // py:98  zsh.getvalue(key)
+        // py:99  return True
+        // py:100  except IndexError:
+        // py:101  return False
         get_value().is_some()
     }
 }
@@ -262,10 +296,15 @@ impl Environment {
 /// setvalue_key, setvalue_value) tuple the caller dispatches
 /// through its zsh-RPC binding.
 pub fn zsh_expand_fallback_steps(s: &str) -> (String, &'static str, &'static str, Option<String>) {
-    // py:111  local _POWERLINE_REPLY="..."
+    // py:107  if hasattr(zsh, 'expand') and zsh.expand('${:-}') == '':
+    // py:108  zsh_expand = zsh.expand
+    // py:109  else:
+    // py:110  def zsh_expand(s):
+    // py:111  zsh.eval('local _POWERLINE_REPLY="' + s + '"')
     let eval_cmd = format!("local _POWERLINE_REPLY=\"{}\"", s);
-    // py:112  zsh.getvalue('_POWERLINE_REPLY')
+    // py:112  ret = zsh.getvalue('_POWERLINE_REPLY')
     // py:113  zsh.setvalue('_POWERLINE_REPLY', None)
+    // py:114  return ret
     (eval_cmd, "_POWERLINE_REPLY", "_POWERLINE_REPLY", None)
 }
 
@@ -276,7 +315,17 @@ pub fn zsh_expand_fallback_steps(s: &str) -> (String, &'static str, &'static str
 /// calling `zsh.set_special_string`. Caller wires the actual zsh
 /// special-string registration.
 pub fn set_prompt_zpyvar_name(psvar: &str) -> String {
-    // py:201  zpyvar = 'ZPYTHON_POWERLINE_' + psvar
+    // py:199  def set_prompt(powerline, psvar, side, theme, above=False):
+    // py:200  try:
+    // py:201  savedps = zsh.getvalue(psvar)
+    // py:202  except IndexError:
+    // py:203  savedps = None
+    // py:204  zpyvar = 'ZPYTHON_POWERLINE_' + psvar
+    // py:205  prompt = Prompt(powerline, side, theme, psvar, savedps, above)
+    // py:206  zsh.setvalue(zpyvar, None)
+    // py:207  zsh.set_special_string(zpyvar, prompt)
+    // py:208  zsh.setvalue(psvar, '${' + zpyvar + '}')
+    // py:209  return ref(prompt)
     format!("ZPYTHON_POWERLINE_{}", psvar)
 }
 
@@ -294,6 +343,16 @@ pub fn build_segment_info(
     client_id: u64,
     local_theme: Option<&str>,
 ) -> Map<String, Value> {
+    // py:158  segment_info = {
+    // py:159  'args': self.args,
+    // py:160  'environ': environ,
+    // py:161  'client_id': 1,
+    // py:162  'local_theme': self.theme,
+    // py:163  'parser_state': parser_state,
+    // py:164  'shortened_path': shortened_path,
+    // py:165  'mode': mode,
+    // py:166  'default_mode': default_mode,
+    // py:167  }
     let mut info = Map::new();
     info.insert("client_id".to_string(), Value::from(client_id));
     info.insert(
@@ -351,7 +410,10 @@ impl Prompt {
     /// `savedps` and `savedpsvar` are set per py:194-195. The caller
     /// dispatches the zsh setvalue + powerline shutdown.
     pub fn del_restore(&self) -> Option<(String, String)> {
-        // py:194-195  if self.savedps: zsh.setvalue(self.savedpsvar, self.savedps)
+        // py:193  def __del__(self):
+        // py:194  if self.savedps:
+        // py:195  zsh.setvalue(self.savedpsvar, self.savedps)
+        // py:196  self.powerline.shutdown()
         match (&self.savedpsvar, &self.savedps) {
             (Some(var), Some(ps)) if !ps.is_empty() => Some((var.clone(), ps.clone())),
             _ => None,
@@ -367,6 +429,14 @@ impl Prompt {
         savedps: Option<String>,
         above: bool,
     ) -> Self {
+        // py:138  def __init__(self, powerline, side, theme, savedpsvar=None, savedps=None, above=False):
+        // py:139  self.powerline = powerline
+        // py:140  self.side = side
+        // py:141  self.above = above
+        // py:142  self.savedpsvar = savedpsvar
+        // py:143  self.savedps = savedps
+        // py:144  self.args = powerline.args
+        // py:145  self.theme = theme
         Self {
             side: side.into(),
             above,
@@ -416,8 +486,9 @@ impl ZshPowerline {
     /// Port of `ZshPowerline.precmd()` from
     /// `powerline/bindings/zsh/__init__.py:121`.
     pub fn precmd(&mut self, pipe_status: Vec<i32>, last_exit_code: i32) {
-        // py:122-123  self.args.last_pipe_status = zsh.pipestatus()
-        //             self.args.last_exit_code = zsh.last_exit_code()
+        // py:121  def precmd(self):
+        // py:122  self.args.last_pipe_status = zsh.pipestatus()
+        // py:123  self.args.last_exit_code = zsh.last_exit_code()
         self.args.last_pipe_status = pipe_status;
         self.args.last_exit_code = last_exit_code;
     }
@@ -429,7 +500,12 @@ impl ZshPowerline {
     /// the list of `(psvar, side, theme, above)` set_prompt arg
     /// tuples the caller wires through the zsh binding.
     pub fn do_setup(&self) -> Vec<(&'static str, &'static str, Option<&'static str>, bool)> {
-        // py:126-130  set_prompt calls
+        // py:125  def do_setup(self, zsh_globals):
+        // py:126  set_prompt(self, 'PS1', 'left', None, above=True)
+        // py:127  set_prompt(self, 'RPS1', 'right', None)
+        // py:128  set_prompt(self, 'PS2', 'left', 'continuation')
+        // py:129  set_prompt(self, 'RPS2', 'right', 'continuation')
+        // py:130  set_prompt(self, 'PS3', 'left', 'select')
         let prompts = vec![
             ("PS1", "left", None, true),
             ("RPS1", "right", None, false),
@@ -438,6 +514,7 @@ impl ZshPowerline {
             ("PS3", "left", Some("select"), false),
         ];
         // py:131  used_powerlines[id(self)] = self
+        // py:132  zsh_globals['_powerline'] = self
         used_powerlines()
             .lock()
             .unwrap_or_else(|e| e.into_inner())

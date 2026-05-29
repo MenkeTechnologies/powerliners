@@ -94,6 +94,15 @@ impl RichMark {
         buffer: Option<Vec<char>>,
         pointer: usize,
     ) -> Self {
+        // py:46  class Mark:
+        // py:47  def __init__(self, name, line, column, buffer, pointer, old_mark=None, merged_marks=None):
+        // py:48  self.name = name
+        // py:49  self.line = line
+        // py:50  self.column = column
+        // py:51  self.buffer = buffer
+        // py:52  self.pointer = pointer
+        // py:53  self.old_mark = old_mark
+        // py:54  self.merged_marks = merged_marks or []
         Self {
             name: name.into(),
             line,
@@ -108,7 +117,8 @@ impl RichMark {
     /// Port of `Mark.copy()` from
     /// `powerline/lint/markedjson/error.py:53`.
     pub fn copy(&self) -> RichMark {
-        // py:54  return Mark(self.name, self.line, ..., self.merged_marks[:])
+        // py:56  def copy(self):
+        // py:57  return Mark(self.name, self.line, self.column, self.buffer, self.pointer, self.old_mark, self.merged_marks[:])
         self.clone()
     }
 
@@ -119,39 +129,59 @@ impl RichMark {
     /// surrounding `pointer`, with a `^` caret marker on the
     /// following line.
     pub fn get_snippet(&self, indent: usize, max_length: usize) -> Option<String> {
-        // py:57-58  if self.buffer is None: return None
+        // py:59  def get_snippet(self, indent=4, max_length=75):
+        // py:60  if self.buffer is None:
+        // py:61  return None
         let buf = self.buffer.as_ref()?;
-        // py:59-65  walk backwards from pointer to start of line
+        // py:62  head = ''
+        // py:63  start = self.pointer
+        // py:64  while start > 0 and self.buffer[start - 1] not in '\0\n':
         let mut head = String::new();
         let mut start = self.pointer;
         while start > 0 && !matches!(buf.get(start - 1), Some('\0') | Some('\n')) {
+            // py:65  start -= 1
             start -= 1;
+            // py:66  if self.pointer - start > max_length / 2 - 1:
             if self.pointer.saturating_sub(start) > max_length / 2 - 1 {
+                // py:67  head = ' ... '
+                // py:68  start += 5
+                // py:69  break
                 head = " ... ".to_string();
                 start += 5;
                 break;
             }
         }
-        // py:66-72  walk forward from pointer to end of line
+        // py:70  tail = ''
+        // py:71  end = self.pointer
+        // py:72  while end < len(self.buffer) and self.buffer[end] not in '\0\n':
         let mut tail = String::new();
         let mut end = self.pointer;
         while end < buf.len() && !matches!(buf.get(end), Some('\0') | Some('\n')) {
+            // py:73  end += 1
             end += 1;
+            // py:74  if end - self.pointer > max_length / 2 - 1:
             if end - self.pointer > max_length / 2 - 1 {
+                // py:75  tail = ' ... '
+                // py:76  end -= 5
+                // py:77  break
                 tail = " ... ".to_string();
                 end -= 5;
                 break;
             }
         }
-        // py:73-74  snippet = [pre, ch, post]; strtrans each piece
+        // py:78  snippet = [self.buffer[start:self.pointer], self.buffer[self.pointer], self.buffer[self.pointer + 1:end]]
         let pre: String = buf[start..self.pointer].iter().collect();
         let ch: String = buf.get(self.pointer).copied().unwrap_or('\0').to_string();
         let post: String = buf
             .get(self.pointer + 1..end.min(buf.len()))
             .map(|s| s.iter().collect())
             .unwrap_or_default();
+        // py:79  snippet = [strtrans(s) for s in snippet]
         let snippet = [strtrans(&pre), strtrans(&ch), strtrans(&post)];
-        // py:76-79  format the line + caret line
+        // py:80  return (
+        // py:81  ' ' * indent + head + ''.join(snippet) + tail + '\n'
+        // py:82  + ' ' * (indent + len(head) + len(snippet[0])) + '^'
+        // py:83  )
         let indent_str = " ".repeat(indent);
         let caret_pad = " ".repeat(indent + head.len() + snippet[0].len());
         Some(format!(
@@ -163,7 +193,12 @@ impl RichMark {
     /// Port of `Mark.advance_string()` from
     /// `powerline/lint/markedjson/error.py:81`.
     pub fn advance_string(&self, diff: usize) -> RichMark {
-        // py:82-86  ret = self.copy(); ret.column += diff; ret.pointer += diff
+        // py:85  def advance_string(self, diff):
+        // py:86  ret = self.copy()
+        // py:87  # FIXME Currently does not work properly with escaped strings.
+        // py:88  ret.column += diff
+        // py:89  ret.pointer += diff
+        // py:90  return ret
         let mut ret = self.copy();
         ret.column += diff;
         ret.pointer += diff;
@@ -176,13 +211,21 @@ impl RichMark {
     /// Sets the old-mark chain. Detects recursive cycles and refuses.
     /// Returns `Err(())` on cycle (Python raises `ValueError`).
     pub fn set_old_mark(&mut self, old_mark: RichMark) -> Result<(), &'static str> {
-        // py:89-90  if self is old_mark: return
+        // py:92  def set_old_mark(self, old_mark):
+        // py:93  if self is old_mark:
+        // py:94  return
         if std::ptr::eq(self as *const _, &old_mark as *const _) {
             return Ok(());
         }
-        // py:91-99  walk old_mark.old_mark chain for cycles. Without
-        // Python's id() identity we approximate by comparing the
-        // (name, line, column) triple.
+        // py:95  checked_marks = set([id(self)])
+        // py:96  older_mark = old_mark
+        // py:97  while True:
+        // py:98  if id(older_mark) in checked_marks:
+        // py:99  raise ValueError('Trying to set recursive marks')
+        // py:100  checked_marks.add(id(older_mark))
+        // py:101  older_mark = older_mark.old_mark
+        // py:102  if not older_mark:
+        // py:103  break
         let mut seen: Vec<(String, usize, usize)> =
             vec![(self.name.clone(), self.line, self.column)];
         let mut cursor: Option<&RichMark> = Some(&old_mark);
@@ -194,7 +237,7 @@ impl RichMark {
             seen.push(id);
             cursor = m.old_mark.as_deref();
         }
-        // py:100  self.old_mark = old_mark
+        // py:104  self.old_mark = old_mark
         self.old_mark = Some(Box::new(old_mark));
         Ok(())
     }
@@ -202,23 +245,28 @@ impl RichMark {
     /// Port of `Mark.set_merged_mark()` from
     /// `powerline/lint/markedjson/error.py:102`.
     pub fn set_merged_mark(&mut self, merged_mark: RichMark) {
-        // py:103  self.merged_marks.append(merged_mark)
+        // py:106  def set_merged_mark(self, merged_mark):
+        // py:107  self.merged_marks.append(merged_mark)
         self.merged_marks.push(merged_mark);
     }
 
     /// Port of `Mark.to_string()` from
     /// `powerline/lint/markedjson/error.py:105`.
     pub fn to_string_marked(&self, indent: usize, head_text: &str, add_snippet: bool) -> String {
-        // py:106-132  multi-line "in <name>, line N, column M:" + snippet
-        // + recursive merged_marks / old_mark traversal.
+        // py:109  def to_string(self, indent=0, head_text='in ', add_snippet=True):
+        // py:110  mark = self
+        // py:111  where = ''
+        // py:112  processed_marks = set()
         let mut where_str = String::new();
         let mut cursor: Option<&RichMark> = Some(self);
         let mut cur_indent = indent;
-        // py:113  processed_marks = set()
         let mut processed: Vec<(String, usize, usize)> = Vec::new();
+        // py:113  while mark:
         while let Some(mark) = cursor {
+            // py:114  indentstr = ' ' * indent
             let indent_str = " ".repeat(cur_indent);
-            // py:115-116  '%s  %s"%s", line %d, column %d'
+            // py:115  where += ('%s  %s"%s", line %d, column %d' % (
+            // py:116  indentstr, head_text, mark.name, mark.line + 1, mark.column + 1))
             where_str.push_str(&format!(
                 "{}  {}\"{}\", line {}, column {}",
                 indent_str,
@@ -227,14 +275,22 @@ impl RichMark {
                 mark.line + 1,
                 mark.column + 1,
             ));
-            // py:117-119  add snippet
+            // py:117  if add_snippet:
+            // py:118  snippet = mark.get_snippet(indent=(indent + 4))
+            // py:119  if snippet:
+            // py:120  where += ':\n' + snippet
             if add_snippet {
                 if let Some(snippet) = mark.get_snippet(cur_indent + 4, 75) {
                     where_str.push_str(":\n");
                     where_str.push_str(&snippet);
                 }
             }
-            // py:120-125  merged_marks recursion
+            // py:121  if mark.merged_marks:
+            // py:122  where += '\n' + indentstr + '  with additionally merged\n'
+            // py:123  where += mark.merged_marks[0].to_string(indent + 4, head_text='', add_snippet=False)
+            // py:124  for mmark in mark.merged_marks[1:]:
+            // py:125  where += '\n' + indentstr + '  and\n'
+            // py:126  where += mmark.to_string(indent + 4, head_text='', add_snippet=False)
             if !mark.merged_marks.is_empty() {
                 where_str.push('\n');
                 where_str.push_str(&indent_str);
@@ -251,7 +307,11 @@ impl RichMark {
                     where_str.push_str(&mm.to_string_marked(cur_indent + 4, "", false));
                 }
             }
-            // py:126-129  old_mark walks
+            // py:127  if add_snippet:
+            // py:128  processed_marks.add(id(mark))
+            // py:129  if mark.old_mark:
+            // py:130  where += '\n' + indentstr + '  which replaced value\n'
+            // py:131  indent += 4
             if add_snippet {
                 let id = (mark.name.clone(), mark.line, mark.column);
                 processed.push(id);
@@ -262,17 +322,19 @@ impl RichMark {
                     cur_indent += 4;
                 }
             }
-            // py:130-131  recursion-cycle check
+            // py:132  mark = mark.old_mark
+            // py:133  if id(mark) in processed_marks:
+            // py:134  raise ValueError('Trying to dump recursive mark')
             cursor = mark.old_mark.as_deref();
             if let Some(m) = cursor {
                 let id = (m.name.clone(), m.line, m.column);
                 if processed.contains(&id) {
-                    // py:131  raise ValueError — surface as marker text
                     where_str.push_str("\n<recursive mark>");
                     break;
                 }
             }
         }
+        // py:135  return where
         where_str
     }
 }
@@ -305,31 +367,46 @@ pub fn format_error(
     note: Option<&str>,
     indent: usize,
 ) -> String {
+    // py:167  def format_error(context=None, context_mark=None, problem=None, problem_mark=None, note=None, indent=0):
+    // py:168  lines = []
+    // py:169  indentstr = ' ' * indent
     let mut lines: Vec<String> = Vec::new();
     let indent_str = " ".repeat(indent);
-    // py:168-170  if context is not None: lines.append(...)
+    // py:170  if context is not None:
+    // py:171  lines.append(indentstr + context)
     if let Some(c) = context {
         lines.push(format!("{}{}", indent_str, c));
     }
-    // py:171-178  context_mark (only when different from problem_mark)
+    // py:172  if (
+    // py:173  context_mark is not None
+    // py:174  and (
+    // py:175  problem is None or problem_mark is None
+    // py:176  or context_mark != problem_mark
+    // py:177  )
+    // py:178  ):
+    // py:179  lines.append(context_mark.to_string(indent=indent))
     if let Some(cm) = context_mark {
         let same_as_problem = matches!((problem, problem_mark), (Some(_), Some(pm)) if cm == pm);
         if !same_as_problem {
             lines.push(cm.to_string_marked(indent, "in ", true));
         }
     }
-    // py:179-181  if problem is not None: lines.append(...)
+    // py:180  if problem is not None:
+    // py:181  lines.append(indentstr + problem)
     if let Some(p) = problem {
         lines.push(format!("{}{}", indent_str, p));
     }
-    // py:182-183  problem_mark.to_string
+    // py:182  if problem_mark is not None:
+    // py:183  lines.append(problem_mark.to_string(indent=indent))
     if let Some(pm) = problem_mark {
         lines.push(pm.to_string_marked(indent, "in ", true));
     }
-    // py:184-185  note
+    // py:184  if note is not None:
+    // py:185  lines.append(indentstr + note)
     if let Some(n) = note {
         lines.push(format!("{}{}", indent_str, n));
     }
+    // py:186  return '\n'.join(lines)
     lines.join("\n")
 }
 
