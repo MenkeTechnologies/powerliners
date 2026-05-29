@@ -311,7 +311,28 @@ pub fn check_log_file_level(this_level: &str, top_level: &str) -> LintResult {
 /// `logging.Handler` subclass. Rust port maintains a known-handler
 /// set covering the upstream logging.handlers module names.
 pub fn check_logging_handler(handler_name: &str) -> LintResult {
-    // py:839-864  handler must exist in logging.handlers
+    // py:838  def check_logging_handler(handler, data, context, echoerr):
+    // py:839  '''Check that the logging handler refers to a real handler class.
+    // py:840-845  docstring
+    // py:846  hadproblem = False
+    // py:847  module, _, handler_name = handler.rpartition('.')
+    // py:848  try:
+    // py:849  module = __import__(str(module), fromlist=[str(handler_name)])
+    // py:850  except ImportError as e:
+    // py:851  echoerr(...)
+    // py:852  hadproblem = True
+    // py:853  return True, False, hadproblem
+    // py:854  try:
+    // py:855  handler_class = getattr(module, str(handler_name))
+    // py:856  except AttributeError as e:
+    // py:857  echoerr(...)
+    // py:858  hadproblem = True
+    // py:859  return True, False, hadproblem
+    // py:860  if not issubclass(handler_class, logging.Handler):
+    // py:861  echoerr(...)
+    // py:862  hadproblem = True
+    // py:863  return True, False, hadproblem
+    // py:864  return True, False, hadproblem
     let known_handlers: HashSet<&str> = [
         "StreamHandler",
         "FileHandler",
@@ -348,7 +369,18 @@ pub fn check_logging_handler(handler_name: &str) -> LintResult {
 /// port checks the structural shape (must be a string with no
 /// whitespace).
 pub fn check_color(color: &str) -> LintResult {
-    // py:153-164  color must be a non-empty string without spaces
+    // py:152  def check_color(color, data, context, echoerr):
+    // py:153  havemarks(color)
+    // py:154  if (color not in data['colors_config'].get('colors', {})
+    // py:155  and color not in data['colors_config'].get('gradients', {})):
+    // py:156  echoerr(
+    // py:157  context='Error while checking highlight group in colorscheme (key {key})'.format(
+    // py:158  key=context.key),
+    // py:159  problem='found unexistent color or gradient {0}'.format(color),
+    // py:160  problem_mark=color.mark
+    // py:161  )
+    // py:162  return True, False, True
+    // py:163  return True, False, False
     if color.is_empty() || color.contains(char::is_whitespace) {
         LintResult::failed()
     } else {
@@ -395,20 +427,35 @@ pub fn check_ext(
     has_top_themes: bool,
     has_top_colorschemes: bool,
 ) -> (bool, bool) {
-    // py:102-106  if ext not in data['lists']['exts']
+    // py:98  def check_ext(ext, data, context, echoerr):
+    // py:99  havemarks(ext)
+    // py:100  hadsomedirs = False
+    // py:101  hadproblem = False
+    // py:102  if ext not in data['lists']['exts']:
+    // py:103  hadproblem = True
+    // py:104  echoerr(context='Error while loading {0} extension configuration'.format(ext),
+    // py:105  context_mark=ext.mark,
+    // py:106  problem='extension configuration does not exist')
+    // py:107  else:
+    // py:108  for typ in ('themes', 'colorschemes'):
+    // py:109  if ext not in data['configs'][typ] and not data['configs']['top_' + typ]:
+    // py:110  hadproblem = True
+    // py:111  echoerr(context='Error while loading {0} extension configuration'.format(ext),
+    // py:112  context_mark=ext.mark,
+    // py:113  problem='{0} configuration does not exist'.format(typ))
+    // py:114  else:
+    // py:115  hadsomedirs = True
+    // py:116  return hadsomedirs, hadproblem
     if !available_exts.contains(ext) {
         return (false, true);
     }
-    // py:108-115  walk ('themes', 'colorschemes')
     let mut hadsomedirs = false;
     let mut hadproblem = false;
-    // themes
     if !has_themes_for_ext && !has_top_themes {
         hadproblem = true;
     } else {
         hadsomedirs = true;
     }
-    // colorschemes
     if !has_colorschemes_for_ext && !has_top_colorschemes {
         hadproblem = true;
     } else {
@@ -434,16 +481,33 @@ pub fn check_config(
     has_theme_for_ext: bool,
     has_top_theme: bool,
 ) -> LintResult {
-    // py:125-129
+    // py:119  def check_config(d, theme, data, context, echoerr):
+    // py:120  if len(context) == 4:
+    // py:121  ext = context[-2][0]
+    // py:122  else:
+    // py:123  # local_themes
+    // py:124  ext = context[-3][0]
+    // py:125  if ext not in data['lists']['exts']:
+    // py:126  echoerr(context='Error while loading {0} extension configuration'.format(ext),
+    // py:127  context_mark=ext.mark,
+    // py:128  problem='extension configuration does not exist')
+    // py:129  return True, False, True
+    // py:130  if (
+    // py:131  (ext not in data['configs'][d] or theme not in data['configs'][d][ext])
+    // py:132  and theme not in data['configs']['top_' + d]
+    // py:133  ):
+    // py:134  echoerr(context='Error while loading {0} from {1} extension configuration'.format(d[:-1], ext),
+    // py:135  problem='failed to find configuration file {0}/{1}/{2}.json'.format(d, ext, theme),
+    // py:136  problem_mark=theme.mark)
+    // py:137  return True, False, True
+    // py:138  return True, False, False
     if !available_exts.contains(ext) {
         return LintResult::warned();
     }
-    // py:130-137
     let _ = (d, theme);
     if has_theme_for_ext || has_top_theme {
         LintResult::ok()
     } else {
-        // py:136  echoerr + return True, False, True
         LintResult {
             proceed: true,
             echo: false,
@@ -457,11 +521,18 @@ pub fn check_config(
 ///
 /// Validates that `theme` is in the available top_themes set.
 pub fn check_top_theme(theme: &str, top_themes: &HashSet<&str>) -> LintResult {
-    // py:143  if theme not in data['configs']['top_themes']
+    // py:141  def check_top_theme(theme, data, context, echoerr):
+    // py:142  havemarks(theme)
+    // py:143  if theme not in data['configs']['top_themes']:
+    // py:144  echoerr(context='Error while checking extension configuration (key {key})'.format(key=context.key),
+    // py:145  context_mark=context[-2][0].mark,
+    // py:146  problem='failed to find top theme {0}'.format(theme),
+    // py:147  problem_mark=theme.mark)
+    // py:148  return True, False, True
+    // py:149  return True, False, False
     if top_themes.contains(theme) {
         LintResult::ok()
     } else {
-        // py:144-148  echoerr + return True, False, True
         LintResult {
             proceed: true,
             echo: false,
@@ -478,7 +549,8 @@ pub fn check_top_theme(theme: &str, top_themes: &HashSet<&str>) -> LintResult {
 /// `check_group` cascade (py:170-243) walks the colorscheme config
 /// tree and is deferred.
 pub fn check_translated_group_name(group: &str, defined_groups: &HashSet<&str>) -> LintResult {
-    // py:167  return check_group(...)
+    // py:166  def check_translated_group_name(group, data, context, echoerr):
+    // py:167  return check_group(group, data, context, echoerr)
     check_group(group, defined_groups)
 }
 
@@ -489,13 +561,81 @@ pub fn check_translated_group_name(group: &str, defined_groups: &HashSet<&str>) 
 /// The Rust port takes the resolved set of available group names
 /// directly (Python walks `data['ext_colorscheme_configs']` etc.).
 pub fn check_group(group: &str, defined_groups: &HashSet<&str>) -> LintResult {
-    // py:172-173  if not isinstance(group, unicode): return True, False, False
-    // (string is always valid as &str)
-    // py:212-242  check if group exists in any of the configs
+    // py:170  def check_group(group, data, context, echoerr):
+    // py:171  havemarks(group)
+    // py:172  if not isinstance(group, unicode):
+    // py:173  return True, False, False
+    // py:174  colorscheme = data['colorscheme']
+    // py:175  ext = data['ext']
+    // py:176  configs = None
+    // py:177  if ext:
+    // py:178  def listed_key(d, k):
+    // py:179  try:
+    // py:180  return [d[k]]
+    // py:181  except KeyError:
+    // py:182  return []
+    // py:184  if colorscheme == '__main__':
+    // py:185  colorscheme_names = set(data['ext_colorscheme_configs'][ext])
+    // py:186  colorscheme_names.update(data['top_colorscheme_configs'])
+    // py:187  colorscheme_names.discard('__main__')
+    // py:188  configs = [
+    // py:189  (
+    // py:190  name,
+    // py:191  listed_key(data['ext_colorscheme_configs'][ext], name)
+    // py:192  + listed_key(data['ext_colorscheme_configs'][ext], '__main__')
+    // py:193  + listed_key(data['top_colorscheme_configs'], name)
+    // py:194  )
+    // py:195  for name in colorscheme_names
+    // py:196  ]
+    // py:197  else:
+    // py:198  configs = [
+    // py:199  (
+    // py:200  colorscheme,
+    // py:201  listed_key(data['ext_colorscheme_configs'][ext], colorscheme)
+    // py:202  + listed_key(data['ext_colorscheme_configs'][ext], '__main__')
+    // py:203  + listed_key(data['top_colorscheme_configs'], colorscheme)
+    // py:204  )
+    // py:205  ]
+    // py:206  else:
+    // py:207  try:
+    // py:208  configs = [(colorscheme, [data['top_colorscheme_configs'][colorscheme]])]
+    // py:209  except KeyError:
+    // py:210  pass
+    // py:211  hadproblem = False
+    // py:212  for new_colorscheme, config_lst in configs:
+    // py:213  not_found = []
+    // py:214  new_data = data.copy()
+    // py:215  new_data['colorscheme'] = new_colorscheme
+    // py:216  for config in config_lst:
+    // py:217  havemarks(config)
+    // py:218  try:
+    // py:219  group_data = config['groups'][group]
+    // py:220  except KeyError:
+    // py:221  not_found.append(config.mark.name)
+    // py:222  else:
+    // py:223  proceed, echo, chadproblem = check_group(
+    // py:224  group_data,
+    // py:225  new_data,
+    // py:226  context,
+    // py:227  echoerr,
+    // py:228  )
+    // py:229  if chadproblem:
+    // py:230  hadproblem = True
+    // py:231  if not proceed:
+    // py:232  break
+    // py:233  if not_found and len(not_found) == len(config_lst):
+    // py:234  echoerr(
+    // py:235  context='Error while checking group definition in colorscheme (key {key})'.format(
+    // py:236  key=context.key),
+    // py:237  problem='name {0} is not present anywhere in {1} {2} {3} colorschemes: {4}'.format(
+    // py:238  group, len(not_found), ext, new_colorscheme, ', '.join(not_found)),
+    // py:239  problem_mark=group.mark
+    // py:240  )
+    // py:241  hadproblem = True
+    // py:242  return True, False, hadproblem
     if defined_groups.contains(group) {
         LintResult::ok()
     } else {
-        // py:233-240  echoerr + return True, False, True
         LintResult {
             proceed: true,
             echo: false,
@@ -512,7 +652,47 @@ pub fn check_group(group: &str, defined_groups: &HashSet<&str>) -> LintResult {
 /// segment config dict carries; `segment_type` is the resolved
 /// type ("function", "string", or "segment_list").
 pub fn check_key_compatibility(segment_keys: &HashSet<&str>, segment_type: &str) -> LintResult {
-    // py:250-254  if segment_type not in type_keys: fail
+    // py:245  def check_key_compatibility(segment, data, context, echoerr):
+    // py:246  havemarks(segment)
+    // py:247  segment_type = segment.get('type', MarkedUnicode('function', None))
+    // py:248  havemarks(segment_type)
+    // py:250  if segment_type not in type_keys:
+    // py:251  echoerr(context='Error while checking segments (key {key})'.format(key=context.key),
+    // py:252  problem='found segment with unknown type {0}'.format(segment_type),
+    // py:253  problem_mark=segment_type.mark)
+    // py:254  return False, False, True
+    // py:256  hadproblem = False
+    // py:258  keys = set(segment)
+    // py:259  if not ((keys - generic_keys) < type_keys[segment_type]):
+    // py:260  unknown_keys = keys - generic_keys - type_keys[segment_type]
+    // py:261  echoerr(
+    // py:262  context='Error while checking segments (key {key})'.format(key=context.key),
+    // py:263  context_mark=context[-1][1].mark,
+    // py:264  problem='found keys not used with the current segment type: {0}'.format(
+    // py:265  list_sep.join(unknown_keys)),
+    // py:266  problem_mark=list(unknown_keys)[0].mark
+    // py:267  )
+    // py:268  hadproblem = True
+    // py:270  if not (keys >= required_keys[segment_type]):
+    // py:271  missing_keys = required_keys[segment_type] - keys
+    // py:272  echoerr(
+    // py:273  context='Error while checking segments (key {key})'.format(key=context.key),
+    // py:274  context_mark=context[-1][1].mark,
+    // py:275  problem='found missing required keys: {0}'.format(
+    // py:276  list_sep.join(missing_keys))
+    // py:277  )
+    // py:278  hadproblem = True
+    // py:280  if not (segment_type == 'function' or (keys & highlight_keys)):
+    // py:281  echoerr(
+    // py:282  context='Error while checking segments (key {key})'.format(key=context.key),
+    // py:283  context_mark=context[-1][1].mark,
+    // py:284  problem=(
+    // py:285  'found missing keys required to determine highlight group. '
+    // py:286  'Either highlight_groups or name key must be present'
+    // py:287  )
+    // py:288  )
+    // py:289  hadproblem = True
+    // py:291  return True, False, hadproblem
     let tk = match type_keys().get(segment_type) {
         Some(s) => s,
         None => {
@@ -523,9 +703,7 @@ pub fn check_key_compatibility(segment_keys: &HashSet<&str>, segment_type: &str)
             }
         }
     };
-
     let mut hadproblem = false;
-    // py:259-268  unknown keys not in (generic_keys | type_keys[t])
     let gk = generic_keys();
     for k in segment_keys.iter() {
         if !gk.contains(k) && !tk.contains(k) {
@@ -533,7 +711,6 @@ pub fn check_key_compatibility(segment_keys: &HashSet<&str>, segment_type: &str)
             break;
         }
     }
-    // py:270-278  required keys must all be present
     if let Some(rk) = required_keys().get(segment_type) {
         for k in rk.iter() {
             if !segment_keys.contains(k) {
@@ -542,7 +719,6 @@ pub fn check_key_compatibility(segment_keys: &HashSet<&str>, segment_type: &str)
             }
         }
     }
-    // py:280-289  type != 'function' and (keys & highlight_keys) must be non-empty
     if segment_type != "function" {
         let hk = highlight_keys();
         let mut has_hl = false;
@@ -556,7 +732,6 @@ pub fn check_key_compatibility(segment_keys: &HashSet<&str>, segment_type: &str)
             hadproblem = true;
         }
     }
-
     LintResult {
         proceed: true,
         echo: false,
@@ -572,11 +747,21 @@ pub fn check_key_compatibility(segment_keys: &HashSet<&str>, segment_type: &str)
 /// `is_importable` so callers (test harness or runtime importer)
 /// can supply the lookup.
 pub fn check_segment_module(module: &str, is_importable: impl Fn(&str) -> bool) -> LintResult {
-    // py:297-298  __import__(str(module))
+    // py:294  def check_segment_module(module, data, context, echoerr):
+    // py:295  havemarks(module)
+    // py:296  with WithPath(data['import_paths']):
+    // py:297  try:
+    // py:298  __import__(str(module))
+    // py:299  except ImportError as e:
+    // py:300  echoerr(context='Error while checking segments (key {key})'.format(key=context.key),
+    // py:301  context_mark=module.mark,
+    // py:302  problem='failed to import module {0}'.format(module),
+    // py:303  problem_mark=module.mark)
+    // py:304  return True, False, True
+    // py:305  return True, False, False
     if is_importable(module) {
         LintResult::ok()
     } else {
-        // py:299-305  ImportError → echoerr + return True, False, True
         LintResult {
             proceed: true,
             echo: false,
@@ -596,12 +781,19 @@ pub fn check_segment_module(module: &str, is_importable: impl Fn(&str) -> bool) 
 /// `resolved` plus the lint result. Callers use the pair to look up
 /// the actual function via `import_function`.
 pub fn check_exinclude_function(name: &str, ext: &str) -> (String, String) {
+    // py:794  def check_exinclude_function(name, data, context, echoerr):
+    // py:795  havemarks(name)
     // py:796  module, name = name.rpartition('.')[::2]
+    // py:797  if not module:
+    // py:798  module = 'powerline.selectors.{0}'.format(data['ext'])
+    // py:799  ext = data['ext']
+    // py:800  return import_function('selector', name, data, context, echoerr,
+    // py:801  module=MarkedUnicode(module, name.mark))
+    // py:802  # See ``import_function``
     let (module, function) = match name.rfind('.') {
         Some(idx) => (name[..idx].to_string(), name[idx + 1..].to_string()),
         None => (String::new(), name.to_string()),
     };
-    // py:797-798  if not module: module = 'powerline.selectors.' + ext
     let module = if module.is_empty() {
         format!("powerline.selectors.{}", ext)
     } else {
@@ -620,9 +812,15 @@ pub fn get_one_segment_function(
     function_name: Option<&str>,
     ext: &str,
 ) -> Option<(String, String)> {
-    // py:749  function_name = context[-2][1].get('function')
+    // py:747  def get_one_segment_function(function_name, context, ext):
+    // py:748  havemarks(function_name)
+    // py:749  module, function_name = get_function_strings(function_name, context, ext)
+    // py:750  func = import_segment(function_name, context[0][1], context, lambda **kwargs: True,
+    // py:751  module=MarkedUnicode(module, function_name.mark))
+    // py:752  if func:
+    // py:753  yield func
+    // py:754  return
     let function_name = function_name?;
-    // py:751  module, function_name = get_function_strings(function_name, context, ext)
     let default_module = format!("powerline.segments.{}", ext);
     Some(get_function_strings(function_name, &default_module))
 }
@@ -633,13 +831,38 @@ pub fn get_one_segment_function(
 /// Resolves the matcher function name and returns the `(module,
 /// function)` pair after defaulting to `powerline.matchers.<ext>`.
 pub fn check_matcher_func(ext: &str, match_name: &str) -> (String, String) {
+    // py:56  def check_matcher_func(ext, match_name, data, context, echoerr):
+    // py:57  havemarks(match_name)
+    // py:58  import_paths = [os.path.expanduser(path) for path in context[0][1].get('common', {}).get('paths', [])]
     // py:60  match_module, separator, match_function = match_name.rpartition('.')
+    // py:61  if not separator:
+    // py:62  match_module = 'powerline.matchers.{0}'.format(ext)
+    // py:63  match_function = match_name
+    // py:65  with WithPath(import_paths):
+    // py:66  try:
+    // py:67  func = getattr(__import__(str(match_module), fromlist=[str(match_function)]), str(match_function))
+    // py:68  except ImportError:
+    // py:69  echoerr(context='Error while loading matcher functions',
+    // py:70  problem='failed to load module {0}'.format(match_module),
+    // py:71  problem_mark=match_name.mark)
+    // py:72  return True, True
+    // py:73  except AttributeError:
+    // py:74  echoerr(context='Error while loading matcher functions',
+    // py:75  problem='failed to load matcher function {0}'.format(match_function),
+    // py:76  problem_mark=match_name.mark)
+    // py:77  return True, True
+    // py:79  if not callable(func):
+    // py:80  echoerr(context='Error while checking segments (key {key})'.format(key=context.key),
+    // py:81  context_mark=match_name.mark,
+    // py:82  problem='imported "function" {0} from module {1} is not callable'.format(match_function, match_module),
+    // py:83  problem_mark=match_module.mark)
+    // py:84  return True, True
+    // py:86  return True, False
     match match_name.rfind('.') {
         Some(idx) => (
             match_name[..idx].to_string(),
             match_name[idx + 1..].to_string(),
         ),
-        // py:61-63  if not separator: match_module = 'powerline.matchers.<ext>'
         None => (
             format!("powerline.matchers.{}", ext),
             match_name.to_string(),
