@@ -1250,3 +1250,138 @@ fn parity_scalar_token_id() {
         powerliners::lint::markedjson::tokens::ScalarToken::ID,
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// segments/common/wthr.py — WeatherSegment class consts
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_weather_api_key_default() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "__import__('powerline.segments.common.wthr', fromlist=['WeatherSegment']).WeatherSegment.weather_api_key",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(
+        py,
+        powerliners::segments::common::wthr::WEATHER_API_KEY,
+        "WeatherSegment.weather_api_key mismatch"
+    );
+}
+
+#[test]
+fn parity_weather_interval_default() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "__import__('powerline.segments.common.wthr', fromlist=['WeatherSegment']).WeatherSegment.interval",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_int: u32 = py.parse().expect("Python returned non-int for interval");
+    assert_eq!(
+        py_int,
+        powerliners::segments::common::wthr::WEATHER_INTERVAL,
+        "WeatherSegment.interval mismatch"
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/threaded.py — ThreadedSegment class consts
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_threaded_segment_min_sleep_time() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "__import__('powerline.lib.threaded', fromlist=['ThreadedSegment']).ThreadedSegment.min_sleep_time",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_float: f64 = py
+        .parse()
+        .expect("Python returned non-float for min_sleep_time");
+    let rs = powerliners::lib::threaded::ThreadedSegment::new().min_sleep_time;
+    assert!(
+        (py_float - rs).abs() < 1e-9,
+        "ThreadedSegment.min_sleep_time mismatch: py={}, rs={}",
+        py_float,
+        rs
+    );
+}
+
+#[test]
+fn parity_threaded_segment_update_first_default() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "__import__('powerline.lib.threaded', fromlist=['ThreadedSegment']).ThreadedSegment.update_first",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_bool = py == "True";
+    let rs = powerliners::lib::threaded::ThreadedSegment::new().update_first;
+    assert_eq!(
+        py_bool, rs,
+        "ThreadedSegment.update_first mismatch: py={}, rs={}",
+        py_bool, rs
+    );
+}
+
+#[test]
+fn parity_threaded_segment_interval_default() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "__import__('powerline.lib.threaded', fromlist=['ThreadedSegment']).ThreadedSegment.interval",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_int: f64 = py
+        .parse()
+        .expect("Python returned non-numeric for interval");
+    let rs = powerliners::lib::threaded::ThreadedSegment::new().interval;
+    assert!(
+        (py_int - rs).abs() < 1e-9,
+        "ThreadedSegment.interval mismatch: py={}, rs={}",
+        py_int,
+        rs
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// config.py — DEFAULT_SYSTEM_CONFIG_DIR
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_default_system_config_dir_is_none() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "__import__('powerline.config', fromlist=['DEFAULT_SYSTEM_CONFIG_DIR']).DEFAULT_SYSTEM_CONFIG_DIR",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    // Python None prints as "None"
+    let rs = powerliners::ported::config::DEFAULT_SYSTEM_CONFIG_DIR();
+    assert_eq!(py, "None", "Python DEFAULT_SYSTEM_CONFIG_DIR not None");
+    assert!(
+        rs.is_none(),
+        "Rust DEFAULT_SYSTEM_CONFIG_DIR() returned Some, expected None"
+    );
+}
