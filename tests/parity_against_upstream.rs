@@ -2268,6 +2268,64 @@ fn parity_lib_path_realpath_on_existing_temp_dir() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_kw_threaded_segment_inherits_class_attrs() {
+    if !python_available() {
+        return;
+    }
+    // KwThreadedSegment subclasses ThreadedSegment and inherits:
+    //   daemon = False (from ThreadedSegment override of MultiRunnedThread)
+    //   interval = 1
+    //   min_sleep_time = 0.1
+    // It explicitly redeclares update_first = True at py:172.
+    // Verify each attribute matches between Python and Rust.
+    let py_daemon = match py_eval(
+        "__import__('powerline.lib.threaded', fromlist=['KwThreadedSegment']).KwThreadedSegment.daemon",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_interval = match py_eval(
+        "__import__('powerline.lib.threaded', fromlist=['KwThreadedSegment']).KwThreadedSegment.interval",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_min_sleep = match py_eval(
+        "__import__('powerline.lib.threaded', fromlist=['KwThreadedSegment']).KwThreadedSegment.min_sleep_time",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+
+    let rs = powerliners::lib::threaded::KwThreadedSegment::new();
+    let rs_daemon = rs.base.base.daemon;
+    let rs_interval = rs.base.interval;
+    let rs_min_sleep = rs.base.min_sleep_time;
+
+    let py_daemon_bool = py_daemon == "True";
+    let py_interval_f: f64 = py_interval.parse().expect("non-numeric interval");
+    let py_min_sleep_f: f64 = py_min_sleep.parse().expect("non-numeric min_sleep_time");
+
+    assert_eq!(
+        py_daemon_bool, rs_daemon,
+        "KwThreadedSegment.daemon mismatch: py={}, rs={}",
+        py_daemon_bool, rs_daemon
+    );
+    assert!(
+        (py_interval_f - rs_interval).abs() < 1e-9,
+        "KwThreadedSegment.interval mismatch: py={}, rs={}",
+        py_interval_f,
+        rs_interval
+    );
+    assert!(
+        (py_min_sleep_f - rs_min_sleep).abs() < 1e-9,
+        "KwThreadedSegment.min_sleep_time mismatch: py={}, rs={}",
+        py_min_sleep_f,
+        rs_min_sleep
+    );
+}
+
+#[test]
 fn parity_kw_threaded_segment_update_first_default() {
     if !python_available() {
         return;
