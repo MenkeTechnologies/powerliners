@@ -2155,6 +2155,79 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_resolver_default_tags_constants() {
+    if !python_available() {
+        return;
+    }
+    // Verify the three DEFAULT_*_TAG class constants match upstream.
+    let cases: &[(&str, &str)] = &[
+        (
+            "DEFAULT_SCALAR_TAG",
+            powerliners::lint::markedjson::resolver::DEFAULT_SCALAR_TAG,
+        ),
+        (
+            "DEFAULT_SEQUENCE_TAG",
+            powerliners::lint::markedjson::resolver::DEFAULT_SEQUENCE_TAG,
+        ),
+        (
+            "DEFAULT_MAPPING_TAG",
+            powerliners::lint::markedjson::resolver::DEFAULT_MAPPING_TAG,
+        ),
+    ];
+    for &(name, rs) in cases {
+        let expr = format!(
+            "__import__('powerline.lint.markedjson.resolver', fromlist=['BaseResolver']).BaseResolver.{}",
+            name
+        );
+        let py = match py_eval(&expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(
+            py, rs,
+            "BaseResolver.{} mismatch: py={:?}, rs={:?}",
+            name, py, rs
+        );
+    }
+}
+
+#[test]
+fn parity_resolver_resolve_scalar_types() {
+    if !python_available() {
+        return;
+    }
+    // Exercise the implicit-resolver dispatch across 5 scalar types.
+    // Each Python call uses a stub echoerr so the no-match path doesn't
+    // panic. Both sides should yield the same tag string.
+    let cases: &[(&str, &str)] = &[
+        ("42", "tag:yaml.org,2002:int"),
+        ("-7", "tag:yaml.org,2002:int"),
+        ("true", "tag:yaml.org,2002:bool"),
+        ("false", "tag:yaml.org,2002:bool"),
+        ("null", "tag:yaml.org,2002:null"),
+    ];
+    use powerliners::lint::markedjson::resolver::{BaseResolver, NodeKind};
+    let r = BaseResolver::new();
+    for &(value, expected) in cases {
+        let py_expr = format!(
+            "(lambda r: (setattr(r, 'echoerr', lambda **kw: None), r.resolve(__import__('powerline.lint.markedjson.nodes', fromlist=['ScalarNode']).ScalarNode, {:?}, (True, False)))[1])(__import__('powerline.lint.markedjson.resolver', fromlist=['Resolver']).Resolver())",
+            value
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = r.resolve(NodeKind::Scalar, value, true);
+        assert_eq!(
+            py, expected,
+            "Python resolve({:?}) returned unexpected tag",
+            value
+        );
+        assert_eq!(py, rs, "resolve({:?}) py-rs mismatch", value);
+    }
+}
+
+#[test]
 fn parity_urllib_urlencode_special_chars() {
     if !python_available() {
         return;
