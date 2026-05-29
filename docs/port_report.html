@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">533</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3121</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">51.8%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">541</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3166</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">52.6%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -175,12 +175,12 @@ columns:
   <!-- SYM py_file=powerline/lib/watcher/inotify.py rs_file=src/ported/lib/watcher/inotify.rs rs_exists=True py_fn_total=15 ported_count=8 missing_count=7 rs_extra_count=35 coverage=0.5333 -->
   <!-- END-GROUP py_file=powerline/lib/watcher/inotify.py -->
   <!-- BEGIN-GROUP py_file=powerline/renderer.py -->
-  <tr class="partial"><td><code>renderer.py</code></td><td>✔ <code>renderer.rs</code></td><td>15</td><td><code>construct_returned_value</code>, <code>get_theme</code>, <code>shutdown</code>, <code>get_segment_info</code>, <code>compute_divider_widths</code>, <code>_prepare_segments</code>, <code>escape</code>, <code>hl</code></td><td><code>__init__</code>, <code>render_above_lines</code>, <code>render</code>, <code>do_render</code>, <code>_render_length</code>, <code>_render_segments</code>, <code>hlstyle</code></td><td><code>np_control_character_translations</code>, <code>np_invalid_character_translations</code>, <code>np_invalid_character_re</code>, <code>np_character_translations</code>, <code>translate_np</code>, <code>width_data</code>, <code>strwidth</code>, <code>new</code>, <code>segment_info</code>, <code>nbsp_constant_matches_upstream</code>, <code>np_control_character_translations_has_32_entries</code>, <code>np_control_character_translations_maps_null_to_caret_at</code>, <code>np_control_character_translations_maps_a_to_caret_a</code>, <code>np_control_character_translations_maps_tab_to_caret_i</code>, <code>np_control_character_translations_maps_newline_to_caret_j</code>, <code>np_invalid_character_translations_has_128_entries</code>, <code>np_invalid_character_translations_first_entry_is_80</code>, <code>np_invalid_character_translations_last_entry_is_ff</code>, <code>np_character_translations_contains_both_control_and_invalid</code>, <code>translate_np_replaces_control_chars</code>, <code>translate_np_passes_printable_chars_through</code>, <code>translate_np_handles_multiple_control_chars</code>, <code>construct_returned_value_plain_when_no_flags</code>, <code>construct_returned_value_tuple_with_width_only</code>, <code>construct_returned_value_tuple_with_raw_only</code>, <code>construct_returned_value_tuple_with_both</code>, <code>width_data_default_ambiwidth_is_1</code>, <code>width_data_ambiwidth_overrides_ambiguous</code>, <code>strwidth_counts_chars</code>, <code>compute_divider_widths_emits_both_sides_and_kinds</code>, <code>renderer_init_use_nbsp_default_adds_space_translation</code>, <code>renderer_init_use_nbsp_false_omits_space_translation</code>, <code>renderer_init_uses_ambiwidth_for_width_data</code>, <code>segment_info_includes_environ_and_home</code>, <code>get_segment_info_merges_segment_info_over_base</code>, <code>get_segment_info_sets_mode_null_when_none</code>, <code>get_segment_info_overrides_getcwd_when_pwd_set</code>, <code>get_theme_returns_self_theme</code>, <code>get_theme_ignores_matcher_info</code>, <code>shutdown_records_theme</code>, <code>escape_translates_chars_via_character_translations</code>, <code>escape_passes_untranslated_chars_through</code>, <code>escape_default_translates_space_to_nbsp</code>, <code>escape_use_non_breaking_spaces_false_keeps_spaces</code>, <code>hl_concatenates_hlstyle_output_and_contents</code>, <code>hl_none_contents_becomes_empty_string</code>, <code>_prepare_segments_translates_non_printable_contents</code>, <code>_prepare_segments_calculates_contents_len_from_strwidth_when_no_literal</code>, <code>_prepare_segments_uses_literal_contents_len_when_literal_non_empty</code>, <code>_prepare_segments_skips_contents_len_when_not_requested</code></td><td class="coverage">53%</td></tr>
-  <!-- SYM py_file=powerline/renderer.py rs_file=src/ported/renderer.rs rs_exists=True py_fn_total=15 ported_count=8 missing_count=7 rs_extra_count=50 coverage=0.5333 -->
+  <tr class="partial"><td><code>renderer.py</code></td><td>✔ <code>renderer.rs</code></td><td>15</td><td><code>construct_returned_value</code>, <code>get_theme</code>, <code>shutdown</code>, <code>get_segment_info</code>, <code>render_above_lines</code>, <code>render</code>, <code>compute_divider_widths</code>, <code>do_render</code>, <code>_prepare_segments</code>, <code>_render_length</code>, <code>_render_segments</code>, <code>escape</code>, <code>hl</code></td><td><code>__init__</code>, <code>hlstyle</code></td><td><code>np_control_character_translations</code>, <code>np_invalid_character_translations</code>, <code>np_invalid_character_re</code>, <code>np_character_translations</code>, <code>translate_np</code>, <code>width_data</code>, <code>strwidth</code>, <code>new</code>, <code>segment_info</code>, <code>nbsp_constant_matches_upstream</code>, <code>np_control_character_translations_has_32_entries</code>, <code>np_control_character_translations_maps_null_to_caret_at</code>, <code>np_control_character_translations_maps_a_to_caret_a</code>, <code>np_control_character_translations_maps_tab_to_caret_i</code>, <code>np_control_character_translations_maps_newline_to_caret_j</code>, <code>np_invalid_character_translations_has_128_entries</code>, <code>np_invalid_character_translations_first_entry_is_80</code>, <code>np_invalid_character_translations_last_entry_is_ff</code>, <code>np_character_translations_contains_both_control_and_invalid</code>, <code>translate_np_replaces_control_chars</code>, <code>translate_np_passes_printable_chars_through</code>, <code>translate_np_handles_multiple_control_chars</code>, <code>construct_returned_value_plain_when_no_flags</code>, <code>construct_returned_value_tuple_with_width_only</code>, <code>construct_returned_value_tuple_with_raw_only</code>, <code>construct_returned_value_tuple_with_both</code>, <code>width_data_default_ambiwidth_is_1</code>, <code>width_data_ambiwidth_overrides_ambiguous</code>, <code>strwidth_counts_chars</code>, <code>compute_divider_widths_emits_both_sides_and_kinds</code>, <code>renderer_init_use_nbsp_default_adds_space_translation</code>, <code>renderer_init_use_nbsp_false_omits_space_translation</code>, <code>renderer_init_uses_ambiwidth_for_width_data</code>, <code>segment_info_includes_environ_and_home</code>, <code>get_segment_info_merges_segment_info_over_base</code>, <code>get_segment_info_sets_mode_null_when_none</code>, <code>get_segment_info_overrides_getcwd_when_pwd_set</code>, <code>get_theme_returns_self_theme</code>, <code>get_theme_ignores_matcher_info</code>, <code>shutdown_records_theme</code>, <code>escape_translates_chars_via_character_translations</code>, <code>escape_passes_untranslated_chars_through</code>, <code>escape_default_translates_space_to_nbsp</code>, <code>escape_use_non_breaking_spaces_false_keeps_spaces</code>, <code>hl_concatenates_hlstyle_output_and_contents</code>, <code>hl_none_contents_becomes_empty_string</code>, <code>_prepare_segments_translates_non_printable_contents</code>, <code>_prepare_segments_calculates_contents_len_from_strwidth_when_no_literal</code>, <code>_prepare_segments_uses_literal_contents_len_when_literal_non_empty</code>, <code>_prepare_segments_skips_contents_len_when_not_requested</code></td><td class="coverage">87%</td></tr>
+  <!-- SYM py_file=powerline/renderer.py rs_file=src/ported/renderer.rs rs_exists=True py_fn_total=15 ported_count=13 missing_count=2 rs_extra_count=50 coverage=0.8667 -->
   <!-- END-GROUP py_file=powerline/renderer.py -->
   <!-- BEGIN-GROUP py_file=powerline/segment.py -->
-  <tr class="partial"><td><code>segment.py</code></td><td>✔ <code>segment.rs</code></td><td>15</td><td><code>list_segment_key_values</code>, <code>get_segment_key</code>, <code>get_function</code>, <code>get_string</code>, <code>get_attr_func</code>, <code>set_segment_highlighting</code></td><td><code>expand_func</code>, <code>process_segment_lister</code>, <code>process_segment</code>, <code>gen_segment_getter</code>, <code>get_key</code>, <code>get_selector</code>, <code>get_segment_selector</code>, <code>gen_display_condition</code>, <code>get</code></td><td><code>always_true</code>, <code>get_fallback_segment</code>, <code>segment_getter_name</code>, <code>is_none</code>, <code>always_true_is_always_true</code>, <code>get_fallback_segment_has_expected_shape</code>, <code>list_segment_key_values_finds_segment_key_first</code>, <code>get_segment_key_merge_collapses_dicts_old_wins</code>, <code>get_segment_key_no_merge_returns_first</code>, <code>set_segment_highlighting_basic</code>, <code>get_function_dotted_name_splits_via_rpartition</code>, <code>get_function_undotted_uses_default_module</code>, <code>get_function_missing_function_key_returns_err</code>, <code>get_function_failed_import_returns_err</code>, <code>get_function_passes_resolved_args_to_importer</code>, <code>segment_getter_name_dispatches_by_type</code>, <code>get_attr_func_no_attribute_returns_none</code>, <code>get_attr_func_is_space_func_returns_expand_closure</code>, <code>get_attr_func_not_space_func_returns_plain_closure</code>, <code>attr_func_is_none_helper</code></td><td class="coverage">40%</td></tr>
-  <!-- SYM py_file=powerline/segment.py rs_file=src/ported/segment.rs rs_exists=True py_fn_total=15 ported_count=6 missing_count=9 rs_extra_count=20 coverage=0.4000 -->
+  <tr class="partial"><td><code>segment.py</code></td><td>✔ <code>segment.rs</code></td><td>15</td><td><code>list_segment_key_values</code>, <code>get_segment_key</code>, <code>get_function</code>, <code>get_string</code>, <code>get_attr_func</code>, <code>process_segment_lister</code>, <code>set_segment_highlighting</code>, <code>process_segment</code>, <code>gen_segment_getter</code></td><td><code>expand_func</code>, <code>get_key</code>, <code>get_selector</code>, <code>get_segment_selector</code>, <code>gen_display_condition</code>, <code>get</code></td><td><code>always_true</code>, <code>get_fallback_segment</code>, <code>segment_getter_name</code>, <code>is_none</code>, <code>always_true_is_always_true</code>, <code>get_fallback_segment_has_expected_shape</code>, <code>list_segment_key_values_finds_segment_key_first</code>, <code>get_segment_key_merge_collapses_dicts_old_wins</code>, <code>get_segment_key_no_merge_returns_first</code>, <code>set_segment_highlighting_basic</code>, <code>get_function_dotted_name_splits_via_rpartition</code>, <code>get_function_undotted_uses_default_module</code>, <code>get_function_missing_function_key_returns_err</code>, <code>get_function_failed_import_returns_err</code>, <code>get_function_passes_resolved_args_to_importer</code>, <code>segment_getter_name_dispatches_by_type</code>, <code>get_attr_func_no_attribute_returns_none</code>, <code>get_attr_func_is_space_func_returns_expand_closure</code>, <code>get_attr_func_not_space_func_returns_plain_closure</code>, <code>attr_func_is_none_helper</code></td><td class="coverage">60%</td></tr>
+  <!-- SYM py_file=powerline/segment.py rs_file=src/ported/segment.rs rs_exists=True py_fn_total=15 ported_count=9 missing_count=6 rs_extra_count=20 coverage=0.6000 -->
   <!-- END-GROUP py_file=powerline/segment.py -->
   <!-- BEGIN-GROUP py_file=powerline/segments/common/net.py -->
   <tr class="partial"><td><code>segments/common/net.py</code></td><td>✔ <code>segments/common/net.rs</code></td><td>15</td><td><code>hostname</code>, <code>_external_ip</code>, <code>set_state</code>, <code>update</code>, <code>render</code>, <code>internal_ip</code>, <code>_interface_key</code>, <code>internal_ip</code>, <code>render_one</code></td><td><code>_get_bytes</code>, <code>_get_interfaces</code>, <code>_get_bytes</code>, <code>_get_interfaces</code>, <code>key</code>, <code>compute_state</code></td><td><code>external_ip_render</code>, <code>interface_starts</code>, <code>_interface_start_re</code>, <code>replace_num_pat</code>, <code>new</code>, <code>default</code>, <code>network_load_key</code>, <code>parse_proc_net_route_default</code>, <code>pick_active_interface</code>, <code>sysfs_rx_path</code>, <code>sysfs_tx_path</code>, <code>_get_bytes_sysfs</code>, <code>env_with</code>, <code>hostname_uuid_returns_literal_hostname</code>, <code>hostname_returns_lookup_when_no_ssh_constraint</code>, <code>hostname_exclude_domain_strips_dot_suffix</code>, <code>hostname_only_if_ssh_returns_none_without_ssh_client</code>, <code>hostname_only_if_ssh_returns_hostname_when_ssh_client_set</code>, <code>external_ip_trims_whitespace</code>, <code>external_ip_none_when_read_fails</code>, <code>external_ip_render_emits_segment_with_background_divider</code>, <code>external_ip_render_none_for_empty_or_none</code>, <code>interface_starts_contains_known_prefixes</code>, <code>interface_key_eth0_returns_priority</code>, <code>interface_key_eth1_lower_than_eth0</code>, <code>interface_key_lo_lower_than_eth</code>, <code>interface_key_unknown_prefix_defaults_to_500</code>, <code>interface_key_no_alpha_prefix_returns_zero</code>, <code>interface_start_re_matches_prefix_only</code>, <code>replace_num_pat_extracts_alpha_only</code>, <code>render_one_no_samples_returns_none</code>, <code>render_one_computes_recv_and_sent_rates</code>, <code>render_one_zero_interval_returns_zero_rate</code>, <code>render_one_with_gradient_appends_gradient_groups_and_level</code>, <code>render_one_gradient_clamps_to_100_at_max</code>, <code>render_one_emits_network_load_divider_group</code>, <code>render_one_si_prefix_uses_decimal_units</code>, <code>powerline_test_hostname_uuid_matches_upstream</code>, <code>external_ip_segment_interval_matches_upstream</code>, <code>external_ip_segment_default_query_url</code>, <code>external_ip_segment_set_state_overrides_query_url</code>, <code>external_ip_segment_set_state_no_arg_preserves_url</code>, <code>external_ip_segment_update_dispatches_to_query_url</code>, <code>external_ip_segment_render_delegates_to_external_ip_render</code>, <code>internal_ip_fallback_returns_none</code>, <code>network_load_key_returns_interface_name</code>, <code>parse_proc_net_route_default_finds_zero_destination_row</code>, <code>parse_proc_net_route_default_returns_none_when_no_default_route</code>, <code>parse_proc_net_route_default_handles_blank_lines</code>, <code>pick_active_interface_picks_highest_total</code>, <code>pick_active_interface_excludes_lo_and_vmnet_and_sit</code>, <code>pick_active_interface_empty_input_defaults_to_eth0</code>, <code>pick_active_interface_only_excluded_defaults_to_eth0</code>, <code>sysfs_rx_path_builds_correct_path</code>, <code>sysfs_tx_path_builds_correct_path</code>, <code>get_bytes_sysfs_parses_integers</code>, <code>get_bytes_sysfs_returns_none_for_invalid_input</code></td><td class="coverage">60%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3121,
-    "ported_fns": 533,
-    "coverage": 0.5184824902723736
+    "rs_fns_in_ported": 3166,
+    "ported_fns": 541,
+    "coverage": 0.5262645914396887
   },
   "rows": [
     {
@@ -1924,18 +1924,18 @@ columns:
         "get_theme",
         "shutdown",
         "get_segment_info",
+        "render_above_lines",
+        "render",
         "compute_divider_widths",
+        "do_render",
         "_prepare_segments",
+        "_render_length",
+        "_render_segments",
         "escape",
         "hl"
       ],
       "missing_fns": [
         "__init__",
-        "render_above_lines",
-        "render",
-        "do_render",
-        "_render_length",
-        "_render_segments",
         "hlstyle"
       ],
       "rs_extra_fns": [
@@ -1990,7 +1990,7 @@ columns:
         "_prepare_segments_uses_literal_contents_len_when_literal_non_empty",
         "_prepare_segments_skips_contents_len_when_not_requested"
       ],
-      "coverage": 0.5333333333333333
+      "coverage": 0.8666666666666667
     },
     {
       "py_file": "powerline/segment.py",
@@ -2003,13 +2003,13 @@ columns:
         "get_function",
         "get_string",
         "get_attr_func",
-        "set_segment_highlighting"
+        "process_segment_lister",
+        "set_segment_highlighting",
+        "process_segment",
+        "gen_segment_getter"
       ],
       "missing_fns": [
         "expand_func",
-        "process_segment_lister",
-        "process_segment",
-        "gen_segment_getter",
         "get_key",
         "get_selector",
         "get_segment_selector",
@@ -2038,7 +2038,7 @@ columns:
         "get_attr_func_not_space_func_returns_plain_closure",
         "attr_func_is_none_helper"
       ],
-      "coverage": 0.4
+      "coverage": 0.6
     },
     {
       "py_file": "powerline/segments/common/net.py",

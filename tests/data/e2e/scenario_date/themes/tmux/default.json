@@ -1,0 +1,28 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 1,
+	"segments": {
+		"right": [
+			{
+				"function": "powerline.segments.common.time.date",
+				"args": {
+					"format": "%Y-%m-%d"
+				}
+			},
+			{
+				"function": "powerline.segments.common.time.date",
+				"name": "time",
+				"args": {
+					"format": "%H:%M",
+					"istime": true
+				}
+			},
+			{
+				"function": "powerline.segments.common.net.hostname"
+			}
+		]
+	}
+}

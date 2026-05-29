@@ -98,14 +98,37 @@ as NEAR; promoting them to DONE would require a classifier amendment.
 | `powerline-config` | `scripts/powerline-config` | tmux / shell known-function dispatch |
 | `powerline-lint` | `scripts/powerline-lint` | argparse + check pipeline (markedjson loader + Spec checks live; orchestrator integration partial) |
 | `powerline-render` | `scripts/powerline-render` | argparse + ext lookup (full render path depends on the `Powerline` orchestrator) |
-| `powerline-daemon` | `scripts/powerline-daemon` | UNIX-socket bind + daemonize + pidfile lock + accept loop + EOF shutdown — fully functional; render returns a placeholder string until the `Powerline` orchestrator + `bindings/wm` thread registry ports complete |
+| `powerline-daemon` | `scripts/powerline-daemon` | UNIX-socket bind + daemonize + pidfile lock + accept loop + EOF shutdown + end-to-end statusline rendering against a real `~/.config/powerline/themes/...` JSON tree |
 
-### What's not yet wired
+### End-to-end render
 
-- End-to-end statusline rendering against a real `~/.config/powerline/themes/...`
-  JSON tree. The `Powerline` class + `Renderer` base + segment dispatcher chain
-  is the gating substrate — every binary above will gain its full upstream
-  surface once that chain wires together.
+`powerline-daemon` produces real `#[fg=…,bg=…]…` tmux markup from a
+user's powerline config root via the wire format compatible with the
+upstream Python `powerline` C client. The render path covers:
+
+- Config cascade load (`_find_config_files` + `load_json_config` + `mergedicts`)
+- Colorscheme alias chasing + cterm color resolution (`Colorscheme::get_highlighting`)
+- Segment preparation via `gen_segment_getter` returning a `Theme.segments` table
+- Segment dispatch through `process_segment` / `process_segment_lister`
+- Renderer loop (`do_render` / `_render_segments` / `_render_length`) with
+  hard/soft divider insertion and per-side outer padding
+- TmuxRenderer `#[…]` markup emission with `term_truecolor` cterm path
+
+Adapters wired in `src/bin/powerline-daemon.rs` (sanctioned bin location)
+cover the built-in segments: `hostname`, `date`, `cpu_load_percent`,
+`system_load`, `uptime`, `external_ip`, `internal_ip`, `vcs.branch`,
+`vcs.stash`, `bat.battery`, `net.network_load`, `players.spotify`, plus
+`powerlinemem.mem_usage` as a darwin/linux platform probe.
+
+Point it at a config root via `POWERLINE_CONFIG_PATHS`:
+
+```sh
+POWERLINE_CONFIG_PATHS=~/.config/powerline ./target/debug/powerline-daemon --foreground --socket /tmp/powerliners
+```
+
+The Python `powerline` C client already installed via pip talks to it
+unchanged — same `argc\0arg\0arg\0cwd\0KEY=VAL\0...\0\0` wire format
+and same `EOF\0\0` shutdown sentinel.
 
 Regenerate the per-file tier table from the live source via:
 

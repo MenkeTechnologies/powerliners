@@ -1,0 +1,12 @@
+{
+	"colors": {
+		"black": 16,
+		"white": 231,
+		"gray0": 233,
+		"gray2": 235,
+		"gray5": 240,
+		"gray8": 247,
+		"gray10": 252
+	},
+	"gradients": {}
+}

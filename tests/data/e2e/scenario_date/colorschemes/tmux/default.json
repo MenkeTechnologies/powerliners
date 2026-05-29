@@ -1,0 +1,11 @@
+{
+	"name": "Default",
+	"groups": {
+		"date": { "fg": "gray8", "bg": "gray2", "attrs": [] },
+		"time": { "fg": "gray10", "bg": "gray2", "attrs": ["bold"] },
+		"time:divider": { "fg": "gray5", "bg": "gray2", "attrs": [] },
+		"hostname": { "fg": "black", "bg": "gray10", "attrs": ["bold"] },
+		"background": { "fg": "white", "bg": "gray0", "attrs": [] },
+		"background:divider": { "fg": "white", "bg": "gray0", "attrs": [] }
+	}
+}

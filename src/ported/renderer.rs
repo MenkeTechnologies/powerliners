@@ -651,7 +651,859 @@ impl Renderer {
         }
         r
     }
+
+    /// Port of `Renderer.render_above_lines()` from
+    /// `powerline/renderer.py:241-252`.
+    ///
+    /// Iterates `theme.get_line_number() - 1` down to 1 and yields each
+    /// rendered line. Python uses a generator; Rust port materializes
+    /// the lines into a `Vec<Value>` since Rust closures can't borrow
+    /// `&self` through a generator state machine.
+    #[allow(clippy::too_many_arguments)]
+    pub fn render_above_lines<HS, H, CF>(
+        &self,
+        mode: Option<&str>,
+        width: Option<usize>,
+        output_raw: bool,
+        output_width: bool,
+        segment_info: Option<Map<String, Value>>,
+        matcher_info: Option<&Value>,
+        hl_args: Option<Map<String, Value>>,
+        theme: &crate::ported::theme::Theme,
+        colorscheme: &crate::ported::colorscheme::Colorscheme,
+        contents_func: &CF,
+        hlstyle_fn: &HS,
+        hl_fn: &H,
+    ) -> Vec<RenderReturn>
+    where
+        HS: Fn(&Value, &Value, &Value, &Map<String, Value>) -> String,
+        H: Fn(Option<&str>, &Value, &Value, &Value, &Map<String, Value>) -> String,
+        CF: Fn(&str, &(), &Map<String, Value>, &Map<String, Value>) -> Option<Value>,
+    {
+        let mut out: Vec<RenderReturn> = Vec::new();
+        // py:241  def render_above_lines(self, **kwargs):
+        // py:242-247  docstring
+        // py:250  theme = self.get_theme(kwargs.get('matcher_info', None))
+        let _ = self.get_theme(matcher_info);
+        // py:251  for line in range(theme.get_line_number() - 1, 0, -1):
+        let line_n = theme.get_line_number();
+        if line_n == 0 {
+            return out;
+        }
+        for line in (1..line_n).rev() {
+            // py:252  yield self.render(side=None, line=line, **kwargs)
+            out.push(self.render(
+                mode,
+                width,
+                None,
+                line,
+                output_raw,
+                output_width,
+                segment_info.clone(),
+                matcher_info,
+                hl_args.clone(),
+                theme,
+                colorscheme,
+                contents_func,
+                hlstyle_fn,
+                hl_fn,
+            ));
+        }
+        out
+    }
+
+    /// Port of `Renderer.render()` from
+    /// `powerline/renderer.py:254-306`.
+    ///
+    /// Resolves the theme via `get_theme(matcher_info)` and delegates
+    /// to `do_render`. Python `theme` resolution at py:295 is done by
+    /// the caller in Rust because `Renderer` doesn't own a `&Theme`
+    /// in the port surface — `theme` is passed through.
+    #[allow(clippy::too_many_arguments)]
+    pub fn render<HS, H, CF>(
+        &self,
+        mode: Option<&str>,
+        width: Option<usize>,
+        side: Option<&str>,
+        line: usize,
+        output_raw: bool,
+        output_width: bool,
+        segment_info: Option<Map<String, Value>>,
+        matcher_info: Option<&Value>,
+        hl_args: Option<Map<String, Value>>,
+        theme: &crate::ported::theme::Theme,
+        colorscheme: &crate::ported::colorscheme::Colorscheme,
+        contents_func: &CF,
+        hlstyle_fn: &HS,
+        hl_fn: &H,
+    ) -> RenderReturn
+    where
+        HS: Fn(&Value, &Value, &Value, &Map<String, Value>) -> String,
+        H: Fn(Option<&str>, &Value, &Value, &Value, &Map<String, Value>) -> String,
+        CF: Fn(&str, &(), &Map<String, Value>, &Map<String, Value>) -> Option<Value>,
+    {
+        // py:254  def render(self, mode=None, width=None, side=None, line=0,
+        // py:255-294  docstring
+        // py:295  theme = self.get_theme(matcher_info)
+        let _ = self.get_theme(matcher_info);
+        // py:296-306  return self.do_render(...)
+        self.do_render(
+            mode,
+            width,
+            side,
+            line,
+            output_raw,
+            output_width,
+            self.get_segment_info(segment_info, mode),
+            theme,
+            colorscheme,
+            contents_func,
+            hl_args,
+            hlstyle_fn,
+            hl_fn,
+        )
+    }
+
+    /// Port of `Renderer.do_render()` from
+    /// `powerline/renderer.py:333-410`.
+    ///
+    /// The main render loop: pulls segments from the theme, prepares
+    /// them, drops low-priority segments to fit `width`, distributes
+    /// spacers, and joins highlighted output via `_render_segments`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn do_render<HS, H, CF>(
+        &self,
+        mode: Option<&str>,
+        width: Option<usize>,
+        side: Option<&str>,
+        line: usize,
+        output_raw: bool,
+        output_width: bool,
+        segment_info: Map<String, Value>,
+        theme: &crate::ported::theme::Theme,
+        colorscheme: &crate::ported::colorscheme::Colorscheme,
+        contents_func: &CF,
+        hl_args: Option<Map<String, Value>>,
+        hlstyle_fn: &HS,
+        hl_fn: &H,
+    ) -> RenderReturn
+    where
+        HS: Fn(&Value, &Value, &Value, &Map<String, Value>) -> String,
+        H: Fn(Option<&str>, &Value, &Value, &Value, &Map<String, Value>) -> String,
+        CF: Fn(&str, &(), &Map<String, Value>, &Map<String, Value>) -> Option<Value>,
+    {
+        // py:333  def do_render(self, mode, width, side, line, ...):
+        // py:334-335  docstring
+        // py:336  segments = list(theme.get_segments(side, line, segment_info, mode))
+        let segment_info_value = Value::Object(segment_info.clone());
+        let mut segments: Vec<Value> = theme.get_segments(
+            side,
+            line,
+            Some(&segment_info_value),
+            mode,
+            colorscheme,
+            contents_func,
+        );
+
+        // py:338  current_width = 0
+        let mut current_width: usize = 0;
+
+        // py:340  self._prepare_segments(segments, output_width or width)
+        Self::_prepare_segments(&mut segments, output_width || width.is_some());
+
+        // py:342  hl_args = hl_args or dict()
+        let hl_args: Map<String, Value> = hl_args.unwrap_or_default();
+
+        // py:344  if not width:
+        if width.is_none() {
+            // py:345  # No width specified, so we don't need to crop or pad anything
+            // py:346  if output_width:
+            if output_width {
+                // py:347  current_width = self._render_length(theme, segments, self.compute_divider_widths(theme))
+                let dw = compute_divider_widths(|s, k| {
+                    theme.get_divider(s, k).unwrap_or_default()
+                });
+                current_width = self._render_length(theme, &mut segments, &dw);
+            }
+            // py:348-351  return construct_returned_value(hl_join([s['_rendered_hl'] ...]) + hlstyle(**hl_args), ...)
+            let rendered = self._render_segments(
+                theme,
+                &mut segments,
+                &hl_args,
+                true,
+                hlstyle_fn,
+                hl_fn,
+            );
+            let joined: String = rendered
+                .iter()
+                .filter_map(|s| s.get("_rendered_hl").and_then(|v| v.as_str()))
+                .collect::<Vec<_>>()
+                .concat();
+            let trailing = hlstyle_fn(&Value::Null, &Value::Null, &Value::Null, &hl_args);
+            let raw = if output_raw {
+                Some(
+                    segments
+                        .iter()
+                        .filter_map(|s| s.get("_rendered_raw").and_then(|v| v.as_str()))
+                        .collect::<Vec<_>>()
+                        .concat(),
+                )
+            } else {
+                None
+            };
+            return construct_returned_value(
+                format!("{}{}", joined, trailing),
+                raw,
+                current_width,
+                output_raw,
+                output_width,
+            );
+        }
+        let width = width.expect("checked above");
+
+        // py:353  divider_widths = self.compute_divider_widths(theme)
+        let divider_widths =
+            compute_divider_widths(|s, k| theme.get_divider(s, k).unwrap_or_default());
+
+        // py:355  # Create an ordered list of segments that can be dropped
+        // py:356  segments_priority = sorted(... priority is not None ..., reverse=True)
+        let mut segments_priority: Vec<usize> = segments
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| {
+                s.get("priority")
+                    .map(|v| !v.is_null())
+                    .unwrap_or(false)
+            })
+            .map(|(i, _)| i)
+            .collect();
+        segments_priority.sort_by(|a, b| {
+            let pa = segments[*a]
+                .get("priority")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+            let pb = segments[*b]
+                .get("priority")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+            pb.partial_cmp(&pa).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        // py:357  no_priority_segments = filter(... priority is None ..., segments)
+        let no_priority_segments: Vec<usize> = segments
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| {
+                s.get("priority")
+                    .map(|v| v.is_null())
+                    .unwrap_or(true)
+            })
+            .map(|(i, _)| i)
+            .collect();
+
+        // py:358  current_width = self._render_length(theme, segments, divider_widths)
+        current_width = self._render_length(theme, &mut segments, &divider_widths);
+
+        // py:359  if current_width > width:
+        if current_width > width {
+            // py:360  for segment in chain(segments_priority, no_priority_segments):
+            for &idx in segments_priority.iter().chain(no_priority_segments.iter()) {
+                // py:361  if segment['truncate'] is not None:
+                let has_truncate = segments[idx]
+                    .get("truncate")
+                    .map(|v| !v.is_null())
+                    .unwrap_or(false);
+                if has_truncate {
+                    // py:362  segment['contents'] = segment['truncate'](self.pl, current_width - width, segment)
+                    // Truncate is a callable in Python; the port can't invoke it without
+                    // a callable closure on the segment. Leave contents as-is — the
+                    // priority-drop loop below still narrows the line.
+                }
+            }
+
+            // py:364  segments_priority = iter(segments_priority)
+            let mut sp_iter = segments_priority.iter().copied();
+
+            // py:365  if current_width > width and len(segments) > 100:
+            if current_width > width && segments.len() > 100 {
+                // py:366-373  fast variant: drop segments while diff > 0
+                let mut diff = current_width as i64 - width as i64;
+                let mut to_drop: Vec<usize> = Vec::new();
+                for idx in sp_iter.by_ref() {
+                    to_drop.push(idx);
+                    diff -= segments[idx]
+                        .get("_len")
+                        .and_then(|v| v.as_i64())
+                        .unwrap_or(0);
+                    if diff <= 0 {
+                        break;
+                    }
+                }
+                // sh-style drop in descending order so indices stay valid.
+                to_drop.sort_unstable_by(|a, b| b.cmp(a));
+                for idx in to_drop {
+                    segments.remove(idx);
+                }
+                // py:374  current_width = self._render_length(theme, segments, divider_widths)
+                current_width = self._render_length(theme, &mut segments, &divider_widths);
+            }
+            // py:375  if current_width > width:
+            if current_width > width {
+                // py:376-383  slow variant: drop, re-measure, stop when fits
+                let mut remaining: Vec<usize> = sp_iter.collect();
+                remaining.sort_unstable_by(|a, b| b.cmp(a));
+                for idx in remaining {
+                    if idx < segments.len() {
+                        segments.remove(idx);
+                    }
+                    current_width =
+                        self._render_length(theme, &mut segments, &divider_widths);
+                    if current_width <= width {
+                        break;
+                    }
+                }
+            }
+        }
+        // py:384  del segments_priority — Rust scope drop handles this
+
+        // py:386  # Distribute the remaining space on spacer segments
+        // py:387  segments_spacers = [segment for segment in segments if segment['expand'] is not None]
+        let segments_spacers: Vec<usize> = segments
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| {
+                s.get("expand")
+                    .map(|v| !v.is_null())
+                    .unwrap_or(false)
+            })
+            .map(|(i, _)| i)
+            .collect();
+        if !segments_spacers.is_empty() {
+            // py:389  distribute_len, distribute_len_remainder = divmod(width - current_width, len(segments_spacers))
+            let remaining_total = width.saturating_sub(current_width) as i64;
+            let n = segments_spacers.len() as i64;
+            let distribute_len = remaining_total / n;
+            let mut distribute_len_remainder = remaining_total % n;
+            // py:390  for segment in segments_spacers:
+            for idx in &segments_spacers {
+                // py:391-395  segment['contents'] = segment['expand'](pl, distribute_len + (1 if remainder > 0 else 0), segment)
+                // expand is a Python callable; can't invoke from JSON.
+                // Synthesize padding spaces of the computed width instead so the
+                // line still fills to `width` in the default tmux flow.
+                let extra = if distribute_len_remainder > 0 { 1 } else { 0 };
+                let pad_n = (distribute_len + extra).max(0) as usize;
+                let pad = " ".repeat(pad_n);
+                if let Some(obj) = segments[*idx].as_object_mut() {
+                    let existing = obj
+                        .get("contents")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    obj.insert(
+                        "contents".to_string(),
+                        Value::String(format!("{}{}", existing, pad)),
+                    );
+                }
+                // py:396  distribute_len_remainder -= 1
+                distribute_len_remainder -= 1;
+            }
+            // py:399  current_width = width
+            current_width = width;
+        } else if output_width {
+            // py:401  current_width = self._render_length(theme, segments, divider_widths)
+            current_width = self._render_length(theme, &mut segments, &divider_widths);
+        }
+
+        // py:403-406  rendered_highlighted = hl_join([s['_rendered_hl'] for s in _render_segments(...)])
+        let rendered = self._render_segments(
+            theme,
+            &mut segments,
+            &hl_args,
+            true,
+            hlstyle_fn,
+            hl_fn,
+        );
+        let mut rendered_highlighted: String = rendered
+            .iter()
+            .filter_map(|s| s.get("_rendered_hl").and_then(|v| v.as_str()))
+            .collect::<Vec<_>>()
+            .concat();
+        // py:407-408  if rendered_highlighted: rendered_highlighted += self.hlstyle(**hl_args)
+        if !rendered_highlighted.is_empty() {
+            rendered_highlighted
+                .push_str(&hlstyle_fn(&Value::Null, &Value::Null, &Value::Null, &hl_args));
+        }
+        // py:410  return construct_returned_value(rendered_highlighted, segments, current_width, output_raw, output_width)
+        let raw = if output_raw {
+            Some(
+                segments
+                    .iter()
+                    .filter_map(|s| s.get("_rendered_raw").and_then(|v| v.as_str()))
+                    .collect::<Vec<_>>()
+                    .concat(),
+            )
+        } else {
+            None
+        };
+        construct_returned_value(
+            rendered_highlighted,
+            raw,
+            current_width,
+            output_raw,
+            output_width,
+        )
+    }
+
+    /// Port of `Renderer._render_length()` from
+    /// `powerline/renderer.py:424-479`.
+    ///
+    /// Updates each segment's `_len` field with the rendered length
+    /// (contents + dividers + outer padding) and returns the running
+    /// total. Skips segments whose `literal_contents[1]` is set per
+    /// py:450 — those are not subject to divider math.
+    pub fn _render_length(
+        &self,
+        theme: &crate::ported::theme::Theme,
+        segments: &mut [Value],
+        divider_widths: &Map<String, Value>,
+    ) -> usize {
+        // py:424  def _render_length(self, theme, segments, divider_widths):
+        // py:425-426  docstring
+        // py:427  segments_len = len(segments)
+        let _segments_len = segments.len();
+        // py:428  ret = 0
+        let mut ret: usize = 0;
+        // py:429  divider_spaces = theme.get_spaces()
+        let divider_spaces = theme.get_spaces() as usize;
+        // py:430  prev_segment = theme.EMPTY_SEGMENT
+        let mut prev_segment_bg: Value = theme
+            .empty_segment
+            .get("highlight")
+            .and_then(|v| v.get("bg"))
+            .cloned()
+            .unwrap_or(Value::Null);
+        // py:431-438  first_segment = first segment with empty literal_contents[1]
+        let first_segment_idx = segments
+            .iter()
+            .position(|s| {let __l = s.get("literal_contents").and_then(|v|v.as_array()).and_then(|a|a.get(1)).and_then(|v|v.as_str()).map(|x|!x.is_empty()).unwrap_or(false); !__l});
+        // py:439-446  last_segment = last segment with empty literal_contents[1]
+        let last_segment_idx = segments
+            .iter()
+            .rposition(|s| {let __l = s.get("literal_contents").and_then(|v|v.as_array()).and_then(|a|a.get(1)).and_then(|v|v.as_str()).map(|x|!x.is_empty()).unwrap_or(false); !__l});
+        // py:447  for index, segment in enumerate(segments):
+        for index in 0..segments.len() {
+            // py:448  side = segment['side']
+            let side = segments[index]
+                .get("side")
+                .and_then(|v| v.as_str())
+                .unwrap_or("left")
+                .to_string();
+            // py:449  segment_len = segment['_contents_len']
+            let mut segment_len: usize = segments[index]
+                .get("_contents_len")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0) as usize;
+            // py:450  if not segment['literal_contents'][1]:
+            if {let __l = segments[index].get("literal_contents").and_then(|v|v.as_array()).and_then(|a|a.get(1)).and_then(|v|v.as_str()).map(|x|!x.is_empty()).unwrap_or(false); !__l} {
+                // py:451-461  compare_segment
+                let compare_bg: Value = if side == "left" {
+                    if Some(index) != last_segment_idx {
+                        let nxt = segments[index + 1..]
+                            .iter()
+                            .position(|s| {let __l = s.get("literal_contents").and_then(|v|v.as_array()).and_then(|a|a.get(1)).and_then(|v|v.as_str()).map(|x|!x.is_empty()).unwrap_or(false); !__l})
+                            .map(|p| p + index + 1);
+                        match nxt {
+                            Some(j) => segments[j]
+                                .get("highlight")
+                                .and_then(|v| v.get("bg"))
+                                .cloned()
+                                .unwrap_or(Value::Null),
+                            None => theme
+                                .empty_segment
+                                .get("highlight")
+                                .and_then(|v| v.get("bg"))
+                                .cloned()
+                                .unwrap_or(Value::Null),
+                        }
+                    } else {
+                        theme
+                            .empty_segment
+                            .get("highlight")
+                            .and_then(|v| v.get("bg"))
+                            .cloned()
+                            .unwrap_or(Value::Null)
+                    }
+                } else {
+                    prev_segment_bg.clone()
+                };
+                let seg_bg: Value = segments[index]
+                    .get("highlight")
+                    .and_then(|v| v.get("bg"))
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                // py:463  divider_type = 'soft' if compare_segment['highlight']['bg'] == segment['highlight']['bg'] else 'hard'
+                let divider_type = if compare_bg == seg_bg { "soft" } else { "hard" };
+
+                // py:465-469  outer_padding
+                let is_first = Some(index) == first_segment_idx;
+                let is_last = Some(index) == last_segment_idx;
+                let outer_padding = if (side == "left" && is_first)
+                    || (side == "right" && is_last)
+                {
+                    theme.outer_padding as usize
+                } else {
+                    0
+                };
+
+                // py:471  draw_divider = segment['draw_' + divider_type + '_divider']
+                let draw_divider = segments[index]
+                    .get(&format!("draw_{}_divider", divider_type))
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(true);
+
+                // py:472  segment_len += outer_padding
+                segment_len += outer_padding;
+                // py:473-474  if draw_divider: segment_len += divider_widths[side][divider_type] + divider_spaces
+                if draw_divider {
+                    let dw = divider_widths
+                        .get(&side)
+                        .and_then(|v| v.get(divider_type))
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0) as usize;
+                    segment_len += dw + divider_spaces;
+                }
+                // py:475  prev_segment = segment
+                prev_segment_bg = seg_bg;
+            }
+            // py:477  segment['_len'] = segment_len
+            if let Some(obj) = segments[index].as_object_mut() {
+                obj.insert("_len".to_string(), Value::from(segment_len as u64));
+            }
+            // py:478  ret += segment_len
+            ret += segment_len;
+        }
+        // py:479  return ret
+        ret
+    }
+
+    /// Port of `Renderer._render_segments()` from
+    /// `powerline/renderer.py:481-584`.
+    ///
+    /// Walks each segment, computes the dividers + outer padding,
+    /// invokes `hl_fn`/`hlstyle_fn` for the contents and dividers,
+    /// and writes `_rendered_raw` + `_rendered_hl` back onto the
+    /// segment dict. Returns the list of rendered segments (mirrors
+    /// the Python generator that yields each segment).
+    pub fn _render_segments<HS, H>(
+        &self,
+        theme: &crate::ported::theme::Theme,
+        segments: &mut [Value],
+        hl_args: &Map<String, Value>,
+        render_highlighted: bool,
+        hlstyle_fn: &HS,
+        hl_fn: &H,
+    ) -> Vec<Value>
+    where
+        HS: Fn(&Value, &Value, &Value, &Map<String, Value>) -> String,
+        H: Fn(Option<&str>, &Value, &Value, &Value, &Map<String, Value>) -> String,
+    {
+        // py:481  def _render_segments(self, theme, segments, hl_args, render_highlighted=True):
+        // py:482-491  docstring
+        // py:492  segments_len = len(segments)
+        let _segments_len = segments.len();
+        // py:493  divider_spaces = theme.get_spaces()
+        let divider_spaces = theme.get_spaces() as usize;
+        // py:494  prev_segment = theme.EMPTY_SEGMENT
+        let mut prev_segment_hl: Map<String, Value> = theme
+            .empty_segment
+            .get("highlight")
+            .and_then(|v| v.as_object())
+            .cloned()
+            .unwrap_or_default();
+        // py:495-510  first_segment / last_segment scan
+        let first_segment_idx = segments.iter().position(|s| {let __l = s.get("literal_contents").and_then(|v|v.as_array()).and_then(|a|a.get(1)).and_then(|v|v.as_str()).map(|x|!x.is_empty()).unwrap_or(false); !__l});
+        let last_segment_idx = segments.iter().rposition(|s| {let __l = s.get("literal_contents").and_then(|v|v.as_array()).and_then(|a|a.get(1)).and_then(|v|v.as_str()).map(|x|!x.is_empty()).unwrap_or(false); !__l});
+
+        // py:512  for index, segment in enumerate(segments):
+        for index in 0..segments.len() {
+            // py:513  side = segment['side']
+            let side = segments[index]
+                .get("side")
+                .and_then(|v| v.as_str())
+                .unwrap_or("left")
+                .to_string();
+            // py:514  if not segment['literal_contents'][1]:
+            if {let __l = segments[index].get("literal_contents").and_then(|v|v.as_array()).and_then(|a|a.get(1)).and_then(|v|v.as_str()).map(|x|!x.is_empty()).unwrap_or(false); !__l} {
+                // py:515-525  compare_segment
+                let compare_hl: Map<String, Value> = if side == "left" {
+                    if Some(index) != last_segment_idx {
+                        let nxt = segments[index + 1..]
+                            .iter()
+                            .position(|s| {let __l = s.get("literal_contents").and_then(|v|v.as_array()).and_then(|a|a.get(1)).and_then(|v|v.as_str()).map(|x|!x.is_empty()).unwrap_or(false); !__l})
+                            .map(|p| p + index + 1);
+                        match nxt {
+                            Some(j) => segments[j]
+                                .get("highlight")
+                                .and_then(|v| v.as_object())
+                                .cloned()
+                                .unwrap_or_default(),
+                            None => theme
+                                .empty_segment
+                                .get("highlight")
+                                .and_then(|v| v.as_object())
+                                .cloned()
+                                .unwrap_or_default(),
+                        }
+                    } else {
+                        theme
+                            .empty_segment
+                            .get("highlight")
+                            .and_then(|v| v.as_object())
+                            .cloned()
+                            .unwrap_or_default()
+                    }
+                } else {
+                    prev_segment_hl.clone()
+                };
+                // py:526-530  outer_padding
+                let is_first = Some(index) == first_segment_idx;
+                let is_last = Some(index) == last_segment_idx;
+                let outer_padding = if (side == "left" && is_first)
+                    || (side == "right" && is_last)
+                {
+                    " ".repeat(theme.outer_padding as usize)
+                } else {
+                    String::new()
+                };
+                // py:531  divider_type = 'soft' if compare_segment['highlight']['bg'] == segment['highlight']['bg'] else 'hard'
+                let seg_bg = segments[index]
+                    .get("highlight")
+                    .and_then(|v| v.get("bg"))
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                let cmp_bg = compare_hl.get("bg").cloned().unwrap_or(Value::Null);
+                let divider_type = if seg_bg == cmp_bg { "soft" } else { "hard" };
+
+                // py:533  divider_highlighted = ''
+                let mut divider_highlighted = String::new();
+                // py:534  contents_raw = segment['contents']
+                let mut contents_raw = segments[index]
+                    .get("contents")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                // py:535  contents_highlighted = ''
+                let mut contents_highlighted = String::new();
+                // py:536  draw_divider = segment['draw_' + divider_type + '_divider']
+                let draw_divider = segments[index]
+                    .get(&format!("draw_{}_divider", divider_type))
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(true);
+
+                // py:538-540  segment_hl_args = segment['highlight'].copy(); update hl_args
+                let mut segment_hl_args: Map<String, Value> = segments[index]
+                    .get("highlight")
+                    .and_then(|v| v.as_object())
+                    .cloned()
+                    .unwrap_or_default();
+                for (k, v) in hl_args {
+                    segment_hl_args.insert(k.clone(), v.clone());
+                }
+
+                let seg_fg = segments[index]
+                    .get("highlight")
+                    .and_then(|v| v.get("fg"))
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                let seg_attrs = segments[index]
+                    .get("highlight")
+                    .and_then(|v| v.get("attrs"))
+                    .cloned()
+                    .unwrap_or(Value::Null);
+
+                if draw_divider {
+                    // py:545  divider_raw = self.escape(theme.get_divider(side, divider_type))
+                    let divider_raw =
+                        self.escape(&theme.get_divider(&side, divider_type).unwrap_or_default());
+                    // py:546-549  contents_raw composition
+                    if side == "left" {
+                        contents_raw = format!(
+                            "{}{}{}",
+                            outer_padding,
+                            contents_raw,
+                            " ".repeat(divider_spaces)
+                        );
+                    } else {
+                        contents_raw = format!(
+                            "{}{}{}",
+                            " ".repeat(divider_spaces),
+                            contents_raw,
+                            outer_padding
+                        );
+                    }
+                    // py:551-557  divider_fg / divider_bg
+                    let (divider_fg, divider_bg) = if divider_type == "soft" {
+                        // py:552  divider_highlight_group_key = 'highlight' if divider_highlight_group is None else 'divider_highlight'
+                        let dhg_present = segments[index]
+                            .get("divider_highlight_group")
+                            .map(|v| !v.is_null())
+                            .unwrap_or(false);
+                        let key = if dhg_present {
+                            "divider_highlight"
+                        } else {
+                            "highlight"
+                        };
+                        let fg = segments[index]
+                            .get(key)
+                            .and_then(|v| v.get("fg"))
+                            .cloned()
+                            .unwrap_or(Value::Null);
+                        let bg = segments[index]
+                            .get(key)
+                            .and_then(|v| v.get("bg"))
+                            .cloned()
+                            .unwrap_or(Value::Null);
+                        (fg, bg)
+                    } else {
+                        // py:555-557  hard divider colors
+                        let fg = seg_bg.clone();
+                        let bg = compare_hl.get("bg").cloned().unwrap_or(Value::Null);
+                        (fg, bg)
+                    };
+
+                    let attrs_false = Value::Bool(false);
+                    // py:559-570  emit contents + divider in side-specific order
+                    if side == "left" {
+                        if render_highlighted {
+                            // py:561  self.hl(self.escape(contents_raw), **segment_hl_args)
+                            let escaped = self.escape(&contents_raw);
+                            contents_highlighted = hl_fn(
+                                Some(&escaped),
+                                &seg_fg,
+                                &seg_bg,
+                                &seg_attrs,
+                                &segment_hl_args,
+                            );
+                            // py:562  self.hl(divider_raw, divider_fg, divider_bg, False, **hl_args)
+                            divider_highlighted = hl_fn(
+                                Some(&divider_raw),
+                                &divider_fg,
+                                &divider_bg,
+                                &attrs_false,
+                                hl_args,
+                            );
+                        }
+                        if let Some(obj) = segments[index].as_object_mut() {
+                            obj.insert(
+                                "_rendered_raw".to_string(),
+                                Value::String(format!("{}{}", contents_raw, divider_raw)),
+                            );
+                            obj.insert(
+                                "_rendered_hl".to_string(),
+                                Value::String(format!(
+                                    "{}{}",
+                                    contents_highlighted, divider_highlighted
+                                )),
+                            );
+                        }
+                    } else {
+                        if render_highlighted {
+                            // py:567  self.hl(divider_raw, divider_fg, divider_bg, False, **hl_args)
+                            divider_highlighted = hl_fn(
+                                Some(&divider_raw),
+                                &divider_fg,
+                                &divider_bg,
+                                &attrs_false,
+                                hl_args,
+                            );
+                            // py:568  self.hl(self.escape(contents_raw), **segment_hl_args)
+                            let escaped = self.escape(&contents_raw);
+                            contents_highlighted = hl_fn(
+                                Some(&escaped),
+                                &seg_fg,
+                                &seg_bg,
+                                &seg_attrs,
+                                &segment_hl_args,
+                            );
+                        }
+                        if let Some(obj) = segments[index].as_object_mut() {
+                            obj.insert(
+                                "_rendered_raw".to_string(),
+                                Value::String(format!("{}{}", divider_raw, contents_raw)),
+                            );
+                            obj.insert(
+                                "_rendered_hl".to_string(),
+                                Value::String(format!(
+                                    "{}{}",
+                                    divider_highlighted, contents_highlighted
+                                )),
+                            );
+                        }
+                    }
+                } else {
+                    // py:571-579  no divider
+                    if side == "left" {
+                        contents_raw = format!("{}{}", outer_padding, contents_raw);
+                    } else {
+                        contents_raw = format!("{}{}", contents_raw, outer_padding);
+                    }
+                    // py:577  contents_highlighted = self.hl(self.escape(contents_raw), **segment_hl_args)
+                    let escaped = self.escape(&contents_raw);
+                    contents_highlighted = hl_fn(
+                        Some(&escaped),
+                        &seg_fg,
+                        &seg_bg,
+                        &seg_attrs,
+                        &segment_hl_args,
+                    );
+                    if let Some(obj) = segments[index].as_object_mut() {
+                        obj.insert(
+                            "_rendered_raw".to_string(),
+                            Value::String(contents_raw),
+                        );
+                        obj.insert(
+                            "_rendered_hl".to_string(),
+                            Value::String(contents_highlighted),
+                        );
+                    }
+                }
+                // py:580  prev_segment = segment
+                prev_segment_hl = segments[index]
+                    .get("highlight")
+                    .and_then(|v| v.as_object())
+                    .cloned()
+                    .unwrap_or_default();
+            } else {
+                // py:582-583  literal segment
+                let n = segments[index]
+                    .get("literal_contents")
+                    .and_then(|v| v.as_array())
+                    .and_then(|a| a.first())
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0) as usize;
+                let lit = segments[index]
+                    .get("literal_contents")
+                    .and_then(|v| v.as_array())
+                    .and_then(|a| a.get(1))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                if let Some(obj) = segments[index].as_object_mut() {
+                    obj.insert(
+                        "_rendered_raw".to_string(),
+                        Value::String(" ".repeat(n)),
+                    );
+                    obj.insert("_rendered_hl".to_string(), Value::String(lit));
+                }
+            }
+        }
+        let _ = hlstyle_fn; // referenced only inside the literal/divider paths above
+        // py:584  yield segment — Rust returns the whole vec
+        segments.to_vec()
+    }
 }
+
+
 
 #[cfg(test)]
 mod tests {

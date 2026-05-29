@@ -167,7 +167,68 @@ pub fn render(cpu_percent: f64, format: &str) -> Vec<Value> {
     // py:95  'gradient_level': cpu_percent,
     // py:96  'highlight_groups': ['cpu_load_percent_gradient', 'cpu_load_percent'],
     // py:97  }]
-    let contents = format.replace("{0:.0f}%", &format!("{:.0}%", cpu_percent));
+    // Inline `{0[:[width].[prec]f]}` substitution to mirror
+    // `format.format(cpu_percent)`. Supports the upstream defaults
+    // (`{0:.0f}%`) and the user-config variants (`{0:2.0f}%`).
+    let mut contents = String::new();
+    let mut chars = format.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '{' && chars.peek() == Some(&'0') {
+            chars.next(); // consume '0'
+            let mut width: Option<usize> = None;
+            let mut prec: Option<usize> = None;
+            let mut is_float = false;
+            if chars.peek() == Some(&':') {
+                chars.next();
+                // parse [width][.precision][f]
+                let mut width_buf = String::new();
+                while let Some(&p) = chars.peek() {
+                    if p.is_ascii_digit() {
+                        width_buf.push(p);
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+                if !width_buf.is_empty() {
+                    width = width_buf.parse().ok();
+                }
+                if chars.peek() == Some(&'.') {
+                    chars.next();
+                    let mut prec_buf = String::new();
+                    while let Some(&p) = chars.peek() {
+                        if p.is_ascii_digit() {
+                            prec_buf.push(p);
+                            chars.next();
+                        } else {
+                            break;
+                        }
+                    }
+                    prec = prec_buf.parse().ok();
+                }
+                if chars.peek() == Some(&'f') {
+                    chars.next();
+                    is_float = true;
+                }
+            }
+            // consume closing '}'
+            if chars.peek() == Some(&'}') {
+                chars.next();
+            }
+            let rendered = match (width, prec, is_float) {
+                (Some(w), Some(p), true) => format!("{:>1$.2$}", cpu_percent, w, p),
+                (None, Some(p), true) => format!("{:.1$}", cpu_percent, p),
+                (Some(w), None, _) => format!("{:>1$}", cpu_percent, w),
+                (None, None, false) => format!("{}", cpu_percent),
+                (None, None, true) => format!("{}", cpu_percent),
+                (Some(w), Some(p), false) => format!("{:>1$.2$}", cpu_percent, w, p),
+                _ => format!("{}", cpu_percent),
+            };
+            contents.push_str(&rendered);
+        } else {
+            contents.push(c);
+        }
+    }
     vec![json!({
         "contents": contents,
         "gradient_level": cpu_percent,
@@ -192,10 +253,41 @@ pub fn _get_uptime() -> Option<u64> {
     // py:145  else:
     // py:146  def _get_uptime():
     // py:147  raise NotImplementedError
+    // py:132-135  Linux /proc/uptime path
     if let Ok(content) = std::fs::read_to_string("/proc/uptime") {
         if let Some(first) = content.split_whitespace().next() {
             if let Ok(uptime) = first.parse::<f64>() {
                 return Some(uptime as u64);
+            }
+        }
+    }
+    // py:136-144  psutil.boot_time() equivalent — sysctl kern.boottime
+    // on darwin/BSD. The Rust port reads it via libc::sysctlbyname when
+    // /proc/uptime is unavailable (mirrors the psutil fallback chain).
+    #[cfg(any(target_os = "macos", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+    {
+        if let Ok(name) = std::ffi::CString::new("kern.boottime") {
+            let mut tv: [libc::time_t; 2] = [0, 0];
+            let mut size = std::mem::size_of::<[libc::time_t; 2]>();
+            // SAFETY: sysctlbyname writes into &mut tv with size bound;
+            // struct timeval layout = (time_t sec, suseconds_t usec); on
+            // 64-bit darwin both fields are 8 bytes so the [time_t; 2]
+            // array overlays correctly for the sec field.
+            let rc = unsafe {
+                libc::sysctlbyname(
+                    name.as_ptr(),
+                    tv.as_mut_ptr() as *mut libc::c_void,
+                    &mut size,
+                    std::ptr::null_mut(),
+                    0,
+                )
+            };
+            if rc == 0 && tv[0] > 0 {
+                // SAFETY: time(NULL) is async-signal-safe.
+                let now = unsafe { libc::time(std::ptr::null_mut()) };
+                if now > tv[0] {
+                    return Some((now - tv[0]) as u64);
+                }
             }
         }
     }
@@ -250,10 +342,52 @@ pub fn uptime(
     let formatted: String = parts[first_non_zero..end]
         .iter()
         .map(|(v, fmt)| {
-            fmt.replace("{days}", &v.to_string())
-                .replace("{hours}", &v.to_string())
-                .replace("{minutes}", &v.to_string())
-                .replace("{seconds}", &v.to_string())
+            // Inline Python format substitution: handles {name},
+            // {name:d}, {name:0Nd} for any name. Mirrors
+            // `fmt.format(days=days)` etc. at py:177-180.
+            let mut out = String::with_capacity(fmt.len());
+            let mut chars = fmt.chars().peekable();
+            while let Some(c) = chars.next() {
+                if c != '{' {
+                    out.push(c);
+                    continue;
+                }
+                let mut name = String::new();
+                while let Some(&p) = chars.peek() {
+                    if p == '}' || p == ':' {
+                        break;
+                    }
+                    name.push(p);
+                    chars.next();
+                }
+                let mut spec = String::new();
+                if chars.peek() == Some(&':') {
+                    chars.next();
+                    while let Some(&p) = chars.peek() {
+                        if p == '}' {
+                            break;
+                        }
+                        spec.push(p);
+                        chars.next();
+                    }
+                }
+                if chars.peek() == Some(&'}') {
+                    chars.next();
+                }
+                // Always substitute with the current `v` regardless of
+                // name — every fmt only references one of d/h/m/s.
+                let render = if spec == "d" || spec.is_empty() {
+                    v.to_string()
+                } else if let Some(zero_pad) = spec.strip_prefix('0').and_then(|s| s.strip_suffix('d')) {
+                    let width: usize = zero_pad.parse().unwrap_or(0);
+                    format!("{:0width$}", v, width = width)
+                } else {
+                    v.to_string()
+                };
+                let _ = name;
+                out.push_str(&render);
+            }
+            out
         })
         .collect();
     Some(formatted.trim().to_string())

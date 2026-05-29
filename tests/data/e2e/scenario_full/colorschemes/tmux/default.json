@@ -1,0 +1,16 @@
+{
+	"name": "Full Default",
+	"groups": {
+		"hostname": { "fg": "black", "bg": "gray10", "attrs": ["bold"] },
+		"date": { "fg": "gray8", "bg": "gray2", "attrs": [] },
+		"time": { "fg": "gray10", "bg": "gray2", "attrs": ["bold"] },
+		"time:divider": { "fg": "gray5", "bg": "gray2", "attrs": [] },
+		"uptime": { "fg": "gray8", "bg": "gray0", "attrs": [] },
+		"system_load": { "fg": "gray8", "bg": "gray0", "attrs": [] },
+		"system_load_gradient": { "fg": "green_yellow_orange_red", "bg": "gray0", "attrs": [] },
+		"cpu_load_percent": { "fg": "gray8", "bg": "gray0", "attrs": [] },
+		"cpu_load_percent_gradient": { "fg": "green_yellow_orange_red", "bg": "gray0", "attrs": [] },
+		"background": { "fg": "white", "bg": "gray0", "attrs": [] },
+		"background:divider": { "fg": "white", "bg": "gray0", "attrs": [] }
+	}
+}
