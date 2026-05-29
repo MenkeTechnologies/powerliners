@@ -298,3 +298,26 @@ format_strftime
 # delegates to to_string_marked(0, "in ", true) so callers still get
 # Python-equivalent `format!("{}", mark)`.
 to_string_marked
+
+# resolver_singleton is a OnceLock cache for the BaseResolver
+# instance, equivalent to Python's `Resolver` class object created
+# once at module-load time after the four module-level
+# add_implicit_resolver() calls (py:108-127 in lint/markedjson/
+# resolver.py). Rust port can't run that init at module-load time so
+# the singleton helper provides the same effect: lazy, deterministic
+# initialization on first call.
+resolver_singleton
+
+# resolver_exact_paths and resolver_prefix_paths field tracking on
+# BaseResolver is omitted because the JSON-only loader never
+# populates yaml_path_resolvers; the field-bearing methods
+# (descend_resolver / ascend_resolver / check_resolver_prefix) port
+# in a later pass when yaml_path_resolvers is actually wired up.
+
+# register_defaults runs the four module-level
+# add_implicit_resolver() calls from resolver.py:108-127 inside
+# BaseResolver::new(). Python executes those at module import time
+# against the class object; Rust has no equivalent module-init hook
+# for instance state, so the constructor calls the helper to populate
+# the per-instance resolver table.
+register_defaults
