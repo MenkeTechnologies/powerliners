@@ -126,7 +126,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/lib/overrides.py` ↔ `src/ported/lib/overrides.rs` | 62 | 4 | 0 | 0 | 161 | 5 | 46 |
 | [x] | `powerline/renderers/tmux.py` ↔ `src/ported/renderers/tmux.rs` | 68 | 1 | 1 | 3 | 328 | 6 | 71 |
 | [x] | `powerline/segments/common/vcs.py` ↔ `src/ported/segments/common/vcs.rs` | 73 | 0 | 2 | 4 | 233 | 6 | 50 |
-| [x] | `powerline/listers/vim.py` ↔ `src/ported/listers/vim.rs` | 91 | 4 | 0 | 0 | 228 | 4 | 73 |
+| [x] | `powerline/listers/vim.py` ↔ `src/ported/listers/vim.rs` | 91 | 4 | 0 | 0 | 265 | 5 | 77 |
 | [x] | `powerline/commands/main.py` ↔ `src/ported/commands/main.rs` | 170 | 4 | 0 | 0 | 421 | 5 | 160 |
 | [x] | `powerline/segments/common/wthr.py` ↔ `src/ported/segments/common/wthr.rs` | 198 | 0 | 1 | 4 | 428 | 10 | 117 |
 | [x] | `powerline/pdb.py` ↔ `src/ported/pdb.rs` | 38 | 0 | 1 | 5 | 207 | 6 | 36 |
