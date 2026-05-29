@@ -99,6 +99,30 @@ pub fn vim_global_exists(_name: &str) -> bool {
     false
 }
 
+/// Port of `vim_command_exists()` from
+/// `powerline/bindings/vim/__init__.py:254`.
+///
+/// Returns true if vim command `name` is defined. Stub returns false.
+pub fn vim_command_exists(_name: &str) -> bool {
+    false
+}
+
+/// Port of `vim_get_autoload_func()` from
+/// `powerline/bindings/vim/__init__.py:158`.
+///
+/// Returns a callable for the vim autoload function `f`, or None.
+/// Stub returns None (no live vim).
+pub fn vim_get_autoload_func(_f: &str, _rettype: Option<&str>) -> Option<()> {
+    None
+}
+
+/// Port of `create_ruby_dpowerline()` from
+/// `powerline/bindings/vim/__init__.py:472`.
+///
+/// Sets up the `$powerline` ruby global in vim's embedded interpreter.
+/// Stub no-op (no vim, no ruby).
+pub fn create_ruby_dpowerline() {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

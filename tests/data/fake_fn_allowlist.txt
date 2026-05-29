@@ -204,3 +204,10 @@ render_prefix
 # Rust exposes it as a lazy OnceLock-backed fn matching the Python
 # identifier byte-for-byte.
 NERD_TREE_RE
+
+# Approved 2026-05-29: accessor fn for the module-level frozen set
+# FINDERS_WITHOUT_PATH from powerline/segments/vim/plugin/commandt.py:58.
+# Python: `FINDERS_WITHOUT_PATH = set((...))` — module-level set
+# of finder names. Rust exposes it as a lazy OnceLock-backed
+# HashSet accessor with the same name byte-for-byte.
+FINDERS_WITHOUT_PATH
