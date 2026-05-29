@@ -2192,6 +2192,31 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_reader_prefix_canonical_lengths() {
+    if !python_available() {
+        return;
+    }
+    // Reader.prefix(length) returns buffer[pointer:pointer+length].
+    // Capped at buffer length (which includes the trailing '\0').
+    let py = match py_eval(
+        "(lambda r: __import__('json').dumps([r.prefix(0), r.prefix(5), r.prefix(11)]))(__import__('powerline.lint.markedjson.reader', fromlist=['Reader']).Reader(__import__('io').BytesIO(b'hello world')))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let py_arr = py_value.as_array().expect("py array");
+    assert_eq!(py_arr[0].as_str(), Some(""), "prefix(0)");
+    assert_eq!(py_arr[1].as_str(), Some("hello"), "prefix(5)");
+    assert_eq!(py_arr[2].as_str(), Some("hello world"), "prefix(11)");
+
+    let r = powerliners::lint::markedjson::reader::Reader::new("hello world", "<file>");
+    assert_eq!(r.prefix(0), "");
+    assert_eq!(r.prefix(5), "hello");
+    assert_eq!(r.prefix(11), "hello world");
+}
+
+#[test]
 fn parity_markedjson_reader_forward_across_newline_resets_column() {
     if !python_available() {
         return;
