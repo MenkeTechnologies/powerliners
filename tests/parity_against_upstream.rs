@@ -2192,6 +2192,43 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_repl_formats_codepoint_as_hex() {
+    if !python_available() {
+        return;
+    }
+    // repl(match): returns '<x{codepoint:04x}>' for the matched char.
+    // Used by strtrans + Mark.get_snippet to escape non-printables.
+    let cases: &[(&str, &str)] = &[
+        ("A", "<x0041>"),
+        ("\x07", "<x0007>"),
+        ("\x00", "<x0000>"),
+        (" ", "<x0020>"),
+        ("\u{00E9}", "<x00e9>"),
+        ("\u{2026}", "<x2026>"),
+    ];
+    for (input, expected) in cases {
+        // Python: re.match(r'.', s) then repl(match) — but match.group(0)
+        // must read the input verbatim.
+        let py_expr = format!(
+            "__import__('powerline.lint.markedjson.error', fromlist=['repl']).repl(__import__('re').match(r'.', {:?}, __import__('re').DOTALL))",
+            input
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(
+            py.as_str(),
+            *expected,
+            "Python repl({:?}) fixture drift",
+            input
+        );
+        let rs = powerliners::lint::markedjson::error::repl(input);
+        assert_eq!(rs, *expected, "Rust repl({:?}) mismatch", input);
+    }
+}
+
+#[test]
 fn parity_marked_error_message_is_format_error_output() {
     if !python_available() {
         return;
