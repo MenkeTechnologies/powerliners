@@ -2192,6 +2192,28 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_safe_unicode_str_passthrough() {
+    if !python_available() {
+        return;
+    }
+    // safe_unicode(str) — for already-unicode input both ports return
+    // the input verbatim. Verify with ASCII + multi-byte UTF-8.
+    let cases: &[&str] = &["hello", "héllo →", "", "  spaces  ", "\u{1F600}"];
+    for input in cases {
+        let py_expr = format!(
+            "__import__('powerline.lib.unicode', fromlist=['safe_unicode']).safe_unicode({:?})",
+            input
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = powerliners::lib::unicode::safe_unicode_str(input);
+        assert_eq!(py, rs, "safe_unicode_str({:?}) mismatch", input);
+    }
+}
+
+#[test]
 fn parity_stat_file_watcher_watch_unwatch_is_watching() {
     if !python_available() {
         return;
