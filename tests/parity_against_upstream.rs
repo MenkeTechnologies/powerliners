@@ -2192,6 +2192,61 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_load_primitives_through_disk() {
+    if !python_available() {
+        return;
+    }
+    // markedjson.load parses JSON-shaped YAML and returns
+    // (data, hadproblem). Verify both ports produce identical parsed
+    // values for primitives + container shapes.
+    let cases: &[(&str, &str)] = &[
+        ("42", "42"),
+        ("true", "true"),
+        ("null", "null"),
+        (r#""hello""#, r#""hello""#),
+        (r#"{"a": 1}"#, r#"{"a": 1}"#),
+        ("[1, 2, 3]", "[1, 2, 3]"),
+    ];
+    for (payload, expected_json) in cases {
+        let tmpfile = std::env::temp_dir().join(format!(
+            "powerliners_parity_load_{}_{}.json",
+            std::process::id(),
+            payload
+                .chars()
+                .filter(|c| c.is_alphanumeric())
+                .collect::<String>()
+        ));
+        std::fs::write(&tmpfile, payload).expect("write fixture");
+
+        let py_expr = format!(
+            "(lambda: (lambda v: __import__('json').dumps(v))(__import__('powerline.lint.markedjson').lint.markedjson.load(open({:?}, 'rb'))[0]))()",
+            tmpfile.to_string_lossy()
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => {
+                let _ = std::fs::remove_file(&tmpfile);
+                return;
+            }
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let expected: serde_json::Value =
+            serde_json::from_str(expected_json).expect("expected JSON malformed");
+        assert_eq!(py_value, expected, "Python load({}) fixture drift", payload);
+
+        let (rs_value, had_err) = powerliners::lint::markedjson::load(&tmpfile);
+        let _ = std::fs::remove_file(&tmpfile);
+        assert!(!had_err, "Rust load({}) had error", payload);
+        assert_eq!(
+            rs_value.expect("Rust load returned None"),
+            expected,
+            "Rust load({}) value mismatch",
+            payload
+        );
+    }
+}
+
+#[test]
 fn parity_markedjson_marked_error_subclasses_inherit_format() {
     if !python_available() {
         return;
