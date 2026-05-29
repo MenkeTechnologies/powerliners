@@ -2192,6 +2192,38 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_mark_set_old_mark_chains_successfully() {
+    if !python_available() {
+        return;
+    }
+    // set_old_mark(other): writes self.old_mark = other when no cycle
+    // is detected. Cycle-detection identity differs between ports
+    // (Python: id(); Rust: (name, line, column) tuple) — pin only the
+    // unambiguous non-cyclic case here.
+    let py_ok = match py_eval(
+        "(lambda M, m, o: (m.set_old_mark(o), m.old_mark.name)[1])(__import__('powerline.lint.markedjson.error', fromlist=['Mark']).Mark, __import__('powerline.lint.markedjson.error', fromlist=['Mark']).Mark('cfg', 5, 10, 'hello', 0), __import__('powerline.lint.markedjson.error', fromlist=['Mark']).Mark('other', 1, 1, 'world', 0))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(
+        py_ok.trim(),
+        "other",
+        "Python set_old_mark non-cyclic fixture drift"
+    );
+
+    let mut m = powerliners::lint::markedjson::error::RichMark::new("cfg", 5, 10, None, 0);
+    let other = powerliners::lint::markedjson::error::RichMark::new("other", 1, 1, None, 0);
+    m.set_old_mark(other)
+        .expect("Rust set_old_mark must succeed for non-cyclic case");
+    assert_eq!(
+        m.old_mark.as_ref().unwrap().name,
+        "other",
+        "Rust old_mark.name should be 'other'"
+    );
+}
+
+#[test]
 fn parity_markedjson_mark_get_snippet_truncates_with_ellipses() {
     if !python_available() {
         return;
