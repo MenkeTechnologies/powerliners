@@ -91,7 +91,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/segments/vim/plugin/syntastic.py` ↔ `src/ported/segments/vim/plugin/syntastic.rs` | 35 | 1 | 0 | 0 | 16 | 1 | 26 |
 | [x] | `powerline/segments/vim/plugin/tagbar.py` ↔ `src/ported/segments/vim/plugin/tagbar.rs` | 40 | 1 | 0 | 0 | 16 | 1 | 28 |
 | [x] | `powerline/segments/vim/plugin/ale.py` ↔ `src/ported/segments/vim/plugin/ale.rs` | 44 | 1 | 0 | 0 | 22 | 1 | 35 |
-| [x] | `powerline/lib/debug.py` ↔ `src/ported/lib/debug.rs` | 75 | 1 | 0 | 0 | 17 | 1 | 75 |
+| [x] | `powerline/lib/debug.py` ↔ `src/ported/lib/debug.rs` | 75 | 1 | 0 | 0 | 46 | 3 | 79 |
 | [x] | `powerline/renderers/shell/bash.py` ↔ `src/ported/renderers/shell/bash.rs` | 76 | 0 | 1 | 1 | 39 | 6 | 80 |
 | [x] | `powerline/matchers/vim/plugin/gundo.py` ↔ `src/ported/matchers/vim/plugin/gundo.rs` | 9 | 2 | 0 | 0 | 48 | 2 | 7 |
 | [x] | `powerline/lib/path.py` ↔ `src/ported/lib/path.rs` | 12 | 2 | 0 | 0 | 65 | 2 | 6 |
