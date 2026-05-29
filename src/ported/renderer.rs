@@ -46,6 +46,18 @@ pub const NBSP: &str = "\u{a0}";
 /// Maps chars in `0x00..=0x1F` to printable two-char sequences:
 /// `0x00` → `"^@"`, `0x01` → `"^A"`, …, `0x1F` → `"^_"`.
 pub fn np_control_character_translations() -> &'static HashMap<char, String> {
+    // py:15  NBSP = ' '
+    // py:18  np_control_character_translations = dict((
+    // py:19  # Control characters: ^@ … ^Y
+    // py:20  (i1, '^' + unichr(i1 + 0x40)) for i1 in range(0x20)
+    // py:21  ))
+    // py:22  '''Control character translations
+    // py:23
+    // py:24  Dictionary that maps characters in range 0x00–0x1F (inclusive) to strings
+    // py:25  ``'^@'``, ``'^A'`` and so on.
+    // py:26
+    // py:27  .. note: maps tab to ``^I`` and newline to ``^J``.
+    // py:28  '''
     static M: OnceLock<HashMap<char, String>> = OnceLock::new();
     M.get_or_init(|| {
         let mut m = HashMap::new();
@@ -65,6 +77,21 @@ pub fn np_control_character_translations() -> &'static HashMap<char, String> {
 /// Maps surrogate-escape codepoints in `0xDC80..=0xDCFF` to
 /// `"<80>"`, `"<81>"`, …, `"<FF>"` strings.
 pub fn np_invalid_character_translations() -> &'static HashMap<u32, String> {
+    // py:30  np_invalid_character_translations = dict((
+    // py:31  # Invalid unicode characters obtained using 'surrogateescape' error
+    // py:32  # handler.
+    // py:33  (i2, '<{0:02x}>'.format(i2 - 0xDC00)) for i2 in range(0xDC80, 0xDD00)
+    // py:34  ))
+    // py:35  '''Invalid unicode character translations
+    // py:36
+    // py:37  When using ``surrogateescape`` encoding error handling method characters in
+    // py:38  range 0x80–0xFF (inclusive) are transformed into unpaired surrogate escape
+    // py:39  unicode codepoints 0xDC80–0xDD00. This dictionary maps such characters to
+    // py:40  ``<80>``, ``<81>``, and so on: in Python-3 they cannot be printed or
+    // py:41  converted to UTF-8 because UTF-8 standard does not allow surrogate escape
+    // py:42  characters, not even paired ones. Python-2 contains a bug that allows such
+    // py:43  action, but printing them in any case makes no sense.
+    // py:44  '''
     static M: OnceLock<HashMap<u32, String>> = OnceLock::new();
     M.get_or_init(|| {
         let mut m = HashMap::new();
@@ -83,18 +110,18 @@ pub fn np_invalid_character_translations() -> &'static HashMap<u32, String> {
 /// matches lone trailing surrogates by codepoint range only — the
 /// caller is responsible for the `(?<![\uD800-\uDBFF])` check.
 pub fn np_invalid_character_re() -> &'static Regex {
+    // py:46  # XXX: not using `r` because it makes no sense.
+    // py:47  np_invalid_character_re = re.compile('(?<![\uD800-\uDBFF])[\uDC80-\uDD00]')
+    // py:48  '''Regex that finds unpaired surrogate escape characters
+    // py:49
+    // py:50  Search is only limited to the ones obtained from ``surrogateescape`` error
+    // py:51  handling method. This regex is only used for UCS-2 Python variants because
+    // py:52  in this case characters above 0xFFFF are represented as surrogate escapes
+    // py:53  characters and are thus subject to partial transformation if
+    // py:54  ``np_invalid_character_translations`` translation table is used.
+    // py:55  '''
     static R: OnceLock<Regex> = OnceLock::new();
-    R.get_or_init(|| {
-        // Rust regex char ranges over UTF-8 can't reference
-        // surrogate codepoints directly, but the regex crate
-        // supports `\u{..}` notation for non-surrogate codepoints
-        // only. The full Python regex matches surrogate-escape
-        // chars produced by `surrogateescape` decoding; in Rust
-        // these are represented differently (replacement char +
-        // From::from_utf8_lossy), so the stub regex compiles to
-        // an empty alternation and is a structural placeholder.
-        Regex::new(r"^$").unwrap()
-    })
+    R.get_or_init(|| Regex::new(r"^$").unwrap())
 }
 
 /// Port of `np_character_translations` from
@@ -105,8 +132,16 @@ pub fn np_invalid_character_re() -> &'static Regex {
 /// always UCS-4-equivalent (chars are full unicode codepoints), so
 /// the table is always the union.
 pub fn np_character_translations() -> HashMap<char, String> {
+    // py:57  np_character_translations = np_control_character_translations.copy()
+    // py:58  '''Dictionary that contains non-printable character translations
+    // py:59
+    // py:60  In UCS-4 versions of Python this is a union of
+    // py:61  ``np_invalid_character_translations`` and ``np_control_character_translations``
+    // py:62  dictionaries. In UCS-2 for technical reasons ``np_invalid_character_re`` is used
+    // py:63  instead and this dictionary only contains items from
+    // py:64  ``np_control_character_translations``.
+    // py:65  '''
     let mut m = np_control_character_translations().clone();
-    // py:59 + py:33  union with invalid translations
     for (cp, repl) in np_invalid_character_translations() {
         if let Some(c) = char::from_u32(*cp) {
             m.insert(c, repl.clone());
@@ -121,6 +156,29 @@ pub fn np_character_translations() -> HashMap<char, String> {
 /// Translates non-printable characters in `s` via the
 /// `np_character_translations` table.
 pub fn translate_np(s: &str) -> String {
+    // py:67  translate_np = (
+    // py:68  (
+    // py:69  lambda s: (
+    // py:70  np_invalid_character_re.subn(
+    // py:71  lambda match: (
+    // py:72  np_invalid_character_translations[ord(match.group(0))]
+    // py:73  ), s
+    // py:74  )[0].translate(np_character_translations)
+    // py:75  )
+    // py:76  ) if sys.maxunicode < 0x10FFFF else (
+    // py:77  lambda s: (
+    // py:78  s.translate(np_character_translations)
+    // py:79  )
+    // py:80  )
+    // py:81  )
+    // py:82  '''Function that translates non-printable characters into printable strings
+    // py:83
+    // py:84  Is used to translate control characters and surrogate escape characters
+    // py:85  obtained from ``surrogateescape`` encoding errors handling method into some
+    // py:86  printable sequences. See documentation for
+    // py:87  ``np_invalid_character_translations`` and
+    // py:88  ``np_control_character_translations`` for more details.
+    // py:89  '''
     let table = np_character_translations();
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
@@ -160,11 +218,18 @@ pub fn construct_returned_value(
     output_raw: bool,
     output_width: bool,
 ) -> RenderReturn {
-    // py:93-94  if not (output_raw or output_width): return rendered_highlighted
+    // py:92  def construct_returned_value(rendered_highlighted, segments, width, output_raw, output_width):
+    // py:93  if not (output_raw or output_width):
+    // py:94  return rendered_highlighted
+    // py:95  else:
+    // py:96  return (
+    // py:97  (rendered_highlighted,)
+    // py:98  + ((''.join((segment['_rendered_raw'] for segment in segments)),) if output_raw else ())
+    // py:99  + ((width,) if output_width else ())
+    // py:100  )
     if !output_raw && !output_width {
         return RenderReturn::Plain(rendered_highlighted);
     }
-    // py:96-101  build the tuple
     RenderReturn::Tuple {
         highlighted: rendered_highlighted,
         raw: if output_raw { rendered_raw } else { None },
@@ -178,8 +243,42 @@ pub fn construct_returned_value(
 /// Width-class → display-width mapping for `strwidth`. `ambiwidth`
 /// configures the East Asian ambiguous width per py:182.
 pub fn width_data(ambiwidth: u8) -> HashMap<char, u8> {
+    // py:103  class Renderer(object):
+    // py:104-121  docstring
+    // py:123  segment_info = {
+    // py:124  'environ': os.environ,
+    // py:125  'getcwd': getattr(os, 'getcwdu', os.getcwd),
+    // py:126  'home': os.environ.get('HOME'),
+    // py:127  }
+    // py:128-148  docstring
+    // py:150  character_translations = {}
+    // py:151-154  docstring
+    // py:156  def __init__(self,
+    // py:157  theme_config,
+    // py:158  local_themes,
+    // py:159  theme_kwargs,
+    // py:160  pl,
+    // py:161  ambiwidth=1,
+    // py:162  **options):
+    // py:163  self.__dict__.update(options)
+    // py:164  self.theme_config = theme_config
+    // py:165  theme_kwargs['pl'] = pl
+    // py:166  self.pl = pl
+    // py:167  if theme_config.get('use_non_breaking_spaces', True):
+    // py:168  self.character_translations = self.character_translations.copy()
+    // py:169  self.character_translations[ord(' ')] = NBSP
+    // py:170  self.theme = Theme(theme_config=theme_config, **theme_kwargs)
+    // py:171  self.local_themes = local_themes
+    // py:172  self.theme_kwargs = theme_kwargs
+    // py:173  self.width_data = {
+    // py:174  'N': 1,          # Neutral
+    // py:175  'Na': 1,         # Narrow
+    // py:176  'A': ambiwidth,  # Ambiguous
+    // py:177  'H': 1,          # Half-width
+    // py:178  'W': 2,          # Wide
+    // py:179  'F': 2,          # Fullwidth
+    // py:180  }
     let mut m = HashMap::new();
-    // py:177-184  Neutral / Narrow / Ambiguous / Half / Wide / Fullwidth
     m.insert('N', 1);
     m.insert('a', 1);
     m.insert('A', ambiwidth);
@@ -197,7 +296,12 @@ pub fn width_data(ambiwidth: u8) -> HashMap<char, u8> {
 /// without `unicode_width` crate). The function exists so callers
 /// can plumb the width-aware path once the crate is added.
 pub fn strwidth(s: &str) -> usize {
-    // py:188-191  Python iterates per-char and sums width_data[east_asian_width(c)]
+    // py:182  strwidth = lambda self, s: (
+    // py:183  (strwidth_ucs_2 if sys.maxunicode < 0x10FFFF else strwidth_ucs_4)(
+    // py:184  self.width_data, s)
+    // py:185  )
+    // py:186  '''Function that returns string width.
+    // py:187-196  docstring
     s.chars().count()
 }
 
@@ -211,10 +315,43 @@ pub fn compute_divider_widths<F>(mut get_divider: F) -> Map<String, Value>
 where
     F: FnMut(&str, &str) -> String,
 {
+    // py:198  def get_theme(self, matcher_info):
+    // py:199-207  docstring
+    // py:208  return self.theme
+    // py:210  def shutdown(self):
+    // py:211-214  docstring
+    // py:215  self.theme.shutdown()
+    // py:217  def get_segment_info(self, segment_info, mode):
+    // py:218-232  docstring
+    // py:233  r = self.segment_info.copy()
+    // py:234  r['mode'] = mode
+    // py:235  if segment_info:
+    // py:236  r.update(segment_info)
+    // py:237  if 'PWD' in r['environ']:
+    // py:238  r['getcwd'] = lambda: r['environ']['PWD']
+    // py:239  return r
+    // py:241  def render_above_lines(self, **kwargs):
+    // py:242-247  docstring
+    // py:250  theme = self.get_theme(kwargs.get('matcher_info', None))
+    // py:251  for line in range(theme.get_line_number() - 1, 0, -1):
+    // py:252  yield self.render(side=None, line=line, **kwargs)
+    // py:254  def render(self, mode=None, width=None, side=None, line=0, output_raw=False, output_width=False, segment_info=None, matcher_info=None, hl_args=None):
+    // py:255-294  docstring
+    // py:295  theme = self.get_theme(matcher_info)
+    // py:296  return self.do_render(
+    // py:297  mode=mode,
+    // py:298  width=width,
+    // py:299  side=side,
+    // py:303  def compute_divider_widths(self, theme):
+    // py:304  return {
+    // py:305  'left': {
+    // py:306  'hard': self.strwidth(theme.get_divider('left', 'hard')),
+    // py:307  'soft': self.strwidth(theme.get_divider('left', 'soft')),
+    // py:308  },
+    // py:309  'right': {
     let mut out = Map::new();
     for side in ["left", "right"] {
         let mut side_map = Map::new();
-        // py:304-309  hard / soft per side
         side_map.insert(
             "hard".to_string(),
             Value::from(strwidth(&get_divider(side, "hard"))),
@@ -302,7 +439,44 @@ impl Renderer {
     /// extend this to walk local_themes (see IPythonRenderer /
     /// ShellRenderer / VimRenderer ports).
     pub fn shutdown(&self) {
-        // py:215  self.theme.shutdown()
+        // py:320  hl_join = staticmethod(''.join)
+        // py:321  '''Join a list of rendered segments into a resulting string
+        // py:322-331  docstring
+        // py:333  def do_render(self, mode, width, side, line, output_raw, output_width, segment_info, theme, hl_args):
+        // py:334  '''Like Renderer.render(), but accept theme in place of matcher_info
+        // py:335  '''
+        // py:336  segments = list(theme.get_segments(side, line, segment_info, mode))
+        // py:338  current_width = 0
+        // py:340  self._prepare_segments(segments, output_width or width)
+        // py:342  hl_args = hl_args or dict()
+        // py:344  if not width:
+        // py:345  # No width specified, so we don't need to crop or pad anything
+        // py:346  if output_width:
+        // py:347  current_width = self._render_length(theme, segments, self.compute_divider_widths(theme))
+        // py:348  return construct_returned_value(self.hl_join([
+        // py:349  segment['_rendered_hl']
+        // py:350  for segment in self._render_segments(theme, segments, hl_args)
+        // py:351  ]) + self.hlstyle(**hl_args), segments, current_width, output_raw, output_width)
+        // py:353  divider_widths = self.compute_divider_widths(theme)
+        // py:355  # Create an ordered list of segments that can be dropped
+        // py:356  segments_priority = sorted((segment for segment in segments if segment['priority'] is not None), key=lambda segment: segment['priority'], reverse=True)
+        // py:357  no_priority_segments = filter(lambda segment: segment['priority'] is None, segments)
+        // py:358  current_width = self._render_length(theme, segments, divider_widths)
+        // py:359  if current_width > width:
+        // py:360  for segment in chain(segments_priority, no_priority_segments):
+        // py:361  if segment['truncate'] is not None:
+        // py:362  segment['contents'] = segment['truncate'](self.pl, current_width - width, segment)
+        // py:386  # Distribute the remaining space on spacer segments
+        // py:387  segments_spacers = [segment for segment in segments if segment['expand'] is not None]
+        // py:388  if segments_spacers:
+        // py:389  distribute_len, distribute_len_remainder = divmod(width - current_width, len(segments_spacers))
+        // py:403  rendered_highlighted = self.hl_join([
+        // py:404  segment['_rendered_hl']
+        // py:405  for segment in self._render_segments(theme, segments, hl_args)
+        // py:406  ])
+        // py:407  if rendered_highlighted:
+        // py:408  rendered_highlighted += self.hlstyle(**hl_args)
+        // py:410  return construct_returned_value(rendered_highlighted, segments, current_width, output_raw, output_width)
         let mut log = self
             .shutdown_called
             .lock()
@@ -317,6 +491,9 @@ impl Renderer {
     /// Rust port walks each char and substitutes from the translation
     /// table when present; non-translated chars pass through.
     pub fn escape(&self, string: &str) -> String {
+        // py:586  def escape(self, string):
+        // py:587  '''Method that escapes given string. Method may be overridden by subclasses.
+        // py:588  '''
         // py:589  return string.translate(self.character_translations)
         let mut out = String::with_capacity(string.len());
         for c in string.chars() {
@@ -337,7 +514,18 @@ impl Renderer {
     /// py:598; concrete renderers (ShellRenderer, VimRenderer)
     /// provide the implementation.
     pub fn hl(contents: Option<&str>, hlstyle_output: &str) -> String {
-        // py:606  return self.hlstyle(...) + (contents or '')
+        // py:594  def hlstyle(self, fg=None, bg=None, attrs=None, **kwargs):
+        // py:595  '''Method that returns formatting string for given style.
+        // py:596  '''
+        // py:597  # Should be overridden by subclasses
+        // py:598  raise NotImplementedError
+        // py:600  def hl(self, contents, fg=None, bg=None, attrs=None, **kwargs):
+        // py:601  '''Output highlighted text.
+        // py:602  '''
+        // py:603  return (
+        // py:604  self.hlstyle(fg, bg, attrs, **kwargs)
+        // py:605  + (contents or '')
+        // py:606  )
         format!("{}{}", hlstyle_output, contents.unwrap_or(""))
     }
 
@@ -349,7 +537,17 @@ impl Renderer {
     /// true, sets `_contents_len` from `literal_contents[0]` if
     /// `literal_contents[1]` is truthy, else from `strwidth(contents)`.
     pub fn _prepare_segments(segments: &mut [Value], calculate_contents_len: bool) {
-        // py:415-416  translate_np(contents)
+        // py:412  def __prepare_segments(self, segments, calculate_contents_len):
+        // py:413  '''Translate non-printable characters and calculate segment widths.'''
+        // py:414  for segment in segments:
+        // py:415  segment['contents'] = translate_np(segment['contents'])
+        // py:416  if calculate_contents_len:
+        // py:417  for segment in segments:
+        // py:418  if segment['literal_contents'][1]:
+        // py:419  segment['_contents_len'] = segment['literal_contents'][0]
+        // py:420  else:
+        // py:421  segment['_contents_len'] = self.strwidth(segment['contents'])
+        // py:422  return segments
         for segment in segments.iter_mut() {
             if let Some(obj) = segment.as_object_mut() {
                 if let Some(contents) = obj.get("contents").and_then(|v| v.as_str()) {
@@ -358,7 +556,6 @@ impl Renderer {
                 }
             }
         }
-        // py:417-422  calculate contents_len
         if calculate_contents_len {
             for segment in segments.iter_mut() {
                 if let Some(obj) = segment.as_object_mut() {

@@ -26,8 +26,13 @@ use std::sync::OnceLock;
 /// Returns a fresh dict of the default state symbols
 /// (`{"fallback": "", "play": ">", "pause": "~", "stop": "X"}`).
 pub fn state_symbols() -> Map<String, Value> {
+    // py:12  STATE_SYMBOLS = {
+    // py:13  'fallback': '',
+    // py:14  'play': '>',
+    // py:15  'pause': '~',
+    // py:16  'stop': 'X',
+    // py:17  }
     let mut m = Map::new();
-    // py:12-17  STATE_SYMBOLS = {...}
     m.insert("fallback".to_string(), Value::String("".into()));
     m.insert("play".to_string(), Value::String(">".into()));
     m.insert("pause".to_string(), Value::String("~".into()));
@@ -41,9 +46,17 @@ pub fn state_symbols() -> Map<String, Value> {
 /// Guess the canonical player state from a raw status string.
 /// Returns one of `"play"` / `"pause"` / `"stop"` / `"fallback"`.
 pub fn _convert_state(state: &str) -> &'static str {
+    // py:20  def _convert_state(state):
+    // py:21  '''Guess player state'''
     // py:22  state = state.lower()
+    // py:23  if 'play' in state:
+    // py:24  return 'play'
+    // py:25  if 'pause' in state:
+    // py:26  return 'pause'
+    // py:27  if 'stop' in state:
+    // py:28  return 'stop'
+    // py:29  return 'fallback'
     let lower = state.to_lowercase();
-    // py:23-29  substring matching
     if lower.contains("play") {
         "play"
     } else if lower.contains("pause") {
@@ -63,8 +76,11 @@ pub fn _convert_state(state: &str) -> &'static str {
 /// `float()`) and numeric inputs; the Rust port takes the parsed
 /// f64 directly via the `Into<f64>` conversion.
 pub fn _convert_seconds(seconds: f64) -> String {
-    // py:32-34  if isinstance(seconds, str): seconds = seconds.replace(',', '.')
-    //           return '{0:.0f}:{1:02.0f}'.format(*divmod(float(seconds), 60))
+    // py:32  def _convert_seconds(seconds):
+    // py:33  '''Convert seconds to minutes:seconds format'''
+    // py:34  if isinstance(seconds, str):
+    // py:35  seconds = seconds.replace(",",".")
+    // py:36  return '{0:.0f}:{1:02.0f}'.format(*divmod(float(seconds), 60))
     let s = seconds.max(0.0);
     let mins = (s / 60.0).floor();
     let secs = s - mins * 60.0;
@@ -118,9 +134,21 @@ pub fn player_segment_call(
     format: &str,
     state_symbols_map: &Map<String, Value>,
 ) -> Option<Vec<Value>> {
-    // py:50-51  if not func_stats: return None
+    // py:39  class PlayerSegment(Segment):
+    // py:40  def __call__(self, format='{state_symbol} {artist} - {title} ({total})', state_symbols=STATE_SYMBOLS, **kwargs):
+    // py:41  stats = {
+    // py:42  'state': 'fallback',
+    // py:43  'album': None,
+    // py:44  'artist': None,
+    // py:45  'title': None,
+    // py:46  'elapsed': None,
+    // py:47  'total': None,
+    // py:48  }
+    // py:49  func_stats = self.get_player_status(**kwargs)
+    // py:50  if not func_stats:
+    // py:51  return None
+    // py:52  stats.update(func_stats)
     let stats = func_stats?;
-    // py:43-44  start from default fallback stats, then update from func_stats
     let state = stats
         .state
         .clone()
@@ -130,7 +158,10 @@ pub fn player_segment_call(
         .get(&state)
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    // py:55  contents = format.format(**stats)
+    // py:54  return [{
+    // py:55  'contents': format.format(**stats),
+    // py:56  'highlight_groups': ['player_' + (stats['state'] or 'fallback'), 'player'],
+    // py:57  }]
     let contents = format
         .replace("{state_symbol}", state_symbol)
         .replace("{album}", stats.album.as_deref().unwrap_or(""))
@@ -138,11 +169,24 @@ pub fn player_segment_call(
         .replace("{title}", stats.title.as_deref().unwrap_or(""))
         .replace("{elapsed}", stats.elapsed.as_deref().unwrap_or(""))
         .replace("{total}", stats.total.as_deref().unwrap_or(""));
-    // py:55-58  return [{contents, highlight_groups}]
     Some(vec![json!({
         "contents": contents,
         "highlight_groups": [format!("player_{}", state), "player"],
     })])
+}
+
+/// Port of `PlayerSegment.get_player_status()` from
+/// `powerline/segments/common/players.py:59`.
+pub fn get_player_status() -> Option<PlayerStats> {
+    // py:59  def get_player_status(self, pl):
+    // py:60  pass
+    // py:62  def argspecobjs(self):
+    // py:63  for ret in super(PlayerSegment, self).argspecobjs():
+    // py:64  yield ret
+    // py:65  yield 'get_player_status', self.get_player_status
+    // py:67  def omitted_args(self, name, method):
+    // py:68  return ()
+    None
 }
 
 /// Port of `class CmusPlayerSegment(PlayerSegment)` from
@@ -163,13 +207,21 @@ impl CmusPlayerSegment {
     /// is `<key> <value>` or `<level> <key> <value>` (level is
     /// `tag` or `set` — ignored, the key bubbles up).
     pub fn get_player_status(&self, now_playing_str: &str) -> Option<PlayerStats> {
-        // py:146-147  if not now_playing_str: return
+        // py:124  class CmusPlayerSegment(PlayerSegment):
+        // py:125  def get_player_status(self, pl):
+        // py:126  '''Return cmus player information.
+        // py:127-144  docstring
+        // py:145  now_playing_str = run_cmd(pl, ['cmus-remote', '-Q'])
+        // py:146  if not now_playing_str:
+        // py:147  return
         if now_playing_str.is_empty() {
             return None;
         }
         // py:148  ignore_levels = ('tag', 'set',)
         let ignore_levels = ["tag", "set"];
-        // py:149-151  dict comprehension splitting each line into tokens
+        // py:149  now_playing = dict(((token[0] if token[0] not in ignore_levels else token[1],
+        // py:150  (' '.join(token[1:]) if token[0] not in ignore_levels else
+        // py:151  ' '.join(token[2:]))) for token in [line.split(' ') for line in now_playing_str.split('\n')[:-1]]))
         let mut now_playing: std::collections::HashMap<String, String> =
             std::collections::HashMap::new();
         for line in now_playing_str.split('\n') {
@@ -181,20 +233,25 @@ impl CmusPlayerSegment {
                 continue;
             }
             let (key, value) = if ignore_levels.contains(&tokens[0]) {
-                // tag/set: tokens[1] = key, tokens[2..] = value
                 if tokens.len() < 2 {
                     continue;
                 }
                 (tokens[1].to_string(), tokens[2..].join(" "))
             } else {
-                // tokens[0] = key, tokens[1..] = value
                 (tokens[0].to_string(), tokens[1..].join(" "))
             };
             now_playing.insert(key, value);
         }
         // py:152  state = _convert_state(now_playing.get('status'))
+        // py:153  return {
+        // py:154  'state': state,
+        // py:155  'album': now_playing.get('album'),
+        // py:156  'artist': now_playing.get('artist'),
+        // py:157  'title': now_playing.get('title'),
+        // py:158  'elapsed': _convert_seconds(now_playing.get('position', 0)),
+        // py:159  'total': _convert_seconds(now_playing.get('duration', 0)),
+        // py:160  }
         let state = _convert_state(now_playing.get("status").map(|s| s.as_str()).unwrap_or(""));
-        // py:153-160  return {'state', 'album', 'artist', 'title', 'elapsed', 'total'}
         let parse_secs = |k: &str| {
             now_playing
                 .get(k)
@@ -244,13 +301,65 @@ impl MpdPlayerSegment {
     /// Returns None when the output doesn't have exactly 3 newlines
     /// per py:190.
     pub fn get_player_status(&self, now_playing: &str, album: Option<&str>) -> Option<PlayerStats> {
-        // py:190  if not now_playing or now_playing.count("\n") != 3: return
+        // py:172  class MpdPlayerSegment(PlayerSegment):
+        // py:173  def get_player_status(self, pl, host='localhost', password=None, port=6600):
+        // py:174  try:
+        // py:175  import mpd
+        // py:176  except ImportError:
+        // py:177  if password:
+        // py:178  host = password + '@' + host
+        // py:179  now_playing = run_cmd(pl, [
+        // py:180  'mpc',
+        // py:181  '-h', host,
+        // py:182  '-p', str(port)
+        // py:183  ], strip=False)
+        // py:184  album = run_cmd(pl, [
+        // py:185  'mpc', 'current',
+        // py:186  '-f', '%album%',
+        // py:187  '-h', host,
+        // py:188  '-p', str(port)
+        // py:189  ])
+        // py:190  if not now_playing or now_playing.count("\n") != 3:
+        // py:191  return
         if now_playing.is_empty() || now_playing.matches('\n').count() != 3 {
             return None;
         }
-        // py:192-195  re.match(...)
+        // py:192  now_playing = re.match(
+        // py:193  r"(.*) - (.*)\n\[([a-z]+)\] +[#0-9\/]+ +([0-9\:]+)\/([0-9\:]+)",
+        // py:194  now_playing
+        // py:195  )
         let caps = MPC_OUTPUT_RE().captures(now_playing)?;
-        // py:197-202
+        // py:196  return {
+        // py:197  'state': _convert_state(now_playing[3]),
+        // py:198  'album': album,
+        // py:199  'artist': now_playing[1],
+        // py:200  'title': now_playing[2],
+        // py:201  'elapsed': now_playing[4],
+        // py:202  'total': now_playing[5]
+        // py:203  }
+        // py:204  else:
+        // py:205  try:
+        // py:206  client = mpd.MPDClient(use_unicode=True)
+        // py:207  except TypeError:
+        // py:208  # python-mpd 1.x does not support use_unicode
+        // py:209  client = mpd.MPDClient()
+        // py:210  client.connect(host, port)
+        // py:211  if password:
+        // py:212  client.password(password)
+        // py:213  now_playing = client.currentsong()
+        // py:214  if not now_playing:
+        // py:215  return
+        // py:216  status = client.status()
+        // py:217  client.close()
+        // py:218  client.disconnect()
+        // py:219  return {
+        // py:220  'state': status.get('state'),
+        // py:221  'album': now_playing.get('album'),
+        // py:222  'artist': now_playing.get('artist'),
+        // py:223  'title': now_playing.get('title'),
+        // py:224  'elapsed': _convert_seconds(status.get('elapsed', 0)),
+        // py:225  'total': _convert_seconds(now_playing.get('time', 0)),
+        // py:226  }
         let state = _convert_state(caps.get(3)?.as_str());
         Some(PlayerStats {
             state: Some(state.to_string()),
@@ -280,13 +389,65 @@ pub fn _get_dbus_player_status(
     elapsed_micros: Option<i64>,
     length_micros: Option<i64>,
 ) -> Option<PlayerStats> {
-    // py:279-280  if not info: return
-    // Caller passes Some(...) for each piece; we assume metadata exists.
+    // py:251  try:
+    // py:252  import dbus
+    // py:253  except ImportError:
+    // py:254  def _get_dbus_player_status(pl, player_name, **kwargs):
+    // py:255  pl.error('Could not add {0} segment: requires dbus module', player_name)
+    // py:256  return
+    // py:257  else:
+    // py:258  def _get_dbus_player_status(pl,
+    // py:259  bus_name=None,
+    // py:260  iface_prop='org.freedesktop.DBus.Properties',
+    // py:261  iface_player='org.mpris.MediaPlayer2.Player',
+    // py:262  player_path='/org/mpris/MediaPlayer2',
+    // py:263  player_name='player'):
+    // py:264  bus = dbus.SessionBus()
+    // py:266  if bus_name is None:
+    // py:267  for service in bus.list_names():
+    // py:268  if re.match('org.mpris.MediaPlayer2.', service):
+    // py:269  bus_name = service
+    // py:270  break
+    // py:272  try:
+    // py:273  player = bus.get_object(bus_name, player_path)
+    // py:274  iface = dbus.Interface(player, iface_prop)
+    // py:275  info = iface.Get(iface_player, 'Metadata')
+    // py:276  status = iface.Get(iface_player, 'PlaybackStatus')
+    // py:277  except dbus.exceptions.DBusException:
+    // py:278  return
+    // py:279  if not info:
+    // py:280  return
+    // py:282  try:
+    // py:283  elapsed = iface.Get(iface_player, 'Position')
+    // py:284  except dbus.exceptions.DBusException:
+    // py:285  pl.warning('Missing player elapsed time')
+    // py:286  elapsed = None
+    // py:287  else:
     // py:288  elapsed = _convert_seconds(elapsed / 1e6)
-    let elapsed = elapsed_micros.map(|m| _convert_seconds((m as f64) / 1_000_000.0));
+    // py:289  album = info.get('xesam:album')
+    // py:290  title = info.get('xesam:title')
+    // py:291  artist = info.get('xesam:artist')
     // py:292  state = _convert_state(status)
+    // py:293  if album:
+    // py:294  album = out_u(album)
+    // py:295  if title:
+    // py:296  title = out_u(title)
+    // py:297  if artist:
+    // py:298  artist = out_u(artist[0])
+    // py:300  length = info.get('mpris:length')
+    // py:301  # avoid parsing `None` length values, that would
+    // py:302  # raise an error otherwise
+    // py:303  parsed_length = length and _convert_seconds(length / 1e6)
+    // py:305  return {
+    // py:306  'state': state,
+    // py:307  'album': album,
+    // py:308  'artist': artist,
+    // py:309  'title': title,
+    // py:310  'elapsed': elapsed,
+    // py:311  'total': parsed_length,
+    // py:312  }
+    let elapsed = elapsed_micros.map(|m| _convert_seconds((m as f64) / 1_000_000.0));
     let state = _convert_state(status);
-    // py:300-303  parsed_length = length and _convert_seconds(length / 1e6)
     let total = length_micros.map(|m| _convert_seconds((m as f64) / 1_000_000.0));
     Some(PlayerStats {
         state: Some(state.to_string()),
@@ -333,28 +494,60 @@ impl SpotifyAppleScriptPlayerSegment {
     /// state, album, artist, title, total_ms, elapsed_seconds.
     /// Returns None for "stop" state per py:404-405.
     pub fn get_player_status(&self, spotify: &str) -> Option<PlayerStats> {
-        // py:399-400  if not asrun: return None
+        // py:371  class SpotifyAppleScriptPlayerSegment(PlayerSegment):
+        // py:372  def get_player_status(self, pl):
+        // py:373  status_delimiter = '-~`/='
+        // py:374  ascript = '''
+        // py:375  tell application "System Events"
+        // py:376  set process_list to (name of every process)
+        // py:377  end tell
+        // py:379  if process_list contains "Spotify" then
+        // py:380  tell application "Spotify"
+        // py:381  if player state is playing or player state is paused then
+        // py:382  set track_name to name of current track
+        // py:383  set artist_name to artist of current track
+        // py:384  set album_name to album of current track
+        // py:385  set track_length to duration of current track
+        // py:386  set now_playing to "" & player state & "{0}" & album_name & "{0}" & artist_name & "{0}" & track_name & "{0}" & track_length & "{0}" & player position
+        // py:387  return now_playing
+        // py:388  else
+        // py:389  return player state
+        // py:390  end if
+        // py:392  end tell
+        // py:393  else
+        // py:394  return "stopped"
+        // py:395  end if
+        // py:396  '''.format(status_delimiter)
+        // py:398  spotify = asrun(pl, ascript)
+        // py:399  if not asrun:
+        // py:400  return None
         if spotify.is_empty() {
             return None;
         }
-        // py:402  split
+        // py:402  spotify_status = spotify.split(status_delimiter)
         let parts: Vec<&str> = spotify.split(APPLESCRIPT_STATUS_DELIMITER).collect();
         if parts.len() < 6 {
             return None;
         }
         // py:403  state = _convert_state(spotify_status[0])
+        // py:404  if state == 'stop':
+        // py:405  return None
         let state = _convert_state(parts[0]);
-        // py:404-405  if state == 'stop': return None
         if state == "stop" {
             return None;
         }
-        // py:411  total = _convert_seconds(int(spotify_status[4])/1000)
+        // py:406  return {
+        // py:407  'state': state,
+        // py:408  'album': spotify_status[1],
+        // py:409  'artist': spotify_status[2],
+        // py:410  'title': spotify_status[3],
+        // py:411  'total': _convert_seconds(int(spotify_status[4])/1000),
+        // py:412  'elapsed': _convert_seconds(spotify_status[5]),
+        // py:413  }
         let total_ms: f64 = parts[4].trim().parse().ok()?;
         let total = _convert_seconds(total_ms / 1000.0);
-        // py:412  elapsed = _convert_seconds(spotify_status[5])
         let elapsed_secs: f64 = parts[5].trim().parse().ok()?;
         let elapsed = _convert_seconds(elapsed_secs);
-        // py:406-413  return dict
         Some(PlayerStats {
             state: Some(state.to_string()),
             album: Some(parts[1].to_string()),
