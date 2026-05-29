@@ -594,8 +594,8 @@ impl VimPowerline {
     /// matches.
     ///
     /// `win_idx` is the caller-supplied closure (Rust port can't
-    /// reach vim.windows directly — see [`new_win_idx`] /
-    /// [`old_win_idx`]). `render` is the caller's render dispatch
+    /// reach vim.windows directly — see `new_win_idx` /
+    /// `old_win_idx`). `render` is the caller's render dispatch
     /// returning the formatted statusline.
     pub fn statusline<W, R>(window_id: Option<u64>, win_idx: W, render: R) -> String
     where
@@ -620,7 +620,7 @@ impl VimPowerline {
     /// py:311-317 — Rust port takes the fallback as a closure
     /// since vim.current isn't reachable.
     ///
-    /// `win_idx_none` is the same closure shape as in [`statusline`]
+    /// `win_idx_none` is the same closure shape as in `statusline`
     /// invoked with None. `current_window_fallback` produces the
     /// `(window, window_id, winnr)` tuple from vim.current.window
     /// per py:311-317. `render` dispatches the actual render with
@@ -648,7 +648,7 @@ impl VimPowerline {
     /// `powerline/vim.py:263-280`.
     ///
     /// Walks `vim.windows`, assigning powerline_window_id to each
-    /// (via [`assign_window_id`]), then returns the
+    /// (via `assign_window_id`), then returns the
     /// `(window, window_id, winnr)` tuple for the requested
     /// window_id (or vim.current.window when window_id is None).
     ///
@@ -698,7 +698,7 @@ impl VimPowerline {
     ///
     /// Pre-vim-7.4-1825 variant that uses `_vim_getwinvar` /
     /// `_vim_setwinvar` instead of direct window.vars/options
-    /// access. Same shape as [`new_win_idx`]; collapsed here to
+    /// access. Same shape as `new_win_idx`; collapsed here to
     /// the same dispatch since the Rust port abstracts over the
     /// runtime via the closures.
     pub fn old_win_idx<F>(
@@ -725,7 +725,7 @@ impl VimPowerline {
     /// Rust port can't `eval()` arbitrary Python; the parity
     /// surface takes the already-evaluated value (as a serde_json
     /// Value) and returns the `return <json>` command string the
-    /// upstream would emit. Same shape as [`do_pyeval_command`].
+    /// upstream would emit. Same shape as `do_pyeval_command`.
     pub fn do_pyeval(evaluated: &serde_json::Value) -> String {
         // py:323  def do_pyeval():
         // py:324-328  docstring
