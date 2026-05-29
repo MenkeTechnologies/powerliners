@@ -1012,3 +1012,16 @@ origin
 # functions since the return-type discrimination at runtime needs
 # trait dispatch.
 add_divider_highlight_group_to_list
+
+# branch_name_cache() / branch_lock() / file_status_lock() /
+# file_status_cache() / tree_status_cache() are Rust accessors for
+# the Python module-level mutable globals at lib/vcs/__init__.py:
+# 45-47, 121, 212 (branch_name_cache, branch_lock, file_status_lock,
+# file_status_cache, _tree_status_cache). Python initialises them at
+# import time; Rust uses OnceLock<Mutex<...>> for the equivalent
+# thread-safe lazy-init + mutable-global pattern.
+branch_name_cache
+branch_lock
+file_status_lock
+file_status_cache
+tree_status_cache
