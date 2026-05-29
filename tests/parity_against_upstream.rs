@@ -2192,6 +2192,66 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_mark_equality_uses_name_line_column_only() {
+    if !python_available() {
+        return;
+    }
+    // Mark.__eq__ — py:147-152:
+    //   self.name == other.name AND
+    //   self.line == other.line AND
+    //   self.column == other.column
+    // Buffer/pointer/old_mark are NOT part of equality.
+    let cases: &[(&str, usize, usize, &str, &str, usize, usize, &str, bool)] = &[
+        // same name/line/col, different buffer + pointer → equal
+        ("cfg", 5, 10, "aaa", "cfg", 5, 10, "bbb", true),
+        // different line → not equal
+        ("cfg", 5, 10, "aaa", "cfg", 6, 10, "aaa", false),
+        // different column → not equal
+        ("cfg", 5, 10, "aaa", "cfg", 5, 11, "aaa", false),
+        // different name → not equal
+        ("cfg", 5, 10, "aaa", "other", 5, 10, "aaa", false),
+    ];
+    for (n1, l1, c1, b1, n2, l2, c2, b2, expected) in cases {
+        let py_expr = format!(
+            "__import__('powerline.lint.markedjson.error', fromlist=['Mark']).Mark({n1:?}, {l1}, {c1}, {b1:?}, 0) == __import__('powerline.lint.markedjson.error', fromlist=['Mark']).Mark({n2:?}, {l2}, {c2}, {b2:?}, 999)",
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_val = py.trim() == "True";
+        assert_eq!(
+            py_val,
+            *expected,
+            "Python Mark.__eq__({:?} vs {:?}) fixture drift",
+            (n1, l1, c1),
+            (n2, l2, c2)
+        );
+        let m1 = powerliners::lint::markedjson::error::RichMark::new(
+            *n1,
+            *l1,
+            *c1,
+            Some(b1.chars().collect()),
+            0,
+        );
+        let m2 = powerliners::lint::markedjson::error::RichMark::new(
+            *n2,
+            *l2,
+            *c2,
+            Some(b2.chars().collect()),
+            999,
+        );
+        assert_eq!(
+            m1 == m2,
+            *expected,
+            "Rust Mark eq({:?} vs {:?}) mismatch",
+            (n1, l1, c1),
+            (n2, l2, c2)
+        );
+    }
+}
+
+#[test]
 fn parity_mark_to_string_walks_old_mark_chain() {
     if !python_available() {
         return;
