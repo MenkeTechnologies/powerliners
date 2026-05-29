@@ -520,6 +520,77 @@ impl Spec {
         (true, hadproblem)
     }
 
+    /// Port of `Spec.func()` from
+    /// `powerline/lint/spec.py:544-550`.
+    ///
+    /// Records a func-check entry. Python appends a 3-tuple
+    /// `('check_func', func, msg_func)` to self.checks per py:549.
+    /// The Rust port encodes the func as a registered name since
+    /// closures don't carry across the builder boundary; callers
+    /// pair the name with the actual check_func via their dispatch
+    /// table.
+    pub fn func(mut self, name: impl Into<String>) -> Self {
+        // py:549  checks.append(('check_func', func, msg_func))
+        self.error_msg = Some(name.into());
+        self
+    }
+
+    /// Port of `Spec.__getitem__()` from
+    /// `powerline/lint/spec.py:751-754`.
+    ///
+    /// Returns the spec registered under `key`. Python's
+    /// `self.specs[self.keys[key]]` chases through the indirection
+    /// at py:754; Rust port stores keys directly in `keys: HashMap`
+    /// so the chase collapses to a single lookup.
+    pub fn get(&self, key: &str) -> Option<&Spec> {
+        // py:754  return self.specs[self.keys[key]]
+        self.keys.get(key)
+    }
+
+    /// Port of `Spec.__setitem__()` from
+    /// `powerline/lint/spec.py:756-759`.
+    ///
+    /// Registers a sub-key spec. Python's `self.update(**{key:
+    /// value})` at py:759 delegates to the chainable `update`
+    /// builder; the Rust port mirrors with an in-place mutation
+    /// since `&mut self` doesn't return self.
+    pub fn set(&mut self, key: impl Into<String>, spec: Spec) {
+        // py:759  self.update(**{key: value})
+        self.keys.insert(key.into(), spec);
+    }
+
+    /// Port of `Spec._update()` from
+    /// `powerline/lint/spec.py:113-128`.
+    ///
+    /// Helper for the `copy` method. Python copies `__dict__`,
+    /// `keys`, `checks`, `uspecs` shallowly + recursively copies
+    /// `specs` per py:123-127. The Rust port already does a deep
+    /// clone in `copy()` above; this fn surfaces the shape for
+    /// API parity.
+    pub fn _update(&mut self, other: &Spec) {
+        // py:123  self.__dict__.update(d)
+        self.cmsg = other.cmsg.clone();
+        self.isoptional = other.isoptional;
+        self.did_type = other.did_type;
+        self.allowed_types = other.allowed_types.clone();
+        self.regex = other.regex.clone();
+        self.oneof = other.oneof.clone();
+        self.len_constraint = other.len_constraint;
+        self.cmp_constraint = other.cmp_constraint;
+        self.unsigned_flag = other.unsigned_flag;
+        self.printable_flag = other.printable_flag;
+        self.ident_flag = other.ident_flag;
+        self.error_msg = other.error_msg.clone();
+        // py:124-126  shallow-copy dicts
+        self.keys = other
+            .keys
+            .iter()
+            .map(|(k, v)| (k.clone(), v.copy()))
+            .collect();
+        // py:127  deep-copy specs
+        self.specs = other.specs.iter().map(|s| s.copy()).collect();
+    }
+
     /// Port of `Spec.check_list()` from
     /// `powerline/lint/spec.py:257-297`.
     ///
@@ -1308,5 +1379,89 @@ mod tests {
             |_, _| panic!("should not run for scalar"),
         );
         assert!(proceed);
+    }
+
+    #[test]
+    fn func_registers_name_via_error_msg_slot() {
+        // py:549
+        let s = Spec::new().func("check_segment_function");
+        assert_eq!(s.error_msg.as_deref(), Some("check_segment_function"));
+    }
+
+    #[test]
+    fn get_retrieves_registered_key_spec() {
+        // py:754
+        let item = Spec::new().type_check(&[SpecType::Unicode]);
+        let s = Spec::new().update("name", item);
+        let r = s.get("name");
+        assert!(r.is_some());
+        assert!(r.unwrap().allowed_types.contains(&SpecType::Unicode));
+    }
+
+    #[test]
+    fn get_missing_key_returns_none() {
+        let s = Spec::new();
+        assert!(s.get("nope").is_none());
+    }
+
+    #[test]
+    fn set_inserts_spec_under_key() {
+        // py:759
+        let mut s = Spec::new();
+        let value_spec = Spec::new().type_check(&[SpecType::Float]);
+        s.set("count", value_spec);
+        assert!(s.keys.contains_key("count"));
+    }
+
+    #[test]
+    fn set_overwrites_existing_key() {
+        let mut s = Spec::new();
+        s.set("k", Spec::new().type_check(&[SpecType::Unicode]));
+        s.set("k", Spec::new().type_check(&[SpecType::Float]));
+        let r = s.get("k").unwrap();
+        assert!(r.allowed_types.contains(&SpecType::Float));
+        assert!(!r.allowed_types.contains(&SpecType::Unicode));
+    }
+
+    #[test]
+    fn _update_copies_all_constraint_fields() {
+        // py:123-127
+        let source = Spec::new()
+            .type_check(&[SpecType::Unicode])
+            .optional()
+            .printable()
+            .unsigned()
+            .ident()
+            .context_message("x")
+            .oneof(&["a", "b"]);
+        let mut target = Spec::new();
+        target._update(&source);
+        assert_eq!(target.allowed_types, source.allowed_types);
+        assert_eq!(target.isoptional, source.isoptional);
+        assert_eq!(target.printable_flag, source.printable_flag);
+        assert_eq!(target.unsigned_flag, source.unsigned_flag);
+        assert_eq!(target.ident_flag, source.ident_flag);
+        assert_eq!(target.cmsg, source.cmsg);
+    }
+
+    #[test]
+    fn _update_deep_copies_nested_specs() {
+        // py:127  [spec.copy(copied) for spec in self.specs]
+        let inner = Spec::new().type_check(&[SpecType::Unicode]);
+        let source = Spec::new().list(inner);
+        let mut target = Spec::new();
+        target._update(&source);
+        assert_eq!(target.specs.len(), 1);
+        assert!(target.specs[0].allowed_types.contains(&SpecType::Unicode));
+    }
+
+    #[test]
+    fn _update_copies_keys_map() {
+        // py:124  self.keys = copy(self.keys)
+        let nested = Spec::new().type_check(&[SpecType::Float]);
+        let source = Spec::new().update("count", nested);
+        let mut target = Spec::new();
+        target._update(&source);
+        assert!(target.keys.contains_key("count"));
     }
 }

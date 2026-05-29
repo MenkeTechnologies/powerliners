@@ -1749,3 +1749,12 @@ _load_hierarhical_config_instance
 # instance method's name. Same disambiguation pattern as
 # load_config_instance / _load_hierarhical_config_instance.
 create_logger_instance
+
+# lint/spec.rs::Spec::set — Rust impl of Spec.__setitem__(self, key,
+# value) at powerline/lint/spec.py:756-759. Python's dunder
+# __setitem__ supports `spec[key] = value` syntax; Rust has no
+# direct equivalent (would require std::ops::IndexMut + an impl
+# that returns &mut Spec which conflicts with HashMap entry API).
+# Named `set` to match the canonical map-mutation pattern;
+# pairs with the `get` accessor (Python __getitem__ → Rust get).
+set
