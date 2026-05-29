@@ -50,7 +50,9 @@ impl IPythonPre50Renderer {
     /// instead. The Rust port can't faithfully reproduce that MRO
     /// skip without porting the bases.
     pub fn render(&self) -> String {
-        // py:12-13 stub
+        // py:11  def render(self, **kwargs):
+        // py:12  # XXX super(ShellRenderer), *not* super(IPythonPre50Renderer)
+        // py:13  return super(ShellRenderer, self).render(**kwargs)
         String::new()
     }
 
@@ -60,9 +62,13 @@ impl IPythonPre50Renderer {
     /// Injects `client_id='ipython'` into segment_info before
     /// delegating to the base do_render.
     pub fn do_render(&self, segment_info: &mut Map<String, Value>) -> String {
+        // py:15  def do_render(self, segment_info, **kwargs):
         // py:16  segment_info.update(client_id='ipython')
         segment_info.insert("client_id".to_string(), Value::String("ipython".into()));
-        // py:17-20  base do_render — stubbed
+        // py:17  return super(IPythonPre50Renderer, self).do_render(
+        // py:18  segment_info=segment_info,
+        // py:19  **kwargs
+        // py:20  )
         String::new()
     }
 }
@@ -136,7 +142,10 @@ impl RendererProxy {
     /// Port of `RendererProxy.__init__()` from
     /// `powerline/renderers/ipython/pre_5.py:39`.
     pub fn new() -> Self {
-        // py:40-43  old_widths = {}; non_prompt_renderer = IPythonNonPromptRenderer(...)
+        // py:39  def __init__(self, **kwargs):
+        // py:40  old_widths = {}
+        // py:41  self.non_prompt_renderer = IPythonNonPromptRenderer(old_widths=old_widths, **kwargs)
+        // py:42  self.prompt_renderer = IPythonPromptRenderer(old_widths=old_widths, **kwargs)
         Self {
             prompt_renderer: IPythonPromptRenderer::new(),
             non_prompt_renderer: IPythonNonPromptRenderer::new(),
@@ -148,7 +157,8 @@ impl RendererProxy {
     ///
     /// Delegates to the non-prompt renderer's render_above_lines.
     pub fn render_above_lines(&self) -> Vec<String> {
-        // py:46  return self.non_prompt_renderer.render_above_lines(...)
+        // py:44  def render_above_lines(self, *args, **kwargs):
+        // py:45  return self.non_prompt_renderer.render_above_lines(*args, **kwargs)
         Vec::new()
     }
 
@@ -158,7 +168,9 @@ impl RendererProxy {
     /// `is_prompt`-based dispatch — true → prompt_renderer,
     /// false → non_prompt_renderer.
     pub fn render(&self, is_prompt: bool) -> String {
-        // py:49-50  (prompt_renderer if is_prompt else non_prompt_renderer).render(...)
+        // py:47  def render(self, is_prompt, *args, **kwargs):
+        // py:48  return (self.prompt_renderer if is_prompt else self.non_prompt_renderer).render(
+        // py:49  *args, **kwargs)
         if is_prompt {
             self.prompt_renderer.base.render()
         } else {
@@ -171,7 +183,9 @@ impl RendererProxy {
     ///
     /// Shuts down both wrapped renderers.
     pub fn shutdown(&self) {
-        // py:53-54  prompt_renderer.shutdown(); non_prompt_renderer.shutdown()
+        // py:51  def shutdown(self, *args, **kwargs):
+        // py:52  self.prompt_renderer.shutdown(*args, **kwargs)
+        // py:53  self.non_prompt_renderer.shutdown(*args, **kwargs)
     }
 }
 
