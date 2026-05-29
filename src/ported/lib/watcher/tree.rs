@@ -85,17 +85,35 @@ impl TreeWatcher {
     /// render.
     pub fn get_watcher<P: AsRef<Path>>(&self, path: P) -> Result<DummyTreeWatcher, String> {
         match self.watcher_type.as_str() {
-            // py:32-33  inotify branch — fall back to dummy
+            // py:31  def get_watcher(self, path, ignore_event):
+            // py:32  if self.watcher_type == 'inotify':
+            // py:33  return INotifyTreeWatcher(path, ignore_event=ignore_event)
             "inotify" => Ok(DummyTreeWatcher::new(path)),
-            // py:34-35  uv branch — fall back to dummy
+            // py:34  if self.watcher_type == 'uv':
+            // py:35  return UvTreeWatcher(path, ignore_event=ignore_event)
             "uv" => Ok(DummyTreeWatcher::new(path)),
-            // py:36-37  dummy branch
+            // py:36  if self.watcher_type == 'dummy':
+            // py:37  return DummyTreeWatcher(path)
             "dummy" => Ok(DummyTreeWatcher::new(path)),
-            // py:39-40  stat branch (upstream notes FIXME, falls back to dummy)
+            // py:38  # FIXME
+            // py:39  if self.watcher_type == 'stat':
+            // py:40  return DummyTreeWatcher(path)
             "stat" => Ok(DummyTreeWatcher::new(path)),
-            // py:41-52  auto branch
+            // py:41  if self.watcher_type == 'auto':
+            // py:42  if sys.platform.startswith('linux'):
+            // py:43  try:
+            // py:44  return INotifyTreeWatcher(path, ignore_event=ignore_event)
+            // py:45  except (INotifyError, DirTooLarge) as e:
+            // py:46  if not isinstance(e, INotifyError):
+            // py:47  self.pl.warn('Failed to watch path: {0} with error: {1}'.format(path, e))
+            // py:48  try:
+            // py:49  return UvTreeWatcher(path, ignore_event=ignore_event)
+            // py:50  except UvNotFound:
+            // py:51  pass
+            // py:52  return DummyTreeWatcher(path)
             "auto" => Ok(DummyTreeWatcher::new(path)),
-            // py:53-54  unknown type
+            // py:53  else:
+            // py:54  raise ValueError('Unknown watcher type: {0}'.format(self.watcher_type))
             other => Err(format!("Unknown watcher type: {}", other)),
         }
     }
