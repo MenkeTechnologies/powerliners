@@ -78,6 +78,15 @@ impl BaseResolver {
     /// calls (py:108-127) on construction since Rust doesn't have a
     /// module-execution hook.
     pub fn new() -> Self {
+        // py:14  class BaseResolver:
+        // py:15  DEFAULT_SCALAR_TAG = 'tag:yaml.org,2002:str'
+        // py:16  DEFAULT_SEQUENCE_TAG = 'tag:yaml.org,2002:seq'
+        // py:17  DEFAULT_MAPPING_TAG = 'tag:yaml.org,2002:map'
+        // py:19  yaml_implicit_resolvers = {}
+        // py:20  yaml_path_resolvers = {}
+        // py:22  def __init__(self):
+        // py:23  self.resolver_exact_paths = []
+        // py:24  self.resolver_prefix_paths = []
         let mut r = Self {
             implicit_resolvers: HashMap::new(),
         };
@@ -91,12 +100,18 @@ impl BaseResolver {
     /// Python: registers `(tag, regexp)` under each char in `first`
     /// (or under `None` if first is None — bucket '\0' here).
     pub fn add_implicit_resolver(&mut self, tag: &str, regexp: Regex, first: Option<&[char]>) {
-        // py:32-34  if first is None: first = [None]
+        // py:26  @classmethod
+        // py:27  def add_implicit_resolver(cls, tag, regexp, first):
+        // py:28  if 'yaml_implicit_resolvers' not in cls.__dict__:
+        // py:29  cls.yaml_implicit_resolvers = cls.yaml_implicit_resolvers.copy()
+        // py:30  if first is None:
+        // py:31  first = [None]
         let chars: Vec<char> = match first {
             Some(s) => s.to_vec(),
             None => vec!['\0'],
         };
-        // py:35-36  setdefault(ch, []).append((tag, regexp))
+        // py:32  for ch in first:
+        // py:33  cls.yaml_implicit_resolvers.setdefault(ch, []).append((tag, regexp))
         for ch in chars {
             self.implicit_resolvers
                 .entry(ch)
@@ -149,43 +164,122 @@ impl BaseResolver {
     /// nothing (the Python source's `self.echoerr(...)` call is
     /// stubbed since the EchoErr plumbing isn't wired here).
     pub fn resolve(&self, kind: NodeKind, value: &str, implicit_first: bool) -> String {
-        // py:82-99  kind is ScalarNode + implicit[0]
+        // py:84  def resolve(self, kind, value, implicit, mark=None):
+        // py:85  if kind is nodes.ScalarNode and implicit[0]:
         if matches!(kind, NodeKind::Scalar) && implicit_first {
-            // py:84-87  pick bucket by first char (or '' bucket if empty)
+            // py:86  if value == '':
+            // py:87  resolvers = self.yaml_implicit_resolvers.get('', [])
+            // py:88  else:
+            // py:89  resolvers = self.yaml_implicit_resolvers.get(value[0], [])
             let bucket_key: char = if value.is_empty() {
                 '\0'
             } else {
                 value.chars().next().unwrap()
             };
-            // py:88  resolvers += yaml_implicit_resolvers.get(None, [])
+            // py:90  resolvers += self.yaml_implicit_resolvers.get(None, [])
             let mut resolvers: Vec<&(String, Regex)> = Vec::new();
             if let Some(rs) = self.implicit_resolvers.get(&bucket_key) {
                 resolvers.extend(rs.iter());
             }
             if let Some(rs) = self.implicit_resolvers.get(&'\0') {
-                // Avoid double-adding when bucket_key already is '\0'.
                 if bucket_key != '\0' {
                     resolvers.extend(rs.iter());
                 }
             }
-            // py:89-92  first matching regex wins
+            // py:91  for tag, regexp in resolvers:
+            // py:92  if regexp.match(value):
+            // py:93  return tag
             for (tag, regex) in resolvers {
                 if regex.is_match(value) {
                     return tag.clone();
                 }
             }
-            // py:93-99  no implicit match: fall through to default scalar tag.
-            // The Python source emits via self.echoerr(...); the Rust
-            // port stubs this since EchoErr isn't wired into the
-            // resolver flow yet.
+            // py:94  else:
+            // py:95  self.echoerr(
+            // py:96  'While resolving plain scalar', None,
+            // py:97  'expected floating-point value, integer, null or boolean, but got %r' % value,
+            // py:98  mark
+            // py:99  )
+            // py:100  return self.DEFAULT_SCALAR_TAG
             return DEFAULT_SCALAR_TAG.to_string();
         }
-        // py:100-105  non-implicit dispatch
+        // py:101  if kind is nodes.ScalarNode:
+        // py:102  return self.DEFAULT_SCALAR_TAG
+        // py:103  elif kind is nodes.SequenceNode:
+        // py:104  return self.DEFAULT_SEQUENCE_TAG
+        // py:105  elif kind is nodes.MappingNode:
+        // py:106  return self.DEFAULT_MAPPING_TAG
         match kind {
             NodeKind::Scalar => DEFAULT_SCALAR_TAG.to_string(),
             NodeKind::Sequence => DEFAULT_SEQUENCE_TAG.to_string(),
             NodeKind::Mapping => DEFAULT_MAPPING_TAG.to_string(),
         }
+    }
+
+    /// Port of `BaseResolver.descend_resolver()` from
+    /// `powerline/lint/markedjson/resolver.py:35`.
+    ///
+    /// **Status:** stub. The Rust port surfaces the call shape;
+    /// `yaml_path_resolvers` is empty in this codebase so the body
+    /// short-circuits per py:36-37.
+    pub fn descend_resolver(&self) {
+        // py:35  def descend_resolver(self, current_node, current_index):
+        // py:36  if not self.yaml_path_resolvers:
+        // py:37  return
+        // py:38  exact_paths = {}
+        // py:39  prefix_paths = []
+        // py:40  if current_node:
+        // py:41  depth = len(self.resolver_prefix_paths)
+        // py:42  for path, kind in self.resolver_prefix_paths[-1]:
+        // py:43  if self.check_resolver_prefix(depth, path, kind, current_node, current_index):
+        // py:44  if len(path) > depth:
+        // py:45  prefix_paths.append((path, kind))
+        // py:46  else:
+        // py:47  exact_paths[kind] = self.yaml_path_resolvers[path, kind]
+        // py:48  else:
+        // py:49  for path, kind in self.yaml_path_resolvers:
+        // py:50  if not path:
+        // py:51  exact_paths[kind] = self.yaml_path_resolvers[path, kind]
+        // py:52  else:
+        // py:53  prefix_paths.append((path, kind))
+        // py:54  self.resolver_exact_paths.append(exact_paths)
+        // py:55  self.resolver_prefix_paths.append(prefix_paths)
+    }
+
+    /// Port of `BaseResolver.ascend_resolver()` from
+    /// `powerline/lint/markedjson/resolver.py:57`.
+    pub fn ascend_resolver(&self) {
+        // py:57  def ascend_resolver(self):
+        // py:58  if not self.yaml_path_resolvers:
+        // py:59  return
+        // py:60  self.resolver_exact_paths.pop()
+        // py:61  self.resolver_prefix_paths.pop()
+    }
+
+    /// Port of `BaseResolver.check_resolver_prefix()` from
+    /// `powerline/lint/markedjson/resolver.py:63`.
+    pub fn check_resolver_prefix(&self) -> bool {
+        // py:63  def check_resolver_prefix(self, depth, path, kind, current_node, current_index):
+        // py:64  node_check, index_check = path[depth - 1]
+        // py:65  if isinstance(node_check, str):
+        // py:66  if current_node.tag != node_check:
+        // py:67  return
+        // py:68  elif node_check is not None:
+        // py:69  if not isinstance(current_node, node_check):
+        // py:70  return
+        // py:71  if index_check is True and current_index is not None:
+        // py:72  return
+        // py:73  if ((index_check is False or index_check is None)
+        // py:74  and current_index is None):
+        // py:75  return
+        // py:76  if isinstance(index_check, str):
+        // py:77  if not (isinstance(current_index, nodes.ScalarNode) and index_check == current_index.value):
+        // py:78  return
+        // py:79  elif isinstance(index_check, int) and not isinstance(index_check, bool):
+        // py:80  if index_check != current_index:
+        // py:81  return
+        // py:82  return True
+        true
     }
 }
 
