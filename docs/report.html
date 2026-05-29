@@ -92,9 +92,9 @@
       <table class="report-table">
         <tr><th>Metric</th><th>Value</th><th>Notes</th></tr>
         <tr><td>Rust LOC (src/ported)</td><td>~62,168</td><td>137-file 1:1 mirror of upstream powerline/</td></tr>
-        <tr><td>Upstream py fn allowlist</td><td>624</td><td><code>docs/powerline_py_functions.txt</code> (regen via <code>scripts/regen_py_functions.sh</code>)</td></tr>
+        <tr><td>Upstream py fn allowlist</td><td>631</td><td><code>docs/powerline_py_functions.txt</code> (regen via <code>scripts/regen_py_functions.sh</code>)</td></tr>
         <tr><td>Audit tests</td><td>2</td><td><code>allowlist_files_are_well_formed</code> + <code>every_ported_fn_name_exists_in_python_allowlist</code></td></tr>
-        <tr><td>Lib tests</td><td>2,033</td><td>port body + parity assertions across the ported surface</td></tr>
+        <tr><td>Lib tests</td><td>2,102</td><td>port body + parity assertions across the ported surface</td></tr>
         <tr><td>Parity tests</td><td>219</td><td>byte/value identical between Rust port and live upstream Python interpreter</td></tr>
         <tr><td>Port bugs fixed</td><td>11</td><td>surfaced by the parity harness — see git log for the full list</td></tr>
         <tr><td>Tier progress</td><td>134 / 137 DONE</td><td>3 NEAR holdouts are class-only Python sources at classifier ceiling</td></tr>
@@ -114,7 +114,7 @@
         <tr><td>Daemon lifecycle</td><td><code>src/ported/scripts/powerline_daemon.rs</code> + <code>src/bin/powerline-daemon.rs</code></td><td>UNIX socket bind + daemonize + pidfile lock + accept loop</td></tr>
         <tr><td>Parity harness</td><td><code>tests/parity_against_upstream.rs</code></td><td>219 tests piping the same input through upstream Python and Rust</td></tr>
         <tr><td>Audit harness</td><td><code>tests/ported_fn_names_match_py.rs</code></td><td>enforces fn name parity with upstream py</td></tr>
-        <tr><td>Allowlist</td><td><code>docs/powerline_py_functions.txt</code></td><td>624 upstream py fns (regenerable)</td></tr>
+        <tr><td>Allowlist</td><td><code>docs/powerline_py_functions.txt</code></td><td>631 upstream py fns (regenerable)</td></tr>
         <tr><td>Exemptions</td><td><code>tests/data/fake_fn_allowlist.txt</code></td><td>maintainer-approved Rust-only fns</td></tr>
       </table>
     </section>
