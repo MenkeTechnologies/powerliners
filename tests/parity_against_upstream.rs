@@ -2155,6 +2155,47 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_theme_add_spaces_center_odd_amounts() {
+    if !python_available() {
+        return;
+    }
+    // The center variant splits unevenly when amount is odd: extra
+    // space goes on the LEFT (e.g. amount=3 → '  foo '). Verify
+    // both ports match across 4 representative amounts.
+    let cases: &[(usize, &str)] = &[(0, "foo"), (1, " foo"), (3, "  foo "), (5, "   foo  ")];
+    use powerliners::theme;
+    for &(amount, expected) in cases {
+        let py_expr = format!(
+            "__import__('powerline.theme', fromlist=['add_spaces_center']).add_spaces_center(None, {}, {{'contents': 'foo'}})",
+            amount
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        // py output is the dict repr — extract the 'contents' value
+        // by parsing as Python literal.
+        let py_inner = py
+            .strip_prefix("{'contents': '")
+            .and_then(|s| s.strip_suffix("'}"))
+            .unwrap_or(&py)
+            .to_string();
+        let mut seg = serde_json::Map::new();
+        seg.insert(
+            "contents".to_string(),
+            serde_json::Value::String("foo".to_string()),
+        );
+        let rs_contents = theme::add_spaces_center(&(), amount, &seg);
+        assert_eq!(py_inner, expected, "Python center({}) changed", amount);
+        assert_eq!(
+            py_inner, rs_contents,
+            "add_spaces_center({}) mismatch: py={:?}, rs={:?}",
+            amount, py_inner, rs_contents
+        );
+    }
+}
+
+#[test]
 fn parity_segment_segment_getters_keyset() {
     if !python_available() {
         return;
