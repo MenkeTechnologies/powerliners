@@ -161,7 +161,7 @@
           <span class="sep">/</span>
           <a href="https://github.com/powerline/powerline" target="_blank" rel="noopener noreferrer">Upstream</a>
         </nav>
-        <p class="docs-build-line">powerliners — 134/137 DONE Rust port of <code>powerline-status</code> · single static binary · sub-millisecond render · drop-in for tmux / zsh / bash / vim / ipython · 631 upstream Python fn allowlist enforced by audit test</p>
+        <p class="docs-build-line">powerliners — 134/137 DONE Rust port of <code>powerline-status</code> · single static binary · sub-millisecond render · drop-in for tmux / zsh / bash / vim / ipython · 1,028 upstream Python fn allowlist enforced by audit test · 219 parity tests against live upstream · 11 real port bugs surfaced + fixed</p>
       </div>
     </div>
   </header>
@@ -173,7 +173,9 @@
     <div class="stat-row">
       <div class="stat-card"><div class="n">134/137</div><div class="l">files at DONE tier</div></div>
       <div class="stat-card"><div class="n">1,879</div><div class="l">lib tests passing</div></div>
-      <div class="stat-card"><div class="n">631</div><div class="l">upstream py fns</div></div>
+      <div class="stat-card"><div class="n">219</div><div class="l">parity tests vs upstream</div></div>
+      <div class="stat-card"><div class="n">11</div><div class="l">port bugs surfaced + fixed</div></div>
+      <div class="stat-card"><div class="n">1,028</div><div class="l">upstream py fns</div></div>
       <div class="stat-card"><div class="n">0</div><div class="l">python runtime deps</div></div>
       <div class="stat-card"><div class="n">v0.0.7</div><div class="l">current tag</div></div>
     </div>
@@ -216,7 +218,7 @@
 
     <section class="tutorial-section">
       <h2>Port discipline</h2>
-      <p>Every fn name landed in <code>src/ported/</code> must exist in upstream powerline Python source. Enforced by <code>tests/ported_fn_names_match_py.rs</code> against <code>docs/powerline_py_functions.txt</code> (currently 631 names extracted from <a href="https://github.com/powerline/powerline">github.com/powerline/powerline</a>). Maintainer-approved Rust-only exemptions live in <code>tests/data/fake_fn_allowlist.txt</code>.</p>
+      <p>Every fn name landed in <code>src/ported/</code> must exist in upstream powerline Python source. Enforced by <code>tests/ported_fn_names_match_py.rs</code> against <code>docs/powerline_py_functions.txt</code> (currently 1,028 names extracted from <a href="https://github.com/powerline/powerline">github.com/powerline/powerline</a>). Maintainer-approved Rust-only exemptions live in <code>tests/data/fake_fn_allowlist.txt</code>.</p>
       <pre># regenerate the upstream allowlist
 ./scripts/regen_py_functions.sh
 
@@ -227,7 +229,7 @@ cargo test --test ported_fn_names_match_py</pre>
 
     <section class="tutorial-section">
       <h2>Status</h2>
-      <p>Port is substantively complete. <strong>134 of 137 upstream Python files</strong> are at DONE tier per the citation-density classifier (<code>scripts/gen_port_checklist.py</code>); the 3 remaining NEAR files are class-only Python sources (<code>readline.py</code>, <code>zsh.py</code>, <code>powerline-i3.py</code>) at the classifier's architectural ceiling. The Rust port spans ~53,750 LOC across <code>src/ported/</code> with <strong>1,879 lib tests</strong> + <strong>2 audit tests</strong> passing. Every <code>fn</code> name under <code>src/ported/</code> traces to one of 631 upstream Python fn names (or to <code>tests/data/fake_fn_allowlist.txt</code> for maintainer-approved exemptions); every ported body carries <code>// py:NNN</code> line-citations against upstream <code>powerline/</code>. Watch <a href="https://github.com/MenkeTechnologies/powerliners/tags">tags</a> for milestone bumps.</p>
+      <p>Port is structurally complete at the function level. <strong>134 of 137 upstream Python files</strong> are at DONE tier per the citation-density classifier (<code>scripts/gen_port_checklist.py</code>); the 3 remaining NEAR files are class-only Python sources (<code>readline.py</code>, <code>zsh.py</code>, <code>powerline-i3.py</code>) at the classifier's architectural ceiling. The Rust port spans ~53,750 LOC across <code>src/ported/</code> with <strong>1,879 lib tests</strong> + <strong>2 audit tests</strong> + <strong>219 parity tests</strong> passing. Parity tests pipe identical inputs through the upstream Python interpreter (via the vendored <code>powerline-status</code>) and the Rust port, asserting byte/value-identical results — <strong>11 real port bugs</strong> were surfaced by this harness and fixed in-tree (ThreadedSegment.daemon, Spec.did_type, encoding locale lookup, _clear_special_values UB, Spec.ident regex, Spec.context_message recursion, Spec.tuple bounds, Spec.unknown_msg/_spec dispatch, NON_PRINTABLE_RE inversion, Spec.printable/unsigned). Every <code>fn</code> name under <code>src/ported/</code> traces to one of 1,028 upstream Python fn names (or to <code>tests/data/fake_fn_allowlist.txt</code> for maintainer-approved exemptions); every ported body carries <code>// py:NNN</code> line-citations against upstream <code>powerline/</code>. End-to-end statusline rendering against a real <code>.json</code> theme tree depends on the <code>Powerline</code> orchestrator chain (Powerline class + Renderer base + segment dispatcher) — wired up at the unit level, integration-glue is the remaining substrate. Watch <a href="https://github.com/MenkeTechnologies/powerliners/tags">tags</a> for milestone bumps.</p>
     </section>
 
     <section class="tutorial-section">
@@ -235,8 +237,9 @@ cargo test --test ported_fn_names_match_py</pre>
       <pre># source + build
 git clone https://github.com/MenkeTechnologies/powerliners.git
 cd powerliners
-cargo build --release
-ls target/release/powerliners</pre>
+cargo build
+ls target/debug/powerliners target/debug/powerline-{render,lint,config,daemon}</pre>
+      <p>Five binaries land in <code>target/debug/</code>: <code>powerliners</code> (demo CLI for ported leaf utilities), <code>powerline-render</code>, <code>powerline-lint</code>, <code>powerline-config</code>, and <code>powerline-daemon</code>. The daemon lifecycle (UNIX socket bind, daemonize, pidfile lock, accept loop, EOF shutdown) is fully functional; render returns a placeholder string until the <code>Powerline</code> orchestrator integration completes. <code>powerline-render</code> / <code>powerline-lint</code> / <code>powerline-config</code> shim through the ported <code>scripts/</code> module mains — argparse and dispatch live, full pipelines depend on the same orchestrator chain.</p>
     </section>
   </main>
 </body>

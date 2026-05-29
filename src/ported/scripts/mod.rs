@@ -10,7 +10,9 @@
 //! - `powerline-lint`    → [`powerline_lint::main`]
 //! - `powerline-render`  → [`powerline_render::main`]
 //! - `powerline-daemon`  → [`powerline_daemon::main`]
-//! - `powerline-release` → [`powerline_release::main`]
+//! - `powerline-release` → maintenance tool — helpers ported in
+//!   [`powerline_release`]; main entry intentionally not ported since
+//!   it's a release-cutting script, not part of the runtime path.
 //!
 //! Because `scripts/extract_py_names.py` only walks the `powerline`
 //! Python package (it skips `vendor/powerline/scripts/`), every fn

@@ -229,7 +229,7 @@ impl VimRenderer {
         })
     }
 
-    /// Mutating variant of [`get_matched_theme`] that caches the
+    /// Mutating variant of [`Self::get_matched_theme`] that caches the
     /// constructed theme back into the match dict per py:62. The
     /// non-mutating variant above is safe to call from `get_theme`
     /// which needs to walk the matcher table.
