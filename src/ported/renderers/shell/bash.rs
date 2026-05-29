@@ -19,10 +19,12 @@ pub struct BashPromptRenderer;
 impl BashPromptRenderer {
     /// Port of `BashPromptRenderer.escape_hl_start` from
     /// `powerline/renderers/shell/bash.py:9`.
+    #[allow(non_upper_case_globals)]
     pub const escape_hl_start: &'static str = "\\[";
 
     /// Port of `BashPromptRenderer.escape_hl_end` from
     /// `powerline/renderers/shell/bash.py:10`.
+    #[allow(non_upper_case_globals)]
     pub const escape_hl_end: &'static str = "\\]";
 
     /// Port of `BashPromptRenderer.character_translations` from
@@ -34,9 +36,9 @@ impl BashPromptRenderer {
     ///   - `\\` → `\\\\` (escape literal backslash)
     pub fn character_translations() -> HashMap<char, &'static str> {
         let mut t: HashMap<char, &'static str> = HashMap::new();
-        t.insert('$', "\\$");                        // py:13
-        t.insert('`', "\\`");                        // py:14
-        t.insert('\\', "\\\\");                      // py:15
+        t.insert('$', "\\$"); // py:13
+        t.insert('`', "\\`"); // py:14
+        t.insert('\\', "\\\\"); // py:15
         t
     }
 }

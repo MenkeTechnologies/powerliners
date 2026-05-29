@@ -21,7 +21,7 @@ pub use crate::ported::renderers::shell::readline::ReadlineRenderer;
 /// Port of module-level binding `renderer` from
 /// `powerline/renderers/shell/rcsh.py:7`.
 #[allow(non_camel_case_types)]
-pub type renderer = ReadlineRenderer;                // py:7
+pub type renderer = ReadlineRenderer; // py:7
 
 #[cfg(test)]
 mod tests {

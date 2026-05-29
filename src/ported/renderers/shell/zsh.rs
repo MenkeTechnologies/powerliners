@@ -19,10 +19,12 @@ pub struct ZshPromptRenderer;
 impl ZshPromptRenderer {
     /// Port of `ZshPromptRenderer.escape_hl_start` from
     /// `powerline/renderers/shell/zsh.py:9`.
+    #[allow(non_upper_case_globals)]
     pub const escape_hl_start: &'static str = "%{";
 
     /// Port of `ZshPromptRenderer.escape_hl_end` from
     /// `powerline/renderers/shell/zsh.py:10`.
+    #[allow(non_upper_case_globals)]
     pub const escape_hl_end: &'static str = "%}";
 
     /// Port of `ZshPromptRenderer.character_translations` from

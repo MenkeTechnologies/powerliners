@@ -18,11 +18,7 @@ use crate::ported::bindings::vim::{vim_func_exists, MatcherInfo};
 /// Rust port: without vim.eval, the `CapsLockStatusline()` call returns
 /// empty. Returns `None` when the function isn't defined (matches py:25
 /// short-circuit) or when the eval returns empty (py:28).
-pub fn capslock_indicator(
-    _pl: &(),
-    _segment_info: &MatcherInfo,
-    text: &str,
-) -> Option<String> {
+pub fn capslock_indicator(_pl: &(), _segment_info: &MatcherInfo, text: &str) -> Option<String> {
     // py:25  if not vim_func_exists('CapsLockStatusline'): return None
     if !vim_func_exists("CapsLockStatusline") {
         return None;

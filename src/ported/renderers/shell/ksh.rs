@@ -11,7 +11,7 @@ use std::collections::HashMap;
 /// Port of module-level binding `ESCAPE_CHAR` from
 /// `powerline/renderers/shell/ksh.py:7`.
 #[allow(non_upper_case_globals)]
-pub const ESCAPE_CHAR: &str = "\x01";                // py:7
+pub const ESCAPE_CHAR: &str = "\x01"; // py:7
 
 /// Port of `class KshPromptRenderer(ShellRenderer)` from
 /// `powerline/renderers/shell/ksh.py:10`.
@@ -24,10 +24,12 @@ pub struct KshPromptRenderer;
 impl KshPromptRenderer {
     /// Port of `KshPromptRenderer.escape_hl_start` from
     /// `powerline/renderers/shell/ksh.py:12`.
+    #[allow(non_upper_case_globals)]
     pub const escape_hl_start: &'static str = "\x01";
 
     /// Port of `KshPromptRenderer.escape_hl_end` from
     /// `powerline/renderers/shell/ksh.py:13`.
+    #[allow(non_upper_case_globals)]
     pub const escape_hl_end: &'static str = "\x01";
 
     /// Prepend wrapper for ksh's prompt-rendering quirk.

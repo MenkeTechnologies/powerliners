@@ -20,10 +20,12 @@ pub struct ReadlineRenderer;
 impl ReadlineRenderer {
     /// Port of `ReadlineRenderer.escape_hl_start` from
     /// `powerline/renderers/shell/readline.py:10`.
+    #[allow(non_upper_case_globals)]
     pub const escape_hl_start: &'static str = "\x01";
 
     /// Port of `ReadlineRenderer.escape_hl_end` from
     /// `powerline/renderers/shell/readline.py:11`.
+    #[allow(non_upper_case_globals)]
     pub const escape_hl_end: &'static str = "\x02";
 
     /// Readline-specific per-character translations. Empty (inherits

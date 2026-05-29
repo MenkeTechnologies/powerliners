@@ -20,7 +20,9 @@ pub struct TcshPromptRenderer;
 impl TcshPromptRenderer {
     /// Inherits `escape_hl_start`/`escape_hl_end` from
     /// `ZshPromptRenderer` (`%{` / `%}`).
+    #[allow(non_upper_case_globals)]
     pub const escape_hl_start: &'static str = ZshPromptRenderer::escape_hl_start;
+    #[allow(non_upper_case_globals)]
     pub const escape_hl_end: &'static str = ZshPromptRenderer::escape_hl_end;
 
     /// Port of `TcshPromptRenderer.character_translations` from

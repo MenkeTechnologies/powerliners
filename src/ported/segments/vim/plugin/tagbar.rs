@@ -24,11 +24,7 @@ use crate::ported::bindings::vim::{vim_command_exists, MatcherInfo};
 ///
 /// Rust port: returns `None` until vim integration lands (matches the
 /// upstream py:34/37 short-circuit when Tagbar isn't available).
-pub fn current_tag(
-    _segment_info: &MatcherInfo,
-    _pl: &(),
-    _flags: &str,
-) -> Option<String> {
+pub fn current_tag(_segment_info: &MatcherInfo, _pl: &(), _flags: &str) -> Option<String> {
     // py:33  if not currenttag:
     if !vim_command_exists("Tagbar") {
         return None;

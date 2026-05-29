@@ -16,10 +16,7 @@ pub fn gundo(matcher_info: &MatcherInfo) -> bool {
         None => return false,
     };
     // py:11  name and os.path.basename(name) == b'__Gundo__'
-    let basename = name
-        .rsplitn(2, |&b| b == b'/')
-        .next()
-        .unwrap_or(&name);
+    let basename = name.rsplitn(2, |&b| b == b'/').next().unwrap_or(&name);
     basename == b"__Gundo__"
 }
 
@@ -32,10 +29,7 @@ pub fn gundo_preview(matcher_info: &MatcherInfo) -> bool {
         None => return false,
     };
     // py:16  name and os.path.basename(name) == b'__Gundo_Preview__'
-    let basename = name
-        .rsplitn(2, |&b| b == b'/')
-        .next()
-        .unwrap_or(&name);
+    let basename = name.rsplitn(2, |&b| b == b'/').next().unwrap_or(&name);
     basename == b"__Gundo_Preview__"
 }
 

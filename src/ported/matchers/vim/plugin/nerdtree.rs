@@ -27,13 +27,10 @@ pub fn nerdtree(matcher_info: &MatcherInfo) -> bool {
     // py:14  name = buffer_name(matcher_info)
     let name = match buffer_name(matcher_info) {
         Some(n) if !n.is_empty() => n,
-        _ => return false,                           // py:15  name and ...
+        _ => return false, // py:15  name and ...
     };
     // py:15  NERD_TREE_RE.match(os.path.basename(name))
-    let basename = name
-        .rsplitn(2, |&b| b == b'/')
-        .next()
-        .unwrap_or(&name);
+    let basename = name.rsplitn(2, |&b| b == b'/').next().unwrap_or(&name);
     NERD_TREE_RE().is_match(basename)
 }
 

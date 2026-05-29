@@ -24,11 +24,7 @@ use serde_json::Value;
 /// isn't defined (matches py:24 short-circuit). The error/warning
 /// extraction logic (py:26-44) is preserved structurally for when
 /// vim integration lands.
-pub fn syntastic(
-    _pl: &(),
-    _err_format: &str,
-    _warn_format: &str,
-) -> Option<Vec<Value>> {
+pub fn syntastic(_pl: &(), _err_format: &str, _warn_format: &str) -> Option<Vec<Value>> {
     // py:24  if not vim_global_exists('SyntasticLoclist'): return None
     if !vim_global_exists("SyntasticLoclist") {
         return None;

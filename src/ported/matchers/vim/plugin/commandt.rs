@@ -18,10 +18,7 @@ pub fn commandt(matcher_info: &MatcherInfo) -> bool {
         return true;
     }
     if let Some(n) = name {
-        let basename = n
-            .rsplitn(2, |&b| b == b'/')
-            .next()
-            .unwrap_or(&n);
+        let basename = n.rsplitn(2, |&b| b == b'/').next().unwrap_or(&n);
         return basename == b"GoToFile";
     }
     false
