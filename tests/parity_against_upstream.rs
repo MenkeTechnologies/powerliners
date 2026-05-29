@@ -2192,6 +2192,48 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_path_join_handles_absolute_components() {
+    if !python_available() {
+        return;
+    }
+    // path.join() ports os.path.join semantics: any absolute component
+    // discards all prior components; empty leading component is dropped;
+    // trailing slash on a component does NOT double-slash the result.
+    let cases: &[(&[&str], &str)] = &[
+        (&["a", "b", "c"], "a/b/c"),
+        (&["/abs", "b"], "/abs/b"),
+        (&["a", "/abs", "b"], "/abs/b"), // /abs resets accumulator
+        (&["", "b"], "b"),
+        (&["a", "", "b"], "a/b"),
+        (&["a/", "b"], "a/b"),
+    ];
+    for (input, expected) in cases {
+        let py_pairs = input
+            .iter()
+            .map(|s| format!("{:?}", s))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let py_expr = format!(
+            "__import__('powerline.lib.path', fromlist=['join']).join({})",
+            py_pairs
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(py.trim(), *expected, "Python fixture drift for {:?}", input);
+        let rs = powerliners::lib::path::join(input.iter().copied());
+        assert_eq!(
+            rs.to_string_lossy(),
+            *expected,
+            "Rust path::join({:?}) mismatch: rs={:?}",
+            input,
+            rs
+        );
+    }
+}
+
+#[test]
 fn parity_humanize_bytes_canonical_units() {
     if !python_available() {
         return;
