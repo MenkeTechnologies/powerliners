@@ -2192,6 +2192,44 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_spec_copy_preserves_state_and_decouples_mutation() {
+    if !python_available() {
+        return;
+    }
+    // Spec.copy() returns an independent shallow copy:
+    //   - cmsg / isoptional preserved at copy time
+    //   - subsequent mutation of the original DOES NOT affect the copy
+    let py = match py_eval(
+        "(lambda S: (lambda s, c: (setattr(s, 'cmsg', 'modified'), __import__('json').dumps([c.cmsg, c.isoptional]))[1])(*((lambda s: (s, s.copy()))((lambda s: (setattr(s, 'cmsg', 'original'), setattr(s, 'isoptional', True), s)[2])(S())))))(__import__('powerline.lint.spec', fromlist=['Spec']).Spec)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    assert_eq!(
+        py_value,
+        serde_json::json!(["original", true]),
+        "Python copy() should be unaffected by original's later mutation"
+    );
+
+    use powerliners::lint::spec::Spec;
+    let mut s = Spec::default();
+    s.cmsg = "original".to_string();
+    s.isoptional = true;
+    let copy = s.copy();
+    s.cmsg = "modified".to_string();
+    s.isoptional = false;
+    assert_eq!(
+        copy.cmsg, "original",
+        "Rust copy().cmsg should be unaffected by original's later mutation"
+    );
+    assert!(
+        copy.isoptional,
+        "Rust copy().isoptional should be unaffected"
+    );
+}
+
+#[test]
 fn parity_non_printable_re_full_truth_table() {
     if !python_available() {
         return;
