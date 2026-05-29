@@ -260,6 +260,28 @@ impl UvFileWatcherEvents {
         }
     }
 
+    /// Port of `UvFileWatcher._stopped_watching()` from
+    /// `powerline/lib/watcher/uv.py:151-152`.
+    ///
+    /// Drops the events queue for `path` per py:152
+    /// (`self.events.pop(path, None)`). Called by pyuv when the
+    /// fsevent handle is closed.
+    pub fn _stopped_watching(&self, path: &str) {
+        // py:151  def _stopped_watching(self, path, *args):
+        // py:152  self.events.pop(path, None)
+        let mut events = self.events.lock().unwrap_or_else(|e| e.into_inner());
+        events.remove(path);
+    }
+
+    /// Port of `UvFileWatcher._record_event()` from
+    /// `powerline/lib/watcher/uv.py:144` — underscore-prefixed alias
+    /// for [`record_event`](Self::record_event) preserving the
+    /// Python identifier byte-for-byte.
+    pub fn _record_event(&self, path: &str, events_mask: u32) {
+        // py:144  def _record_event(self, path, fsevent_handle, filename, events, error):
+        self.record_event(path, events_mask)
+    }
+
     /// Port of `UvFileWatcher._record_event()` from
     /// `powerline/lib/watcher/uv.py:142`.
     pub fn record_event(&self, path: &str, events_mask: u32) {
@@ -379,6 +401,29 @@ impl UvTreeWatcherEvents {
     pub fn watch_one_directory(&self, dirname: &str) {
         // py:181-184  try: self.watch(dirname); except OSError: pass
         self.watcher.watch(dirname);
+    }
+
+    /// Port of `UvTreeWatcher._stopped_watching()` from
+    /// `powerline/lib/watcher/uv.py:186-187`.
+    ///
+    /// Removes the path from `watcher.watches`. Called by pyuv
+    /// when the underlying handle is closed; the Rust port has
+    /// no live pyuv loop so this surfaces as an explicit method
+    /// callers invoke during shutdown.
+    pub fn _stopped_watching(&self, path: &str) {
+        // py:186  def _stopped_watching(self, path, *args):
+        // py:187  self.watches.pop(path, None)
+        let mut watches = self.watcher.watches.lock().unwrap_or_else(|e| e.into_inner());
+        watches.remove(path);
+    }
+
+    /// Port of `UvTreeWatcher._record_event()` from
+    /// `powerline/lib/watcher/uv.py:189` — underscore-prefixed
+    /// alias for [`record_event`](Self::record_event) preserving
+    /// the Python identifier byte-for-byte.
+    pub fn _record_event(&self, path: &str, name: &str, events_mask: u32) -> bool {
+        // py:189  def _record_event(self, path, fsevent_handle, filename, events, error):
+        self.record_event(path, name, events_mask)
     }
 
     /// Port of `UvTreeWatcher._record_event()` from

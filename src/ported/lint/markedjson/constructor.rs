@@ -54,6 +54,26 @@ pub fn marked(value: Value, mark: Mark) -> MarkedAny {
     gen_marked_value(value, mark)
 }
 
+/// Port of the inner `f()` closure from
+/// `powerline/lint/markedjson/constructor.py:18-20`.
+///
+/// `@wraps(func)`-decorated closure returned by `marked()`. Takes
+/// the underlying construct fn + node (mark-carrier) and returns
+/// the construct result wrapped via `gen_marked_value`.
+///
+/// Python captures `func` from the outer `marked()` scope; the
+/// Rust port takes the underlying value as `construct()` closure
+/// result so callers route through any construct dispatch they
+/// like.
+pub fn f<C>(construct: C, mark: Mark) -> MarkedAny
+where
+    C: FnOnce() -> Value,
+{
+    // py:18  def f(self, node, *args, **kwargs):
+    // py:19  return gen_marked_value(func(self, node, *args, **kwargs), node.start_mark)
+    gen_marked_value(construct(), mark)
+}
+
 /// Port of `class BaseConstructor` from
 /// `powerline/lint/markedjson/constructor.py:27`.
 ///
@@ -1040,6 +1060,21 @@ mod tests {
         let r = c.base.get_single_data(Some(&composed)).unwrap().unwrap();
         match r {
             MarkedAny::Unicode(u) => assert_eq!(u.value, "hello"),
+            other => panic!("expected Unicode, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn f_closure_wraps_construct_result_with_mark() {
+        // py:18-19  gen_marked_value(construct(...), node.start_mark)
+        let m = Mark { line: 5, column: 7 };
+        let result = f(|| Value::String("hello".to_string()), m);
+        match result {
+            MarkedAny::Unicode(u) => {
+                assert_eq!(u.value, "hello");
+                assert_eq!(u.mark.line, 5);
+                assert_eq!(u.mark.column, 7);
+            }
             other => panic!("expected Unicode, got {:?}", other),
         }
     }
