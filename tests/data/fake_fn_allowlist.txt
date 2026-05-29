@@ -262,3 +262,16 @@ get_encoding
 # logic can be unit-tested without spawning an IMAP connection.
 unseen_re
 parse_unseen_count
+
+# Approved 2026-05-29: Rust-only helpers for the inline syscall usage in
+# powerline/segments/common/sys.py:16-72. Python imports cpu_count from
+# multiprocessing and inlines os.getloadavg() in the system_load body.
+# Rust splits them into:
+# - _cpu_count(): wraps std::thread::available_parallelism (mirrors py:6
+#   `from multiprocessing import cpu_count as _cpu_count`)
+# - _getloadavg(): wraps libc::getloadavg (mirrors py:52 `os.getloadavg()`)
+# - render_load_format(): testable {avg:.Nf} format-string substitution
+#   for the py:60 `format.format(avg=avg)` call
+_cpu_count
+_getloadavg
+render_load_format
