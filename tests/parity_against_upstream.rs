@@ -2192,6 +2192,44 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_reader_forward_across_newline_resets_column() {
+    if !python_available() {
+        return;
+    }
+    // Reader.forward across '\n' resets column to 0 and bumps line.
+    // Buffer: 'a\nbc\nd'
+    //   start: line=0 col=0 peek='a'
+    //   forward(1): line=0 col=1 peek='\n'
+    //   forward(1): line=1 col=0 peek='b'  (newline crossed)
+    //   forward(2): line=1 col=2 peek='\n'
+    let py = match py_eval(
+        "(lambda r: __import__('json').dumps([(r.forward(1), r.line, r.column)[1:], (r.forward(1), r.line, r.column)[1:], (r.forward(2), r.line, r.column)[1:]]))(__import__('powerline.lint.markedjson.reader', fromlist=['Reader']).Reader(__import__('io').BytesIO(b'a\\nbc\\nd')))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let py_arr = py_value.as_array().expect("py array");
+    assert_eq!(py_arr[0][0].as_i64(), Some(0), "Python line after 'a'");
+    assert_eq!(py_arr[0][1].as_i64(), Some(1), "Python col after 'a'");
+    assert_eq!(py_arr[1][0].as_i64(), Some(1), "Python line after newline");
+    assert_eq!(py_arr[1][1].as_i64(), Some(0), "Python col after newline");
+    assert_eq!(py_arr[2][0].as_i64(), Some(1), "Python line after bc");
+    assert_eq!(py_arr[2][1].as_i64(), Some(2), "Python col after bc");
+
+    let mut r = powerliners::lint::markedjson::reader::Reader::new("a\nbc\nd", "<file>");
+    r.forward(1);
+    assert_eq!(r.line, 0);
+    assert_eq!(r.column, 1);
+    r.forward(1);
+    assert_eq!(r.line, 1, "Rust line should be 1 after crossing newline");
+    assert_eq!(r.column, 0, "Rust column should reset to 0 after newline");
+    r.forward(2);
+    assert_eq!(r.line, 1);
+    assert_eq!(r.column, 2);
+}
+
+#[test]
 fn parity_markedjson_reader_forward_advances_pointer_column() {
     if !python_available() {
         return;
