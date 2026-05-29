@@ -197,3 +197,10 @@ character_translations
 # substrate lands the prefix is exposed as data that callers prepend
 # explicitly. Documented Rust-only adapter per PORT.md Rule 0.
 render_prefix
+
+# Approved 2026-05-29: accessor fn for the module-level compiled regex
+# NERD_TREE_RE from powerline/matchers/vim/plugin/nerdtree.py:10.
+# Python: `NERD_TREE_RE = re.compile(b'NERD_tree_\\d+')`.
+# Rust exposes it as a lazy OnceLock-backed fn matching the Python
+# identifier byte-for-byte.
+NERD_TREE_RE
