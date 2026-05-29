@@ -1101,3 +1101,21 @@ file_size_text
 # the fn signature; Rust extracts to a free helper since Rust
 # doesn't support mutable HashMap default-arg semantics.
 default_position_strings
+
+# PowerlineLogger::format_message extracts the format string
+# building from powerline/__init__.py:46-109 (the message-emission
+# helpers debug/info/warn/etc all wrap the same format pattern).
+# Python embeds the format inside each per-level method; Rust
+# extracts to a pure helper so the {ext}:{prefix}:{message}
+# pattern can be unit-tested without dispatching through the
+# logger framework.
+format_message
+
+# PowerlineLogger::log is the Rust analog of the per-level method
+# dispatch at powerline/__init__.py:80-108. Python defines
+# critical/exception/info/error/warn/debug as separate methods
+# that each call self.logger.log(level, msg); Rust unifies them
+# into a single log(level, message) method plus thin convenience
+# wrappers since Rust can't reduce dispatch via *args/**kwargs
+# the way Python does.
+log
