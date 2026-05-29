@@ -864,3 +864,36 @@ build_segment_info
 # uses a static OnceLock<Mutex<u64>> counter for the equivalent
 # process-unique identifier.
 next_id
+
+# np_control_character_translations / np_invalid_character_translations
+# / np_invalid_character_re / np_character_translations are Rust
+# accessors for the Python module-level constants at
+# powerline/renderer.py:18-67. Python initialises them at module-load;
+# Rust uses OnceLock for the same lazy-init pattern. np_character_
+# translations returns a fresh HashMap because the union is computed
+# from two OnceLock tables and Rust prefers explicit clone semantics.
+np_control_character_translations
+np_invalid_character_translations
+np_invalid_character_re
+np_character_translations
+
+# translate_np is the Rust analog of the module-level translate_np
+# function-or-lambda at powerline/renderer.py:68-82. Python ports
+# the Python-version split (UCS-2 vs UCS-4) into a runtime dispatch;
+# Rust port runs the UCS-4 path always since Rust chars are full
+# unicode codepoints.
+translate_np
+
+# width_data() is the Rust accessor for the Python module-level
+# width_data dict at powerline/renderer.py:177-184. Python sets it
+# as an instance attribute inside __init__; Rust extracts to a free
+# function that takes the ambiwidth arg, so callers can build the
+# table without instantiating the full Renderer.
+width_data
+
+# Renderer::segment_info is a static class attribute at
+# powerline/renderer.py:124-128 (returns the {environ, getcwd,
+# home} dict). Python defines it inline in the class body; Rust
+# extracts to an associated function since the class-body dict
+# initialisation runs at import time and reads from os.environ.
+segment_info
