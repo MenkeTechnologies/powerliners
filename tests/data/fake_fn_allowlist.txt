@@ -1025,3 +1025,30 @@ branch_lock
 file_status_lock
 file_status_cache
 tree_status_cache
+
+# _uv_thread() is the Rust accessor for Python's module-level
+# `_uv_thread = None` global at lib/watcher/uv.py:57. Python
+# initialises it at import time + mutates inside start_uv_thread;
+# Rust uses OnceLock<Mutex<Option<bool>>> for the equivalent
+# thread-safe lazy-init + mutable-global pattern.
+_uv_thread
+
+# UvWatcher::watch_count is a test-friendly accessor for the
+# Python `len(self.watches)` introspection at lib/watcher/uv.py.
+# Python uses the dict's __len__ directly; Rust requires a Mutex
+# lock + len() pair so the helper makes the lock acquisition
+# explicit at the type boundary.
+watch_count
+
+# UvFileWatcherEvents::record_event is the Rust analog of Python's
+# UvFileWatcher._record_event method body at lib/watcher/uv.py:142.
+# The Rust port can't reproduce pyuv's FSEvent callback dispatch,
+# so the method becomes the caller's manual entry point for
+# populating the events buffer (tests + future notify integration
+# both use this).
+record_event
+
+# UvFileWatcherEvents::event_count is a test-introspection helper
+# (Python `len(self.events[path])` would suffice). Same Mutex-lock
+# justification as watch_count above.
+event_count
