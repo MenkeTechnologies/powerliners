@@ -380,6 +380,20 @@ impl Spec {
         self
     }
 
+    /// Port of `Spec.re()` from
+    /// `powerline/lint/spec.py:552`.
+    ///
+    /// Bare-name alias for [`regex`](Self::regex) preserving the
+    /// upstream Python `re` identifier byte-for-byte. The `regex`
+    /// name on the primary method exists because the Rust `regex`
+    /// crate occupies the bare `re` namespace in many surrounding
+    /// imports; this alias surfaces the upstream call site shape.
+    pub fn re(self, pattern: impl Into<String>) -> Self {
+        // py:552  def re(self, regex, msg_func=None):
+        self.regex(pattern)
+    }
+
+
     /// Port of `Spec.oneof()` from
     /// `powerline/lint/spec.py:590`.
     pub fn oneof(mut self, values: &[&str]) -> Self {
