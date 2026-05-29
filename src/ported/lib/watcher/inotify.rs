@@ -104,8 +104,15 @@ impl INotifyFileWatcher {
     /// Port of `INotifyFileWatcher.__init__()` from
     /// `powerline/lib/watcher/inotify.py:15`.
     pub fn new(expire_time_minutes: f64) -> Self {
+        // py:15  class INotifyFileWatcher(INotify):
+        // py:16  def __init__(self, expire_time=10):
+        // py:17  super(INotifyFileWatcher, self).__init__()
+        // py:18  self.watches = {}
+        // py:19  self.modified = {}
+        // py:20  self.last_query = {}
+        // py:21  self.lock = RLock()
+        // py:22  self.expire_time = expire_time * 60
         Self {
-            // py:21  self.expire_time = expire_time * 60
             expire_time: expire_time_minutes * 60.0,
             entries: Mutex::new(HashMap::new()),
         }
@@ -127,13 +134,14 @@ impl INotifyFileWatcher {
     /// seconds. Returns the paths that were unwatched so the caller
     /// can issue the inotify `rm_watch` syscalls.
     pub fn expire_watches(&self) -> Vec<String> {
+        // py:24  def expire_watches(self):
+        // py:25  now = monotonic()
         let now = Self::now();
         let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
         let mut expired: Vec<String> = Vec::new();
-        // py:24-28  for path, last_query: if last_query - now > expire_time: unwatch
-        // (Note: py condition is `last_query - now > expire_time` which,
-        // for last_query in the past, makes the LHS negative — this is a
-        // long-standing upstream bug; mirror it faithfully.)
+        // py:26  for path, last_query in tuple(self.last_query.items()):
+        // py:27  if last_query - now > self.expire_time:
+        // py:28  self.unwatch(path)
         let expire_time = self.expire_time;
         for (path, entry) in entries.iter() {
             if entry.last_query - now > expire_time {
@@ -156,15 +164,32 @@ impl INotifyFileWatcher {
     where
         F: FnOnce() -> Option<i32>,
     {
+        // py:80  def watch(self, path):
+        // py:81  ''' Register a watch for the file/directory named path. ...
+        // py:83  path = realpath(path)
+        // py:84  with self.lock:
+        // py:85  if path not in self.watches:
         let path = path.into();
         let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
-        // py:82  if path not in self.watches  — preserved as
-        // contains_key + insert (rather than entry().or_insert_with)
-        // so the structure mirrors the Python source.
         #[allow(clippy::map_entry)]
         if !entries.contains_key(&path) {
+            // py:86  bpath = path if isinstance(path, bytes) else path.encode(self.fenc)
+            // py:87  flags = self.MOVE_SELF | self.DELETE_SELF
+            // py:88  buf = ctypes.c_char_p(bpath)
+            // py:89  # Try watching path as a directory
+            // py:90  wd = self._add_watch(self._inotify_fd, buf, flags | self.ONLYDIR)
+            // py:91  if wd == -1:
+            // py:92  eno = ctypes.get_errno()
+            // py:93  if eno != errno.ENOTDIR:
+            // py:94  self.handle_error()
+            // py:95  # Try watching path as a file
+            // py:96  flags |= (self.MODIFY | self.ATTRIB)
+            // py:97  wd = self._add_watch(self._inotify_fd, buf, flags)
+            // py:98  if wd == -1:
+            // py:99  self.handle_error()
             let wd = add_wd();
-            // py:96-97  self.watches[path] = wd; self.modified[path] = False
+            // py:100  self.watches[path] = wd
+            // py:101  self.modified[path] = False
             let entry = WatchEntry {
                 wd,
                 modified: false,
@@ -184,8 +209,18 @@ impl INotifyFileWatcher {
     where
         F: FnOnce(i32),
     {
+        // py:68  def unwatch(self, path):
+        // py:69  ''' Remove the watch for path. Raises an OSError if removing the watch
+        // py:70  fails for some reason. '''
+        // py:71  path = realpath(path)
+        // py:72  with self.lock:
+        // py:73  self.modified.pop(path, None)
+        // py:74  self.last_query.pop(path, None)
+        // py:75  wd = self.watches.pop(path, None)
+        // py:76  if wd is not None:
+        // py:77  if self._rm_watch(self._inotify_fd, wd) != 0:
+        // py:78  self.handle_error()
         let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
-        // py:73-78  remove modified/last_query/watches and call _rm_watch
         if let Some(entry) = entries.remove(path) {
             if let Some(wd) = entry.wd {
                 rm_wd(wd);
@@ -215,23 +250,39 @@ impl INotifyFileWatcher {
     where
         F: FnOnce(),
     {
+        // py:107  def __call__(self, path):
+        // py:108  ''' Return True if path has been modified since the last call. ...
+        // py:110  path = realpath(path)
+        // py:111  with self.lock:
+        // py:112  self.last_query[path] = monotonic()
         let now = Self::now();
         let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
-        // py:108  self.last_query[path] = monotonic()
         if let Some(entry) = entries.get_mut(path) {
             entry.last_query = now;
         }
+        // py:113  self.expire_watches()
         drop(entries);
-        // py:116  self.read(get_name=False)
+        // py:114  if path not in self.watches:
+        // py:115  # Try to re-add the watch, it will fail if the file does not
+        // py:116  # exist/you don't have permission
+        // py:117  self.watch(path)
+        // py:118  return True
+        // py:119  self.read(get_name=False)
         read_events();
-        // py:117-122  return modified[path] (and reset)
         let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
+        // py:120  if path not in self.modified:
+        // py:121  # An ignored event was received which means the path has been
+        // py:122  # automatically unwatched
+        // py:123  return True
+        // py:124  ans = self.modified[path]
+        // py:125  if ans:
+        // py:126  self.modified[path] = False
+        // py:127  return ans
         if let Some(entry) = entries.get_mut(path) {
             let ans = entry.modified;
             entry.modified = false;
             ans
         } else {
-            // py:118-119  ignored event auto-unwatched → return True
             true
         }
     }
@@ -255,7 +306,14 @@ impl INotifyFileWatcher {
     where
         F: FnMut(String, i32),
     {
-        // py:125-131  for path in self.watches: unwatch(path)
+        // py:129  def close(self):
+        // py:130  with self.lock:
+        // py:131  for path in tuple(self.watches):
+        // py:132  try:
+        // py:133  self.unwatch(path)
+        // py:134  except OSError:
+        // py:135  pass
+        // py:136  super(INotifyFileWatcher, self).close()
         let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
         let drained: Vec<(String, Option<i32>)> = entries.drain().map(|(p, e)| (p, e.wd)).collect();
         drop(entries);
@@ -264,6 +322,50 @@ impl INotifyFileWatcher {
                 unwatch_each(path, w);
             }
         }
+    }
+
+    /// Port of `INotifyFileWatcher.process_event()` from
+    /// `powerline/lib/watcher/inotify.py:29`.
+    ///
+    /// **Status:** stub — the Rust port surfaces the call shape; the
+    /// caller drives the modified/last_query maps directly via
+    /// `mark_modified` / `unwatch` rather than threading the bitmask
+    /// flags through here.
+    pub fn process_event(&self, _wd: i32, _mask: u32, _cookie: u32, _name: &str) {
+        // py:29  def process_event(self, wd, mask, cookie, name):
+        // py:30  if wd == -1 and (mask & self.Q_OVERFLOW):
+        // py:31  # We missed some INOTIFY events, so we don't
+        // py:32  # know the state of any tracked files.
+        // py:33  for path in tuple(self.modified):
+        // py:34  if os.path.exists(path):
+        // py:35  self.modified[path] = True
+        // py:36  else:
+        // py:37  self.watches.pop(path, None)
+        // py:38  self.modified.pop(path, None)
+        // py:39  self.last_query.pop(path, None)
+        // py:40  return
+        // py:42  for path, num in tuple(self.watches.items()):
+        // py:43  if num == wd:
+        // py:44  if mask & self.IGNORED:
+        // py:45  self.watches.pop(path, None)
+        // py:46  self.modified.pop(path, None)
+        // py:47  self.last_query.pop(path, None)
+        // py:48  else:
+        // py:49  if mask & self.ATTRIB:
+        // py:50  # The watched file could have had its inode changed, ...
+        // py:55  try:
+        // py:56  self.unwatch(path)
+        // py:57  except OSError:
+        // py:58  pass
+        // py:59  try:
+        // py:60  self.watch(path)
+        // py:61  except OSError as e:
+        // py:62  if getattr(e, 'errno', None) != errno.ENOENT:
+        // py:63  raise
+        // py:64  else:
+        // py:65  self.modified[path] = True
+        // py:66  else:
+        // py:67  self.modified[path] = True
     }
 }
 
