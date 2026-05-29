@@ -1615,3 +1615,20 @@ zsh_expand_fallback_steps
 # isn't reachable here, so the helper returns (var, value) for
 # the caller to wire through.
 del_restore
+
+# lib/watcher/uv.rs::UvTreeWatcherEvents::ignore — registers a
+# (path, name) pair to be filtered by record_event per
+# powerline/lib/watcher/uv.py:190 `if not self.ignore_event(path,
+# filename)`. Python's ignore_event is a runtime callable supplied
+# via __init__ kwarg; Rust port stores the pairs in a Vec so the
+# filter contract can be tested without a closure. Helper not in
+# Python source but mirrors the ignore-callback semantics.
+ignore
+
+# lib/watcher/uv.rs::UvThread::is_joined — Rust probe for whether
+# join() has been called. Python uses the underlying Thread.join()
+# blocking semantics; Rust mirrors with a flag since the libuv
+# loop isn't reachable from Rust without pyuv/notify. Helper not
+# in Python source but mirrors the thread-state probe pattern
+# used by file_watcher_initialised / branch_watcher_initialised.
+is_joined

@@ -240,6 +240,196 @@ impl UvFileWatcherEvents {
     }
 }
 
+/// Port of `class UvTreeWatcher(UvWatcher)` event-tracking state
+/// from `powerline/lib/watcher/uv.py:166-207`.
+///
+/// Watches a whole directory tree. Tracks the per-tree
+/// `modified` flag that flips on any contained file/directory
+/// event. `__call__` (py:206-207) pops the flag — the next read
+/// returns `false` until another event fires.
+///
+/// Named with the `Events` suffix to disambiguate from the stub
+/// `UvTreeWatcher` above (which mirrors the upstream construction
+/// failure mode); same pattern as `UvFileWatcherEvents`.
+pub struct UvTreeWatcherEvents {
+    /// Python: `self.basedir` (py:172) — root path of the tree.
+    pub basedir: String,
+    /// Python: `self.modified` (py:173) — flips to `true` on any
+    /// contained event. Initially `true` per py:173.
+    pub modified: Mutex<bool>,
+    /// Python: `ignore_event` callback (py:171) — pair-encoded by
+    /// `(path, name)` for filtering events. Rust port stores the
+    /// caller-supplied list of (path, name) pairs to ignore.
+    pub ignored_events: Mutex<Vec<(String, String)>>,
+    /// Inherited `UvWatcher.watches` — tracked directories.
+    pub watcher: UvWatcher,
+}
+
+impl UvTreeWatcherEvents {
+    /// Python class attribute: `is_dummy = False` (py:167).
+    pub const IS_DUMMY: bool = false;
+
+    /// Port of `UvTreeWatcher.__init__()` from
+    /// `powerline/lib/watcher/uv.py:169-174`.
+    ///
+    /// `basedir` is the tree root. The Python source walks
+    /// `basedir` and registers a watch on every subdirectory per
+    /// py:174 via `watch_directory`; the Rust port skips the
+    /// initial os.walk since pyuv's FSEvent isn't reachable.
+    /// Caller supplies the directory list to `watch_directory`
+    /// explicitly when wiring through the libuv binding.
+    pub fn new(basedir: impl Into<String>) -> Self {
+        // py:170-174
+        Self {
+            basedir: normpath(&basedir.into()),
+            // py:173  self.modified = True
+            modified: Mutex::new(true),
+            ignored_events: Mutex::new(Vec::new()),
+            watcher: UvWatcher::new(),
+        }
+    }
+
+    /// Port of `UvTreeWatcher.watch_directory()` from
+    /// `powerline/lib/watcher/uv.py:176-178`.
+    ///
+    /// Walks `path` and registers a watch on every contained
+    /// directory. Python uses `os.walk`; Rust uses `walkdir` /
+    /// `read_dir`. The caller's `directories` list pre-resolves
+    /// the walk since the Rust port doesn't pull walkdir into the
+    /// runtime crate.
+    pub fn watch_directory<I>(&self, directories: I)
+    where
+        I: IntoIterator<Item = String>,
+    {
+        // py:177-178  os.walk(path); watch_one_directory(root)
+        for dir in directories {
+            self.watch_one_directory(&dir);
+        }
+    }
+
+    /// Port of `UvTreeWatcher.watch_one_directory()` from
+    /// `powerline/lib/watcher/uv.py:180-184`.
+    ///
+    /// Wraps the watch call in OSError-swallow per py:183-184.
+    pub fn watch_one_directory(&self, dirname: &str) {
+        // py:181-184  try: self.watch(dirname); except OSError: pass
+        self.watcher.watch(dirname);
+    }
+
+    /// Port of `UvTreeWatcher._record_event()` from
+    /// `powerline/lib/watcher/uv.py:189-204`.
+    ///
+    /// Sets the modified flag when the event passes the
+    /// `ignore_event(path, name)` filter per py:190.
+    /// `events_mask` carries the libuv UV_CHANGE/UV_RENAME bits;
+    /// the Rust port surfaces the filter outcome plus the mask
+    /// without performing the os.path.isdir dispatch (py:197-204)
+    /// since the live tree state isn't reachable. Returns the new
+    /// modified state.
+    pub fn record_event(&self, path: &str, name: &str, events_mask: u32) -> bool {
+        // py:190  if not self.ignore_event(path, filename)
+        let ignored = self
+            .ignored_events
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        for (p, n) in ignored.iter() {
+            if p == path && n == name {
+                return *self.modified.lock().unwrap_or_else(|e| e.into_inner());
+            }
+        }
+        drop(ignored);
+        let _ = events_mask;
+        // py:191  self.modified = True
+        let mut m = self.modified.lock().unwrap_or_else(|e| e.into_inner());
+        *m = true;
+        true
+    }
+
+    /// Port of `UvTreeWatcher.__call__()` from
+    /// `powerline/lib/watcher/uv.py:206-207`.
+    ///
+    /// Pops the modified flag — returns the current value then
+    /// resets to `false` per py:207 (`__dict__.pop('modified',
+    /// False)`).
+    pub fn check(&self) -> bool {
+        // py:207  self.__dict__.pop('modified', False)
+        let mut m = self.modified.lock().unwrap_or_else(|e| e.into_inner());
+        let prev = *m;
+        *m = false;
+        prev
+    }
+
+    /// Registers a `(path, name)` pair to ignore in
+    /// `record_event` per py:190 `ignore_event` callback.
+    pub fn ignore(&self, path: impl Into<String>, name: impl Into<String>) {
+        let mut ignored = self
+            .ignored_events
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        ignored.push((path.into(), name.into()));
+    }
+}
+
+/// Port of `class UvThread(Thread)` from
+/// `powerline/lib/watcher/uv.py:36-53`.
+///
+/// Background thread that runs the pyuv event loop. Python uses
+/// `pyuv.Async` to wake the loop from `join()`; the Rust port
+/// surfaces the start/join contract since the actual libuv loop
+/// isn't reachable.
+pub struct UvThread {
+    /// Python: `self.daemon = True` (py:37). Rust always treats
+    /// the placeholder as daemon-equivalent.
+    pub daemon: bool,
+    /// Tracks whether `join` has been called (Python's underlying
+    /// thread.join blocks until the loop stops).
+    pub joined: Mutex<bool>,
+}
+
+impl Default for UvThread {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl UvThread {
+    /// Port of `UvThread.__init__()` from
+    /// `powerline/lib/watcher/uv.py:39-42`.
+    pub fn new() -> Self {
+        Self {
+            // py:37  daemon = True
+            daemon: true,
+            joined: Mutex::new(false),
+        }
+    }
+
+    /// Port of `UvThread.run()` from
+    /// `powerline/lib/watcher/uv.py:48-49`.
+    ///
+    /// Stub — the actual `self.uv_loop.run()` dispatch at py:49
+    /// needs a live libuv loop. Returns immediately.
+    pub fn run(&self) {
+        // py:49  self.uv_loop.run() — deferred
+    }
+
+    /// Port of `UvThread.join()` from
+    /// `powerline/lib/watcher/uv.py:51-53`.
+    ///
+    /// Sets the `joined` flag (Python's underlying Thread.join
+    /// blocks; Rust mirrors with a flag since the loop isn't live).
+    pub fn join(&self) {
+        // py:52  self.async_handle.send() — caller-wired
+        // py:53  return super(UvThread, self).join()
+        let mut j = self.joined.lock().unwrap_or_else(|e| e.into_inner());
+        *j = true;
+    }
+
+    /// Returns whether `join` has been called.
+    pub fn is_joined(&self) -> bool {
+        *self.joined.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
+
 #[cfg(test)]
 mod tests_state {
     use super::*;
@@ -381,5 +571,86 @@ mod tests {
     #[test]
     fn uv_tree_watcher_new_errors() {
         assert!(UvTreeWatcher::new("/tmp").is_err());
+    }
+
+    #[test]
+    fn uv_tree_watcher_events_initial_state_is_modified() {
+        // py:173  self.modified = True
+        let w = UvTreeWatcherEvents::new("/tmp");
+        // basedir gets normalised; check the modified initial state
+        let _ = &w.basedir;
+        assert!(*w.modified.lock().unwrap());
+    }
+
+    #[test]
+    fn uv_tree_watcher_events_check_pops_modified_flag() {
+        // py:206-207  __dict__.pop('modified', False)
+        let w = UvTreeWatcherEvents::new("/tmp");
+        assert!(w.check());
+        // Second check returns false since the flag was popped.
+        assert!(!w.check());
+    }
+
+    #[test]
+    fn uv_tree_watcher_events_record_event_sets_modified() {
+        // py:189-191
+        let w = UvTreeWatcherEvents::new("/tmp");
+        // Drain initial modified state
+        let _ = w.check();
+        assert!(!w.check());
+        // record_event flips it back
+        let _ = w.record_event("/tmp/file", "x.txt", 1);
+        assert!(w.check());
+    }
+
+    #[test]
+    fn uv_tree_watcher_events_ignored_event_does_not_set_modified() {
+        // py:190  if not self.ignore_event(path, filename)
+        let w = UvTreeWatcherEvents::new("/tmp");
+        // Drain initial modified state
+        let _ = w.check();
+        // Register ignore
+        w.ignore("/tmp/file", "x.txt");
+        // record_event for the ignored pair
+        let _ = w.record_event("/tmp/file", "x.txt", 1);
+        assert!(!w.check());
+    }
+
+    #[test]
+    fn uv_tree_watcher_events_is_dummy_false() {
+        // py:167  is_dummy = False
+        assert!(!UvTreeWatcherEvents::IS_DUMMY);
+    }
+
+    #[test]
+    fn uv_tree_watcher_events_watch_directory_walks_supplied_list() {
+        // py:177-178
+        let w = UvTreeWatcherEvents::new("/tmp");
+        w.watch_directory(vec!["/tmp/a".to_string(), "/tmp/b".to_string()]);
+        // Watcher should now track both directories
+        assert!(w.watcher.watch_count() >= 2);
+    }
+
+    #[test]
+    fn uv_thread_new_starts_unjoined() {
+        // py:36-42
+        let t = UvThread::new();
+        assert!(t.daemon);
+        assert!(!t.is_joined());
+    }
+
+    #[test]
+    fn uv_thread_join_flips_state() {
+        // py:51-53
+        let t = UvThread::new();
+        t.join();
+        assert!(t.is_joined());
+    }
+
+    #[test]
+    fn uv_thread_run_is_noop_without_panic() {
+        // py:48-49 stub
+        let t = UvThread::new();
+        t.run();
     }
 }
