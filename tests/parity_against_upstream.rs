@@ -2192,6 +2192,37 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_strwidth_ucs_2_ascii_only_matches() {
+    if !python_available() {
+        return;
+    }
+    // strwidth_ucs_2 is the UCS-2 surrogate-pair-aware variant. For
+    // ASCII-only input (no surrogate pairs), both ports return the
+    // same width counts as strwidth_ucs_4. Pin that subset.
+    let wd_lit = "{'N': 1, 'Na': 1, 'A': 1, 'H': 1, 'W': 2, 'F': 2}";
+    let cases: &[(&str, usize)] = &[("hello", 5), ("A", 1), ("", 0), ("mix 123", 7), ("    ", 4)];
+    use std::collections::HashMap;
+    let mut wd: HashMap<String, usize> = HashMap::new();
+    for k in ["N", "Na", "A", "H", "W", "F"] {
+        wd.insert(k.to_string(), if matches!(k, "W" | "F") { 2 } else { 1 });
+    }
+    for (input, expected) in cases {
+        let py_expr = format!(
+            "__import__('powerline.lib.unicode', fromlist=['strwidth_ucs_2']).strwidth_ucs_2({wd}, {val:?})",
+            wd = wd_lit, val = input
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_val: usize = py.trim().parse().expect("py non-integer");
+        assert_eq!(py_val, *expected, "Python fixture drift for {:?}", input);
+        let rs = powerliners::lib::unicode::strwidth_ucs_2(&wd, input);
+        assert_eq!(rs, *expected, "Rust strwidth_ucs_2({:?}) mismatch", input);
+    }
+}
+
+#[test]
 fn parity_strwidth_ucs_4_ascii_only_matches() {
     if !python_available() {
         return;
