@@ -336,3 +336,19 @@ start_mark
 # references and uses isinstance(); the Rust trait passes EventKind
 # values and uses an enum match, so .kind() is the projection.
 kind
+
+# marked_any_to_json projects a MarkedAny sum-type back to its
+# serde_json::Value. Python doesn't need this because the marked
+# subclasses (str/int/float/dict/list) inherit from their builtin
+# parents directly, so Python code passes them around as-if-Value.
+# Rust's MarkedAny is a closed enum and needs explicit projection
+# for the construct_yaml_seq / construct_yaml_map re-encode paths.
+marked_any_to_json
+
+# composed_id returns the 'scalar'/'sequence'/'mapping' identifier
+# used by ConstructorError messages. Python relies on `node.id` —
+# a class attribute defined on each Node subclass (ScalarNode.id =
+# 'scalar', etc., at nodes.py:32/49/53). Rust ComposedNode is an
+# enum, so projecting that identifier requires an explicit helper
+# rather than attribute access.
+composed_id

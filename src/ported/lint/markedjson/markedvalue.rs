@@ -197,6 +197,7 @@ impl MarkedValue {
 /// so the dispatch returns the underlying value with the marks
 /// dropped — preserved structurally for callers that own a parallel
 /// mark map).
+#[derive(Debug, Clone)]
 pub enum MarkedAny {
     Unicode(MarkedUnicode),
     Int(MarkedInt),
