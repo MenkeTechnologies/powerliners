@@ -2155,6 +2155,43 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_mergedefaults_preserves_d1_on_overlap() {
+    if !python_available() {
+        return;
+    }
+    // mergedefaults() is the opposite of mergedicts: d1 wins on
+    // overlapping keys, d2 only fills in MISSING keys (recursive).
+    // Verify a nested case where:
+    //   d1.a=1 stays (despite d2.a=99)
+    //   d2.b=2 gets added (d1.b missing)
+    //   d1.nested.y=2 stays (despite d2.nested.y=999)
+    //   d2.nested.z=3 gets added (d1.nested.z missing)
+    let py = match py_eval(
+        "(lambda d1, d2: (__import__('powerline.lib.dict', fromlist=['mergedefaults']).mergedefaults(d1, d2), __import__('json').dumps(d1, sort_keys=True))[1])({'a': 1, 'nested': {'x': 1, 'y': 2}}, {'a': 99, 'b': 2, 'nested': {'y': 999, 'z': 3}})",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+
+    use serde_json::json;
+    let mut d1 = json!({"a": 1, "nested": {"x": 1, "y": 2}})
+        .as_object()
+        .unwrap()
+        .clone();
+    let d2 = json!({"a": 99, "b": 2, "nested": {"y": 999, "z": 3}})
+        .as_object()
+        .unwrap()
+        .clone();
+    powerliners::lib::dict::mergedefaults(&mut d1, d2);
+    assert_eq!(
+        py_value,
+        serde_json::Value::Object(d1),
+        "mergedefaults nested overlap mismatch"
+    );
+}
+
+#[test]
 fn parity_parse_value_handles_floats_and_negatives() {
     if !python_available() {
         return;
