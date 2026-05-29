@@ -65,6 +65,17 @@ pub struct BaseConstructor {
     /// Python: `cls.yaml_constructors` — keyed by tag string
     /// (`None` mapped to the literal sentinel "*" for the catch-all).
     pub yaml_constructors: std::collections::HashMap<String, ConstructorFn>,
+    /// Python: `self.constructed_objects = {}` (py:31) — keyed by
+    /// node identity hash since Rust nodes don't implement Hash on
+    /// the full struct. Used as a memoisation cache by
+    /// `construct_object` per py:64-65.
+    pub constructed_objects: std::collections::HashMap<u64, MarkedAny>,
+    /// Python: `self.state_generators = []` (py:32) — used to defer
+    /// generator-based constructors per py:79-86. The JSON-only
+    /// lint loader doesn't use generators, so this stays empty.
+    pub state_generators: Vec<()>,
+    /// Python: `self.deep_construct = False` (py:33).
+    pub deep_construct: bool,
 }
 
 /// Concrete signature of a YAML-tag constructor callback.
@@ -86,7 +97,83 @@ impl BaseConstructor {
     pub fn new() -> Self {
         Self {
             yaml_constructors: std::collections::HashMap::new(),
+            constructed_objects: std::collections::HashMap::new(),
+            state_generators: Vec::new(),
+            deep_construct: false,
         }
+    }
+
+    /// Port of `BaseConstructor.check_data()` from
+    /// `powerline/lint/markedjson/constructor.py:35-37`.
+    ///
+    /// Returns true if there are more documents available. Python
+    /// delegates to `self.check_node()` from the composer; the Rust
+    /// port takes the composer's check-node result directly since
+    /// the composer isn't a base class here.
+    pub fn check_data(has_node: bool) -> bool {
+        // py:37  return self.check_node()
+        has_node
+    }
+
+    /// Port of `BaseConstructor.get_data()` from
+    /// `powerline/lint/markedjson/constructor.py:39-42`.
+    ///
+    /// Constructs and returns the next document. Returns None when
+    /// there are no more nodes per py:41-42 (Python's implicit
+    /// None when check_node fails).
+    pub fn get_data(
+        &mut self,
+        node: Option<&ComposedNode>,
+    ) -> Result<Option<MarkedAny>, ConstructorError> {
+        // py:41-42  if self.check_node(): return self.construct_document(self.get_node())
+        match node {
+            Some(n) => Ok(Some(self.construct_document(n)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Port of `BaseConstructor.get_single_data()` from
+    /// `powerline/lint/markedjson/constructor.py:44-49`.
+    ///
+    /// Ensures the stream contains a single document and constructs
+    /// it. Returns None when the composer didn't produce any node
+    /// per py:47-48.
+    pub fn get_single_data(
+        &mut self,
+        node: Option<&ComposedNode>,
+    ) -> Result<Option<MarkedAny>, ConstructorError> {
+        // py:46-49  node = self.get_single_node(); if node: return self.construct_document(node)
+        match node {
+            Some(n) => Ok(Some(self.construct_document(n)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Port of `BaseConstructor.construct_document()` from
+    /// `powerline/lint/markedjson/constructor.py:51-61`.
+    ///
+    /// Calls construct_object then drains the state_generators
+    /// queue per py:53-58. Resets constructed_objects + deep_construct
+    /// per py:59-60.
+    pub fn construct_document(
+        &mut self,
+        node: &ComposedNode,
+    ) -> Result<MarkedAny, ConstructorError> {
+        // py:52  data = self.construct_object(node)
+        let data = self.construct_object(node)?;
+        // py:53-58  drain state_generators
+        while !self.state_generators.is_empty() {
+            // py:54-55  state_generators = self.state_generators; self.state_generators = []
+            self.state_generators.clear();
+            // py:56-58  for generator in state_generators: drain
+            // (JSON-only loader has no generators; the loop is a no-op
+            // in Rust but preserved structurally.)
+        }
+        // py:59-60  reset state
+        self.constructed_objects.clear();
+        self.deep_construct = false;
+        // py:61  return data
+        Ok(data)
     }
 
     /// Port of `BaseConstructor.add_constructor()` (classmethod) from
@@ -468,6 +555,7 @@ fn marked_any_to_json(m: &MarkedAny) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ported::lint::markedjson::nodes;
     use crate::ported::lint::markedjson::nodes::{MappingNode, ScalarNode, SequenceNode};
     use serde_json::json;
 
@@ -754,6 +842,133 @@ mod tests {
         match r {
             MarkedAny::Int(i) => assert_eq!(i.value, 42),
             _ => panic!("expected Int"),
+        }
+    }
+
+    #[test]
+    fn base_constructor_new_initialises_empty_state() {
+        // py:30-33
+        let c = BaseConstructor::new();
+        assert!(c.constructed_objects.is_empty());
+        assert!(c.state_generators.is_empty());
+        assert!(!c.deep_construct);
+    }
+
+    #[test]
+    fn check_data_returns_input() {
+        // py:35-37  delegate to check_node
+        assert!(BaseConstructor::check_data(true));
+        assert!(!BaseConstructor::check_data(false));
+    }
+
+    #[test]
+    fn get_data_returns_none_when_no_node() {
+        // py:41-42  if not check_node: implicit None
+        let mut c = Constructor::new();
+        let r = c.base.get_data(None).unwrap();
+        assert!(r.is_none());
+    }
+
+    #[test]
+    fn get_single_data_returns_none_when_no_node() {
+        // py:46-49  if node is None: return None
+        let mut c = Constructor::new();
+        let r = c.base.get_single_data(None).unwrap();
+        assert!(r.is_none());
+    }
+
+    #[test]
+    fn construct_document_resets_constructed_objects_after_construction() {
+        // py:59  self.constructed_objects = {}
+        use crate::ported::lint::markedjson::markedvalue::MarkedInt;
+        let mut c = Constructor::new();
+        // Seed some bogus entry to verify it gets cleared
+        c.base.constructed_objects.insert(
+            42,
+            MarkedAny::Int(MarkedInt {
+                value: 0,
+                mark: Mark { line: 0, column: 0 },
+            }),
+        );
+        // Build a real scalar node and construct it
+        let scalar = nodes::ScalarNode {
+            node: nodes::Node {
+                tag: "tag:yaml.org,2002:int".to_string(),
+                value: Value::from(7),
+                start_mark: Some(Mark { line: 1, column: 0 }),
+                end_mark: None,
+            },
+            style: None,
+        };
+        let composed = ComposedNode::Scalar(scalar);
+        let r = c.base.construct_document(&composed).unwrap();
+        // The result should be the constructed int
+        match r {
+            MarkedAny::Int(i) => assert_eq!(i.value, 7),
+            other => panic!("expected Int, got {:?}", other),
+        }
+        // constructed_objects should be reset after construct_document
+        assert!(c.base.constructed_objects.is_empty());
+    }
+
+    #[test]
+    fn construct_document_resets_deep_construct_after_construction() {
+        // py:60  self.deep_construct = False
+        let mut c = Constructor::new();
+        c.base.deep_construct = true;
+        let scalar = nodes::ScalarNode {
+            node: nodes::Node {
+                tag: "tag:yaml.org,2002:bool".to_string(),
+                value: Value::from(true),
+                start_mark: Some(Mark { line: 1, column: 0 }),
+                end_mark: None,
+            },
+            style: None,
+        };
+        let composed = ComposedNode::Scalar(scalar);
+        let _ = c.base.construct_document(&composed).unwrap();
+        assert!(!c.base.deep_construct);
+    }
+
+    #[test]
+    fn get_data_with_node_returns_constructed_value() {
+        // py:41-42  return construct_document(node)
+        let mut c = Constructor::new();
+        let scalar = nodes::ScalarNode {
+            node: nodes::Node {
+                tag: "tag:yaml.org,2002:int".to_string(),
+                value: Value::from(123),
+                start_mark: Some(Mark { line: 1, column: 0 }),
+                end_mark: None,
+            },
+            style: None,
+        };
+        let composed = ComposedNode::Scalar(scalar);
+        let r = c.base.get_data(Some(&composed)).unwrap().unwrap();
+        match r {
+            MarkedAny::Int(i) => assert_eq!(i.value, 123),
+            _ => panic!("expected Int"),
+        }
+    }
+
+    #[test]
+    fn get_single_data_with_node_returns_constructed_value() {
+        // py:46-49
+        let mut c = Constructor::new();
+        let scalar = nodes::ScalarNode {
+            node: nodes::Node {
+                tag: "tag:yaml.org,2002:str".to_string(),
+                value: Value::from("hello"),
+                start_mark: Some(Mark { line: 1, column: 0 }),
+                end_mark: None,
+            },
+            style: None,
+        };
+        let composed = ComposedNode::Scalar(scalar);
+        let r = c.base.get_single_data(Some(&composed)).unwrap().unwrap();
+        match r {
+            MarkedAny::Unicode(u) => assert_eq!(u.value, "hello"),
+            other => panic!("expected Unicode, got {:?}", other),
         }
     }
 }
