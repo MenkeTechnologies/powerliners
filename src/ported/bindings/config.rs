@@ -337,6 +337,43 @@ pub fn deduce_command() -> Option<String> {
     check_command(&p.to_string_lossy())
 }
 
+/// Port of the inner `set_tmux_environment_nosource()` closure at
+/// `powerline/bindings/config.py:186-187` (inside `tmux_setup`).
+///
+/// Records the (varname, value) pair into the tmux-environ map
+/// without emitting a `tmux setenv` call. Python's `remove` arg is
+/// ignored (the Python closure ignores it too — see py:186); the
+/// map mutation is the only observable effect.
+///
+/// Python captures `tmux_environ` from the outer `tmux_setup` scope;
+/// the Rust port takes it as a `&mut` argument.
+pub fn set_tmux_environment_nosource(
+    tmux_environ: &mut std::collections::HashMap<String, String>,
+    varname: &str,
+    value: &str,
+    _remove: bool,
+) {
+    // py:186  def set_tmux_environment_nosource(varname, value, remove=True):
+    // py:187  tmux_environ[varname] = value
+    tmux_environ.insert(varname.to_string(), value.to_string());
+}
+
+/// Port of the inner `replace_cb()` closure at
+/// `powerline/bindings/config.py:189-190` (inside `tmux_setup`).
+///
+/// Python's regex-callback: returns the value stored in
+/// `tmux_environ` for the captured variable name. Surfaced here as a
+/// free fn so the lookup behaviour is independently testable from
+/// [`replace_env`] (which uses it as an inline closure).
+pub fn replace_cb(
+    tmux_environ: &std::collections::HashMap<String, String>,
+    capture: &str,
+) -> Option<String> {
+    // py:189  def replace_cb(match):
+    // py:190  return tmux_environ[match.group(1)]
+    tmux_environ.get(capture).cloned()
+}
+
 /// Port of the inline `replace_env()` closure at
 /// `powerline/bindings/config.py:189-193` (inside `tmux_setup`).
 ///
@@ -528,6 +565,120 @@ pub fn uses_component_exit_code(
 pub fn shell_command() -> Option<String> {
     // py:265  cmd = deduce_command()
     deduce_command()
+}
+
+/// Port of `get_main_config()` from
+/// `powerline/bindings/config.py:218-221`.
+///
+/// Returns the parsed `config.json` Map. Python uses
+/// `generate_config_finder()` + `ConfigLoader(run_once=True)` +
+/// `load_config('config', ...)`. Rust callers route the file-loading
+/// through a closure since the upstream config_finder /
+/// load_config / ConfigLoader chain depends on the Powerline class
+/// orchestrator.
+///
+/// `load_fn` is the caller-supplied loader (e.g.
+/// `crate::ported::lib::config::load_json_config`) invoked on the
+/// first `config.json` found under one of the search paths.
+pub fn get_main_config<F>(
+    search_paths: &[std::path::PathBuf],
+    load_fn: F,
+) -> Result<serde_json::Map<String, serde_json::Value>, String>
+where
+    F: Fn(&std::path::Path) -> Result<serde_json::Value, String>,
+{
+    // py:219  find_config_files = generate_config_finder()
+    // py:220  config_loader = ConfigLoader(run_once=True)
+    // py:221  return load_config('config', find_config_files, config_loader)
+    for root in search_paths {
+        let candidate = root.join("config.json");
+        if candidate.is_file() {
+            match load_fn(&candidate) {
+                Ok(v) => {
+                    if let serde_json::Value::Object(m) = v {
+                        return Ok(m);
+                    } else {
+                        return Err(format!("{} root is not a JSON object", candidate.display()));
+                    }
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+    Err(format!(
+        "Could not find config.json in any of {} search paths",
+        search_paths.len()
+    ))
+}
+
+/// Port of `create_powerline_logger()` from
+/// `powerline/bindings/config.py:224-228`.
+///
+/// Returns the PowerlineLogger handle constructed from the loaded
+/// main config. Python flow:
+///   - py:225  `config = get_main_config(args)`
+///   - py:226  `common_config = finish_common_config(...)`
+///   - py:227  `logger, pl, get_module_attr = create_logger(...)`
+///   - py:228  `return pl`
+///
+/// `main_config` is the result of [`get_main_config`]. Returns the
+/// logger directly so callers don't have to unpack the 3-tuple
+/// Python returns at py:227.
+pub fn create_powerline_logger(
+    main_config: &serde_json::Map<String, serde_json::Value>,
+) -> crate::ported::PowerlineLogger {
+    // py:225  config = get_main_config(args)
+    // py:226  common_config = finish_common_config(get_preferred_output_encoding(), config['common'])
+    let empty = serde_json::Map::new();
+    let common_in = main_config
+        .get("common")
+        .and_then(|v| v.as_object())
+        .unwrap_or(&empty);
+    let common = crate::ported::finish_common_config("utf-8", common_in);
+    // py:227  logger, pl, get_module_attr = create_logger(common_config)
+    crate::ported::create_logger(&common, "")
+    // py:228  return pl
+}
+
+/// Port of `uses()` from
+/// `powerline/bindings/config.py:272-286`.
+///
+/// Dispatch entrypoint for the `powerline-config tmux uses <component>`
+/// CLI. Returns the exit code: 0 when the component is used,
+/// 1 otherwise. Python uses `sys.exit(N)` directly; the Rust port
+/// returns the exit code so callers can route to their own
+/// process-exit primitive.
+///
+/// `component` is the component name (must be non-empty per
+/// py:274-275). `shell` is the optional --shell argument.
+/// `environ` is the process environment dispatched through
+/// [`uses_check_env_vars`]. `config_components` is the resolved
+/// `ext.shell.components` value from the main config (defaults to
+/// `('tmux', 'prompt')` per py:283).
+///
+/// Returns:
+///   - `Err("...")` when component is empty (Python ValueError)
+///   - `Ok(1)` when the env-var or component-check says "not used"
+///   - `Ok(0)` when the component is listed in config_components
+pub fn uses(
+    component: &str,
+    shell: Option<&str>,
+    environ: &std::collections::HashMap<String, String>,
+    main_config: &serde_json::Map<String, serde_json::Value>,
+) -> Result<i32, String> {
+    // py:273  component = args.component
+    // py:274  if not component:
+    if component.is_empty() {
+        // py:275  raise ValueError('Must specify component')
+        return Err("Must specify component".to_string());
+    }
+    // py:276-281  for sh in (shell, 'shell') if shell else ('shell',):
+    if uses_check_env_vars(component, shell, environ) {
+        // py:281  sys.exit(1)
+        return Ok(1);
+    }
+    // py:282-286  config.ext.shell.components membership
+    Ok(uses_component_exit_code(main_config, component))
 }
 
 #[cfg(test)]
@@ -796,5 +947,90 @@ mod tests {
         // Just verify the call succeeds and returns the same value
         // as deduce_command (Option shape preserved).
         assert_eq!(shell_command(), deduce_command());
+    }
+
+    #[test]
+    fn set_tmux_environment_nosource_inserts_entry() {
+        // py:186-187  tmux_environ[varname] = value
+        let mut env = std::collections::HashMap::new();
+        set_tmux_environment_nosource(&mut env, "_POWERLINE_X", "y", true);
+        assert_eq!(env.get("_POWERLINE_X"), Some(&"y".to_string()));
+    }
+
+    #[test]
+    fn replace_cb_returns_value_for_known_key() {
+        // py:189-190
+        let mut env = std::collections::HashMap::new();
+        env.insert("_POWERLINE_FG".to_string(), "white".to_string());
+        assert_eq!(replace_cb(&env, "_POWERLINE_FG"), Some("white".to_string()));
+        assert!(replace_cb(&env, "_POWERLINE_BG").is_none());
+    }
+
+    #[test]
+    fn get_main_config_returns_err_when_no_config_found() {
+        // py:218-221  no config.json in any search path → err
+        let r = get_main_config(&[std::path::PathBuf::from("/nonexistent_xxx")], |_| {
+            unreachable!()
+        });
+        assert!(r.is_err());
+        assert!(r.unwrap_err().contains("Could not find config.json"));
+    }
+
+    #[test]
+    fn get_main_config_returns_loaded_object() {
+        // py:218-221
+        let tmp = std::env::temp_dir().join("powerliners_test_get_main_config");
+        std::fs::create_dir_all(&tmp).unwrap();
+        std::fs::write(
+            tmp.join("config.json"),
+            r#"{"common":{},"ext":{}}"#,
+        )
+        .unwrap();
+        let r = get_main_config(&[tmp.clone()], |path| {
+            let s = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+            serde_json::from_str(&s).map_err(|e| e.to_string())
+        });
+        assert!(r.is_ok());
+        let obj = r.unwrap();
+        assert!(obj.contains_key("common"));
+        assert!(obj.contains_key("ext"));
+        std::fs::remove_dir_all(&tmp).ok();
+    }
+
+    #[test]
+    fn uses_requires_non_empty_component() {
+        // py:274-275  raise ValueError
+        let env = std::collections::HashMap::new();
+        let cfg = serde_json::Map::new();
+        let r = uses("", Some("zsh"), &env, &cfg);
+        assert!(r.is_err());
+        assert_eq!(r.unwrap_err(), "Must specify component");
+    }
+
+    #[test]
+    fn uses_returns_1_when_env_var_set() {
+        // py:281
+        let mut env = std::collections::HashMap::new();
+        env.insert("POWERLINE_NO_ZSH_TMUX".to_string(), "1".to_string());
+        let cfg = serde_json::Map::new();
+        assert_eq!(uses("tmux", Some("zsh"), &env, &cfg).unwrap(), 1);
+    }
+
+    #[test]
+    fn uses_returns_0_when_component_in_default_components() {
+        // py:283-284  default ('tmux', 'prompt')
+        let env = std::collections::HashMap::new();
+        let cfg = serde_json::Map::new();
+        assert_eq!(uses("tmux", None, &env, &cfg).unwrap(), 0);
+        assert_eq!(uses("prompt", None, &env, &cfg).unwrap(), 0);
+        assert_eq!(uses("nonexistent", None, &env, &cfg).unwrap(), 1);
+    }
+
+    #[test]
+    fn create_powerline_logger_constructs_logger() {
+        // py:224-228
+        let cfg = serde_json::Map::new();
+        let _logger = create_powerline_logger(&cfg);
+        // No panic = pass.
     }
 }
