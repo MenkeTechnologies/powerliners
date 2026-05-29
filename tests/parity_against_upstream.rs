@@ -821,6 +821,65 @@ fn parity_urllib_urlencode() {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// lib/config.py — load_json_config
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_load_json_config_basic() {
+    if !python_available() {
+        return;
+    }
+    let mut tmp = std::env::temp_dir();
+    tmp.push(format!(
+        "powerliners-parity-config-{}-{}.json",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::write(
+        &tmp,
+        r#"{"theme": "default", "ext": {"shell": {"theme": "default"}}}"#,
+    )
+    .unwrap();
+
+    let path_str = tmp.to_string_lossy();
+    let py_script = format!(
+        "import json, sys, os\n\
+         sys.path.insert(0, os.environ['PL_VENDOR'])\n\
+         from powerline.lib.config import load_json_config\n\
+         print(json.dumps(load_json_config({:?}), sort_keys=True))",
+        path_str
+    );
+    let vendor = repo_root().join("vendor").join("powerline");
+    if !vendor.exists() {
+        std::fs::remove_file(&tmp).ok();
+        return;
+    }
+    let py_out = std::process::Command::new("python3")
+        .env("PL_VENDOR", vendor.to_string_lossy().as_ref())
+        .arg("-c")
+        .arg(&py_script)
+        .output();
+    let py_str = match py_out {
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).trim_end().to_string(),
+        _ => {
+            std::fs::remove_file(&tmp).ok();
+            return;
+        }
+    };
+    let py_json: serde_json::Value = serde_json::from_str(&py_str).unwrap();
+    let rs_json = powerliners::lib::config::load_json_config(&tmp).unwrap();
+    assert_eq!(
+        py_json, rs_json,
+        "load_json_config mismatch:\n  py: {}\n  rs: {}",
+        py_str, rs_json
+    );
+    std::fs::remove_file(&tmp).ok();
+}
+
 #[test]
 fn parity_version_get_version_falls_back_to_constant() {
     if !python_available() {
