@@ -535,6 +535,94 @@ pub fn setup_entry() -> ZshPowerline {
     ZshPowerline::new()
 }
 
+/// Port of `setup()` from
+/// `powerline/bindings/zsh/__init__.py:222-225`.
+///
+/// Bare-name alias for [`setup_entry`] preserving the upstream
+/// Python `setup` identifier byte-for-byte. The `_entry` suffix
+/// on the primary fn disambiguates from `Args::setup_components`
+/// and other `setup` identifiers across the binding stack.
+pub fn setup(_zsh_globals: Option<&Map<String, Value>>) -> ZshPowerline {
+    // py:222  def setup(zsh_globals):
+    setup_entry()
+}
+
+/// Port of `Args.config_override` @property from
+/// `powerline/bindings/zsh/__init__.py:43-46`.
+///
+/// Bare-name alias for [`args_config_override`] preserving the
+/// upstream Python `config_override` property name byte-for-byte.
+pub fn config_override(value: Option<Value>) -> Option<Map<String, Value>> {
+    args_config_override(value)
+}
+
+/// Port of `Args.theme_override` @property from
+/// `powerline/bindings/zsh/__init__.py:47-50`.
+///
+/// Bare-name alias for [`args_theme_override`].
+pub fn theme_override(value: Option<Value>) -> Option<Map<String, Value>> {
+    args_theme_override(value)
+}
+
+/// Port of `Args.config_path` @property from
+/// `powerline/bindings/zsh/__init__.py:51-66`.
+///
+/// Bare-name alias for [`args_config_path`].
+pub fn config_path(value: Option<Value>) -> Option<Vec<String>> {
+    args_config_path(value)
+}
+
+/// Port of `Args.jobnum` @property from
+/// `powerline/bindings/zsh/__init__.py:69-72`.
+///
+/// Bare-name alias for [`args_jobnum`].
+pub fn jobnum(value: Option<i32>) -> Option<i32> {
+    args_jobnum(value)
+}
+
+/// Port of `zsh_expand()` from
+/// `powerline/bindings/zsh/__init__.py:108-114`.
+///
+/// Returns the zsh-evaluated expansion of `s`. Python dispatches
+/// through `zsh.expand` (when available) or the 4-step fallback.
+/// Rust port surfaces the bare-name entry; the actual dispatch
+/// happens via [`zsh_expand_fallback_steps`] when callers route
+/// through their zsh-RPC bridge.
+pub fn zsh_expand(s: &str) -> (String, &'static str, &'static str, Option<String>) {
+    // py:108  if hasattr(zsh, 'expand'):
+    // py:109  zsh_expand = zsh.expand
+    // py:110-114  else: 4-step local-var fallback
+    zsh_expand_fallback_steps(s)
+}
+
+/// Port of `ZshPowerline.init()` from
+/// `powerline/bindings/zsh/__init__.py:118-128`.
+///
+/// Records ext='shell' + renderer_module='.zsh' on the
+/// powerline instance. Rust port returns the configured
+/// ZshPowerline (Args::ext and Args::renderer_module values are
+/// the module-level constants checked at construction).
+pub fn init() -> ZshPowerline {
+    // py:118  def init(self, **kwargs):
+    // py:119-128  super().init(ext='shell', renderer_module='.zsh', ...)
+    ZshPowerline::new()
+}
+
+/// Port of `set_prompt()` from
+/// `powerline/bindings/zsh/__init__.py:199-209`.
+///
+/// Constructs a Prompt instance and registers the (zpyvar,
+/// psvar) pair with zsh. Rust port can't reach `zsh.setvalue` /
+/// `zsh.set_special_string`; returns the resolved zpyvar name +
+/// the new psvar template so the caller dispatches.
+pub fn set_prompt(psvar: &str) -> (String, String) {
+    // py:204  zpyvar = 'ZPYTHON_POWERLINE_' + psvar
+    let zpyvar = set_prompt_zpyvar_name(psvar);
+    // py:208  zsh.setvalue(psvar, '${' + zpyvar + '}')
+    let new_psvar = format!("${{{}}}", zpyvar);
+    (zpyvar, new_psvar)
+}
+
 /// Port of `reload()` from
 /// `powerline/bindings/zsh/__init__.py:206`.
 ///
