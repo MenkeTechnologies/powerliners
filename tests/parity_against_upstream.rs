@@ -2192,6 +2192,59 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_non_printable_re_full_truth_table() {
+    if !python_available() {
+        return;
+    }
+    // NON_PRINTABLE_RE truth table — verify Rust matches Python's
+    // spec.py translate semantics (port bug fix).
+    let cases: &[(u32, bool)] = &[
+        (0x07, true), // BEL
+        (0x08, true), // BS
+        (0x09, true), // TAB — Python REMOVES from allow-list → matches
+        (0x0A, true), // LF — same
+        (0x0B, true),
+        (0x0C, true),
+        (0x0D, true), // CR — also matches
+        (0x0E, true),
+        (0x1F, true),
+        (0x20, false), // space — printable
+        (0x7E, false), // ~ — printable
+        (0x7F, true),  // DEL
+        (0x80, true),
+        (0x85, true), // NEXT LINE
+        (0x9F, true),
+        (0xA0, false), // non-breaking space — printable
+    ];
+    use powerliners::lint::spec::NON_PRINTABLE_RE;
+    let rs_re = NON_PRINTABLE_RE();
+    for (code, expected) in cases {
+        let ch = char::from_u32(*code).unwrap();
+        let s: String = std::iter::once(ch).collect();
+        let py_expr = format!(
+            "bool(__import__('powerline.lint.spec', fromlist=['NON_PRINTABLE_RE']).NON_PRINTABLE_RE.search(chr({})))",
+            code
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_val = py.trim() == "True";
+        assert_eq!(
+            py_val, *expected,
+            "Python NON_PRINTABLE_RE fixture drift for U+{:04X}",
+            code
+        );
+        let rs_val = rs_re.is_match(&s);
+        assert_eq!(
+            rs_val, *expected,
+            "Rust NON_PRINTABLE_RE match for U+{:04X} should be {}",
+            code, expected
+        );
+    }
+}
+
+#[test]
 fn parity_spec_unsigned_chains_type_and_nonnegative_check() {
     if !python_available() {
         return;
