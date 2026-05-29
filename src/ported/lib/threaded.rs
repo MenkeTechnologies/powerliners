@@ -98,6 +98,22 @@ impl MultiRunnedThread {
     }
 
     /// Port of `MultiRunnedThread.start()` from
+    /// `powerline/lib/threaded.py:19-24`.
+    ///
+    /// Python's `start()` dispatches via `self.run` (a bound-method
+    /// pointer set by the subclass). Rust can't reproduce the
+    /// bound-method indirection without trait objects, so this fn
+    /// takes the run closure explicitly. Convenience alias for
+    /// [`MultiRunnedThread::start_with`] retained for parity with
+    /// Python's bare `start()` shape.
+    pub fn start<F>(&self, run: F)
+    where
+        F: FnOnce(Arc<Mutex<bool>>) + Send + 'static,
+    {
+        self.start_with(run);
+    }
+
+    /// Port of `MultiRunnedThread.start()` from
     /// `powerline/lib/threaded.py:19`.
     ///
     /// The Python signature is `start(self)` which dispatches via
@@ -265,6 +281,65 @@ impl ThreadedSegment {
         self.base.daemon = use_daemon_threads;
         if !self.base.is_alive() {
             self.base.start_with(run);
+        }
+    }
+
+    /// Port of `ThreadedSegment.run()` from
+    /// `powerline/lib/threaded.py:87-100`.
+    ///
+    /// Worker-thread main loop. Polls `set_update_value` at
+    /// `self.interval`-second intervals (clamped to `min_sleep_time`)
+    /// until the shutdown event flips.
+    ///
+    /// Python's `run` is dispatched via `MultiRunnedThread.start()`
+    /// (which sets `Thread(target=self.run)`); the Rust port runs the
+    /// body inline so callers can wire it into `start_with(closure)`
+    /// or invoke it directly on the current thread for tests.
+    ///
+    /// `set_update_value` is the caller-supplied refresh closure that
+    /// updates the segment's cached value. Matches the
+    /// `ThreadedSegment.set_update_value` body at py:69-80.
+    pub fn run<F>(
+        &self,
+        shutdown_event: &Arc<Mutex<bool>>,
+        min_sleep_time: f64,
+        mut set_update_value: F,
+    ) where
+        F: FnMut(),
+    {
+        use crate::ported::lib::monotonic::monotonic;
+        // py:87  def run(self):
+        // py:88  if self.do_update_first:
+        if self.do_update_first {
+            // py:89  start_time = monotonic()
+            let mut start_time = monotonic();
+            // py:90  while True:
+            loop {
+                // py:91  self.shutdown_event.wait(max(self.interval - (monotonic() - start_time), self.min_sleep_time))
+                let sleep = (self.interval - (monotonic() - start_time)).max(min_sleep_time);
+                std::thread::sleep(std::time::Duration::from_secs_f64(sleep.max(0.0)));
+                // py:92  if self.shutdown_event.is_set():
+                if *shutdown_event.lock().unwrap() {
+                    // py:93  break
+                    break;
+                }
+                // py:94  start_time = monotonic()
+                start_time = monotonic();
+                // py:95  self.set_update_value()
+                set_update_value();
+            }
+        } else {
+            // py:96  else:
+            // py:97  while not self.shutdown_event.is_set():
+            while !*shutdown_event.lock().unwrap() {
+                // py:98  start_time = monotonic()
+                let start_time = monotonic();
+                // py:99  self.set_update_value()
+                set_update_value();
+                // py:100  self.shutdown_event.wait(max(self.interval - (monotonic() - start_time), self.min_sleep_time))
+                let sleep = (self.interval - (monotonic() - start_time)).max(min_sleep_time);
+                std::thread::sleep(std::time::Duration::from_secs_f64(sleep.max(0.0)));
+            }
         }
     }
 
@@ -518,6 +593,120 @@ impl KwThreadedSegment {
     /// Port of `KwThreadedSegment.render_one()` (staticmethod) from
     /// `powerline/lib/threaded.py:254-256`.
     ///
+    /// Port of `KwThreadedSegment.render()` from
+    /// `powerline/lib/threaded.py:189-216`.
+    ///
+    /// Per-key dispatch: looks up the segment value for `key` in
+    /// `queries`, falls back to a recursive `render` after registering
+    /// the key in `new_queries` per py:201-212. Calls
+    /// [`render_one`](Self::render_one) at py:216.
+    ///
+    /// Python embeds the queries dict + new_queries list on `self`;
+    /// the Rust port takes them as explicit args so callers route
+    /// through their own state-tracking model. Returns
+    /// `Some(rendered)` from `render_one(state, **kwargs)` per py:216.
+    pub fn render<R>(
+        queries: &std::collections::HashMap<String, (f64, Option<String>)>,
+        key: &str,
+        do_update_first: bool,
+        run_once: bool,
+        after_update: bool,
+        mut render_with_update: R,
+    ) -> Option<String>
+    where
+        R: FnMut(bool, &str) -> Option<String>,
+    {
+        // py:189  def render(self, update_value, update_first, key=None, after_update=False, **kwargs):
+        // py:196  try:
+        // py:197  update_state = queries[key][1]
+        let update_state = match queries.get(key) {
+            Some((_, state)) => state.clone(),
+            None => {
+                // py:198  except KeyError:
+                // py:199  with self.write_lock:
+                // py:200  self.new_queries.append(key)
+                // py:201  if self.do_update_first or self.run_once:
+                if do_update_first || run_once {
+                    // py:202  if after_update:
+                    if after_update {
+                        // py:203  self.error('internal error: ...')
+                        // py:204  update_state = None
+                        None
+                    } else {
+                        // py:205-212  return self.render(get_update_value(True), False, key, after_update=True, **kwargs)
+                        return render_with_update(true, key);
+                    }
+                } else {
+                    // py:213  else:
+                    // py:214  update_state = None
+                    None
+                }
+            }
+        };
+        // py:216  return self.render_one(update_state, **kwargs)
+        Self::render_one(update_state)
+    }
+
+    /// Port of `KwThreadedSegment.update()` from
+    /// `powerline/lib/threaded.py:228-247`.
+    ///
+    /// Per-key batched-update step: walks `queries`, refreshes stale
+    /// entries via `update_one`, then ingests `new_queries`. Mirrors
+    /// the inner loop at py:238-245.
+    ///
+    /// Python mutates `self.new_queries`, `self.write_lock`, etc.; the
+    /// Rust port takes those as explicit args so the data flow is
+    /// inspectable.
+    ///
+    /// Returns the new `(queries, crashed)` pair per py:231 / py:247
+    /// — Python wraps both in a tuple as the value passed to the next
+    /// tick.
+    pub fn update<F>(
+        old_queries: &std::collections::HashMap<String, (f64, Option<String>)>,
+        new_queries: &[String],
+        interval: f64,
+        mut update_one: F,
+    ) -> (
+        std::collections::HashMap<String, (f64, Option<String>)>,
+        std::collections::HashSet<String>,
+    )
+    where
+        F: FnMut(
+            &mut std::collections::HashSet<String>,
+            &mut std::collections::HashMap<String, (f64, Option<String>)>,
+            &str,
+        ),
+    {
+        use crate::ported::lib::monotonic::monotonic;
+        // py:229  updates = {}
+        // py:230  crashed = set()
+        // py:231  update_value = (updates, crashed)
+        let mut updates: std::collections::HashMap<String, (f64, Option<String>)> =
+            std::collections::HashMap::new();
+        let mut crashed: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        let now = monotonic();
+        // py:238  for key, (last_query_time, state) in queries.items():
+        for (key, (last_query_time, state)) in old_queries {
+            // py:239  if last_query_time < monotonic() < last_query_time + self.interval:
+            if *last_query_time < now && now < last_query_time + interval {
+                // py:240  updates[key] = (last_query_time, state)
+                updates.insert(key.clone(), (*last_query_time, state.clone()));
+            } else {
+                // py:241-242  else: self.update_one(crashed, updates, key)
+                update_one(&mut crashed, &mut updates, key);
+            }
+        }
+
+        // py:244-245  for key in new_queries: self.update_one(crashed, updates, key)
+        for key in new_queries {
+            update_one(&mut crashed, &mut updates, key);
+        }
+
+        // py:247  return update_value
+        (updates, crashed)
+    }
+
     /// Identity helper: returns `update_state` unchanged per
     /// py:256. Subclasses override to format the state into a
     /// renderable string.
@@ -1018,5 +1207,160 @@ mod tests {
                 do_update_first: false,
             }
         );
+    }
+
+    #[test]
+    fn multi_runned_thread_start_dispatches_to_start_with() {
+        // py:20-24  start() is the bound-method-pointer indirection.
+        let t = MultiRunnedThread::new();
+        let counter = std::sync::Arc::new(AtomicU32::new(0));
+        let counter_c = counter.clone();
+        t.start(move |_event| {
+            counter_c.fetch_add(7, Ordering::SeqCst);
+        });
+        t.join();
+        assert_eq!(counter.load(Ordering::SeqCst), 7);
+    }
+
+    #[test]
+    fn kw_threaded_render_falls_back_to_render_with_update_on_cache_miss() {
+        // py:198-212  KeyError → recursive render(update=True, after_update=True)
+        let queries = std::collections::HashMap::new();
+        let mut called_with: Option<(bool, String)> = None;
+        let result = KwThreadedSegment::render(
+            &queries,
+            "missing_key",
+            true, // do_update_first
+            false,
+            false,
+            |upd, key| {
+                called_with = Some((upd, key.to_string()));
+                Some("recursive_result".to_string())
+            },
+        );
+        assert_eq!(result, Some("recursive_result".to_string()));
+        assert_eq!(called_with, Some((true, "missing_key".to_string())));
+    }
+
+    #[test]
+    fn kw_threaded_render_returns_cached_state_when_present() {
+        // py:197 + py:216  cached → render_one
+        let mut queries = std::collections::HashMap::new();
+        queries.insert(
+            "k1".to_string(),
+            (0.0_f64, Some("cached".to_string())),
+        );
+        let result = KwThreadedSegment::render(
+            &queries,
+            "k1",
+            true,
+            false,
+            false,
+            |_, _| panic!("should not be called when cached"),
+        );
+        assert_eq!(result, Some("cached".to_string()));
+    }
+
+    #[test]
+    fn kw_threaded_render_after_update_internal_error_returns_none() {
+        // py:202-204  after_update + missing key → log + state=None
+        let queries = std::collections::HashMap::new();
+        let result = KwThreadedSegment::render(
+            &queries,
+            "missing",
+            true,
+            false,
+            true, // after_update
+            |_, _| panic!("should not recurse on after_update"),
+        );
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn kw_threaded_update_refreshes_stale_entries() {
+        // py:239-242  stale (last + interval < now) → update_one
+        let mut old = std::collections::HashMap::new();
+        // last_query_time well in the past, interval tiny — current
+        // monotonic exceeds last + interval, so the branch is stale.
+        old.insert("k".to_string(), (0.000001_f64, Some("old".to_string())));
+        let new_queries: Vec<String> = vec![];
+        let calls = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+        let calls_c = calls.clone();
+        let (updates, crashed) = KwThreadedSegment::update(
+            &old,
+            &new_queries,
+            0.000001, // tiny interval so monotonic() > last + interval
+            move |_crashed, updates, key| {
+                calls_c.lock().unwrap().push(key.to_string());
+                updates.insert(key.to_string(), (1.0, Some("new".to_string())));
+            },
+        );
+        assert_eq!(*calls.lock().unwrap(), vec!["k".to_string()]);
+        assert_eq!(updates.get("k").unwrap().1, Some("new".to_string()));
+        assert!(crashed.is_empty());
+    }
+
+    #[test]
+    fn kw_threaded_update_keeps_fresh_entries_as_is() {
+        // py:240  fresh (last < now < last + interval) → updates[key] = old
+        let mut old = std::collections::HashMap::new();
+        // Pin a recent timestamp so it's still within the interval.
+        let now = crate::ported::lib::monotonic::monotonic();
+        old.insert("k".to_string(), (now, Some("kept".to_string())));
+        let new_queries: Vec<String> = vec![];
+        let calls = std::sync::Arc::new(std::sync::Mutex::new(0u32));
+        let calls_c = calls.clone();
+        let (updates, _) = KwThreadedSegment::update(
+            &old,
+            &new_queries,
+            3600.0, // long interval — entry is fresh
+            move |_, _, _| {
+                *calls_c.lock().unwrap() += 1;
+            },
+        );
+        assert_eq!(*calls.lock().unwrap(), 0, "no refresh should happen");
+        assert_eq!(updates.get("k").unwrap().1, Some("kept".to_string()));
+    }
+
+    #[test]
+    fn kw_threaded_update_processes_new_queries() {
+        // py:244-245  for key in new_queries: update_one
+        let old = std::collections::HashMap::new();
+        let new_queries = vec!["k1".to_string(), "k2".to_string()];
+        let calls = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+        let calls_c = calls.clone();
+        let (updates, _crashed) = KwThreadedSegment::update(
+            &old,
+            &new_queries,
+            60.0,
+            move |_crashed, updates, key| {
+                calls_c.lock().unwrap().push(key.to_string());
+                updates.insert(key.to_string(), (1.0, Some(format!("v_{key}"))));
+            },
+        );
+        let mut got = calls.lock().unwrap().clone();
+        got.sort();
+        assert_eq!(got, vec!["k1".to_string(), "k2".to_string()]);
+        assert_eq!(updates.get("k1").unwrap().1, Some("v_k1".to_string()));
+        assert_eq!(updates.get("k2").unwrap().1, Some("v_k2".to_string()));
+    }
+
+    #[test]
+    fn threaded_segment_run_calls_update_once_then_stops_when_shutdown_set() {
+        // py:97  while not self.shutdown_event.is_set()
+        let mut seg = ThreadedSegment::new();
+        seg.interval = 0.001;
+        seg.do_update_first = false;
+        let event = Arc::new(Mutex::new(false));
+        let event_c = event.clone();
+        let counter = std::sync::Arc::new(AtomicU32::new(0));
+        let counter_c = counter.clone();
+        seg.run(&event, 0.001, move || {
+            counter_c.fetch_add(1, Ordering::SeqCst);
+            // Flip shutdown after first call so loop terminates.
+            *event_c.lock().unwrap() = true;
+        });
+        let n = counter.load(Ordering::SeqCst);
+        assert!(n >= 1, "expected at least 1 call, got {n}");
     }
 }

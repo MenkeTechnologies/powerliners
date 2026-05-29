@@ -181,7 +181,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/vim.py` ↔ `src/ported/vim.rs` | 271 | 4 | 2 | 18 | 512 | 23 | 137 |
 | [x] | `powerline/lib/watcher/uv.py` ↔ `src/ported/lib/watcher/uv.rs` | 160 | 3 | 5 | 21 | 360 | 25 | 119 |
 | [x] | `powerline/lint/checks.py` ↔ `src/ported/lint/checks.rs` | 752 | 26 | 0 | 0 | 1012 | 27 | 380 |
-| [x] | `powerline/lib/threaded.py` ↔ `src/ported/lib/threaded.rs` | 199 | 0 | 3 | 29 | 601 | 31 | 118 |
+| [x] | `powerline/lib/threaded.py` ↔ `src/ported/lib/threaded.rs` | 199 | 0 | 3 | 29 | 831 | 35 | 163 |
 | [x] | `powerline/lint/markedjson/scanner.py` ↔ `src/ported/lint/markedjson/scanner.rs` | 283 | 0 | 3 | 29 | 570 | 32 | 174 |
 | [x] | `powerline/lint/spec.py` ↔ `src/ported/lint/spec.rs` | 637 | 0 | 1 | 32 | 1018 | 35 | 320 |
 | [x] | `powerline/segments/vim/__init__.py` ↔ `src/ported/segments/vim/mod.rs` | 650 | 32 | 2 | 2 | 869 | 34 | 330 |
