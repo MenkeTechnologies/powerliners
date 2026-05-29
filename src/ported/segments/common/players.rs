@@ -16,7 +16,9 @@
 // from powerline.lib.unicode import out_u         // py:8
 // from powerline.segments import Segment, with_docstring                                  // py:9
 
+use regex::Regex;
 use serde_json::{json, Map, Value};
+use std::sync::OnceLock;
 
 /// Port of `STATE_SYMBOLS` from
 /// `powerline/segments/common/players.py:12-17`.
@@ -141,6 +143,405 @@ pub fn player_segment_call(
         "contents": contents,
         "highlight_groups": [format!("player_{}", state), "player"],
     })])
+}
+
+/// Port of `class CmusPlayerSegment(PlayerSegment)` from
+/// `powerline/segments/common/players.py:124`.
+///
+/// Marker struct. `get_player_status` parses the `cmus-remote -Q`
+/// output. The subprocess call (`run_cmd`) is deferred since it's
+/// platform-glue; this port factors out the parser as a pure fn so
+/// the parsing logic is testable.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CmusPlayerSegment;
+
+impl CmusPlayerSegment {
+    /// Port of `CmusPlayerSegment.get_player_status()` from
+    /// `powerline/segments/common/players.py:125-160`.
+    ///
+    /// Parses the multi-line `cmus-remote -Q` output where each line
+    /// is `<key> <value>` or `<level> <key> <value>` (level is
+    /// `tag` or `set` — ignored, the key bubbles up).
+    pub fn get_player_status(&self, now_playing_str: &str) -> Option<PlayerStats> {
+        // py:146-147  if not now_playing_str: return
+        if now_playing_str.is_empty() {
+            return None;
+        }
+        // py:148  ignore_levels = ('tag', 'set',)
+        let ignore_levels = ["tag", "set"];
+        // py:149-151  dict comprehension splitting each line into tokens
+        let mut now_playing: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+        for line in now_playing_str.split('\n') {
+            if line.is_empty() {
+                continue;
+            }
+            let tokens: Vec<&str> = line.split(' ').collect();
+            if tokens.is_empty() {
+                continue;
+            }
+            let (key, value) = if ignore_levels.contains(&tokens[0]) {
+                // tag/set: tokens[1] = key, tokens[2..] = value
+                if tokens.len() < 2 {
+                    continue;
+                }
+                (tokens[1].to_string(), tokens[2..].join(" "))
+            } else {
+                // tokens[0] = key, tokens[1..] = value
+                (tokens[0].to_string(), tokens[1..].join(" "))
+            };
+            now_playing.insert(key, value);
+        }
+        // py:152  state = _convert_state(now_playing.get('status'))
+        let state = _convert_state(now_playing.get("status").map(|s| s.as_str()).unwrap_or(""));
+        // py:153-160  return {'state', 'album', 'artist', 'title', 'elapsed', 'total'}
+        let parse_secs = |k: &str| {
+            now_playing
+                .get(k)
+                .and_then(|v| v.parse::<f64>().ok())
+                .unwrap_or(0.0)
+        };
+        Some(PlayerStats {
+            state: Some(state.to_string()),
+            album: now_playing.get("album").cloned(),
+            artist: now_playing.get("artist").cloned(),
+            title: now_playing.get("title").cloned(),
+            elapsed: Some(_convert_seconds(parse_secs("position"))),
+            total: Some(_convert_seconds(parse_secs("duration"))),
+        })
+    }
+}
+
+/// Port of `class MpdPlayerSegment(PlayerSegment)` from
+/// `powerline/segments/common/players.py:172`.
+///
+/// Marker struct. The Python class has two paths — `python-mpd`
+/// module + `mpc` CLI fallback. The CLI parser is ported here since
+/// the `mpd` Rust binding is a heavy dependency. The `mpd` Python
+/// module path is deferred.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct MpdPlayerSegment;
+
+/// Port of the `mpc` output regex at
+/// `powerline/segments/common/players.py:192-195`.
+///
+/// Pattern: `(.*) - (.*)\n\[([a-z]+)\] +[#0-9\/]+ +([0-9\:]+)\/([0-9\:]+)`.
+/// Captures: artist, title, state, elapsed, total.
+#[allow(non_snake_case)]
+pub fn MPC_OUTPUT_RE() -> &'static Regex {
+    static R: OnceLock<Regex> = OnceLock::new();
+    R.get_or_init(|| {
+        Regex::new(r"(?s)(.*) - (.*)\n\[([a-z]+)\] +[#0-9/]+ +([0-9:]+)/([0-9:]+)").unwrap()
+    })
+}
+
+impl MpdPlayerSegment {
+    /// Port of `MpdPlayerSegment.get_player_status()` from
+    /// `powerline/segments/common/players.py:173-203` (CLI branch).
+    ///
+    /// `now_playing` is the raw output of `mpc -h <host> -p <port>`.
+    /// `album` is the separate `mpc current -f %album%` output.
+    /// Returns None when the output doesn't have exactly 3 newlines
+    /// per py:190.
+    pub fn get_player_status(&self, now_playing: &str, album: Option<&str>) -> Option<PlayerStats> {
+        // py:190  if not now_playing or now_playing.count("\n") != 3: return
+        if now_playing.is_empty() || now_playing.matches('\n').count() != 3 {
+            return None;
+        }
+        // py:192-195  re.match(...)
+        let caps = MPC_OUTPUT_RE().captures(now_playing)?;
+        // py:197-202
+        let state = _convert_state(caps.get(3)?.as_str());
+        Some(PlayerStats {
+            state: Some(state.to_string()),
+            album: album.map(str::to_string),
+            artist: Some(caps.get(1)?.as_str().to_string()),
+            title: Some(caps.get(2)?.as_str().to_string()),
+            elapsed: Some(caps.get(4)?.as_str().to_string()),
+            total: Some(caps.get(5)?.as_str().to_string()),
+        })
+    }
+}
+
+/// Port of `_get_dbus_player_status()` from
+/// `powerline/segments/common/players.py:258-312`.
+///
+/// Python builds the result by querying the dbus interface for
+/// `Metadata` + `PlaybackStatus` + `Position`. Rust port takes the
+/// already-extracted values (string status, microsecond elapsed,
+/// optional microsecond length, optional album/title/artist) since
+/// dbus IPC is platform-glue.
+#[allow(clippy::too_many_arguments)]
+pub fn _get_dbus_player_status(
+    status: &str,
+    album: Option<&str>,
+    title: Option<&str>,
+    artist: Option<&str>,
+    elapsed_micros: Option<i64>,
+    length_micros: Option<i64>,
+) -> Option<PlayerStats> {
+    // py:279-280  if not info: return
+    // Caller passes Some(...) for each piece; we assume metadata exists.
+    // py:288  elapsed = _convert_seconds(elapsed / 1e6)
+    let elapsed = elapsed_micros.map(|m| _convert_seconds((m as f64) / 1_000_000.0));
+    // py:292  state = _convert_state(status)
+    let state = _convert_state(status);
+    // py:300-303  parsed_length = length and _convert_seconds(length / 1e6)
+    let total = length_micros.map(|m| _convert_seconds((m as f64) / 1_000_000.0));
+    Some(PlayerStats {
+        state: Some(state.to_string()),
+        album: album.map(str::to_string),
+        title: title.map(str::to_string),
+        artist: artist.map(str::to_string),
+        elapsed,
+        total,
+    })
+}
+
+/// Port of `class DbusPlayerSegment(PlayerSegment)` from
+/// `powerline/segments/common/players.py:315`.
+///
+/// Marker struct. `get_player_status = staticmethod(_get_dbus_player_status)`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct DbusPlayerSegment;
+
+/// Port of `class SpotifyDbusPlayerSegment(PlayerSegment)` from
+/// `powerline/segments/common/players.py:339`.
+///
+/// Marker struct.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SpotifyDbusPlayerSegment;
+
+/// Port of `class SpotifyAppleScriptPlayerSegment(PlayerSegment)` from
+/// `powerline/segments/common/players.py:371`.
+///
+/// Marker struct.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SpotifyAppleScriptPlayerSegment;
+
+/// Port of the AppleScript field delimiter used at
+/// `powerline/segments/common/players.py:373` / `:487` / `:535`.
+///
+/// Python: `status_delimiter = '-~`/='`.
+pub const APPLESCRIPT_STATUS_DELIMITER: &str = "-~`/=";
+
+impl SpotifyAppleScriptPlayerSegment {
+    /// Port of `SpotifyAppleScriptPlayerSegment.get_player_status()` from
+    /// `powerline/segments/common/players.py:372-413`.
+    ///
+    /// Parses the AppleScript stdout: 6 delimiter-separated fields —
+    /// state, album, artist, title, total_ms, elapsed_seconds.
+    /// Returns None for "stop" state per py:404-405.
+    pub fn get_player_status(&self, spotify: &str) -> Option<PlayerStats> {
+        // py:399-400  if not asrun: return None
+        if spotify.is_empty() {
+            return None;
+        }
+        // py:402  split
+        let parts: Vec<&str> = spotify.split(APPLESCRIPT_STATUS_DELIMITER).collect();
+        if parts.len() < 6 {
+            return None;
+        }
+        // py:403  state = _convert_state(spotify_status[0])
+        let state = _convert_state(parts[0]);
+        // py:404-405  if state == 'stop': return None
+        if state == "stop" {
+            return None;
+        }
+        // py:411  total = _convert_seconds(int(spotify_status[4])/1000)
+        let total_ms: f64 = parts[4].trim().parse().ok()?;
+        let total = _convert_seconds(total_ms / 1000.0);
+        // py:412  elapsed = _convert_seconds(spotify_status[5])
+        let elapsed_secs: f64 = parts[5].trim().parse().ok()?;
+        let elapsed = _convert_seconds(elapsed_secs);
+        // py:406-413  return dict
+        Some(PlayerStats {
+            state: Some(state.to_string()),
+            album: Some(parts[1].to_string()),
+            artist: Some(parts[2].to_string()),
+            title: Some(parts[3].to_string()),
+            elapsed: Some(elapsed),
+            total: Some(total),
+        })
+    }
+}
+
+/// Port of `class ClementinePlayerSegment(PlayerSegment)` from
+/// `powerline/segments/common/players.py:436`.
+///
+/// Marker struct.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ClementinePlayerSegment;
+
+/// Port of `class RhythmboxPlayerSegment(PlayerSegment)` from
+/// `powerline/segments/common/players.py:457`.
+///
+/// Marker struct.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct RhythmboxPlayerSegment;
+
+impl RhythmboxPlayerSegment {
+    /// Port of `RhythmboxPlayerSegment.get_player_status()` from
+    /// `powerline/segments/common/players.py:458-473`.
+    ///
+    /// Parses the rhythmbox-client output:
+    /// `%at\n%aa\n%tt\n%te\n%td` → album, artist, title, elapsed,
+    /// total.
+    pub fn get_player_status(&self, now_playing: &str) -> Option<PlayerStats> {
+        // py:464-465  if not now_playing: return
+        if now_playing.is_empty() {
+            return None;
+        }
+        // py:466  now_playing.split('\n')
+        let parts: Vec<&str> = now_playing.split('\n').collect();
+        if parts.len() < 5 {
+            return None;
+        }
+        // py:467-473  return dict
+        Some(PlayerStats {
+            state: None,
+            album: Some(parts[0].to_string()),
+            artist: Some(parts[1].to_string()),
+            title: Some(parts[2].to_string()),
+            elapsed: Some(parts[3].to_string()),
+            total: Some(parts[4].to_string()),
+        })
+    }
+}
+
+/// Port of `class RDIOPlayerSegment(PlayerSegment)` from
+/// `powerline/segments/common/players.py:485`.
+///
+/// Marker struct.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct RDIOPlayerSegment;
+
+impl RDIOPlayerSegment {
+    /// Port of `RDIOPlayerSegment.get_player_status()` from
+    /// `powerline/segments/common/players.py:486-521`.
+    ///
+    /// Parses the AppleScript output: title, artist, album,
+    /// elapsed_pct_str, total_secs_str, state_str.
+    /// elapsed is computed as `elapsed_pct * total / 100`.
+    pub fn get_player_status(&self, now_playing: &str) -> Option<PlayerStats> {
+        // py:506-507  if not now_playing: return
+        if now_playing.is_empty() {
+            return None;
+        }
+        // py:508-510  split, len != 6 → None
+        let parts: Vec<&str> = now_playing.split(APPLESCRIPT_STATUS_DELIMITER).collect();
+        if parts.len() != 6 {
+            return None;
+        }
+        // py:511  state = _convert_state(now_playing[5])
+        let state = _convert_state(parts[5]);
+        // py:512  total = _convert_seconds(now_playing[4])
+        let total_secs: f64 = parts[4].trim().parse().ok()?;
+        let total = _convert_seconds(total_secs);
+        // py:513  elapsed = _convert_seconds(float(now_playing[3]) * float(now_playing[4]) / 100)
+        let elapsed_pct: f64 = parts[3].trim().parse().ok()?;
+        let elapsed = _convert_seconds(elapsed_pct * total_secs / 100.0);
+        // py:514-520
+        Some(PlayerStats {
+            state: Some(state.to_string()),
+            title: Some(parts[0].to_string()),
+            artist: Some(parts[1].to_string()),
+            album: Some(parts[2].to_string()),
+            elapsed: Some(elapsed),
+            total: Some(total),
+        })
+    }
+}
+
+/// Port of `class ITunesPlayerSegment(PlayerSegment)` from
+/// `powerline/segments/common/players.py:533`.
+///
+/// Marker struct.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ITunesPlayerSegment;
+
+impl ITunesPlayerSegment {
+    /// Port of `ITunesPlayerSegment.get_player_status()` from
+    /// `powerline/segments/common/players.py:534-572`.
+    ///
+    /// Parses the AppleScript output: title, artist, album,
+    /// elapsed_secs, total_secs, state_str.
+    pub fn get_player_status(&self, now_playing: &str) -> Option<PlayerStats> {
+        // py:556-557  if not now_playing: return
+        if now_playing.is_empty() {
+            return None;
+        }
+        // py:558-560  split, len != 6 → None
+        let parts: Vec<&str> = now_playing.split(APPLESCRIPT_STATUS_DELIMITER).collect();
+        if parts.len() != 6 {
+            return None;
+        }
+        // py:561-572
+        let state = _convert_state(parts[5]);
+        let total_secs: f64 = parts[4].trim().parse().ok()?;
+        let elapsed_secs: f64 = parts[3].trim().parse().ok()?;
+        Some(PlayerStats {
+            state: Some(state.to_string()),
+            title: Some(parts[0].to_string()),
+            artist: Some(parts[1].to_string()),
+            album: Some(parts[2].to_string()),
+            elapsed: Some(_convert_seconds(elapsed_secs)),
+            total: Some(_convert_seconds(total_secs)),
+        })
+    }
+}
+
+/// Port of `class MocPlayerSegment(PlayerSegment)` from
+/// `powerline/segments/common/players.py:584`.
+///
+/// Marker struct.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct MocPlayerSegment;
+
+impl MocPlayerSegment {
+    /// Port of `MocPlayerSegment.get_player_status()` from
+    /// `powerline/segments/common/players.py:585-627`.
+    ///
+    /// Parses `mocp -i` output where each line is `Key: Value`.
+    pub fn get_player_status(&self, now_playing_str: &str) -> Option<PlayerStats> {
+        // py:612-613  if not now_playing_str: return
+        if now_playing_str.is_empty() {
+            return None;
+        }
+        // py:615-618  dict from each `key: value` line
+        let mut now_playing: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+        for line in now_playing_str.split('\n') {
+            if line.is_empty() {
+                continue;
+            }
+            if let Some((k, v)) = line.split_once(": ") {
+                now_playing.insert(k.to_string(), v.to_string());
+            }
+        }
+        // py:619  state = _convert_state(now_playing.get('State', 'stop'))
+        let state = _convert_state(
+            now_playing
+                .get("State")
+                .map(|s| s.as_str())
+                .unwrap_or("stop"),
+        );
+        // py:620-627
+        let parse_secs = |k: &str| {
+            now_playing
+                .get(k)
+                .and_then(|v| v.parse::<f64>().ok())
+                .unwrap_or(0.0)
+        };
+        Some(PlayerStats {
+            state: Some(state.to_string()),
+            album: Some(now_playing.get("Album").cloned().unwrap_or_default()),
+            artist: Some(now_playing.get("Artist").cloned().unwrap_or_default()),
+            title: Some(now_playing.get("SongTitle").cloned().unwrap_or_default()),
+            elapsed: Some(_convert_seconds(parse_secs("CurrentSec"))),
+            total: Some(_convert_seconds(parse_secs("TotalSec"))),
+        })
+    }
 }
 
 #[cfg(test)]
@@ -347,5 +748,254 @@ mod tests {
         };
         let r = player_segment_call(Some(stats), "{state_symbol}", &custom).unwrap();
         assert_eq!(r[0]["contents"], "▶");
+    }
+
+    #[test]
+    fn cmus_parses_basic_status() {
+        // py:145-160  cmus-remote -Q output
+        let raw = concat!(
+            "status playing\n",
+            "file /home/user/song.mp3\n",
+            "tag artist The Artist\n",
+            "tag title The Title\n",
+            "tag album The Album\n",
+            "set continue true\n",
+            "duration 245\n",
+            "position 30\n",
+        );
+        let s = CmusPlayerSegment.get_player_status(raw).unwrap();
+        assert_eq!(s.state.as_deref(), Some("play"));
+        assert_eq!(s.artist.as_deref(), Some("The Artist"));
+        assert_eq!(s.title.as_deref(), Some("The Title"));
+        assert_eq!(s.album.as_deref(), Some("The Album"));
+        assert_eq!(s.elapsed.as_deref(), Some("0:30"));
+        assert_eq!(s.total.as_deref(), Some("4:05"));
+    }
+
+    #[test]
+    fn cmus_returns_none_for_empty_input() {
+        // py:146-147  if not now_playing_str: return
+        assert!(CmusPlayerSegment.get_player_status("").is_none());
+    }
+
+    #[test]
+    fn cmus_handles_paused_state() {
+        let raw = "status paused\ntag artist X\nposition 10\nduration 100\n";
+        let s = CmusPlayerSegment.get_player_status(raw).unwrap();
+        assert_eq!(s.state.as_deref(), Some("pause"));
+    }
+
+    #[test]
+    fn cmus_handles_set_level_keys() {
+        // py:148-151  'set' level keys flatten same as 'tag' level
+        let raw = "status stopped\nset shuffle true\n";
+        let s = CmusPlayerSegment.get_player_status(raw).unwrap();
+        // 'shuffle' is at set level → should be ignored in our key search
+        // but state must still be derived
+        assert_eq!(s.state.as_deref(), Some("stop"));
+    }
+
+    #[test]
+    fn mpd_parses_mpc_output() {
+        // py:192-203  mpc output regex
+        // Real mpc emits exactly 3 newlines: "Artist - Title\n[state] #N/M  E:LL/T:OT\nflags: x\n"
+        let raw = "The Artist - The Title\n[playing] #1/10   0:30/4:05\nrandom: off   repeat: on\n";
+        let s = MpdPlayerSegment
+            .get_player_status(raw, Some("The Album"))
+            .unwrap();
+        assert_eq!(s.state.as_deref(), Some("play"));
+        assert_eq!(s.artist.as_deref(), Some("The Artist"));
+        assert_eq!(s.title.as_deref(), Some("The Title"));
+        assert_eq!(s.elapsed.as_deref(), Some("0:30"));
+        assert_eq!(s.total.as_deref(), Some("4:05"));
+        assert_eq!(s.album.as_deref(), Some("The Album"));
+    }
+
+    #[test]
+    fn mpd_returns_none_when_wrong_newline_count() {
+        // py:190  newline count != 3 → return
+        let raw = "Artist - Title\nstuff";
+        assert!(MpdPlayerSegment.get_player_status(raw, None).is_none());
+    }
+
+    #[test]
+    fn mpd_returns_none_when_empty() {
+        assert!(MpdPlayerSegment.get_player_status("", None).is_none());
+    }
+
+    #[test]
+    fn dbus_player_status_converts_micros_to_mss() {
+        // py:288  elapsed = _convert_seconds(elapsed / 1e6)
+        // py:303  parsed_length = length and _convert_seconds(length / 1e6)
+        let s = _get_dbus_player_status(
+            "Playing",
+            Some("Album"),
+            Some("Title"),
+            Some("Artist"),
+            Some(60_000_000),  // 60s
+            Some(245_000_000), // 245s = 4:05
+        )
+        .unwrap();
+        assert_eq!(s.state.as_deref(), Some("play"));
+        assert_eq!(s.elapsed.as_deref(), Some("1:00"));
+        assert_eq!(s.total.as_deref(), Some("4:05"));
+        assert_eq!(s.album.as_deref(), Some("Album"));
+        assert_eq!(s.title.as_deref(), Some("Title"));
+        assert_eq!(s.artist.as_deref(), Some("Artist"));
+    }
+
+    #[test]
+    fn dbus_player_status_none_elapsed_and_length() {
+        // py:285-287  elapsed = None when dbus get fails
+        let s = _get_dbus_player_status("Paused", None, None, None, None, None).unwrap();
+        assert_eq!(s.state.as_deref(), Some("pause"));
+        assert!(s.elapsed.is_none());
+        assert!(s.total.is_none());
+    }
+
+    #[test]
+    fn applescript_delimiter_matches_python() {
+        // py:373  status_delimiter = '-~`/='
+        assert_eq!(APPLESCRIPT_STATUS_DELIMITER, "-~`/=");
+    }
+
+    #[test]
+    fn spotify_applescript_parses_playing() {
+        // py:402-413
+        let raw = "playing-~`/=The Album-~`/=The Artist-~`/=The Track-~`/=180000-~`/=45.5";
+        let s = SpotifyAppleScriptPlayerSegment
+            .get_player_status(raw)
+            .unwrap();
+        assert_eq!(s.state.as_deref(), Some("play"));
+        assert_eq!(s.album.as_deref(), Some("The Album"));
+        assert_eq!(s.artist.as_deref(), Some("The Artist"));
+        assert_eq!(s.title.as_deref(), Some("The Track"));
+        // 180000ms / 1000 = 180s = 3:00
+        assert_eq!(s.total.as_deref(), Some("3:00"));
+        // 45.5s = 0:45
+        assert_eq!(s.elapsed.as_deref(), Some("0:46"));
+    }
+
+    #[test]
+    fn spotify_applescript_returns_none_for_stop() {
+        // py:404-405  if state == 'stop': return None
+        let raw = "stopped-~`/=-~`/=-~`/=-~`/=0-~`/=0";
+        assert!(SpotifyAppleScriptPlayerSegment
+            .get_player_status(raw)
+            .is_none());
+    }
+
+    #[test]
+    fn spotify_applescript_returns_none_for_empty() {
+        assert!(SpotifyAppleScriptPlayerSegment
+            .get_player_status("")
+            .is_none());
+    }
+
+    #[test]
+    fn rhythmbox_parses_5_field_output() {
+        // py:466-473
+        let raw = "Album X\nArtist Y\nTitle Z\n0:30\n4:05";
+        let s = RhythmboxPlayerSegment.get_player_status(raw).unwrap();
+        assert_eq!(s.album.as_deref(), Some("Album X"));
+        assert_eq!(s.artist.as_deref(), Some("Artist Y"));
+        assert_eq!(s.title.as_deref(), Some("Title Z"));
+        assert_eq!(s.elapsed.as_deref(), Some("0:30"));
+        assert_eq!(s.total.as_deref(), Some("4:05"));
+        // py:467-473  no state field
+        assert!(s.state.is_none());
+    }
+
+    #[test]
+    fn rhythmbox_returns_none_for_empty() {
+        assert!(RhythmboxPlayerSegment.get_player_status("").is_none());
+    }
+
+    #[test]
+    fn rdio_parses_6_field_output_with_elapsed_pct() {
+        // py:511-513  elapsed = pct * total / 100
+        // 50% of 200s = 100s = 1:40
+        let raw = "Title-~`/=Artist-~`/=Album-~`/=50-~`/=200-~`/=playing";
+        let s = RDIOPlayerSegment.get_player_status(raw).unwrap();
+        assert_eq!(s.state.as_deref(), Some("play"));
+        assert_eq!(s.title.as_deref(), Some("Title"));
+        assert_eq!(s.artist.as_deref(), Some("Artist"));
+        assert_eq!(s.album.as_deref(), Some("Album"));
+        assert_eq!(s.total.as_deref(), Some("3:20"));
+        assert_eq!(s.elapsed.as_deref(), Some("1:40"));
+    }
+
+    #[test]
+    fn rdio_returns_none_for_wrong_field_count() {
+        // py:509-510  if len != 6: return
+        assert!(RDIOPlayerSegment
+            .get_player_status("only-~`/=three-~`/=fields")
+            .is_none());
+    }
+
+    #[test]
+    fn itunes_parses_6_field_output() {
+        // py:561-572
+        let raw = "Title-~`/=Artist-~`/=Album-~`/=30-~`/=245-~`/=playing";
+        let s = ITunesPlayerSegment.get_player_status(raw).unwrap();
+        assert_eq!(s.state.as_deref(), Some("play"));
+        assert_eq!(s.title.as_deref(), Some("Title"));
+        assert_eq!(s.artist.as_deref(), Some("Artist"));
+        assert_eq!(s.album.as_deref(), Some("Album"));
+        assert_eq!(s.elapsed.as_deref(), Some("0:30"));
+        assert_eq!(s.total.as_deref(), Some("4:05"));
+    }
+
+    #[test]
+    fn itunes_returns_none_for_wrong_field_count() {
+        assert!(ITunesPlayerSegment.get_player_status("x").is_none());
+    }
+
+    #[test]
+    fn mocp_parses_key_value_output() {
+        // py:611-627
+        let raw = concat!(
+            "State: PLAY\n",
+            "File: song.mp3\n",
+            "Title: full title\n",
+            "Artist: The Artist\n",
+            "SongTitle: The Track\n",
+            "Album: The Album\n",
+            "TotalSec: 245\n",
+            "CurrentSec: 30\n",
+        );
+        let s = MocPlayerSegment.get_player_status(raw).unwrap();
+        assert_eq!(s.state.as_deref(), Some("play"));
+        assert_eq!(s.artist.as_deref(), Some("The Artist"));
+        assert_eq!(s.title.as_deref(), Some("The Track"));
+        assert_eq!(s.album.as_deref(), Some("The Album"));
+        assert_eq!(s.elapsed.as_deref(), Some("0:30"));
+        assert_eq!(s.total.as_deref(), Some("4:05"));
+    }
+
+    #[test]
+    fn mocp_defaults_state_to_stop_when_missing() {
+        // py:619  now_playing.get('State', 'stop')
+        let raw = "File: x.mp3\nTitle: x\n";
+        let s = MocPlayerSegment.get_player_status(raw).unwrap();
+        assert_eq!(s.state.as_deref(), Some("stop"));
+    }
+
+    #[test]
+    fn mocp_returns_none_for_empty() {
+        assert!(MocPlayerSegment.get_player_status("").is_none());
+    }
+
+    #[test]
+    fn mpc_output_re_captures_5_groups() {
+        // py:192-195
+        let re = MPC_OUTPUT_RE();
+        let s = "Artist - Title\n[playing] #1/10  0:30/4:05";
+        let caps = re.captures(s).unwrap();
+        assert_eq!(caps.get(1).unwrap().as_str(), "Artist");
+        assert_eq!(caps.get(2).unwrap().as_str(), "Title");
+        assert_eq!(caps.get(3).unwrap().as_str(), "playing");
+        assert_eq!(caps.get(4).unwrap().as_str(), "0:30");
+        assert_eq!(caps.get(5).unwrap().as_str(), "4:05");
     }
 }
