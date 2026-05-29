@@ -2192,6 +2192,67 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_mark_to_string_default_indent_and_head_text() {
+    if !python_available() {
+        return;
+    }
+    // Mark.to_string(indent=0, head_text='in ', add_snippet=True):
+    //   '  in "<name>", line <line+1>, column <col+1>:\n    <snippet>\n    ^'
+    //
+    // Verify 3 variants:
+    //   defaults                             → 2-space indent, 'in ' prefix
+    //   indent=2                             → 4-space outer + 6-space snippet
+    //   head_text='at ', add_snippet=False   → single line, no snippet
+    let buffer = "hello";
+    let cases: &[(usize, &str, bool, &str)] = &[
+        (
+            0,
+            "in ",
+            true,
+            "  in \"cfg\", line 6, column 11:\n    hello\n    ^",
+        ),
+        (
+            2,
+            "in ",
+            true,
+            "    in \"cfg\", line 6, column 11:\n      hello\n      ^",
+        ),
+        (0, "at ", false, "  at \"cfg\", line 6, column 11"),
+    ];
+    for (indent, head, snip, expected) in cases {
+        let py_expr = format!(
+            "__import__('powerline.lint.markedjson.error', fromlist=['Mark']).Mark('cfg', 5, 10, {buf:?}, 0).to_string(indent={ind}, head_text={ht:?}, add_snippet={sn})",
+            buf = buffer, ind = indent, ht = head, sn = if *snip { "True" } else { "False" }
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(
+            py.as_str(),
+            *expected,
+            "Python Mark.to_string fixture drift for indent={}, head={:?}, snippet={}",
+            indent,
+            head,
+            snip
+        );
+        let m = powerliners::lint::markedjson::error::RichMark::new(
+            "cfg",
+            5,
+            10,
+            Some(buffer.chars().collect()),
+            0,
+        );
+        let rs = m.to_string_marked(*indent, head, *snip);
+        assert_eq!(
+            rs, *expected,
+            "Rust Mark.to_string_marked mismatch for indent={}, head={:?}, snippet={}",
+            indent, head, snip
+        );
+    }
+}
+
+#[test]
 fn parity_format_error_with_shared_mark_omits_duplicate() {
     if !python_available() {
         return;
