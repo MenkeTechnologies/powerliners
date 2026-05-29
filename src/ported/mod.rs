@@ -1566,19 +1566,36 @@ impl Powerline {
             }
         }
 
-        // py:678-696  Renderer subclass instantiation. The Python flow is
-        //   Renderer = self.get_module_attr(self.renderer_module, 'renderer')
-        //   if not Renderer: raise ImportError
-        //   try: self.renderer = Renderer(**self.renderer_options)
-        // Rust port can't dispatch `self.renderer_module` (a dotted name)
-        // to a concrete `Renderer` type without an ext-keyed registry;
-        // per-ext bindings (tmux daemon shim, future shell/vim shims)
-        // do this themselves by constructing the concrete renderer type
-        // from `self.renderer_options`. The Powerline class surfaces the
-        // composed `renderer_options` so the shim can read it.
+        // py:678-696  Renderer subclass instantiation — defer concrete
+        // construction to `instantiate_renderer` so per-ext bindings
+        // can plug a typed factory closure. Until called, `self.renderer`
+        // is the published `renderer_options` map.
         if need_renderer {
             self.renderer = Value::Object(self.renderer_options.clone());
         }
+        Ok(())
+    }
+
+    /// Concrete-renderer factory dispatch — mirrors py:679-680
+    /// `Renderer = self.get_module_attr(self.renderer_module, 'renderer')`
+    /// + py:686 `renderer = Renderer(**self.renderer_options)`.
+    ///
+    /// `factory` is called with the published `renderer_options` and
+    /// returns the concrete renderer's serialized form (a `Value` since
+    /// Rust enum/trait-object renderers are per-ext typed). On success,
+    /// `self.renderer` is updated to the factory's output.
+    ///
+    /// Returns `Err` mirroring py:689-693 `ImportError` when the
+    /// factory can't produce a renderer.
+    pub fn instantiate_renderer<F>(&mut self, factory: F) -> Result<(), String>
+    where
+        F: FnOnce(&Map<String, Value>) -> Option<Value>,
+    {
+        let r = factory(&self.renderer_options).ok_or_else(|| {
+            // py:683-684  raise ImportError('Failed to obtain renderer')
+            format!("Failed to obtain renderer for {}", self.renderer_module)
+        })?;
+        self.renderer = r;
         Ok(())
     }
 }
@@ -2120,6 +2137,51 @@ mod powerline_class_tests {
         // self.renderer is the published renderer_options (concrete
         // instantiation deferred — see docstring).
         assert!(p.renderer.is_object());
+    }
+
+    #[test]
+    fn powerline_instantiate_renderer_invokes_factory_with_options() {
+        // py:679-686  factory closure receives renderer_options and
+        // returns the concrete renderer's serialized form.
+        let mut p = Powerline::init("tmux", None, false, false);
+        p.renderer_options.insert(
+            "term_truecolor".to_string(),
+            serde_json::Value::Bool(true),
+        );
+        let r = p.instantiate_renderer(|opts| {
+            // Return a probe Value the caller can read back to verify
+            // the factory received the published options.
+            let mut out = serde_json::Map::new();
+            out.insert(
+                "ran".to_string(),
+                serde_json::Value::Bool(true),
+            );
+            out.insert(
+                "saw_truecolor".to_string(),
+                opts.get("term_truecolor").cloned().unwrap_or(serde_json::Value::Null),
+            );
+            Some(serde_json::Value::Object(out))
+        });
+        assert!(r.is_ok(), "factory call should succeed: {r:?}");
+        assert_eq!(
+            p.renderer
+                .get("saw_truecolor")
+                .and_then(|v| v.as_bool()),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn powerline_instantiate_renderer_propagates_factory_none_as_import_error() {
+        // py:683-684  raise ImportError('Failed to obtain renderer')
+        let mut p = Powerline::init("tmux", None, false, false);
+        let r = p.instantiate_renderer(|_| None);
+        assert!(r.is_err(), "factory None should surface as Err");
+        let msg = r.unwrap_err();
+        assert!(
+            msg.contains("Failed to obtain renderer"),
+            "unexpected error message: {msg}"
+        );
     }
 
     #[test]

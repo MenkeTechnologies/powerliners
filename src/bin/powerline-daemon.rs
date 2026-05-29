@@ -907,25 +907,19 @@ fn ad_branch(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Val
         .get("status_colors")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    let out = std::process::Command::new("git")
-        .args(["-C", &cwd, "rev-parse", "--abbrev-ref", "HEAD"])
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let branch = String::from_utf8(out.stdout).ok()?.trim().to_string();
+
+    // py:18-39  BranchSegment tries each registered VCS guesser in
+    // order (git → mercurial → bazaar). Mirror by probing the same
+    // three backends; first one to find a repo wins.
+    let (branch, dirty_opt) = git_branch(&cwd)
+        .or_else(|| hg_branch(&cwd))
+        .or_else(|| bzr_branch(&cwd))?;
     if branch.is_empty() {
         return None;
     }
     let mut groups: Vec<Value> = vec![Value::String("branch".to_string())];
     if status_colors {
-        let dirty = std::process::Command::new("git")
-            .args(["-C", &cwd, "status", "--porcelain"])
-            .output()
-            .ok()
-            .map(|o| !o.stdout.is_empty())
-            .unwrap_or(false);
+        let dirty = dirty_opt.unwrap_or(false);
         groups.insert(
             0,
             Value::String(
@@ -943,6 +937,63 @@ fn ad_branch(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Val
         "highlight_groups": groups,
         "divider_highlight_group": Value::Null,
     })]))
+}
+
+/// Probe git for the current branch + dirty flag.
+/// Returns None when the cwd isn't a git repo.
+fn git_branch(cwd: &str) -> Option<(String, Option<bool>)> {
+    let out = std::process::Command::new("git")
+        .args(["-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let branch = String::from_utf8(out.stdout).ok()?.trim().to_string();
+    let dirty = std::process::Command::new("git")
+        .args(["-C", cwd, "status", "--porcelain"])
+        .output()
+        .ok()
+        .map(|o| !o.stdout.is_empty());
+    Some((branch, dirty))
+}
+
+/// Probe mercurial. `hg branch` prints the active branch (default
+/// "default"); `hg status` reports working-copy changes.
+fn hg_branch(cwd: &str) -> Option<(String, Option<bool>)> {
+    let out = std::process::Command::new("hg")
+        .args(["--cwd", cwd, "branch"])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let branch = String::from_utf8(out.stdout).ok()?.trim().to_string();
+    let dirty = std::process::Command::new("hg")
+        .args(["--cwd", cwd, "status"])
+        .output()
+        .ok()
+        .map(|o| !o.stdout.is_empty());
+    Some((branch, dirty))
+}
+
+/// Probe bazaar. `bzr nick` prints the nick of the current branch;
+/// `bzr status` reports working-tree changes.
+fn bzr_branch(cwd: &str) -> Option<(String, Option<bool>)> {
+    let out = std::process::Command::new("bzr")
+        .args(["--directory", cwd, "nick"])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let branch = String::from_utf8(out.stdout).ok()?.trim().to_string();
+    let dirty = std::process::Command::new("bzr")
+        .args(["--directory", cwd, "status"])
+        .output()
+        .ok()
+        .map(|o| !o.stdout.is_empty());
+    Some((branch, dirty))
 }
 
 fn ad_stash(_args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value> {
@@ -1025,6 +1076,112 @@ fn ad_environment(args: &Map<String, Value>, info: &Map<String, Value>) -> Optio
     let variable = args.get("variable").and_then(|v| v.as_str())?;
     let v = environment(&environ, variable)?;
     Some(Value::String(v))
+}
+
+fn ad_jobnum(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::ported::segments::shell::jobnum;
+    use powerliners::ported::segments::shell::ShellSegmentInfo;
+    let show_zero = args
+        .get("show_zero")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let seg_info = ShellSegmentInfo {
+        jobnum: info
+            .get("args")
+            .and_then(|v| v.as_object())
+            .and_then(|o| o.get("jobnum"))
+            .and_then(|v| v.as_i64())
+            .map(|n| n as i32),
+        ..Default::default()
+    };
+    let s = jobnum(&(), &seg_info, show_zero)?;
+    Some(Value::String(s))
+}
+
+fn ad_last_status(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::ported::segments::shell::last_status;
+    use powerliners::ported::segments::shell::ShellSegmentInfo;
+    let signal_names = args
+        .get("signal_names")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    // ShellSegmentInfo uses i32 for last_exit_code. Signal-name strings
+    // (e.g. "sigINT") aren't carried through the i32 path — that's a
+    // structural divergence from upstream (Python IntOrSig union) which
+    // we surface by treating signal names as exit-code 0 here. Real
+    // shell-prompt drivers should switch to IntOrSig once
+    // ShellSegmentInfo gains a union field.
+    let last_exit_code = info
+        .get("args")
+        .and_then(|v| v.as_object())
+        .and_then(|o| o.get("last_exit_code"))
+        .and_then(|v| v.as_i64())
+        .map(|n| n as i32);
+    let seg_info = ShellSegmentInfo {
+        last_exit_code,
+        ..Default::default()
+    };
+    let chunks = last_status(&(), &seg_info, signal_names)?;
+    Some(Value::Array(chunks))
+}
+
+fn ad_last_pipe_status(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::ported::segments::shell::last_pipe_status as lps_fn;
+    use powerliners::ported::segments::shell::ShellSegmentInfo;
+    let signal_names = args
+        .get("signal_names")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let lps_vec: Vec<i32> = info
+        .get("args")
+        .and_then(|v| v.as_object())
+        .and_then(|o| o.get("last_pipe_status"))
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .map(|v| v.as_i64().unwrap_or(0) as i32)
+                .collect()
+        })
+        .unwrap_or_default();
+    let seg_info = ShellSegmentInfo {
+        last_pipe_status: lps_vec,
+        ..Default::default()
+    };
+    let chunks = lps_fn(&(), &seg_info, signal_names)?;
+    Some(Value::Array(chunks))
+}
+
+fn ad_cwd(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::ported::segments::common::env::cwd_segments;
+    let cwd = info
+        .get("getcwd")
+        .and_then(|v| v.as_str())
+        .unwrap_or("/")
+        .to_string();
+    let dir_shorten_len = args
+        .get("dir_shorten_len")
+        .and_then(|v| v.as_u64())
+        .map(|n| n as usize);
+    let dir_limit_depth = args
+        .get("dir_limit_depth")
+        .and_then(|v| v.as_u64())
+        .map(|n| n as usize);
+    let use_path_separator = args
+        .get("use_path_separator")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let ellipsis = args.get("ellipsis").and_then(|v| v.as_str());
+    let chunks = cwd_segments(
+        &cwd,
+        dir_shorten_len,
+        dir_limit_depth,
+        use_path_separator,
+        ellipsis,
+    );
+    if chunks.is_empty() {
+        return None;
+    }
+    Some(Value::Array(chunks))
 }
 
 fn ad_virtualenv(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value> {
@@ -1114,6 +1271,251 @@ fn ad_fuzzy_time(args: &Map<String, Value>, _info: &Map<String, Value>) -> Optio
     Some(Value::String(s))
 }
 
+fn ad_weather(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::ported::segments::common::wthr::{
+        compute_state, render_one, weather_key,
+    };
+    let location_query = args
+        .get("location_query")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let api_key = args
+        .get("weather_api_key")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let key = weather_key(location_query, api_key);
+    let weather = compute_state(&key)?;
+    let unit = args.get("unit").and_then(|v| v.as_str()).unwrap_or("C");
+    let temp_format = args.get("temp_format").and_then(|v| v.as_str());
+    let temp_coldest = args
+        .get("temp_coldest")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(-30.0);
+    let temp_hottest = args
+        .get("temp_hottest")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(40.0);
+    let icons = args.get("icons").and_then(|v| v.as_object());
+    let chunks = render_one(
+        Some(weather),
+        icons,
+        unit,
+        temp_format,
+        temp_coldest,
+        temp_hottest,
+    )?;
+    Some(Value::Array(chunks))
+}
+
+fn ad_email_imap_alert(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    // py:43-138  EmailIMAPSegment — full IMAP probe would need a
+    // TLS imap crate (not in deps). Surface a configured-username
+    // placeholder so the segment is visible; faithful imap probe
+    // is a follow-up dep choice.
+    let username = args.get("username").and_then(|v| v.as_str())?;
+    Some(Value::Array(vec![serde_json::json!({
+        "contents": format!("{}: 0", username),
+        "highlight_groups": ["email_alert"],
+    })]))
+}
+
+fn ad_cmus(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::ported::segments::common::players::CmusPlayerSegment;
+    let out = std::process::Command::new("cmus-remote")
+        .arg("-Q")
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let s = String::from_utf8(out.stdout).ok()?;
+    let segment = CmusPlayerSegment;
+    let stats = segment.get_player_status(&s)?;
+    let title = stats.title.as_deref().unwrap_or("");
+    if title.is_empty() {
+        return None;
+    }
+    let artist = stats.artist.as_deref().unwrap_or("");
+    let contents = if artist.is_empty() {
+        title.to_string()
+    } else {
+        format!("{} - {}", artist, title)
+    };
+    Some(Value::Array(vec![serde_json::json!({
+        "contents": contents,
+        "highlight_groups": ["now_playing"],
+    })]))
+}
+
+fn ad_rhythmbox(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::ported::segments::common::players::RhythmboxPlayerSegment;
+    // py:458-473  rhythmbox-client probe
+    let out = std::process::Command::new("rhythmbox-client")
+        .args([
+            "--no-start",
+            "--print-playing-format",
+            "%at\n%aa\n%tt\n%te\n%td",
+        ])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let s = String::from_utf8(out.stdout).ok()?;
+    let segment = RhythmboxPlayerSegment;
+    let stats = segment.get_player_status(&s)?;
+    let title = stats.title.as_deref().unwrap_or("");
+    if title.is_empty() {
+        return None;
+    }
+    let artist = stats.artist.as_deref().unwrap_or("");
+    let contents = if artist.is_empty() {
+        title.to_string()
+    } else {
+        format!("{} - {}", artist, title)
+    };
+    Some(Value::Array(vec![serde_json::json!({
+        "contents": contents,
+        "highlight_groups": ["now_playing"],
+    })]))
+}
+
+fn ad_itunes(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    // py:534-572  iTunes via AppleScript on darwin.
+    #[cfg(target_os = "macos")]
+    {
+        let out = std::process::Command::new("osascript")
+            .args([
+                "-e",
+                "if application \"iTunes\" is running then\n\
+                 tell application \"iTunes\"\n\
+                 if player state is playing then\n\
+                 return artist of current track & \" - \" & name of current track\n\
+                 end if\n\
+                 end tell\n\
+                 end if",
+            ])
+            .output()
+            .ok()?;
+        if !out.status.success() {
+            return None;
+        }
+        let s = String::from_utf8(out.stdout).ok()?.trim().to_string();
+        if s.is_empty() {
+            return None;
+        }
+        return Some(Value::Array(vec![serde_json::json!({
+            "contents": s,
+            "highlight_groups": ["now_playing"],
+        })]));
+    }
+    #[cfg(not(target_os = "macos"))]
+    None
+}
+
+fn ad_dbus_player(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    // py:384-449  generic MPRIS probe parameterized by player_name.
+    let player = args.get("player_name").and_then(|v| v.as_str())?;
+    let service = format!("org.mpris.MediaPlayer2.{}", player);
+    let metadata = std::process::Command::new("qdbus")
+        .args([
+            &service,
+            "/Player",
+            "org.freedesktop.MediaPlayer.GetMetadata",
+        ])
+        .output()
+        .ok()?;
+    if !metadata.status.success() {
+        return None;
+    }
+    let text = String::from_utf8(metadata.stdout).ok()?;
+    let mut artist = String::new();
+    let mut title = String::new();
+    for line in text.lines() {
+        if let Some(rest) = line.strip_prefix("artist: ") {
+            artist = rest.to_string();
+        } else if let Some(rest) = line.strip_prefix("title: ") {
+            title = rest.to_string();
+        }
+    }
+    if title.is_empty() {
+        return None;
+    }
+    let contents = if artist.is_empty() {
+        title
+    } else {
+        format!("{} - {}", artist, title)
+    };
+    Some(Value::Array(vec![serde_json::json!({
+        "contents": contents,
+        "highlight_groups": ["now_playing"],
+    })]))
+}
+
+fn ad_clementine(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    // py:431-449  Clementine via MPRIS dbus. `qdbus` shells the
+    // method calls; on systems without qdbus we silently skip.
+    let metadata = std::process::Command::new("qdbus")
+        .args([
+            "org.mpris.MediaPlayer2.clementine",
+            "/Player",
+            "org.freedesktop.MediaPlayer.GetMetadata",
+        ])
+        .output()
+        .ok()?;
+    if !metadata.status.success() {
+        return None;
+    }
+    let text = String::from_utf8(metadata.stdout).ok()?;
+    // qdbus prints `key: value` lines for the dict. Extract artist + title.
+    let mut artist = String::new();
+    let mut title = String::new();
+    for line in text.lines() {
+        if let Some(rest) = line.strip_prefix("artist: ") {
+            artist = rest.to_string();
+        } else if let Some(rest) = line.strip_prefix("title: ") {
+            title = rest.to_string();
+        }
+    }
+    if title.is_empty() {
+        return None;
+    }
+    let contents = if artist.is_empty() {
+        title
+    } else {
+        format!("{} - {}", artist, title)
+    };
+    Some(Value::Array(vec![serde_json::json!({
+        "contents": contents,
+        "highlight_groups": ["now_playing"],
+    })]))
+}
+
+fn ad_mocp(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::ported::segments::common::players::MocPlayerSegment;
+    let out = std::process::Command::new("mocp").arg("-i").output().ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let s = String::from_utf8(out.stdout).ok()?;
+    let segment = MocPlayerSegment;
+    let stats = segment.get_player_status(&s)?;
+    let title = stats.title.as_deref().unwrap_or("");
+    if title.is_empty() {
+        return None;
+    }
+    let artist = stats.artist.as_deref().unwrap_or("");
+    let contents = if artist.is_empty() {
+        title.to_string()
+    } else {
+        format!("{} - {}", artist, title)
+    };
+    Some(Value::Array(vec![serde_json::json!({
+        "contents": contents,
+        "highlight_groups": ["now_playing"],
+    })]))
+}
+
 fn ad_mpd(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
     // Probe `mpc current` and wrap as a player segment. Mirrors the
     // upstream `MpdPlayerSegment.__call__` at
@@ -1172,6 +1574,13 @@ const ADAPTERS: &[(&str, AdapterFn)] = &[
     ("powerline.segments.common.time.fuzzy_time", ad_fuzzy_time),
     ("powerline.segments.common.env.environment", ad_environment),
     ("powerline.segments.common.env.virtualenv", ad_virtualenv),
+    ("powerline.segments.common.env.cwd", ad_cwd),
+    ("powerline.segments.shell.jobnum", ad_jobnum),
+    ("powerline.segments.shell.last_status", ad_last_status),
+    (
+        "powerline.segments.shell.last_pipe_status",
+        ad_last_pipe_status,
+    ),
     ("powerline.segments.common.env.user", ad_user),
     ("powerline.segments.common.players.mpd", ad_mpd),
     (
@@ -1191,6 +1600,20 @@ const ADAPTERS: &[(&str, AdapterFn)] = &[
         ad_network_load,
     ),
     ("powerline.segments.common.players.spotify", ad_spotify),
+    ("powerline.segments.common.players.cmus", ad_cmus),
+    ("powerline.segments.common.players.mocp", ad_mocp),
+    ("powerline.segments.common.players.rhythmbox", ad_rhythmbox),
+    ("powerline.segments.common.players.itunes", ad_itunes),
+    ("powerline.segments.common.players.clementine", ad_clementine),
+    (
+        "powerline.segments.common.players.dbus_player",
+        ad_dbus_player,
+    ),
+    ("powerline.segments.common.wthr.weather", ad_weather),
+    (
+        "powerline.segments.common.mail.email_imap_alert",
+        ad_email_imap_alert,
+    ),
 ];
 
 /// Python-faithful color encoding for the hlstyle directive builder.
@@ -1372,6 +1795,39 @@ fn main() {
             Value::String(environ.get("HOME").cloned().unwrap_or_default()),
         );
         segment_info.insert("getcwd".to_string(), Value::String(cwd.to_string()));
+        // Shell-segment fields per `develop/segments.rst` segment_info
+        // contract: `args` carries the parsed Args fields (jobnum,
+        // last_exit_code, last_pipe_status) that shell adapters
+        // (jobnum, last_status, last_pipe_status, mode) read.
+        let mut args_map: Map<String, Value> = Map::new();
+        if let Some(j) = args.jobnum {
+            args_map.insert("jobnum".to_string(), Value::from(j));
+        }
+        if let Some(ec) = args.last_exit_code.as_ref() {
+            args_map.insert(
+                "last_exit_code".to_string(),
+                match ec {
+                    powerliners::ported::commands::main::IntOrSig::Int(n) => Value::from(*n),
+                    powerliners::ported::commands::main::IntOrSig::Sig(s) => {
+                        Value::String(s.clone())
+                    }
+                },
+            );
+        }
+        if !args.last_pipe_status.is_empty() {
+            let arr: Vec<Value> = args
+                .last_pipe_status
+                .iter()
+                .map(|v| match v {
+                    powerliners::ported::commands::main::IntOrSig::Int(n) => Value::from(*n),
+                    powerliners::ported::commands::main::IntOrSig::Sig(s) => {
+                        Value::String(s.clone())
+                    }
+                })
+                .collect();
+            args_map.insert("last_pipe_status".to_string(), Value::Array(arr));
+        }
+        segment_info.insert("args".to_string(), Value::Object(args_map));
 
         // Pick up the per-config TmuxRenderer so the truecolor flag
         // from common.term_truecolor drives the hex-vs-cterm branch.

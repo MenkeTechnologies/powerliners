@@ -408,6 +408,791 @@ pub fn find_all_ext_config_files(
 /// surface satisfies the `powerline-lint` script contract by
 /// returning `false` (no problems found) so the script exits 0 when
 /// the config-path is supplied.
+/// Port of module-level `top_theme_spec` binding from
+/// `powerline/lint/__init__.py:50`.
+pub fn top_theme_spec() -> spec::Spec {
+    // py:50  Spec().type(unicode).func(check_top_theme).copy
+    spec::Spec::new()
+        .type_check(&[spec::SpecType::Unicode])
+        .func("check_top_theme")
+}
+
+/// Port of module-level `ext_theme_spec` binding from
+/// `powerline/lint/__init__.py:49`.
+pub fn ext_theme_spec() -> spec::Spec {
+    // py:49  Spec().type(unicode).func(check_config(themes, *args)).copy
+    spec::Spec::new()
+        .type_check(&[spec::SpecType::Unicode])
+        .func("check_config_themes")
+}
+
+/// Port of module-level `log_format_spec` binding from
+/// `powerline/lint/__init__.py:63`.
+pub fn log_format_spec() -> spec::Spec {
+    // py:63  Spec().type(unicode).copy
+    spec::Spec::new().type_check(&[spec::SpecType::Unicode])
+}
+
+/// Port of module-level `log_level_spec` binding from
+/// `powerline/lint/__init__.py:59-62`.
+pub fn log_level_spec() -> spec::Spec {
+    // py:59-62  Spec().re('^[A-Z]+$').func(lambda check logging level)
+    spec::Spec::new()
+        .regex("^[A-Z]+$")
+        .func("check_logging_level")
+}
+
+/// Port of module-level `term_color_spec` binding from
+/// `powerline/lint/__init__.py:142`.
+pub fn term_color_spec() -> spec::Spec {
+    // py:142  Spec().unsigned().cmp('le', 255).copy
+    spec::Spec::new().unsigned().cmp(spec::Cmp::Le, 255.0)
+}
+
+/// Port of module-level `true_color_spec` binding from
+/// `powerline/lint/__init__.py:143-146`.
+pub fn true_color_spec() -> spec::Spec {
+    // py:143-146  Spec().re('^[0-9a-fA-F]{6}$').copy
+    spec::Spec::new().regex("^[0-9a-fA-F]{6}$")
+}
+
+/// Port of module-level `colors_spec` binding from
+/// `powerline/lint/__init__.py:147-162`.
+pub fn colors_spec() -> spec::Spec {
+    // py:147-162
+    let color_value = spec::Spec::new()
+        .either(vec![
+            spec::Spec::new().tuple(vec![term_color_spec(), true_color_spec()]),
+            term_color_spec(),
+        ]);
+    let colors_inner = spec::Spec::new()
+        .unknown_spec(spec::Spec::new().ident(), color_value)
+        .context_message("Error while checking colors (key {key})");
+    let gradient_value = spec::Spec::new().tuple(vec![
+        spec::Spec::new()
+            .len(spec::Cmp::Gt, 1)
+            .list(term_color_spec()),
+        spec::Spec::new()
+            .len(spec::Cmp::Gt, 1)
+            .list(true_color_spec())
+            .optional(),
+    ]);
+    let gradients_inner = spec::Spec::new()
+        .unknown_spec(spec::Spec::new().ident(), gradient_value)
+        .context_message("Error while checking gradients (key {key})");
+    let mut s = spec::Spec::new();
+    s = s.update("colors", colors_inner);
+    s = s.update("gradients", gradients_inner);
+    s.context_message("Error while loading colors configuration")
+}
+
+/// Port of module-level `mode_translations_value_spec` binding from
+/// `powerline/lint/__init__.py:181-190`.
+pub fn mode_translations_value_spec() -> spec::Spec {
+    // py:181-190
+    let colors_unknown = spec::Spec::new()
+        .unknown_spec(color_spec(), color_spec())
+        .optional();
+    let groups_unknown = spec::Spec::new()
+        .unknown_spec(
+            group_name_spec().func("check_translated_group_name"),
+            group_spec(),
+        )
+        .optional();
+    let mut s = spec::Spec::new();
+    s = s.update("colors", colors_unknown);
+    s = s.update("groups", groups_unknown);
+    s
+}
+
+/// Port of module-level `top_colorscheme_spec` binding from
+/// `powerline/lint/__init__.py:191-198`.
+pub fn top_colorscheme_spec() -> spec::Spec {
+    // py:191-198
+    let mt_inner = spec::Spec::new()
+        .unknown_spec(
+            spec::Spec::new().type_check(&[spec::SpecType::Unicode]),
+            mode_translations_value_spec(),
+        )
+        .optional()
+        .context_message("Error while loading mode translations (key {key})")
+        .optional();
+    let mut s = spec::Spec::new();
+    s = s.update("name", name_spec());
+    s = s.update("groups", groups_spec().required());
+    s = s.update("mode_translations", mt_inner);
+    s.context_message("Error while loading top-level colorscheme")
+}
+
+/// Port of module-level `vim_mode_spec` binding from
+/// `powerline/lint/__init__.py:199`.
+pub fn vim_mode_spec() -> spec::Spec {
+    // py:199  Spec().oneof(set(list(vim_modes) + ['nc', 'tab_nc', 'buf_nc'])).copy
+    // vim_modes is the dict at segments/vim/__init__.py:43-67; ported as
+    // crate::ported::segments::vim::vim_modes(). Building the union here
+    // from the live accessor avoids drift if the upstream dict changes.
+    let modes = crate::ported::segments::vim::vim_modes();
+    let mut values: Vec<&str> = modes.keys().copied().collect();
+    values.push("nc");
+    values.push("tab_nc");
+    values.push("buf_nc");
+    spec::Spec::new().oneof(&values)
+}
+
+/// Port of module-level `shell_mode_spec` binding from
+/// `powerline/lint/__init__.py:208`.
+pub fn shell_mode_spec() -> spec::Spec {
+    // py:208  Spec().re(r'^(?:[\w\-]+|\.safe)$').copy
+    spec::Spec::new().regex(r"^(?:[\w\-]+|\.safe)$")
+}
+
+/// Port of module-level `divider_spec` binding from
+/// `powerline/lint/__init__.py:47-48`.
+pub fn divider_spec() -> spec::Spec {
+    // py:47-48  Spec().printable().len('le', 3, ...).copy
+    spec::Spec::new().printable().len(spec::Cmp::Le, 3)
+}
+
+/// Port of module-level `ext_spec` binding from
+/// `powerline/lint/__init__.py:51-57`.
+pub fn ext_spec() -> spec::Spec {
+    // py:51-57
+    let colorscheme_value = spec::Spec::new()
+        .type_check(&[spec::SpecType::Unicode])
+        .func("check_config_colorschemes");
+    let mut s = spec::Spec::new();
+    s = s.update("colorscheme", colorscheme_value);
+    s = s.update("theme", ext_theme_spec());
+    s = s.update("top_theme", top_theme_spec().optional());
+    s
+}
+
+/// Port of module-level `gen_components_spec` binding from
+/// `powerline/lint/__init__.py:58`.
+///
+/// `gen_components_spec = (lambda *components: Spec().list(Spec().type(unicode).oneof(set(components))))`
+pub fn gen_components_spec(components: &[&str]) -> spec::Spec {
+    // py:58
+    let item = spec::Spec::new()
+        .type_check(&[spec::SpecType::Unicode])
+        .oneof(components);
+    spec::Spec::new().list(item)
+}
+
+/// Port of module-level `args_spec` binding from
+/// `powerline/lint/__init__.py:219-222`.
+pub fn args_spec() -> spec::Spec {
+    // py:219-222
+    let pl_err = spec::Spec::new()
+        .error("pl object must be set by powerline")
+        .optional();
+    let segment_info_err = spec::Spec::new()
+        .error("Segment info dictionary must be set by powerline")
+        .optional();
+    let mut s = spec::Spec::new();
+    s = s.update("pl", pl_err);
+    s = s.update("segment_info", segment_info_err);
+    s.unknown_spec(spec::Spec::new(), spec::Spec::new()).optional()
+}
+
+/// Port of module-level `segment_module_spec` binding from
+/// `powerline/lint/__init__.py:223`.
+pub fn segment_module_spec() -> spec::Spec {
+    // py:223  Spec().type(unicode).func(check_segment_module).optional().copy
+    spec::Spec::new()
+        .type_check(&[spec::SpecType::Unicode])
+        .func("check_segment_module")
+        .optional()
+}
+
+/// Port of module-level `exinclude_spec` binding from
+/// `powerline/lint/__init__.py:224`.
+pub fn exinclude_spec() -> spec::Spec {
+    // py:224  Spec().re(function_name_re).func(check_exinclude_function).copy
+    spec::Spec::new()
+        .regex(r"^(\w+\.)*[a-zA-Z_]\w*$")
+        .func("check_exinclude_function")
+}
+
+/// Port of module-level `highlight_group_spec` binding from
+/// `powerline/lint/checks.py:349`.
+pub fn highlight_group_spec() -> spec::Spec {
+    // checks.py:349  highlight_group_spec = Spec().ident().copy
+    spec::Spec::new().ident()
+}
+
+/// Port of module-level `vim_colorscheme_spec` binding from
+/// `powerline/lint/__init__.py:200-207`.
+pub fn vim_colorscheme_spec() -> spec::Spec {
+    // py:200-207
+    let mt = spec::Spec::new()
+        .unknown_spec(vim_mode_spec(), mode_translations_value_spec())
+        .optional()
+        .context_message("Error while loading mode translations (key {key})");
+    let mut s = spec::Spec::new();
+    s = s.update("name", name_spec());
+    s = s.update("groups", groups_spec());
+    s = s.update("mode_translations", mt);
+    s.context_message("Error while loading vim colorscheme")
+}
+
+/// Port of module-level `shell_colorscheme_spec` binding from
+/// `powerline/lint/__init__.py:209-216`.
+pub fn shell_colorscheme_spec() -> spec::Spec {
+    // py:209-216
+    let mt = spec::Spec::new()
+        .unknown_spec(shell_mode_spec(), mode_translations_value_spec())
+        .optional()
+        .context_message("Error while loading mode translations (key {key})");
+    let mut s = spec::Spec::new();
+    s = s.update("name", name_spec());
+    s = s.update("groups", groups_spec());
+    s = s.update("mode_translations", mt);
+    s.context_message("Error while loading shell colorscheme")
+}
+
+/// Port of module-level `segment_spec_base` binding from
+/// `powerline/lint/__init__.py:225-254`.
+///
+/// Shared spec for both `segment_spec` and `subsegment_spec`; the
+/// `type=` key differs between them and is added by the caller.
+pub fn segment_spec_base() -> spec::Spec {
+    // py:226
+    let name_inner = spec::Spec::new()
+        .regex(r"^[a-zA-Z_]\w*$")
+        .optional();
+    // py:227
+    let function_inner = spec::Spec::new()
+        .regex(r"^(\w+\.)*[a-zA-Z_]\w*$")
+        .func("check_segment_function")
+        .optional();
+    // py:228-229
+    let exclude_modes_inner = spec::Spec::new().list(vim_mode_spec()).optional();
+    let include_modes_inner = spec::Spec::new().list(vim_mode_spec()).optional();
+    // py:230-231
+    let exclude_function_inner = exinclude_spec().optional();
+    let include_function_inner = exinclude_spec().optional();
+    // py:232-235
+    let draw_hard_divider_inner = spec::Spec::new()
+        .type_check(&[spec::SpecType::Bool])
+        .optional();
+    let draw_soft_divider_inner = spec::Spec::new()
+        .type_check(&[spec::SpecType::Bool])
+        .optional();
+    let draw_inner_divider_inner = spec::Spec::new()
+        .type_check(&[spec::SpecType::Bool])
+        .optional();
+    let display_inner = spec::Spec::new()
+        .type_check(&[spec::SpecType::Bool])
+        .optional();
+    // py:236
+    let module_inner = segment_module_spec();
+    // py:237  Spec().type(int, float, type(None)).optional()
+    // Python's int + float collapse to SpecType::Float in our enum per
+    // the comment at SpecType::Float; None → Null.
+    let priority_inner = spec::Spec::new()
+        .type_check(&[spec::SpecType::Float, spec::SpecType::Null])
+        .optional();
+    // py:238-239
+    let after_inner = spec::Spec::new().printable().optional();
+    let before_inner = spec::Spec::new().printable().optional();
+    // py:240  width is either unsigned int OR literal string "auto".
+    // Python uses .cmp('eq', 'auto') which compares the value against
+    // the literal; Rust's `cmp` takes f64 only, so .oneof(&["auto"])
+    // captures the same constraint shape.
+    let width_inner = spec::Spec::new()
+        .either(vec![
+            spec::Spec::new().unsigned(),
+            spec::Spec::new().oneof(&["auto"]),
+        ])
+        .optional();
+    // py:241  align l|r
+    let align_inner = spec::Spec::new().oneof(&["l", "r"]).optional();
+    // py:242
+    let args_inner = args_spec().func("check_args");
+    // py:243
+    let contents_inner = spec::Spec::new().printable().optional();
+    // py:244-249
+    let highlight_group_item = highlight_group_spec()
+        .regex(r"^(?:(?!:divider$).)+$");
+    let highlight_groups_inner = spec::Spec::new()
+        .list(highlight_group_item)
+        .func("check_highlight_groups")
+        .optional();
+    // py:250-253
+    let divider_hg_inner = highlight_group_spec()
+        .func("check_highlight_group")
+        .regex(":divider$")
+        .optional();
+
+    let mut s = spec::Spec::new();
+    s = s.update("name", name_inner);
+    s = s.update("function", function_inner);
+    s = s.update("exclude_modes", exclude_modes_inner);
+    s = s.update("include_modes", include_modes_inner);
+    s = s.update("exclude_function", exclude_function_inner);
+    s = s.update("include_function", include_function_inner);
+    s = s.update("draw_hard_divider", draw_hard_divider_inner);
+    s = s.update("draw_soft_divider", draw_soft_divider_inner);
+    s = s.update("draw_inner_divider", draw_inner_divider_inner);
+    s = s.update("display", display_inner);
+    s = s.update("module", module_inner);
+    s = s.update("priority", priority_inner);
+    s = s.update("after", after_inner);
+    s = s.update("before", before_inner);
+    s = s.update("width", width_inner);
+    s = s.update("align", align_inner);
+    s = s.update("args", args_inner);
+    s = s.update("contents", contents_inner);
+    s = s.update("highlight_groups", highlight_groups_inner);
+    s = s.update("divider_highlight_group", divider_hg_inner);
+    s.func("check_full_segment_data")
+}
+
+/// Port of module-level `subsegment_spec` binding from
+/// `powerline/lint/__init__.py:255-257`.
+pub fn subsegment_spec() -> spec::Spec {
+    // py:256  type=Spec().oneof(set((k for k in type_keys if k != 'segment_list')))
+    let allowed: Vec<&str> = crate::ported::lint::checks::type_keys()
+        .keys()
+        .copied()
+        .filter(|k| *k != "segment_list")
+        .collect();
+    let type_inner = spec::Spec::new().oneof(&allowed).optional();
+    segment_spec_base().update("type", type_inner)
+}
+
+/// Port of module-level `segment_spec` binding from
+/// `powerline/lint/__init__.py:258-261`.
+pub fn segment_spec() -> spec::Spec {
+    // py:259  type=Spec().oneof(type_keys).optional()
+    let allowed: Vec<&str> = crate::ported::lint::checks::type_keys()
+        .keys()
+        .copied()
+        .collect();
+    let type_inner = spec::Spec::new().oneof(&allowed).optional();
+    // py:260  segments=Spec().optional().list(subsegment_spec)
+    let segments_inner = spec::Spec::new().optional().list(subsegment_spec());
+    segment_spec_base()
+        .update("type", type_inner)
+        .update("segments", segments_inner)
+}
+
+/// Port of module-level `segments_spec` binding from
+/// `powerline/lint/__init__.py:262`.
+pub fn segments_spec() -> spec::Spec {
+    // py:262  Spec().optional().list(segment_spec).copy
+    spec::Spec::new().optional().list(segment_spec())
+}
+
+/// Port of module-level `segdict_spec` binding from
+/// `powerline/lint/__init__.py:263-269`.
+pub fn segdict_spec() -> spec::Spec {
+    // py:264  left=segments_spec().context_message('Error ... left')
+    let left_inner =
+        segments_spec().context_message("Error while loading segments from left side (key {key})");
+    // py:265  right=segments_spec().context_message('Error ... right')
+    let right_inner =
+        segments_spec().context_message("Error while loading segments from right side (key {key})");
+    let mut s = spec::Spec::new();
+    s = s.update("left", left_inner);
+    s = s.update("right", right_inner);
+    s.func("check_segments_left_or_right")
+        .context_message("Error while loading segments (key {key})")
+}
+
+/// Port of module-level `divside_spec` binding from
+/// `powerline/lint/__init__.py:270-273`.
+pub fn divside_spec() -> spec::Spec {
+    // py:270-273
+    let mut s = spec::Spec::new();
+    s = s.update("hard", divider_spec());
+    s = s.update("soft", divider_spec());
+    s
+}
+
+/// Port of module-level `segment_data_value_spec` binding from
+/// `powerline/lint/__init__.py:274-280`.
+pub fn segment_data_value_spec() -> spec::Spec {
+    // py:274-280
+    let mut s = spec::Spec::new();
+    s = s.update("after", spec::Spec::new().printable().optional());
+    s = s.update("before", spec::Spec::new().printable().optional());
+    s = s.update(
+        "display",
+        spec::Spec::new()
+            .type_check(&[spec::SpecType::Bool])
+            .optional(),
+    );
+    s = s.update("args", args_spec().func("check_args"));
+    s = s.update("contents", spec::Spec::new().printable().optional());
+    s
+}
+
+/// Port of module-level `dividers_spec` binding from
+/// `powerline/lint/__init__.py:281-284`.
+pub fn dividers_spec() -> spec::Spec {
+    // py:281-284
+    let mut s = spec::Spec::new();
+    s = s.update("left", divside_spec());
+    s = s.update("right", divside_spec());
+    s
+}
+
+/// Port of module-level `spaces_spec` binding from
+/// `powerline/lint/__init__.py:285-287`.
+pub fn spaces_spec() -> spec::Spec {
+    // py:285-287  Spec().unsigned().cmp('le', 2, ...).copy
+    spec::Spec::new().unsigned().cmp(spec::Cmp::Le, 2.0)
+}
+
+/// Port of module-level `common_theme_spec` binding from
+/// `powerline/lint/__init__.py:288-292`.
+pub fn common_theme_spec() -> spec::Spec {
+    // py:288-292
+    let cursor_space = spec::Spec::new()
+        .type_check(&[spec::SpecType::Float])
+        .cmp(spec::Cmp::Le, 100.0)
+        .cmp(spec::Cmp::Gt, 0.0)
+        .optional();
+    let cursor_columns = spec::Spec::new()
+        .type_check(&[spec::SpecType::Float])
+        .cmp(spec::Cmp::Gt, 0.0)
+        .optional();
+    let mut s = spec::Spec::new();
+    s = s.update("default_module", segment_module_spec().optional());
+    s = s.update("cursor_space", cursor_space);
+    s = s.update("cursor_columns", cursor_columns);
+    s.context_message("Error while loading theme")
+}
+
+/// Port of the second (rebound) `top_theme_spec` binding from
+/// `powerline/lint/__init__.py:293-301`.
+///
+/// Python rebinds the module attribute `top_theme_spec` at py:293 from
+/// the unicode-name validator (py:50, ported as `top_theme_spec`) to
+/// the full top-theme JSON structure validator. Rust can't redefine
+/// the same fn name, so the structure-spec variant is exposed as
+/// `top_theme_structure_spec`.
+pub fn top_theme_structure_spec() -> spec::Spec {
+    // py:293-301
+    let segment_data = spec::Spec::new()
+        .unknown_spec(
+            spec::Spec::new().func("check_segment_data_key"),
+            segment_data_value_spec(),
+        )
+        .optional()
+        .context_message("Error while loading segment data (key {key})");
+    common_theme_spec()
+        .update("dividers", dividers_spec())
+        .update("spaces", spaces_spec())
+        .update(
+            "use_non_breaking_spaces",
+            spec::Spec::new()
+                .type_check(&[spec::SpecType::Bool])
+                .optional(),
+        )
+        .update("segment_data", segment_data)
+}
+
+/// Port of module-level `main_theme_spec` binding from
+/// `powerline/lint/__init__.py:302-309`.
+pub fn main_theme_spec() -> spec::Spec {
+    // py:302-309
+    let segment_data = spec::Spec::new()
+        .unknown_spec(
+            spec::Spec::new().func("check_segment_data_key"),
+            segment_data_value_spec(),
+        )
+        .optional()
+        .context_message("Error while loading segment data (key {key})");
+    common_theme_spec()
+        .update("dividers", dividers_spec().optional())
+        .update("spaces", spaces_spec().optional())
+        .update("segment_data", segment_data)
+}
+
+/// Port of the inline `log_file` Spec at
+/// `powerline/lint/__init__.py:75-98`.
+///
+/// Python builds the either-of-two-shapes spec inline inside the
+/// main_spec call. The Rust port extracts it to keep main_spec
+/// readable. Each shape is faithfully composed: the string variant
+/// (unicode path with directory-exists check) and the list variant
+/// (list of either None|string or 4-element tuple).
+pub fn log_file_spec() -> spec::Spec {
+    // py:76-85  unicode + dirname check
+    let unicode_path = spec::Spec::new()
+        .type_check(&[spec::SpecType::Unicode])
+        .func("check_log_file_dir");
+    // py:88-96  tuple of (handler-name, ctor-args-tuple, level, format)
+    let tuple_entry = spec::Spec::new().tuple(vec![
+        spec::Spec::new()
+            .regex(r"^(\w+\.)*[a-zA-Z_]\w*$")
+            .func("check_logging_handler"),
+        spec::Spec::new().tuple(vec![
+            spec::Spec::new()
+                .type_check(&[spec::SpecType::List])
+                .optional(),
+            spec::Spec::new()
+                .type_check(&[spec::SpecType::Dict])
+                .optional(),
+        ]),
+        log_level_spec().func("check_log_file_level").optional(),
+        log_format_spec().optional(),
+    ]);
+    // py:86-87  either (unicode|null) or tuple
+    let list_item = spec::Spec::new().either(vec![
+        spec::Spec::new().type_check(&[spec::SpecType::Unicode, spec::SpecType::Null]),
+        tuple_entry,
+    ]);
+    let list_variant = spec::Spec::new().list(list_item);
+    spec::Spec::new()
+        .either(vec![unicode_path, list_variant])
+        .optional()
+}
+
+/// Port of the inline `common` block inside `main_spec` at
+/// `powerline/lint/__init__.py:65-104`.
+pub fn common_spec() -> spec::Spec {
+    // py:66
+    let default_top_theme = top_theme_spec().optional();
+    // py:67
+    let term_truecolor = spec::Spec::new()
+        .type_check(&[spec::SpecType::Bool])
+        .optional();
+    // py:68
+    let term_escape_style = spec::Spec::new()
+        .type_check(&[spec::SpecType::Unicode])
+        .oneof(&["auto", "xterm", "fbterm"])
+        .optional();
+    // py:71-74  paths: list with path-exists check on each entry.
+    let paths_inner = spec::Spec::new()
+        .list(spec::Spec::new().func("check_path_exists"))
+        .optional();
+    // py:75-98
+    let log_file = log_file_spec();
+    // py:99-100
+    let log_level = log_level_spec().optional();
+    let log_format = log_format_spec().optional();
+    // py:101  interval: either(cmp>0, None) optional
+    let interval = spec::Spec::new()
+        .either(vec![
+            spec::Spec::new().cmp(spec::Cmp::Gt, 0.0),
+            spec::Spec::new().type_check(&[spec::SpecType::Null]),
+        ])
+        .optional();
+    // py:102
+    let reload_config = spec::Spec::new()
+        .type_check(&[spec::SpecType::Bool])
+        .optional();
+    // py:103
+    let watcher = spec::Spec::new()
+        .type_check(&[spec::SpecType::Unicode])
+        .oneof(&["auto", "inotify", "stat"])
+        .optional();
+
+    let mut s = spec::Spec::new();
+    s = s.update("default_top_theme", default_top_theme);
+    s = s.update("term_truecolor", term_truecolor);
+    s = s.update("term_escape_style", term_escape_style);
+    s = s.update("paths", paths_inner);
+    s = s.update("log_file", log_file);
+    s = s.update("log_level", log_level);
+    s = s.update("log_format", log_format);
+    s = s.update("interval", interval);
+    s = s.update("reload_config", reload_config);
+    s = s.update("watcher", watcher);
+    s.context_message("Error while loading common configuration (key {key})")
+}
+
+/// Port of the inline `ext` block inside `main_spec` at
+/// `powerline/lint/__init__.py:105-139`.
+pub fn ext_block_spec() -> spec::Spec {
+    // py:106-114  vim
+    let vim_local_themes = {
+        let mut t = spec::Spec::new();
+        t = t.update("__tabline__", ext_theme_spec());
+        t.unknown_spec(
+            spec::Spec::new()
+                .regex(r"^(\w+\.)*[a-zA-Z_]\w*$")
+                .func("check_matcher_func_vim"),
+            ext_theme_spec(),
+        )
+    };
+    let vim_inner = ext_spec()
+        .update(
+            "components",
+            gen_components_spec(&["statusline", "tabline"]).optional(),
+        )
+        .update("local_themes", vim_local_themes)
+        .optional();
+    // py:115-121  ipython
+    let ipython_local_themes = {
+        let mut t = spec::Spec::new();
+        t = t.update("in2", ext_theme_spec());
+        t = t.update("out", ext_theme_spec());
+        t = t.update("rewrite", ext_theme_spec());
+        t
+    };
+    let ipython_inner = ext_spec()
+        .update("local_themes", ipython_local_themes)
+        .optional();
+    // py:122-128  shell
+    let shell_local_themes = {
+        let mut t = spec::Spec::new();
+        t = t.update("continuation", ext_theme_spec());
+        t = t.update("select", ext_theme_spec());
+        t
+    };
+    let shell_inner = ext_spec()
+        .update(
+            "components",
+            gen_components_spec(&["tmux", "prompt"]).optional(),
+        )
+        .update("local_themes", shell_local_themes)
+        .optional();
+    // py:129-135  wm
+    let wm_local_themes = spec::Spec::new()
+        .unknown_spec(
+            spec::Spec::new().regex(r"^[0-9A-Za-z-]+$"),
+            ext_theme_spec(),
+        )
+        .optional();
+    let wm_inner = ext_spec()
+        .update("local_themes", wm_local_themes)
+        .update(
+            "update_interval",
+            spec::Spec::new().cmp(spec::Cmp::Gt, 0.0).optional(),
+        )
+        .optional();
+
+    let mut s = spec::Spec::new();
+    s = s.update("vim", vim_inner);
+    s = s.update("ipython", ipython_inner);
+    s = s.update("shell", shell_inner);
+    s = s.update("wm", wm_inner);
+    // py:136-138  unknown_spec(check_ext, ext_spec())
+    s.unknown_spec(spec::Spec::new().func("check_ext"), ext_spec())
+        .context_message("Error while loading extensions configuration (key {key})")
+}
+
+/// Port of module-level `main_spec` binding from
+/// `powerline/lint/__init__.py:64-140`.
+pub fn main_spec() -> spec::Spec {
+    // py:64-140
+    let mut s = spec::Spec::new();
+    s = s.update("common", common_spec());
+    s = s.update("ext", ext_block_spec());
+    s.context_message("Error while loading main configuration")
+}
+
+/// Port of module-level `theme_spec` binding from
+/// `powerline/lint/__init__.py:310-318`.
+pub fn theme_spec() -> spec::Spec {
+    // py:310-318
+    let segment_data = spec::Spec::new()
+        .unknown_spec(
+            spec::Spec::new().func("check_segment_data_key"),
+            segment_data_value_spec(),
+        )
+        .optional()
+        .context_message("Error while loading segment data (key {key})");
+    // py:317  segments=segdict_spec().update(above=Spec().list(segdict_spec()).optional())
+    let segments_inner = segdict_spec().update(
+        "above",
+        spec::Spec::new().list(segdict_spec()).optional(),
+    );
+    common_theme_spec()
+        .update("dividers", dividers_spec().optional())
+        .update("spaces", spaces_spec().optional())
+        .update("segment_data", segment_data)
+        .update("segments", segments_inner)
+}
+
+/// Port of module-level `color_spec` binding from
+/// `powerline/lint/__init__.py:165`.
+///
+/// `Spec().type(unicode).func(check_color).copy` — a fluent builder
+/// reference that returns a fresh `Spec` per call.
+pub fn color_spec() -> spec::Spec {
+    // py:165
+    spec::Spec::new()
+        .type_check(&[spec::SpecType::Unicode])
+        .func("check_color")
+}
+
+/// Port of module-level `name_spec` binding from
+/// `powerline/lint/__init__.py:166`.
+pub fn name_spec() -> spec::Spec {
+    // py:166  Spec().type(unicode).len('gt', 0).optional().copy
+    spec::Spec::new()
+        .type_check(&[spec::SpecType::Unicode])
+        .len(spec::Cmp::Gt, 0)
+        .optional()
+}
+
+/// Port of module-level `group_name_spec` binding from
+/// `powerline/lint/__init__.py:167`.
+pub fn group_name_spec() -> spec::Spec {
+    // py:167  Spec().ident().copy
+    spec::Spec::new().ident()
+}
+
+/// Port of module-level `attrs_spec` binding (inlined at
+/// `powerline/lint/__init__.py:171`).
+///
+/// `Spec().list(Spec().type(unicode).oneof(set(('bold', 'italic',
+/// 'underline'))))`.
+pub fn attrs_spec() -> spec::Spec {
+    // py:171
+    let item = spec::Spec::new()
+        .type_check(&[spec::SpecType::Unicode])
+        .oneof(&["bold", "italic", "underline"]);
+    spec::Spec::new().list(item)
+}
+
+/// Port of module-level `group_spec` binding from
+/// `powerline/lint/__init__.py:168-172`.
+///
+/// Python:
+/// ```python
+/// group_spec = Spec().either(Spec(
+///     fg=color_spec(),
+///     bg=color_spec(),
+///     attrs=Spec().list(Spec().type(unicode).oneof(set(('bold',
+///         'italic', 'underline')))),
+/// ), group_name_spec().func(check_group)).copy
+/// ```
+pub fn group_spec() -> spec::Spec {
+    // py:168-172
+    let mut inner = spec::Spec::new();
+    inner = inner.update("fg", color_spec());
+    inner = inner.update("bg", color_spec());
+    inner = inner.update("attrs", attrs_spec());
+    let alias = group_name_spec().func("check_group");
+    spec::Spec::new().either(vec![inner, alias])
+}
+
+/// Port of module-level `groups_spec` binding from
+/// `powerline/lint/__init__.py:173-176`.
+pub fn groups_spec() -> spec::Spec {
+    // py:173-176  Spec().unknown_spec(group_name_spec(), group_spec()).context_message(...).copy
+    spec::Spec::new()
+        .unknown_spec(group_name_spec(), group_spec())
+        .context_message("Error while loading groups (key {key})")
+}
+
+/// Port of module-level `colorscheme_spec` binding from
+/// `powerline/lint/__init__.py:177-180`.
+pub fn colorscheme_spec() -> spec::Spec {
+    // py:177-180  Spec(name=name_spec(), groups=groups_spec()).context_message(...).copy
+    let mut s = spec::Spec::new();
+    s = s.update("name", name_spec());
+    s = s.update("groups", groups_spec().required());
+    s.context_message("Error while loading colorscheme")
+}
+
 pub fn check(
     paths: Option<&[String]>,
     debug: bool,
@@ -1121,6 +1906,27 @@ mod tests {
     }
 
     #[test]
+    fn colorscheme_spec_registers_required_groups_key() {
+        // py:177-180  colorscheme_spec has `name` + required `groups`.
+        let s = colorscheme_spec();
+        assert!(s.get("groups").is_some(), "groups key missing");
+        assert!(s.get("name").is_some(), "name key missing");
+    }
+
+    #[test]
+    fn group_spec_constructs_without_panic() {
+        // py:168-172  either(dict-form, string-alias).
+        let _ = group_spec();
+    }
+
+    #[test]
+    fn groups_spec_attrs_spec_color_spec_constructible() {
+        let _ = groups_spec();
+        let _ = attrs_spec();
+        let _ = color_spec();
+    }
+
+    #[test]
     fn check_against_clean_fixture_returns_false() {
         // Existing E2E fixture is hand-curated to be lint-clean.
         let fixture = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -1214,5 +2020,229 @@ mod tests {
         assert!(exts.contains("shell"));
         std::fs::remove_dir_all(&r1).ok();
         std::fs::remove_dir_all(&r2).ok();
+    }
+
+    #[test]
+    fn ext_spec_carries_required_keys() {
+        // py:51-57  ext_spec keys: colorscheme, theme, top_theme.
+        let s = ext_spec();
+        assert!(s.get("colorscheme").is_some(), "colorscheme key missing");
+        assert!(s.get("theme").is_some(), "theme key missing");
+        assert!(s.get("top_theme").is_some(), "top_theme key missing");
+        let tt = s.get("top_theme").unwrap();
+        assert!(tt.isoptional, "top_theme must be optional per py:56");
+    }
+
+    #[test]
+    fn divider_spec_has_printable_and_len_constraint() {
+        // py:47-48  Spec().printable().len('le', 3, ...).copy
+        let s = divider_spec();
+        assert!(s.printable_flag, "divider must be printable");
+        assert!(
+            s.len_constraints.contains(&(spec::Cmp::Le, 3)),
+            "divider len <= 3 missing"
+        );
+    }
+
+    #[test]
+    fn term_color_spec_is_unsigned_le_255() {
+        // py:142  Spec().unsigned().cmp('le', 255).copy
+        let s = term_color_spec();
+        assert!(s.unsigned_flag, "term color must be unsigned");
+        let (op, v) = s.cmp_constraint.unwrap();
+        assert_eq!(op, spec::Cmp::Le);
+        assert_eq!(v, 255.0);
+    }
+
+    #[test]
+    fn true_color_spec_has_hex_regex() {
+        // py:143-146  Spec().re('^[0-9a-fA-F]{6}$').copy
+        let s = true_color_spec();
+        assert_eq!(s.regex.unwrap(), "^[0-9a-fA-F]{6}$");
+    }
+
+    #[test]
+    fn colors_spec_has_colors_and_gradients_keys() {
+        // py:147-162  Spec(colors=..., gradients=...).context_message(...)
+        let s = colors_spec();
+        assert!(s.get("colors").is_some(), "colors key missing");
+        assert!(s.get("gradients").is_some(), "gradients key missing");
+        assert!(s.cmsg.contains("colors configuration"));
+    }
+
+    #[test]
+    fn vim_mode_spec_contains_known_modes() {
+        // py:199 derives from vim_modes + ['nc', 'tab_nc', 'buf_nc'].
+        let s = vim_mode_spec();
+        let one = s.oneof.unwrap();
+        assert!(one.iter().any(|m| m == "n"));
+        assert!(one.iter().any(|m| m == "i"));
+        assert!(one.iter().any(|m| m == "nc"));
+        assert!(one.iter().any(|m| m == "tab_nc"));
+        assert!(one.iter().any(|m| m == "buf_nc"));
+    }
+
+    #[test]
+    fn shell_mode_spec_has_regex() {
+        // py:208  Spec().re(r'^(?:[\w\-]+|\.safe)$').copy
+        let s = shell_mode_spec();
+        assert_eq!(s.regex.unwrap(), r"^(?:[\w\-]+|\.safe)$");
+    }
+
+    #[test]
+    fn top_colorscheme_spec_has_mt_optional() {
+        // py:191-198  mode_translations is optional.
+        let s = top_colorscheme_spec();
+        assert!(s.get("mode_translations").unwrap().isoptional);
+        assert!(s.get("groups").is_some(), "groups required by spec");
+        assert!(s.get("name").is_some(), "name present");
+    }
+
+    #[test]
+    fn args_spec_has_pl_and_segment_info_optional() {
+        // py:219-222  pl + segment_info both optional with error messages.
+        let s = args_spec();
+        // Top-level optional applied at outer scope.
+        assert!(s.isoptional);
+        assert!(s.get("pl").is_some());
+        assert!(s.get("segment_info").is_some());
+    }
+
+    #[test]
+    fn gen_components_spec_lists_oneof_components() {
+        // py:58  gen_components_spec uses oneof + list pattern.
+        let s = gen_components_spec(&["statusline", "tabline"]);
+        assert!(s.allowed_types.contains(&spec::SpecType::List));
+        // Inner item spec stored in s.specs[0]
+        assert_eq!(s.specs.len(), 1);
+        let inner = &s.specs[0];
+        let one = inner.oneof.as_ref().unwrap();
+        assert!(one.iter().any(|m| m == "statusline"));
+        assert!(one.iter().any(|m| m == "tabline"));
+    }
+
+    #[test]
+    fn segment_spec_base_has_all_segment_keys() {
+        // py:225-254  segment_spec_base lists 20 segment-config keys.
+        let s = segment_spec_base();
+        for k in &[
+            "name", "function", "exclude_modes", "include_modes",
+            "exclude_function", "include_function", "draw_hard_divider",
+            "draw_soft_divider", "draw_inner_divider", "display", "module",
+            "priority", "after", "before", "width", "align", "args",
+            "contents", "highlight_groups", "divider_highlight_group",
+        ] {
+            assert!(s.get(k).is_some(), "missing key {k} in segment_spec_base");
+        }
+    }
+
+    #[test]
+    fn segment_spec_has_segments_and_type_keys() {
+        // py:258-261  segment_spec extends segment_spec_base with type + segments.
+        let s = segment_spec();
+        assert!(s.get("type").is_some(), "type key missing");
+        assert!(s.get("segments").is_some(), "segments key missing");
+    }
+
+    #[test]
+    fn subsegment_spec_excludes_segment_list_from_type() {
+        // py:255-257  subsegment type excludes 'segment_list'.
+        let s = subsegment_spec();
+        let allowed = s.get("type").unwrap().oneof.as_ref().unwrap();
+        assert!(!allowed.iter().any(|t| t == "segment_list"));
+        assert!(allowed.iter().any(|t| t == "string" || t == "function"));
+    }
+
+    #[test]
+    fn segdict_spec_has_left_and_right() {
+        // py:263-269
+        let s = segdict_spec();
+        assert!(s.get("left").is_some(), "left missing");
+        assert!(s.get("right").is_some(), "right missing");
+    }
+
+    #[test]
+    fn spaces_spec_has_unsigned_le_2() {
+        // py:285-287
+        let s = spaces_spec();
+        assert!(s.unsigned_flag);
+        assert_eq!(s.cmp_constraint.unwrap(), (spec::Cmp::Le, 2.0));
+    }
+
+    #[test]
+    fn common_theme_spec_has_cursor_keys() {
+        // py:288-292
+        let s = common_theme_spec();
+        assert!(s.get("default_module").is_some());
+        assert!(s.get("cursor_space").is_some());
+        assert!(s.get("cursor_columns").is_some());
+        assert!(s.cmsg.contains("theme"));
+    }
+
+    #[test]
+    fn theme_spec_has_segments_key() {
+        // py:310-318  theme_spec adds dividers/spaces/segment_data/segments.
+        let s = theme_spec();
+        assert!(s.get("dividers").is_some());
+        assert!(s.get("spaces").is_some());
+        assert!(s.get("segment_data").is_some());
+        assert!(s.get("segments").is_some());
+    }
+
+    #[test]
+    fn top_theme_structure_spec_includes_non_breaking_spaces() {
+        // py:293-301
+        let s = top_theme_structure_spec();
+        assert!(s.get("use_non_breaking_spaces").is_some());
+        assert!(s.get("dividers").is_some());
+        assert!(s.get("spaces").is_some());
+        assert!(s.get("segment_data").is_some());
+    }
+
+    #[test]
+    fn main_spec_has_common_and_ext_blocks() {
+        // py:64-140
+        let s = main_spec();
+        assert!(s.get("common").is_some(), "common block missing");
+        assert!(s.get("ext").is_some(), "ext block missing");
+        assert!(s.cmsg.contains("main configuration"));
+    }
+
+    #[test]
+    fn common_spec_has_log_and_watcher_keys() {
+        // py:65-104
+        let s = common_spec();
+        for k in &[
+            "default_top_theme",
+            "term_truecolor",
+            "term_escape_style",
+            "paths",
+            "log_file",
+            "log_level",
+            "log_format",
+            "interval",
+            "reload_config",
+            "watcher",
+        ] {
+            assert!(s.get(k).is_some(), "common missing {k}");
+        }
+    }
+
+    #[test]
+    fn ext_block_spec_has_known_extensions() {
+        // py:105-139
+        let s = ext_block_spec();
+        for k in &["vim", "ipython", "shell", "wm"] {
+            assert!(s.get(k).is_some(), "ext missing {k}");
+        }
+    }
+
+    #[test]
+    fn log_file_spec_is_optional_with_either() {
+        // py:75-98
+        let s = log_file_spec();
+        assert!(s.isoptional, "log_file should be optional");
+        // either() registers an `either` check, encoded in spec.specs.
+        assert!(!s.specs.is_empty(), "either branches missing");
     }
 }
