@@ -442,6 +442,7 @@ impl INotifyTreeWatcher {
     /// `add_wd` is the caller's inotify syscall hook (same shape as
     /// `add_watch`). Returns `Err(())` when the underlying syscall
     /// hits `ENOSPC` (caller surfaces `DirTooLarge`).
+    #[allow(clippy::result_unit_err)]
     pub fn add_watches<F>(&mut self, base: &str, top_level: bool, add_wd: &mut F) -> Result<(), ()>
     where
         F: FnMut(&str) -> Option<(i32, bool)>,

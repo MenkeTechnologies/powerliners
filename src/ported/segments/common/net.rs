@@ -506,11 +506,11 @@ pub fn compute_state(
         .entry(resolved_interface.clone())
         .or_insert((None, None));
     // py:233  prev = last
-    let (prev, last) = entry.clone();
+    let (prev, last) = *entry;
     let new_prev = last;
     // py:243  last = (monotonic(), _get_bytes(interface))
     let new_last = _get_bytes(&resolved_interface).map(|b| (monotonic(), b));
-    *entry = (new_prev.clone(), new_last.clone());
+    *entry = (new_prev, new_last);
     let _ = prev;
     // py:244  return idata.copy()
     Some((new_prev, new_last))

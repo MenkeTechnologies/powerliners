@@ -1402,10 +1402,10 @@ fn ad_itunes(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
         if s.is_empty() {
             return None;
         }
-        return Some(Value::Array(vec![serde_json::json!({
+        Some(Value::Array(vec![serde_json::json!({
             "contents": s,
             "highlight_groups": ["now_playing"],
-        })]));
+        })]))
     }
     #[cfg(not(target_os = "macos"))]
     None

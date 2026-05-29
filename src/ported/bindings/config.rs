@@ -1118,7 +1118,7 @@ mod tests {
         let tmp = std::env::temp_dir().join("powerliners_test_get_main_config");
         std::fs::create_dir_all(&tmp).unwrap();
         std::fs::write(tmp.join("config.json"), r#"{"common":{},"ext":{}}"#).unwrap();
-        let r = get_main_config(&[tmp.clone()], |path| {
+        let r = get_main_config(std::slice::from_ref(&tmp), |path| {
             let s = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
             serde_json::from_str(&s).map_err(|e| e.to_string())
         });
