@@ -55,11 +55,11 @@ pub fn mode_translations() -> HashMap<String, String> {
 pub struct HlGroup {
     /// Python: `hl_group['ctermfg']` — 'NONE' or the cterm index.
     pub ctermfg: String,
-    /// Python: `hl_group['guifg']` — Option<u32> RGB.
+    /// Python: `hl_group['guifg']` — `Option<u32>` RGB.
     pub guifg: Option<u32>,
     /// Python: `hl_group['ctermbg']` — 'NONE' or the cterm index.
     pub ctermbg: String,
-    /// Python: `hl_group['guibg']` — Option<u32> RGB.
+    /// Python: `hl_group['guibg']` — `Option<u32>` RGB.
     pub guibg: Option<u32>,
     /// Python: `hl_group['attrs']` — names like 'bold','italic'.
     pub attrs: Vec<String>,

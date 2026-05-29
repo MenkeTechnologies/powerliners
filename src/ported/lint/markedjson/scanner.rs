@@ -341,10 +341,7 @@ impl Scanner {
         if self.tokens.is_empty() {
             return true;
         }
-        match self.next_possible_simple_key() {
-            Some(n) if n == self.tokens_taken => true,
-            _ => false,
-        }
+        matches!(self.next_possible_simple_key(), Some(n) if n == self.tokens_taken)
     }
 
     /// Port of `Scanner.next_possible_simple_key()` from
@@ -588,9 +585,9 @@ pub fn scan_to_next_token(buffer: &str) -> usize {
 ///
 /// Drives one round of the scanner's lex loop: peeks the next
 /// non-whitespace character, then routes through `dispatch_fetch_for`
-/// to pick a fetch action. The Rust port returns the dispatch result
-/// + the consumed whitespace count so callers can advance their
-/// reader before invoking the chosen fetch_* method.
+/// to pick a fetch action. The Rust port returns the dispatch result +
+/// the consumed whitespace count so callers can advance their reader
+/// before invoking the chosen `fetch_*` method.
 pub fn fetch_more_tokens(buffer: &str, flow_level: u32) -> (usize, Option<FetchKind>) {
     // py:135  self.scan_to_next_token()
     let whitespace = scan_to_next_token(buffer);

@@ -805,7 +805,7 @@ mod tests {
         let loader = generate_json_config_loader(flag.clone());
         let r = loader(&p);
         assert!(r.is_some());
-        assert_eq!(*flag.lock().unwrap(), false);
+        assert!(!*flag.lock().unwrap());
         std::fs::remove_dir_all(&d).ok();
     }
 
@@ -831,7 +831,7 @@ mod tests {
         std::fs::create_dir_all(&vim_dir).unwrap();
         std::fs::write(vim_dir.join("default.json"), "{}").unwrap();
 
-        let entries = find_all_ext_config_files(&[root.clone()], "themes");
+        let entries = find_all_ext_config_files(std::slice::from_ref(&root), "themes");
         let ext_entry = entries
             .iter()
             .find(|e| e.error.is_none() && e.ext.is_some());
@@ -851,7 +851,7 @@ mod tests {
         std::fs::create_dir_all(&themes_dir).unwrap();
         std::fs::write(themes_dir.join("base.json"), "{}").unwrap();
 
-        let entries = find_all_ext_config_files(&[root.clone()], "themes");
+        let entries = find_all_ext_config_files(std::slice::from_ref(&root), "themes");
         let top_entry = entries
             .iter()
             .find(|e| e.error.is_none() && e.kind.as_deref() == Some("top_themes"));
@@ -868,7 +868,7 @@ mod tests {
         let root = tmp_dir();
         std::fs::write(root.join("themes"), "not-a-dir").unwrap();
 
-        let entries = find_all_ext_config_files(&[root.clone()], "themes");
+        let entries = find_all_ext_config_files(std::slice::from_ref(&root), "themes");
         let err = entries
             .iter()
             .find(|e| e.error.as_deref().map(|s| s.contains("not a directory")) == Some(true));
@@ -892,7 +892,7 @@ mod tests {
         std::fs::create_dir_all(&themes_dir).unwrap();
         std::fs::write(themes_dir.join("README.txt"), "not json").unwrap();
 
-        let entries = find_all_ext_config_files(&[root.clone()], "themes");
+        let entries = find_all_ext_config_files(std::slice::from_ref(&root), "themes");
         let err = entries.iter().find(|e| {
             e.error
                 .as_deref()

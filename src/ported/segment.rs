@@ -626,11 +626,9 @@ where
     F: FnOnce() -> Option<()>,
 {
     // py:86-89  try getattr; except AttributeError: return None
-    let func = match func_lookup() {
-        Some(f) => f,
-        None => return AttrFunc::None,
-    };
-    let _ = func;
+    if func_lookup().is_none() {
+        return AttrFunc::None;
+    }
 
     // py:90-98  is_space_func branch
     if is_space_func {

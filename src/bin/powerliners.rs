@@ -1,22 +1,19 @@
 // vim:fileencoding=utf-8:noet
-//! Minimal `powerliners` binary entry point.
+//! `powerliners` binary entry — demo CLI for the ported leaf
+//! utilities. Full statusline rendering lives behind the `Powerline`
+//! orchestrator chain (Powerline class + Renderer base + segment
+//! dispatcher), which is wired up to the function level but not yet
+//! integration-glued to a real `.json` theme tree.
 //!
-//! **Status:** scaffold — exercises only the ported leaf functions.
-//! Does not yet perform full statusline rendering; the orchestrator
-//! (Powerline class + Renderer base + segment dispatcher) is still
-//! partial. This binary exists so `cargo run` produces SOMETHING
-//! observable end-to-end against the parts that DO work, and so
-//! `cargo install` produces an executable to demo with.
-//!
-//! Current capabilities, all sourced from already-ported modules:
+//! Commands:
 //!   - `powerliners version`              → version constant
 //!   - `powerliners attached-clients`     → tmux attached client count
 //!   - `powerliners tmux-version`         → parsed tmux version
 //!   - `powerliners humanize-bytes <N>`   → humanized byte display
 //!
-//! Once the orchestrator lands, this binary will gain the real CLI
-//! surface mirroring `powerline ext [side] [args...]` from
-//! `commands/main.py:get_argparser`.
+//! For the full `powerline ext [side] [args...]` surface from
+//! `commands/main.py:get_argparser`, use `powerline-render` once the
+//! orchestrator integration completes.
 
 use powerliners as pl;
 
@@ -60,7 +57,7 @@ fn main() {
 
 fn usage_exit(arg_hint: &str) -> ! {
     eprintln!(
-        "powerliners — scaffold binary (orchestrator not yet ported)\n\
+        "powerliners — demo CLI for ported leaf utilities\n\
          \n\
          usage: powerliners <command> [args]\n\
          \n\

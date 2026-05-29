@@ -53,12 +53,11 @@ impl BashPromptRenderer {
     /// Port of `BashPromptRenderer.do_render()` from
     /// `powerline/renderers/shell/bash.py:17`.
     ///
-    /// **Status:** stub. Renders the bash-specific left+right
-    /// prompt embedding (using `\033[s` / `\033[u` cursor save+
-    /// restore + `\033[NC` / `\033[ND` cursor moves to position the
-    /// right prompt at the terminal edge). The base ShellRenderer
-    /// + escape markers are unported; this stub surfaces the
-    /// dispatch shape.
+    /// **Status:** stub. Renders the bash-specific left+right prompt
+    /// embedding (using `\033[s` / `\033[u` cursor save+restore +
+    /// `\033[NC` / `\033[ND` cursor moves to position the right prompt
+    /// at the terminal edge). The base ShellRenderer + escape markers
+    /// are unported; this stub surfaces the dispatch shape.
     pub fn do_render(side: &str, line: u32, width: Option<u32>) -> String {
         // py:17  def do_render(self, side, line, width, output_width, output_raw, hl_args, **kwargs):
         // py:19  # we are rendering the normal left prompt

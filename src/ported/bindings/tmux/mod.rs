@@ -193,14 +193,26 @@ pub fn get_tmux_version(pl: &()) -> Option<TmuxVersionInfo> {
     })
 }
 
+/// Process-wide lock serializing every test that mutates the
+/// `POWERLINE_TMUX_EXE` env var. Lives at the crate level so the
+/// races between `bindings/tmux/mod.rs::tests` and
+/// `segments/tmux.rs::tests` actually share the same Mutex.
+/// Without sharing, two `Mutex::new(())` in different modules each
+/// serialize their OWN tests but not against each other — that
+/// produced the macOS CI flake (left="/usr/local/bin/tmux",
+/// right="tmux").
+#[cfg(test)]
+pub(crate) static POWERLINE_TMUX_EXE_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn get_tmux_executable_name_defaults_to_tmux() {
-        // Clear env to test default
-        // SAFETY: each test process gets its own env; we restore inside the block.
+        let _guard = POWERLINE_TMUX_EXE_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         let prev = std::env::var("POWERLINE_TMUX_EXE").ok();
         std::env::remove_var("POWERLINE_TMUX_EXE");
         assert_eq!(get_tmux_executable_name(), "tmux");
@@ -211,6 +223,9 @@ mod tests {
 
     #[test]
     fn get_tmux_executable_name_uses_env_var() {
+        let _guard = POWERLINE_TMUX_EXE_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
         std::env::set_var("POWERLINE_TMUX_EXE", "/usr/local/bin/tmux");
         assert_eq!(get_tmux_executable_name(), "/usr/local/bin/tmux");
         std::env::remove_var("POWERLINE_TMUX_EXE");

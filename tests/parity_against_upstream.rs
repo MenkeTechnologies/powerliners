@@ -1,4 +1,9 @@
 // vim:fileencoding=utf-8:noet
+#![allow(
+    clippy::type_complexity,
+    clippy::field_reassign_with_default,
+    clippy::approx_constant
+)]
 //! Parity harness — pipe identical inputs to upstream Python and Rust
 //! ports, assert byte-identical results.
 //!
@@ -1656,7 +1661,7 @@ fn parity_spec_optional_required_round_trip() {
         .filter_map(|expr| {
             let full = format!(
                 "__import__('powerline.lint.spec', fromlist=['Spec']).{}",
-                expr.replacen("Spec()", "Spec()", 1)
+                expr
             );
             py_eval(&full)
         })
@@ -2551,7 +2556,7 @@ fn parity_lint_find_all_ext_config_files_top_level_json() {
         assert!(arr[2].is_null(), "Python ext should be None for top-level");
     }
 
-    let rs = powerliners::lint::find_all_ext_config_files(&[tmp.clone()], "themes");
+    let rs = powerliners::lint::find_all_ext_config_files(std::slice::from_ref(&tmp), "themes");
     let _ = std::fs::remove_dir_all(&tmp);
     assert_eq!(rs.len(), 2, "Rust should yield 2 entries");
     for entry in &rs {
@@ -2609,7 +2614,7 @@ fn parity_lint_find_all_ext_config_files_reports_non_dir_error() {
         py_err
     );
 
-    let rs = powerliners::lint::find_all_ext_config_files(&[tmp.clone()], "themes");
+    let rs = powerliners::lint::find_all_ext_config_files(std::slice::from_ref(&tmp), "themes");
     assert_eq!(rs.len(), 1, "Rust should yield 1 entry");
     let rs_err = rs[0].error.as_deref().unwrap_or("");
     assert!(
@@ -2663,7 +2668,7 @@ fn parity_lint_find_all_ext_config_files_walks_subdir() {
         "Python file-list drift"
     );
 
-    let rs = powerliners::lint::find_all_ext_config_files(&[tmp.clone()], "themes");
+    let rs = powerliners::lint::find_all_ext_config_files(std::slice::from_ref(&tmp), "themes");
     let mut rs_names: Vec<String> = rs
         .iter()
         .map(|e| {

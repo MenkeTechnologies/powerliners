@@ -699,7 +699,7 @@ mod tests {
     #[test]
     fn uv_tree_watcher_events_is_dummy_false() {
         // py:167  is_dummy = False
-        assert!(!UvTreeWatcherEvents::IS_DUMMY);
+        const _: () = assert!(!UvTreeWatcherEvents::IS_DUMMY);
     }
 
     #[test]
