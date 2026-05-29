@@ -43,7 +43,19 @@ pub struct MatcherInfo {
 /// to one Rust fn since the Rust port doesn't model the vim plugin
 /// version split.
 pub fn buffer_name(matcher_info: &MatcherInfo) -> Option<Vec<u8>> {
-    // py:417 / :422  return matcher_info['buffer'].name
+    // py:2  from __future__ import (unicode_literals, division, absolute_import, print_function)
+    // py:4  import sys
+    // py:5  import codecs
+    // py:7  try:
+    // py:8  import vim
+    // py:9  except ImportError:
+    // py:10  vim = object()
+    // py:12  from powerline.lib.unicode import unicode
+    // py:14  if (
+    // py:15  hasattr(vim, 'options')
+    // py:16  and hasattr(vim, 'vvars')
+    // py:17  and vim.vvars['version'] > 703
+    // py:18  ):
     matcher_info.buffer_name.clone()
 }
 
@@ -55,7 +67,21 @@ pub fn buffer_name(matcher_info: &MatcherInfo) -> Option<Vec<u8>> {
 /// fall back to `vim.eval('getbufvar(...)')`) collapses to one Rust
 /// fn over the cached option dict.
 pub fn vim_getbufoption(matcher_info: &MatcherInfo, option: &str) -> String {
-    // py:276 / :285  return info['buffer'].options[option]
+    // py:274  if hasattr(vim, 'options'):
+    // py:275  def vim_getbufoption(info, option):
+    // py:276  return _vim_to_python(info['buffer'].options[str(option)])
+    // py:278  def vim_getoption(option):
+    // py:279  return vim.options[str(option)]
+    // py:281  def vim_setoption(option, value):
+    // py:282  vim.options[str(option)] = value
+    // py:283  else:
+    // py:284  def vim_getbufoption(info, option):
+    // py:285  return getbufvar(info['bufnr'], '&' + option)
+    // py:287  def vim_getoption(option):
+    // py:288  return vim.eval('&g:' + option)
+    // py:290  def vim_setoption(option, value):
+    // py:291  vim.command('let &g:{option} = {value}'.format(
+    // py:292  option=option, value=python_to_vim(value)))
     matcher_info
         .buffer_options
         .get(option)
@@ -94,7 +120,9 @@ pub struct VimBuffer {
 /// the Rust port returns an empty Vec; the selector below treats that
 /// as "no tabs" which is the safe default.
 pub fn list_tabpages() -> Vec<VimTabpage> {
-    // py:371  return vim.tabpages — no equivalent in Rust without RPC
+    // py:295  if hasattr(vim, 'tabpages'):
+    // py:296  current_tabpage = lambda: vim.current.tabpage
+    // py:297  list_tabpages = lambda: vim.tabpages
     Vec::new()
 }
 
@@ -125,6 +153,16 @@ pub fn current_tabpage() -> VimTabpage {
 /// Returns true if buffer-local variable `var` is defined on
 /// `matcher_info`'s buffer. Stub returns false (no vim connection).
 pub fn bufvar_exists(_matcher_info: Option<&MatcherInfo>, _var: &str) -> bool {
+    // py:208  def bufvar_exists(buffer, varname):
+    // py:209  buffer = buffer or vim.current.buffer
+    // py:210  return varname in buffer.vars
+    // py:235  def bufvar_exists(buffer, varname):
+    // py:236  if not buffer or buffer.number == vim.current.buffer.number:
+    // py:237  return int(vim.eval('exists("b:{0}")'.format(varname)))
+    // py:238  else:
+    // py:239  return int(vim.eval(
+    // py:240  'has_key(getbufvar({0}, ""), {1})'.format(buffer.number, varname)
+    // py:241  ))
     false
 }
 
@@ -133,6 +171,20 @@ pub fn bufvar_exists(_matcher_info: Option<&MatcherInfo>, _var: &str) -> bool {
 ///
 /// Returns true if vim function `name` is defined. Stub returns false.
 pub fn vim_func_exists(_name: &str) -> bool {
+    // py:166  if hasattr(vim, 'Function'):
+    // py:167  def vim_func_exists(f):
+    // py:168  try:
+    // py:169  vim.Function(f)
+    // py:170  except ValueError:
+    // py:171  return False
+    // py:172  else:
+    // py:173  return True
+    // py:174  else:
+    // py:175  def vim_func_exists(f):
+    // py:176  try:
+    // py:177  return bool(int(vim.eval('exists("*{0}")'.format(f))))
+    // py:178  except vim.error:
+    // py:179  return False
     false
 }
 
@@ -141,6 +193,15 @@ pub fn vim_func_exists(_name: &str) -> bool {
 ///
 /// Returns true if vim global variable `name` is defined. Stub returns false.
 pub fn vim_global_exists(_name: &str) -> bool {
+    // py:215  def vim_global_exists(name):
+    // py:216  try:
+    // py:217  vim.vars[name]
+    // py:218  except KeyError:
+    // py:219  return False
+    // py:220  else:
+    // py:221  return True
+    // py:250  def vim_global_exists(name):
+    // py:251  return int(vim.eval('exists("g:' + name + '")'))
     false
 }
 
@@ -149,6 +210,8 @@ pub fn vim_global_exists(_name: &str) -> bool {
 ///
 /// Returns true if vim command `name` is defined. Stub returns false.
 pub fn vim_command_exists(_name: &str) -> bool {
+    // py:254  def vim_command_exists(name):
+    // py:255  return _vim_exists(':' + name)
     false
 }
 
@@ -158,6 +221,32 @@ pub fn vim_command_exists(_name: &str) -> bool {
 /// Returns a callable for the vim autoload function `f`, or None.
 /// Stub returns None (no live vim).
 pub fn vim_get_autoload_func(_f: &str, _rettype: Option<&str>) -> Option<()> {
+    // py:109  if hasattr(vim, 'bindeval'):
+    // py:110  rettype_func = {
+    // py:111  None: lambda f: f,
+    // py:112  'unicode': (
+    // py:113  lambda f: (
+    // py:114  lambda *args, **kwargs: (
+    // py:115  f(*args, **kwargs).decode(
+    // py:116  vim_encoding, 'powerline_vim_strtrans_error'
+    // py:117  ))))
+    // py:118  }
+    // py:119  rettype_func['int'] = rettype_func['bytes'] = rettype_func[None]
+    // py:120  rettype_func['str'] = rettype_func['bytes'] if str is bytes else rettype_func['unicode']
+    // py:122  def vim_get_func(f, rettype=None):
+    // py:123  '''Return a vim function binding.'''
+    // py:124  try:
+    // py:125  func = vim.bindeval('function("' + f + '")')
+    // py:126  except vim.error:
+    // py:127  return None
+    // py:128  else:
+    // py:129  return rettype_func[rettype](func)
+    // py:158  def vim_get_autoload_func(f, rettype=None):
+    // py:159  func = vim_get_func(f)
+    // py:160  if not func:
+    // py:161  vim.command('runtime! ' + f.replace('#', '/')[:f.rindex('#')] + '.vim')
+    // py:162  func = vim_get_func(f)
+    // py:163  return func
     None
 }
 
@@ -177,7 +266,19 @@ pub fn create_ruby_dpowerline() {}
 /// case). The Rust port returns `"utf-8"` since the vim runtime
 /// isn't reachable.
 pub fn get_vim_encoding() -> &'static str {
-    // py:30-31  doc-build fallback
+    // py:19  if sys.version_info < (3,):
+    // py:20  def get_vim_encoding():
+    // py:21  return vim.options['encoding'] or 'ascii'
+    // py:22  else:
+    // py:23  def get_vim_encoding():
+    // py:24  return vim.options['encoding'].decode('ascii') or 'ascii'
+    // py:25  elif hasattr(vim, 'eval'):
+    // py:26  def get_vim_encoding():
+    // py:27  return vim.eval('&encoding') or 'ascii'
+    // py:28  else:
+    // py:29  def get_vim_encoding():
+    // py:30  return 'utf-8'
+    // py:43  vim_encoding = get_vim_encoding()
     "utf-8"
 }
 
@@ -189,8 +290,24 @@ pub fn get_vim_encoding() -> &'static str {
 /// syntax form (`'foo'` for strings/bytes, `[a,b,c]` for lists,
 /// raw digits for int/float).
 pub fn python_to_vim(value: &serde_json::Value) -> Vec<u8> {
+    // py:46  python_to_vim_types = {
+    // py:47  unicode: (
+    // py:48  lambda o: b'\'' + (o.translate({
+    // py:49  ord('\''): '\'\'',
+    // py:50  }).encode(vim_encoding)) + b'\''
+    // py:51  ),
+    // py:52  list: (
+    // py:53  lambda o: b'[' + (
+    // py:54  b','.join((python_to_vim(i) for i in o))
+    // py:55  ) + b']'
+    // py:56  ),
+    // py:57  bytes: (lambda o: b'\'' + o.replace(b'\'', b'\'\'') + b'\''),
+    // py:58  int: (str if str is bytes else (lambda o: unicode(o).encode('ascii'))),
+    // py:59  }
+    // py:60  python_to_vim_types[float] = python_to_vim_types[int]
+    // py:63  def python_to_vim(o):
+    // py:64  return python_to_vim_types[type(o)](o)
     match value {
-        // py:48-52  unicode: 'foo' with '\'' → '\'\''
         serde_json::Value::String(s) => {
             let mut out = Vec::new();
             out.push(b'\'');
@@ -250,7 +367,37 @@ pub fn python_to_vim(value: &serde_json::Value) -> Vec<u8> {
 /// UTF-8 bytes of the input directly (vim_encoding is "utf-8" in
 /// the Rust port).
 pub fn str_to_bytes(s: &str) -> Vec<u8> {
-    // py:77  return s.encode(vim_encoding)
+    // py:67  if sys.version_info < (3,):
+    // py:68  def str_to_bytes(s):
+    // py:69  return s
+    // py:71  def unicode_eval(expr):
+    // py:72  ret = vim.eval(expr)
+    // py:73  return ret.decode(vim_encoding, 'powerline_vim_strtrans_error')
+    // py:74  else:
+    // py:75  def str_to_bytes(s):
+    // py:76  return s.encode(vim_encoding)
+    // py:78  def unicode_eval(expr):
+    // py:79  return vim.eval(expr)
+    // py:82  def safe_bytes_eval(expr):
+    // py:83  return bytes(bytearray((
+    // py:84  int(chunk) for chunk in (
+    // py:85  vim.eval(
+    // py:86  b'substitute(' + expr + b', ' +
+    // py:87  b'\'^.*$\', \'\\=join(map(range(len(submatch(0))), ' +
+    // py:88  b'"char2nr(submatch(0)[v:val])"))\', "")'
+    // py:89  ).split()
+    // py:90  )
+    // py:91  )))
+    // py:94  def eval_bytes(expr):
+    // py:95  try:
+    // py:96  return str_to_bytes(vim.eval(expr))
+    // py:97  except UnicodeDecodeError:
+    // py:98  return safe_bytes_eval(expr)
+    // py:102  def eval_unicode(expr):
+    // py:103  try:
+    // py:104  return unicode_eval(expr)
+    // py:105  except UnicodeDecodeError:
+    // py:106  return safe_bytes_eval(expr).decode(vim_encoding, 'powerline_vim_strtrans_error')
     s.as_bytes().to_vec()
 }
 
@@ -263,7 +410,30 @@ pub fn str_to_bytes(s: &str) -> Vec<u8> {
 ///   3. `\n` → `\\n`
 ///   4. `\0` → removed
 pub fn vim_environ_value_escape(value: &str) -> String {
-    // py:406-409  chained .replace()
+    // py:186  _getbufvar = vim_get_func('getbufvar')
+    // py:187  _vim_exists = vim_get_func('exists', rettype='int')
+    // py:192  if hasattr(vim, 'vvars') and vim.vvars[str('version')] > 703:
+    // py:193  _vim_to_python_types = {
+    // py:194  getattr(vim, 'Dictionary', None) or type(vim.bindeval('{}')):
+    // py:195  lambda value: dict((
+    // py:196  (_vim_to_python(k), _vim_to_python(v))
+    // py:197  for k, v in value.items()
+    // py:198  )),
+    // py:199  getattr(vim, 'List', None) or type(vim.bindeval('[]')):
+    // py:200  lambda value: [_vim_to_python(item) for item in value],
+    // py:201  getattr(vim, 'Function', None) or type(vim.bindeval('function("mode")')):
+    // py:202  lambda _: None,
+    // py:203  }
+    // py:205  def vim_getvar(varname):
+    // py:206  return _vim_to_python(vim.vars[str(varname)])
+    // py:212  def vim_getwinvar(segment_info, varname):
+    // py:213  return _vim_to_python(segment_info['window'].vars[str(varname)])
+    // py:228  def vim_getvar(varname):
+    // py:229  varname = 'g:' + varname
+    // py:230  if _vim_exists(varname):
+    // py:231  return vim.eval(varname)
+    // py:232  else:
+    // py:233  raise KeyError(varname)
     value
         .replace('"', "\\\"")
         .replace('\\', "\\\\")
@@ -288,7 +458,21 @@ pub fn vim_environ_set_command(key: &str, value: &str) -> String {
 /// dispatch to `vim.eval(...)`. The actual eval depends on the live
 /// vim runtime; callers route through their own dispatcher.
 pub fn vim_environ_get_expr(key: &str) -> String {
-    // py:395  vim.eval('$' + key)
+    // py:243  def vim_getwinvar(segment_info, varname):
+    // py:244  result = vim.eval('getwinvar({0}, "{1}")'.format(segment_info['winnr'], varname))
+    // py:245  if result == '':
+    // py:246  if not int(vim.eval('has_key(getwinvar({0}, ""), "{1}")'.format(segment_info['winnr'], varname))):
+    // py:247  raise KeyError(varname)
+    // py:248  return result
+    // py:258  if sys.version_info < (3,):
+    // py:259  getbufvar = _getbufvar
+    // py:260  else:
+    // py:261  _vim_to_python_types[bytes] = lambda value: value.decode(vim_encoding)
+    // py:263  def getbufvar(*args):
+    // py:264  return _vim_to_python(_getbufvar(*args))
+    // py:267  _id = lambda value: value
+    // py:270  def _vim_to_python(value):
+    // py:271  return _vim_to_python_types.get(type(value), _id)(value)
     format!("${}", key)
 }
 
