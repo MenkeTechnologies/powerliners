@@ -1772,6 +1772,67 @@ fn parity_spec_update_auto_adds_dict_type_once() {
 }
 
 #[test]
+fn parity_spec_printable_chains_type_unicode() {
+    if !python_available() {
+        return;
+    }
+    // Python: Spec().printable() chains self.type(unicode) first, so
+    // len(checks) == 2 (check_type + check_printable). Verify both
+    // ports treat printable() as a unicode-typed constraint.
+    let py = match py_eval(
+        "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().printable().checks)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_len: usize = py.parse().expect("Python returned non-int len");
+    assert_eq!(
+        py_len, 2,
+        "Python Spec.printable() should append 2 check entries (type+printable)"
+    );
+    use powerliners::lint::spec::{Spec, SpecType};
+    let s = Spec::new().printable();
+    assert!(
+        s.allowed_types.contains(&SpecType::Unicode),
+        "Rust printable() should pin allowed type to Unicode"
+    );
+    assert!(s.printable_flag, "Rust printable_flag should be set");
+}
+
+#[test]
+fn parity_spec_unsigned_chains_type_int_and_cmp_ge_zero() {
+    if !python_available() {
+        return;
+    }
+    // Python: Spec().unsigned() chains self.type(int) + check_func(>= 0),
+    // so len(checks) == 2. Verify the Rust port pins the type AND the cmp
+    // constraint.
+    let py = match py_eval(
+        "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().unsigned().checks)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_len: usize = py.parse().expect("Python returned non-int len");
+    assert_eq!(
+        py_len, 2,
+        "Python Spec.unsigned() should append 2 check entries (type+func)"
+    );
+    use powerliners::lint::spec::{Cmp, Spec, SpecType};
+    let s = Spec::new().unsigned();
+    assert!(
+        s.allowed_types.contains(&SpecType::Float),
+        "Rust unsigned() should pin allowed type to Float"
+    );
+    assert_eq!(
+        s.cmp_constraint,
+        Some((Cmp::Ge, 0.0)),
+        "Rust unsigned() should set cmp_constraint to (>=, 0)"
+    );
+    assert!(s.unsigned_flag, "Rust unsigned_flag should be set");
+}
+
+#[test]
 fn parity_spec_cmp_check_appended() {
     if !python_available() {
         return;
