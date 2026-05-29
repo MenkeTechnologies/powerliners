@@ -158,18 +158,25 @@ impl Composer {
     /// Port of `Composer.check_node()` from
     /// `powerline/lint/markedjson/composer.py:21`.
     pub fn check_node<B: ParserBackend>(backend: &mut B) -> bool {
-        // py:22-24  drop STREAM-START
+        // py:20  def check_node(self):
+        // py:21  # Drop the STREAM-START event.
+        // py:22  if self.check_event(events.StreamStartEvent):
+        // py:23  self.get_event()
         if backend.check_event(&[EventKind::StreamStart]) {
             backend.get_event();
         }
-        // py:26-27  more documents?
+        // py:25  # If there are more documents available?
+        // py:26  return not self.check_event(events.StreamEndEvent)
         !backend.check_event(&[EventKind::StreamEnd])
     }
 
     /// Port of `Composer.get_node()` from
     /// `powerline/lint/markedjson/composer.py:29`.
     pub fn get_node<B: ParserBackend>(backend: &mut B) -> Option<ComposedNode> {
-        // py:30-32
+        // py:28  def get_node(self):
+        // py:29  # Get the root node of the next document.
+        // py:30  if not self.check_event(events.StreamEndEvent):
+        // py:31  return self.compose_document()
         if !backend.check_event(&[EventKind::StreamEnd]) {
             return Some(Self::compose_document(backend));
         }
@@ -181,20 +188,32 @@ impl Composer {
     pub fn get_single_node<B: ParserBackend>(
         backend: &mut B,
     ) -> Result<Option<ComposedNode>, ComposerError> {
-        // py:36  drop STREAM-START
+        // py:33  def get_single_node(self):
+        // py:34  # Drop the STREAM-START event.
+        // py:35  self.get_event()
         backend.get_event();
 
-        // py:39-41  compose document
+        // py:37  # Compose a document if the stream is not empty.
+        // py:38  document = None
+        // py:39  if not self.check_event(events.StreamEndEvent):
+        // py:40  document = self.compose_document()
         let document = if !backend.check_event(&[EventKind::StreamEnd]) {
             Some(Self::compose_document(backend))
         } else {
             None
         };
 
-        // py:43-50  enforce single document
+        // py:42  # Ensure that the stream contains no more documents.
+        // py:43  if not self.check_event(events.StreamEndEvent):
+        // py:44  event = self.get_event()
+        // py:45  raise ComposerError(
+        // py:46  'expected a single document in the stream',
+        // py:47  document.start_mark,
+        // py:48  'but found another document',
+        // py:49  event.start_mark
+        // py:50  )
         if !backend.check_event(&[EventKind::StreamEnd]) {
             let event = backend.get_event();
-            // py:46-49  ComposerError(context, ..., problem, ...)
             let _ = event;
             let _ = document.as_ref();
             return Err(ComposerError(MarkedError::new(
@@ -206,9 +225,11 @@ impl Composer {
             )));
         }
 
-        // py:53  drop STREAM-END
+        // py:52  # Drop the STREAM-END event.
+        // py:53  self.get_event()
         backend.get_event();
 
+        // py:55  return document
         Ok(document)
     }
 
