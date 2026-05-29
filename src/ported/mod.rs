@@ -520,3 +520,364 @@ mod tests {
         assert!(has_xdg);
     }
 }
+
+/// Port of `LOG_KEYS` from
+/// `powerline/__init__.py:402`.
+///
+/// Set of config keys related to logging, used by `_get_log_keys`
+/// to filter the common-config dict.
+#[allow(non_snake_case)]
+pub fn LOG_KEYS() -> &'static std::collections::HashSet<&'static str> {
+    static S: std::sync::OnceLock<std::collections::HashSet<&'static str>> =
+        std::sync::OnceLock::new();
+    S.get_or_init(|| {
+        // py:402  set(('log_format', 'log_level', 'log_file', 'paths'))
+        let mut s = std::collections::HashSet::new();
+        s.insert("log_format");
+        s.insert("log_level");
+        s.insert("log_file");
+        s.insert("paths");
+        s
+    })
+}
+
+/// Port of `DEFAULT_UPDATE_INTERVAL` constant at
+/// `powerline/__init__.py:422`.
+pub const DEFAULT_UPDATE_INTERVAL: u64 = 2;
+
+/// Port of `_get_log_keys()` from
+/// `powerline/__init__.py:407-419`.
+///
+/// Returns a copy of `common_config` containing only the keys in
+/// `LOG_KEYS`. Pure functional — no side effects.
+pub fn _get_log_keys(
+    common_config: &serde_json::Map<String, serde_json::Value>,
+) -> serde_json::Map<String, serde_json::Value> {
+    // py:417-419  {(k, v) for k, v in common_config.items() if k in LOG_KEYS}
+    let log_keys = LOG_KEYS();
+    let mut out = serde_json::Map::new();
+    for (k, v) in common_config {
+        if log_keys.contains(k.as_str()) {
+            out.insert(k.clone(), v.clone());
+        }
+    }
+    out
+}
+
+/// Port of `_generate_change_callback()` from
+/// `powerline/__init__.py:131-135`.
+///
+/// Returns a closure that, when invoked with a path, locks the
+/// shared mutex and writes `key → true` to the dictionary. Used by
+/// `Powerline.init` to wire ConfigLoader change notifications into
+/// the cr_kwargs flag dict at py:502-508.
+pub fn _generate_change_callback(
+    lock: std::sync::Arc<std::sync::Mutex<serde_json::Map<String, serde_json::Value>>>,
+    key: String,
+) -> Box<dyn Fn(&str)> {
+    // py:132-135  def on_file_change(path): with lock: dictionary[key] = True
+    Box::new(move |_path: &str| {
+        let mut m = lock.lock().unwrap_or_else(|e| e.into_inner());
+        m.insert(key.clone(), serde_json::Value::Bool(true));
+    })
+}
+
+/// Port of `Powerline` class constructor logic from
+/// `powerline/__init__.py:427-522`.
+///
+/// Stores the constructor arguments + the resolved renderer module
+/// name + the initial `cr_kwargs` flag dict. The full integration
+/// with `ConfigLoader` / renderer creation / theme load is deferred
+/// since each piece weaves through the not-yet-ported substrate.
+#[derive(Debug, Clone)]
+pub struct Powerline {
+    /// py:480  self.ext = ext
+    pub ext: String,
+    /// py:481  self.run_once = run_once
+    pub run_once: bool,
+    /// py:483  self.had_logger = bool(self.logger)
+    pub had_logger: bool,
+    /// py:484  self.use_daemon_threads = use_daemon_threads
+    pub use_daemon_threads: bool,
+    /// py:486-495  self.renderer_module = ...
+    pub renderer_module: String,
+    /// py:522  self.update_interval = DEFAULT_UPDATE_INTERVAL
+    pub update_interval: u64,
+}
+
+impl Powerline {
+    /// Port of `Powerline.init()` from
+    /// `powerline/__init__.py:464-522`.
+    ///
+    /// Captures the constructor args and resolves the renderer
+    /// module name per the py:486-495 branch chain. The
+    /// ConfigLoader/Lock/Event setup at py:497-522 is deferred to
+    /// the future port pass.
+    pub fn init(
+        ext: &str,
+        renderer_module: Option<&str>,
+        run_once: bool,
+        had_logger: bool,
+    ) -> Self {
+        Powerline {
+            ext: ext.to_string(),
+            run_once,
+            had_logger,
+            // py:484
+            use_daemon_threads: true,
+            renderer_module: Self::resolve_renderer_module(ext, renderer_module),
+            update_interval: DEFAULT_UPDATE_INTERVAL,
+        }
+    }
+
+    /// Port of the renderer_module resolution branch at
+    /// `powerline/__init__.py:486-495`.
+    ///
+    /// Branch chain:
+    /// - None / empty → `powerline.renderers.<ext>` (py:486-487)
+    /// - dot-free name → `powerline.renderers.<name>` (py:488-489)
+    /// - leading dot → `powerline.renderers.<ext><name>` (py:490-491)
+    /// - trailing dot → `<name without trailing dot>` (py:492-493)
+    /// - everything else → as-is (py:494-495)
+    pub fn resolve_renderer_module(ext: &str, renderer_module: Option<&str>) -> String {
+        match renderer_module {
+            // py:486-487  if not renderer_module
+            None => format!("powerline.renderers.{}", ext),
+            Some("") => format!("powerline.renderers.{}", ext),
+            Some(name) => {
+                if !name.contains('.') {
+                    // py:488-489
+                    format!("powerline.renderers.{}", name)
+                } else if name.starts_with('.') {
+                    // py:490-491
+                    format!("powerline.renderers.{}{}", ext, name)
+                } else if name.ends_with('.') {
+                    // py:492-493
+                    name.trim_end_matches('.').to_string()
+                } else {
+                    // py:494-495
+                    name.to_string()
+                }
+            }
+        }
+    }
+
+    /// Port of `Powerline.setup_components()` from
+    /// `powerline/__init__.py:705-713`.
+    ///
+    /// Base implementation is a no-op per py:713. Subclasses (e.g.
+    /// `VimPowerline.setup_components`) override to enable
+    /// statusline/tabline.
+    pub fn setup_components(&self, _components: Option<&[&str]>) {
+        // py:713  pass
+    }
+
+    /// Port of `Powerline.get_local_themes()` from
+    /// `powerline/__init__.py:833-847`.
+    ///
+    /// Static method returning None by default per py:847.
+    /// Subclasses (e.g. `VimPowerline`) override to return the
+    /// resolved local themes mapping.
+    pub fn get_local_themes(
+        _local_themes: Option<&serde_json::Value>,
+    ) -> Option<serde_json::Value> {
+        // py:847  return None
+        None
+    }
+
+    /// Port of `Powerline.do_setup()` from
+    /// `powerline/__init__.py:915-922`.
+    ///
+    /// Static no-op per py:922. Subclasses override.
+    pub fn do_setup() {
+        // py:922  pass
+    }
+
+    /// Port of `Powerline.get_config_paths()` from
+    /// `powerline/__init__.py:715-724`.
+    ///
+    /// Delegates to module-level `get_config_paths()`. Subclasses
+    /// override to supply custom search paths.
+    pub fn get_config_paths() -> Vec<std::path::PathBuf> {
+        // py:724  return get_config_paths()
+        get_config_paths()
+    }
+}
+
+#[cfg(test)]
+mod powerline_class_tests {
+    use super::*;
+
+    #[test]
+    fn log_keys_has_four_entries() {
+        // py:402
+        let k = LOG_KEYS();
+        assert_eq!(k.len(), 4);
+        assert!(k.contains("log_format"));
+        assert!(k.contains("log_level"));
+        assert!(k.contains("log_file"));
+        assert!(k.contains("paths"));
+    }
+
+    #[test]
+    fn default_update_interval_is_two() {
+        // py:422
+        assert_eq!(DEFAULT_UPDATE_INTERVAL, 2);
+    }
+
+    #[test]
+    fn get_log_keys_filters_dict_to_log_keys_only() {
+        // py:417-419
+        let mut cfg = serde_json::Map::new();
+        cfg.insert(
+            "log_format".to_string(),
+            serde_json::Value::String("X".into()),
+        );
+        cfg.insert(
+            "log_level".to_string(),
+            serde_json::Value::String("DEBUG".into()),
+        );
+        cfg.insert("ambiwidth".to_string(), serde_json::Value::from(1));
+        cfg.insert("term_truecolor".to_string(), serde_json::Value::Bool(true));
+        let r = _get_log_keys(&cfg);
+        assert_eq!(r.len(), 2);
+        assert!(r.contains_key("log_format"));
+        assert!(r.contains_key("log_level"));
+        assert!(!r.contains_key("ambiwidth"));
+    }
+
+    #[test]
+    fn get_log_keys_empty_input_returns_empty() {
+        let cfg = serde_json::Map::new();
+        let r = _get_log_keys(&cfg);
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn get_log_keys_no_log_keys_returns_empty() {
+        let mut cfg = serde_json::Map::new();
+        cfg.insert("foo".to_string(), serde_json::Value::Bool(true));
+        cfg.insert("bar".to_string(), serde_json::Value::from(42));
+        let r = _get_log_keys(&cfg);
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn generate_change_callback_sets_key_true_on_invocation() {
+        // py:131-135
+        let m = std::sync::Arc::new(std::sync::Mutex::new(serde_json::Map::new()));
+        let cb = _generate_change_callback(m.clone(), "load_main".to_string());
+        cb("/some/path/config.json");
+        let map = m.lock().unwrap();
+        assert_eq!(map.get("load_main"), Some(&serde_json::Value::Bool(true)));
+    }
+
+    #[test]
+    fn generate_change_callback_overwrites_existing_value() {
+        let m = std::sync::Arc::new(std::sync::Mutex::new(serde_json::Map::new()));
+        {
+            let mut map = m.lock().unwrap();
+            map.insert("load_theme".to_string(), serde_json::Value::Bool(false));
+        }
+        let cb = _generate_change_callback(m.clone(), "load_theme".to_string());
+        cb("/path/theme.json");
+        let map = m.lock().unwrap();
+        assert_eq!(map.get("load_theme"), Some(&serde_json::Value::Bool(true)));
+    }
+
+    #[test]
+    fn powerline_init_resolves_default_renderer_module() {
+        // py:486-487
+        let p = Powerline::init("shell", None, false, false);
+        assert_eq!(p.ext, "shell");
+        assert_eq!(p.renderer_module, "powerline.renderers.shell");
+        assert!(!p.run_once);
+        assert!(!p.had_logger);
+        assert!(p.use_daemon_threads);
+        assert_eq!(p.update_interval, 2);
+    }
+
+    #[test]
+    fn powerline_init_run_once_flag() {
+        let p = Powerline::init("shell", None, true, true);
+        assert!(p.run_once);
+        assert!(p.had_logger);
+    }
+
+    #[test]
+    fn resolve_renderer_module_undotted_uses_renderers_prefix() {
+        // py:488-489
+        assert_eq!(
+            Powerline::resolve_renderer_module("shell", Some("zsh")),
+            "powerline.renderers.zsh"
+        );
+    }
+
+    #[test]
+    fn resolve_renderer_module_leading_dot_appends_to_ext() {
+        // py:490-491  '.foo' → 'powerline.renderers.<ext>.foo'
+        assert_eq!(
+            Powerline::resolve_renderer_module("shell", Some(".zsh")),
+            "powerline.renderers.shell.zsh"
+        );
+    }
+
+    #[test]
+    fn resolve_renderer_module_trailing_dot_strips_dot() {
+        // py:492-493  'foo.' → 'foo'
+        assert_eq!(
+            Powerline::resolve_renderer_module("shell", Some("custom_renderer.")),
+            "custom_renderer"
+        );
+    }
+
+    #[test]
+    fn resolve_renderer_module_dotted_passes_through() {
+        // py:494-495
+        assert_eq!(
+            Powerline::resolve_renderer_module("shell", Some("my.custom.module")),
+            "my.custom.module"
+        );
+    }
+
+    #[test]
+    fn resolve_renderer_module_empty_str_uses_default() {
+        // py:486 if not renderer_module — Python: empty string is falsy
+        assert_eq!(
+            Powerline::resolve_renderer_module("vim", Some("")),
+            "powerline.renderers.vim"
+        );
+    }
+
+    #[test]
+    fn setup_components_base_is_no_op() {
+        // py:713
+        let p = Powerline::init("shell", None, false, false);
+        p.setup_components(Some(&["statusline", "tabline"]));
+        // No-op; just verify the call succeeds.
+    }
+
+    #[test]
+    fn get_local_themes_base_returns_none() {
+        // py:847
+        assert_eq!(Powerline::get_local_themes(None), None);
+        assert_eq!(
+            Powerline::get_local_themes(Some(&serde_json::json!({"x": "y"}))),
+            None
+        );
+    }
+
+    #[test]
+    fn do_setup_base_is_no_op() {
+        // py:922
+        Powerline::do_setup();
+    }
+
+    #[test]
+    fn powerline_get_config_paths_delegates_to_module_fn() {
+        // py:724
+        let paths_class = Powerline::get_config_paths();
+        let paths_module = get_config_paths();
+        assert_eq!(paths_class, paths_module);
+    }
+}

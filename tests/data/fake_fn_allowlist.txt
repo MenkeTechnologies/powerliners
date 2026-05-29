@@ -1254,3 +1254,21 @@ MPC_OUTPUT_RE
 # used at call sites. Same approved pattern as CONFIG_FILE_NAME,
 # TMUX_VAR_RE, MPC_OUTPUT_RE.
 SCHEME_RE
+
+# mod.rs::LOG_KEYS mirrors the module-level set constant at
+# powerline/__init__.py:402
+# `LOG_KEYS = set(('log_format', 'log_level', 'log_file', 'paths'))`.
+# Python exposes the set as a module attribute; Rust uses a fn
+# returning &'static HashSet so the same identifier is preserved at
+# call sites. Same approved pattern as CONFIG_FILE_NAME, TMUX_VAR_RE,
+# MPC_OUTPUT_RE, SCHEME_RE.
+LOG_KEYS
+
+# mod.rs::Powerline::resolve_renderer_module — extracts the
+# inline branch chain at powerline/__init__.py:486-495 that resolves
+# the renderer_module argument to a fully-qualified module path.
+# Python embeds the chain directly in the Powerline.init body;
+# Rust factors it out to a pure helper so the 5 branches (None /
+# undotted / leading-dot / trailing-dot / dotted) are independently
+# testable without constructing a full Powerline instance.
+resolve_renderer_module
