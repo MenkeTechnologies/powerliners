@@ -89,7 +89,7 @@ impl Drop for DaemonHandle {
 
 fn start_daemon(scenario: &str, tag: &str) -> DaemonHandle {
     let socket = unique_socket(tag);
-    let child = Command::new(daemon_binary())
+    let mut child = Command::new(daemon_binary())
         .arg("--foreground")
         .arg("--socket")
         .arg(&socket)
@@ -98,7 +98,8 @@ fn start_daemon(scenario: &str, tag: &str) -> DaemonHandle {
         .stderr(Stdio::null())
         .spawn()
         .expect("spawn powerline-daemon");
-    let deadline = Instant::now() + Duration::from_secs(3);
+    // 15 s budget: see daemon_e2e helper comment for the cold-start rationale.
+    let deadline = Instant::now() + Duration::from_secs(15);
     while Instant::now() < deadline {
         if let Ok(probe) = UnixStream::connect(&socket) {
             let _ = probe.shutdown(std::net::Shutdown::Both);
@@ -106,6 +107,8 @@ fn start_daemon(scenario: &str, tag: &str) -> DaemonHandle {
         }
         std::thread::sleep(Duration::from_millis(25));
     }
+    let _ = child.kill();
+    let _ = child.wait();
     panic!("daemon never became ready on {}", socket.display());
 }
 
@@ -181,7 +184,10 @@ fn assert_parity_side(scenario: &str, tag: &str, side: &str) {
     let py = match python_render(scenario, side) {
         Some(b) => b,
         None => {
-            eprintln!("[skip] python3 + vendor/powerline not available for {}", scenario);
+            eprintln!(
+                "[skip] python3 + vendor/powerline not available for {}",
+                scenario
+            );
             return;
         }
     };
@@ -211,14 +217,13 @@ fn assert_parity(scenario: &str, tag: &str) {
 }
 
 fn assert_parity_with_width(scenario: &str, tag: &str, width: u32) {
-    let py = match python_render_with_extra(
-        scenario,
-        "right",
-        &["-w", &width.to_string()],
-    ) {
+    let py = match python_render_with_extra(scenario, "right", &["-w", &width.to_string()]) {
         Some(b) => b,
         None => {
-            eprintln!("[skip] python3 + vendor/powerline not available for {}", scenario);
+            eprintln!(
+                "[skip] python3 + vendor/powerline not available for {}",
+                scenario
+            );
             return;
         }
     };

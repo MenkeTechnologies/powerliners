@@ -77,7 +77,7 @@ impl Drop for DaemonHandle {
 
 fn start_daemon(scenario: &str, tag: &str) -> DaemonHandle {
     let socket = unique_socket(tag);
-    let child = Command::new(daemon_binary())
+    let mut child = Command::new(daemon_binary())
         .arg("--foreground")
         .arg("--socket")
         .arg(&socket)
@@ -86,7 +86,8 @@ fn start_daemon(scenario: &str, tag: &str) -> DaemonHandle {
         .stderr(Stdio::null())
         .spawn()
         .expect("spawn powerline-daemon");
-    let deadline = Instant::now() + Duration::from_secs(3);
+    // 15 s budget: see daemon_e2e helper comment for the cold-start rationale.
+    let deadline = Instant::now() + Duration::from_secs(15);
     while Instant::now() < deadline {
         if let Ok(probe) = UnixStream::connect(&socket) {
             let _ = probe.shutdown(std::net::Shutdown::Both);
@@ -94,6 +95,8 @@ fn start_daemon(scenario: &str, tag: &str) -> DaemonHandle {
         }
         std::thread::sleep(Duration::from_millis(25));
     }
+    let _ = child.kill();
+    let _ = child.wait();
     panic!("daemon never became ready on {}", socket.display());
 }
 
@@ -119,8 +122,12 @@ fn build_request(args: &[&str], cwd: &str, env: &[(&str, &str)]) -> Vec<u8> {
 fn render_once(socket: &PathBuf, args: &[&str]) -> Vec<u8> {
     let mut conn = UnixStream::connect(socket).expect("connect");
     conn.set_read_timeout(Some(READ_TIMEOUT)).ok();
-    conn.write_all(&build_request(args, "/tmp", &[("HOME", "/tmp"), ("PWD", "/tmp")]))
-        .expect("send request");
+    conn.write_all(&build_request(
+        args,
+        "/tmp",
+        &[("HOME", "/tmp"), ("PWD", "/tmp")],
+    ))
+    .expect("send request");
     let mut buf = Vec::new();
     let _ = conn.read_to_end(&mut buf);
     buf
