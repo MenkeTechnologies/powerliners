@@ -289,6 +289,62 @@ pub enum MarkedAny {
     Other(MarkedValue),
 }
 
+/// Port of `gen_new()` from
+/// `powerline/lint/markedjson/markedvalue.py:7-13`.
+///
+/// Python returns a `__new__` closure that subclasses can install
+/// to add `mark` and `value` attrs to instances. Rust port has no
+/// equivalent of Python's `__new__` metaprogramming — each
+/// MarkedX struct carries the fields directly via field access.
+///
+/// This fn is a parity surface: it returns a tuple of the
+/// supplied `(value, mark)` so callers wiring per-type wrappers
+/// have the same data-flow shape as Python's closure-returning
+/// pattern.
+pub fn gen_new<V>(value: V, mark: Mark) -> (V, Mark) {
+    // py:7  def gen_new(cls):
+    // py:8  def __new__(arg_cls, value, mark):
+    // py:9-11  r = super().__new__(arg_cls, value); r.mark = mark; r.value = value
+    // py:12  return r
+    // py:13  return __new__
+    (value, mark)
+}
+
+/// Port of `gen_init()` from
+/// `powerline/lint/markedjson/markedvalue.py:16-19`.
+///
+/// Python returns an `__init__` closure that subclasses install
+/// to delegate `__init__(value)` to the unicode/int/float/dict/list
+/// base. Rust has no metaprogrammed __init__; the struct's `new()`
+/// constructor handles initialization directly.
+///
+/// Parity surface: takes the value, returns it unchanged (Python's
+/// closure also doesn't mutate the value — `cls.__init__(self,
+/// value)` is the no-op for builtin types whose __init__ accepts
+/// the value directly).
+pub fn gen_init<V>(value: V) -> V {
+    // py:16  def gen_init(cls):
+    // py:17  def __init__(self, value, mark):
+    // py:18  return cls.__init__(self, value)
+    // py:19  return __init__
+    value
+}
+
+/// Port of `gen_getnewargs()` from
+/// `powerline/lint/markedjson/markedvalue.py:22-25`.
+///
+/// Python returns a `__getnewargs__` closure used by `pickle` to
+/// reconstruct the instance via `__new__(value, mark)`. Rust has
+/// no pickle integration; the fn is a parity surface that returns
+/// the `(value, mark)` pair the same way Python's closure does.
+pub fn gen_getnewargs<V>(value: V, mark: Mark) -> (V, Mark) {
+    // py:22  def gen_getnewargs(cls):
+    // py:23  def __getnewargs__(self):
+    // py:24  return (self.value, self.mark)
+    // py:25  return __getnewargs__
+    (value, mark)
+}
+
 pub fn gen_marked_value(value: Value, mark: Mark) -> MarkedAny {
     // py:115  specialclasses = {
     // py:116  unicode: MarkedUnicode,
@@ -452,5 +508,28 @@ mod tests {
     fn marked_float_carries_f64() {
         let m = MarkedFloat::new(2.5, mk());
         assert!((m.value - 2.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn gen_new_returns_value_mark_pair() {
+        // py:7-13
+        let (v, m) = gen_new("hello".to_string(), mk());
+        assert_eq!(v, "hello");
+        assert_eq!(m.line, 1);
+    }
+
+    #[test]
+    fn gen_init_passes_value_through() {
+        // py:16-19
+        assert_eq!(gen_init(42), 42);
+        assert_eq!(gen_init("str".to_string()), "str");
+    }
+
+    #[test]
+    fn gen_getnewargs_returns_value_mark_pair() {
+        // py:22-25
+        let (v, m) = gen_getnewargs(7.5, mk());
+        assert_eq!(v, 7.5);
+        assert_eq!(m.column, 0);
     }
 }
