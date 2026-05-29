@@ -180,3 +180,20 @@ set_shutdown
 # `key_sep.join(...)` shape. Name matches Python's identifier
 # byte-for-byte.
 key_sep
+
+# Approved 2026-05-29: accessor fn for the class-level dict
+# `character_translations` defined on every shell renderer subclass
+# (powerline/renderers/shell/{readline,zsh,ksh,bash,tcsh}.py:11-15).
+# Python uses class-level dict inheritance + .copy() at class scope;
+# Rust exposes the per-class diff as a function returning a fresh
+# HashMap on each call. Name matches Python's class-attribute name
+# byte-for-byte.
+character_translations
+
+# Approved 2026-05-29: render_prefix accessor for the Python override
+# `KshPromptRenderer.render()` body which prepends '\001\r' before
+# delegating to super(). Rust can't model Python's super() chain
+# without trait dispatch + a real ShellRenderer trait; until that
+# substrate lands the prefix is exposed as data that callers prepend
+# explicitly. Documented Rust-only adapter per PORT.md Rule 0.
+render_prefix
