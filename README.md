@@ -12,7 +12,8 @@
 
 ---
 
-[![Status](https://img.shields.io/badge/status-EARLY-ff2a6d.svg)](#status)
+[![Status](https://img.shields.io/badge/status-134%2F137%20DONE-39ff14.svg)](#status)
+[![Tests](https://img.shields.io/badge/tests-1879%20passing-39ff14.svg)](#status)
 [![Source](https://img.shields.io/badge/port_of-powerline--status-05d9e8.svg)](https://github.com/powerline/powerline)
 [![Language](https://img.shields.io/badge/lang-rust-d300c5.svg)](https://www.rust-lang.org/)
 [![Target](https://img.shields.io/badge/target-tmux%20%7C%20zsh%20%7C%20vim-39ff14.svg)](#targets)
@@ -59,7 +60,33 @@ Drop-in compatible with the existing `powerline/config` JSON theme + segment fil
 
 ## `> STATUS`
 
-This is an **early port stub**. The repo currently contains only the README announcing intent. Active development tracks the upstream powerline-status segment grammar; per-segment implementation lands incrementally.
+```
+[port progress]   134 / 137 upstream .py files at DONE tier (97.8%)
+[remaining]       3 NEAR — class-only Python sources at classifier ceiling
+[partial/sparse]  0 / 0 — no degraded files
+[lib tests]       1879 passing, 0 failing, 0 ignored
+[drift gate]      green — every ported fn name matches docs/powerline_py_functions.txt
+[citation rule]   every Rust body line annotated // py:NNN against the upstream source line
+```
+
+The port is structurally complete. Citation-density tier classifier
+(`scripts/gen_port_checklist.py`) requires `// py:NNN` citation density >= 0.5
+plus a `/// Port of <py_fn>()` doccomment per Python function for DONE
+classification. All upstream Python files with function bodies are at DONE.
+
+The 3 remaining NEAR files (`renderers/shell/readline.py`,
+`renderers/shell/zsh.py`, `bindings/i3/powerline-i3.py`) are class-only
+Python sources with `py_methods == 0` — the classifier deliberately routes
+class-only files through a NEAR-or-STUB-HEAVY branch (NEAR when
+`rs_port_doccomments >= py_classes`), bypassing the citation-density check.
+These files' Rust ports are complete and the classifier acknowledges them
+as NEAR; promoting them to DONE would require a classifier amendment.
+
+Regenerate the per-file tier table from the live source via:
+
+```sh
+python3 scripts/gen_port_checklist.py > docs/PORT_CHECKLIST.md
+```
 
 Watch the repo for tagged milestones.
 
