@@ -2155,6 +2155,31 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_safe_unicode_handles_str_input() {
+    if !python_available() {
+        return;
+    }
+    // Verify safe_unicode(str) returns the str unchanged across both ports.
+    let cases = ["hello", "héllo unicode", "", "with\tspecials\n"];
+    for s in cases {
+        let expr = format!(
+            "__import__('powerline.lib.unicode', fromlist=['safe_unicode']).safe_unicode({:?})",
+            s
+        );
+        let py = match py_eval(&expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = powerliners::lib::unicode::safe_unicode(s);
+        assert_eq!(
+            py, rs,
+            "safe_unicode({:?}) mismatch: py={:?}, rs={:?}",
+            s, py, rs
+        );
+    }
+}
+
+#[test]
 fn parity_wthr_temp_conversions_exact_math() {
     if !python_available() {
         return;
