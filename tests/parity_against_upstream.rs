@@ -1583,6 +1583,84 @@ fn parity_surrogate_pair_to_character() {
 // ─────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────
+// bindings/wm/__init__.py — DEFAULT_UPDATE_INTERVAL + XRANDR_OUTPUT_RE
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_wm_default_update_interval() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "__import__('powerline.bindings.wm', fromlist=['DEFAULT_UPDATE_INTERVAL']).DEFAULT_UPDATE_INTERVAL",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_float: f64 = py.parse().expect("Python returned non-numeric");
+    let rs = powerliners::ported::bindings::wm::DEFAULT_UPDATE_INTERVAL;
+    assert!(
+        (py_float - rs).abs() < 1e-9,
+        "DEFAULT_UPDATE_INTERVAL mismatch: py={}, rs={}",
+        py_float,
+        rs
+    );
+}
+
+#[test]
+fn parity_wm_xrandr_output_re_extracts_outputs() {
+    if !python_available() {
+        return;
+    }
+    // The Python regex compiles with re.MULTILINE; verify both ports
+    // extract the same named groups against a realistic xrandr -q chunk.
+    let xrandr_sample = "Screen 0: minimum 320 x 200, current 3840 x 1080, maximum 16384 x 16384\nHDMI-1 connected primary 1920x1080+0+0 (normal left inverted right x axis y axis) 480mm x 270mm\nDP-2 connected 1920x1080+1920+0 (normal left inverted right x axis y axis) 480mm x 270mm\nVGA-1 disconnected (normal left inverted right x axis y axis)\n";
+    let py = match py_eval(&format!(
+        "[(m.group('name'), m.group('primary'), m.group('width'), m.group('height'), m.group('x'), m.group('y')) for m in __import__('powerline.bindings.wm', fromlist=['XRANDR_OUTPUT_RE']).XRANDR_OUTPUT_RE.finditer({:?})]",
+        xrandr_sample
+    )) {
+        Some(v) => v,
+        None => return,
+    };
+    let rust_matches: Vec<(String, Option<String>, String, String, String, String)> =
+        powerliners::ported::bindings::wm::XRANDR_OUTPUT_RE()
+            .captures_iter(xrandr_sample)
+            .map(|c| {
+                (
+                    c.name("name").unwrap().as_str().to_string(),
+                    c.name("primary").map(|m| m.as_str().to_string()),
+                    c.name("width").unwrap().as_str().to_string(),
+                    c.name("height").unwrap().as_str().to_string(),
+                    c.name("x").unwrap().as_str().to_string(),
+                    c.name("y").unwrap().as_str().to_string(),
+                )
+            })
+            .collect();
+    let rs_repr = format!(
+        "[{}]",
+        rust_matches
+            .iter()
+            .map(|(name, primary, w, h, x, y)| {
+                let primary_repr = match primary {
+                    Some(s) => format!("'{}'", s),
+                    None => "None".to_string(),
+                };
+                format!(
+                    "('{}', {}, '{}', '{}', '{}', '{}')",
+                    name, primary_repr, w, h, x, y
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    assert_eq!(
+        py, rs_repr,
+        "XRANDR_OUTPUT_RE finditer mismatch:\n  py: {}\n  rs: {}",
+        py, rs_repr
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // lib/vcs/git.py — _ref_pat regex pattern + matching behaviour
 // ─────────────────────────────────────────────────────────────────────
 
