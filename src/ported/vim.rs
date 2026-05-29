@@ -345,6 +345,88 @@ impl VimPowerline {
         Some(format!("No window {}", window_id.unwrap_or(0)))
     }
 
+    /// Port of `VimPowerline.get_local_themes()` from
+    /// `powerline/vim.py:157-174`.
+    ///
+    /// Builds the `(matcher_key → {'config': resolved_theme})` dict.
+    /// `__tabline__` is the magic key for the tabline matcher per
+    /// py:165 — its matcher is `None` in the dict result. Other
+    /// matchers resolve through `get_matcher` per py:165; entries
+    /// whose matcher fails to resolve are dropped per py:170-173.
+    ///
+    /// `resolve_matcher` is the caller-supplied closure that runs
+    /// `self.get_matcher(key)` (returning Some when the matcher
+    /// resolves, None otherwise). `load_theme` produces the resolved
+    /// theme dict per py:162 `self.load_theme_config(val)`.
+    pub fn get_local_themes<R, L>(
+        local_themes: &Map<String, Value>,
+        mut resolve_matcher: R,
+        mut load_theme: L,
+    ) -> Map<String, Value>
+    where
+        R: FnMut(&str) -> Option<String>,
+        L: FnMut(&str) -> Value,
+    {
+        // py:158-159  if not local_themes: return {}
+        if local_themes.is_empty() {
+            return Map::new();
+        }
+        let mut out = Map::new();
+        for (k, v) in local_themes {
+            // py:165  None if k == '__tabline__' else self.get_matcher(k)
+            let matcher_key = if k == "__tabline__" {
+                Some("__tabline__".to_string())
+            } else {
+                resolve_matcher(k)
+            };
+            // py:170-173  filter by (matcher or key == '__tabline__')
+            if let Some(matcher) = matcher_key {
+                let val_str = v.as_str().unwrap_or("");
+                let theme = load_theme(val_str);
+                let mut entry = Map::new();
+                entry.insert("config".to_string(), theme);
+                out.insert(matcher, Value::Object(entry));
+            }
+        }
+        out
+    }
+
+    /// Port of `VimPowerline.get_config_paths()` from
+    /// `powerline/vim.py:183-187`.
+    ///
+    /// Returns the `g:powerline_config_paths` value when set per
+    /// py:185; falls through to the super-class `get_config_paths`
+    /// per py:186-187. The Rust port takes both sides as explicit
+    /// args since the live vim resolver isn't reachable.
+    pub fn get_config_paths(
+        powerline_config_paths: Option<Vec<String>>,
+        super_config_paths: impl FnOnce() -> Vec<String>,
+    ) -> Vec<String> {
+        // py:184-187
+        match powerline_config_paths {
+            Some(p) => p,
+            None => super_config_paths(),
+        }
+    }
+
+    /// Port of `VimPowerline.new_window()` from
+    /// `powerline/vim.py:319-320`.
+    ///
+    /// Returns the `(window, window_id, winnr)` tuple that
+    /// `self.render(*self.win_idx(None))` would dispatch on. The
+    /// actual render() at py:320 lives outside the Rust port.
+    ///
+    /// Returns the caller-supplied win_idx result; None means the
+    /// vim runtime has no current window (Python panics in that
+    /// case; Rust returns None for testability).
+    pub fn new_window<W>(win_idx_none: W) -> Option<(u64, u64)>
+    where
+        W: FnOnce() -> Option<(u64, u64)>,
+    {
+        // py:320  return self.render(*self.win_idx(None))
+        win_idx_none()
+    }
+
     /// Port of `setup()` from `powerline/vim.py:354`.
     ///
     /// Convenience wrapper that constructs the `VimPowerline` and
@@ -673,5 +755,83 @@ mod tests {
     fn statusline_no_window_message_without_id() {
         let msg = VimPowerline::statusline_no_window_message(None).unwrap();
         assert_eq!(msg, "No window 0");
+    }
+
+    #[test]
+    fn get_local_themes_empty_returns_empty() {
+        // py:158-159
+        let r = VimPowerline::get_local_themes(
+            &Map::new(),
+            |_| Some("matcher".to_string()),
+            |_| Value::Object(Map::new()),
+        );
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn get_local_themes_resolves_matchers() {
+        // py:161-174
+        let mut input = Map::new();
+        input.insert("help".to_string(), Value::String("help_theme".into()));
+        input.insert(
+            "__tabline__".to_string(),
+            Value::String("tabline_theme".into()),
+        );
+
+        let r = VimPowerline::get_local_themes(
+            &input,
+            |k| Some(format!("matchers.vim.{}", k)),
+            |v| serde_json::json!({"name": v}),
+        );
+
+        // help → resolved matcher key
+        assert!(r.contains_key("matchers.vim.help"));
+        assert_eq!(r["matchers.vim.help"]["config"]["name"], "help_theme");
+        // __tabline__ → magic key per py:165
+        assert!(r.contains_key("__tabline__"));
+        assert_eq!(r["__tabline__"]["config"]["name"], "tabline_theme");
+    }
+
+    #[test]
+    fn get_local_themes_drops_unresolved_matchers() {
+        // py:170-173  filter by (matcher or key == '__tabline__')
+        let mut input = Map::new();
+        input.insert("bogus".to_string(), Value::String("v".into()));
+        let r = VimPowerline::get_local_themes(
+            &input,
+            |_| None, // matcher fails to resolve
+            |v| serde_json::json!({"name": v}),
+        );
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn get_config_paths_returns_vim_var_when_set() {
+        // py:184-185
+        let paths =
+            VimPowerline::get_config_paths(Some(vec!["/etc/powerline".to_string()]), || {
+                vec!["/should/not/use".to_string()]
+            });
+        assert_eq!(paths, vec!["/etc/powerline".to_string()]);
+    }
+
+    #[test]
+    fn get_config_paths_falls_back_to_super_when_unset() {
+        // py:186-187  except KeyError: super().get_config_paths()
+        let paths = VimPowerline::get_config_paths(None, || vec!["/super/path".to_string()]);
+        assert_eq!(paths, vec!["/super/path".to_string()]);
+    }
+
+    #[test]
+    fn new_window_returns_win_idx_result() {
+        // py:319-320
+        let r = VimPowerline::new_window(|| Some((5, 1)));
+        assert_eq!(r, Some((5, 1)));
+    }
+
+    #[test]
+    fn new_window_returns_none_when_no_current_window() {
+        let r = VimPowerline::new_window(|| None);
+        assert_eq!(r, None);
     }
 }
