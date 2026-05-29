@@ -2192,6 +2192,68 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_format_error_combines_context_problem_note() {
+    if !python_available() {
+        return;
+    }
+    // format_error joins (in order, when present):
+    //   context, context_mark.to_string, problem, problem_mark.to_string, note
+    // with '\n' separators. Verify the no-mark path across:
+    //   context + problem
+    //   problem only
+    //   context + problem + note
+    let cases: &[(Option<&str>, Option<&str>, Option<&str>, &str)] = &[
+        (
+            Some("Outer ctx"),
+            Some("inner problem"),
+            None,
+            "Outer ctx\ninner problem",
+        ),
+        (None, Some("just problem"), None, "just problem"),
+        (
+            Some("ctx"),
+            Some("prob"),
+            Some("extra note"),
+            "ctx\nprob\nextra note",
+        ),
+    ];
+    for (ctx, prob, note, expected) in cases {
+        let py_args = format!(
+            "{}, None, {}, None, {}",
+            ctx.map(|s| format!("{:?}", s))
+                .unwrap_or_else(|| "None".to_string()),
+            prob.map(|s| format!("{:?}", s))
+                .unwrap_or_else(|| "None".to_string()),
+            note.map(|s| format!("{:?}", s))
+                .unwrap_or_else(|| "None".to_string()),
+        );
+        let py_expr = format!(
+            "__import__('powerline.lint.markedjson.error', fromlist=['format_error']).format_error({})",
+            py_args
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(
+            py.as_str(),
+            *expected,
+            "Python format_error fixture drift for ({:?}, {:?}, {:?})",
+            ctx,
+            prob,
+            note
+        );
+        let rs =
+            powerliners::lint::markedjson::error::format_error(*ctx, None, *prob, None, *note, 0);
+        assert_eq!(
+            rs, *expected,
+            "Rust format_error({:?}, {:?}, {:?}) mismatch",
+            ctx, prob, note
+        );
+    }
+}
+
+#[test]
 fn parity_get_unicode_writer_writes_to_buffer() {
     if !python_available() {
         return;
