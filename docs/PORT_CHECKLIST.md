@@ -185,7 +185,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/lint/markedjson/scanner.py` ↔ `src/ported/lint/markedjson/scanner.rs` | 283 | 0 | 3 | 29 | 717 | 36 | 195 |
 | [x] | `powerline/lint/spec.py` ↔ `src/ported/lint/spec.rs` | 637 | 0 | 1 | 32 | 1021 | 36 | 321 |
 | [x] | `powerline/segments/vim/__init__.py` ↔ `src/ported/segments/vim/mod.rs` | 650 | 32 | 2 | 2 | 991 | 44 | 351 |
-| [x] | `powerline/__init__.py` ↔ `src/ported/mod.rs` | 813 | 13 | 3 | 32 | 1784 | 49 | 456 |
+| [x] | `powerline/__init__.py` ↔ `src/ported/mod.rs` | 813 | 13 | 3 | 32 | 1801 | 52 | 464 |
 
 ## 🟢 NEAR — every Python fn has a `/// Port of` doc-comment; body density may still be partial (3)
 

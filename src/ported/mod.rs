@@ -204,6 +204,22 @@ impl PowerlineLogger {
 
     /// Port of the per-level logging methods (debug/info/warn/error/
     /// critical/exception) at py:80-108.
+    /// Port of `PowerlineLogger._log()` from
+    /// `powerline/__init__.py:72-100`.
+    ///
+    /// Internal log dispatcher: resolves prefix, formats message
+    /// via [`format_message`](Self::format_message), then dispatches
+    /// through [`log`](Self::log) per the level. Bare-name alias
+    /// preserving the upstream Python `_log` identifier.
+    pub fn _log(&self, attr: &str, msg: &str, prefix: Option<&str>) {
+        // py:72  def _log(self, attr, msg, *args, **kwargs):
+        // py:73-74  prefix = kwargs.get('prefix') or self.prefix
+        //           prefix = self.ext + ((':' + prefix) if prefix else '')
+        let formatted = self.format_message(msg, prefix);
+        // py:99-100  self.logger.log(...)
+        self.log(attr, &formatted);
+    }
+
     pub fn log(&self, level: &str, message: &str) {
         // py:89  def critical(self, msg, *args, **kwargs):
         // py:90  self._log('critical', msg, *args, **kwargs)
@@ -628,6 +644,24 @@ pub fn _generate_change_callback(
         let mut m = lock.lock().unwrap_or_else(|e| e.into_inner());
         m.insert(key.clone(), serde_json::Value::Bool(true));
     })
+}
+
+/// Port of the inner `on_file_change()` closure from
+/// `powerline/__init__.py:132-135` (inside
+/// `_generate_change_callback`).
+///
+/// Records `dictionary[key] = True` under `lock`. Surfaces the
+/// behavior as a free fn so callers can dispatch the change
+/// signal without constructing the closure-returning factory.
+pub fn on_file_change(
+    lock: &std::sync::Mutex<serde_json::Map<String, serde_json::Value>>,
+    key: &str,
+) {
+    // py:132  def on_file_change(path):
+    // py:133  with lock:
+    // py:134  dictionary[key] = True
+    let mut m = lock.lock().unwrap_or_else(|e| e.into_inner());
+    m.insert(key.to_string(), serde_json::Value::Bool(true));
 }
 
 /// Port of `Powerline` class constructor logic from
@@ -1611,6 +1645,21 @@ impl Powerline {
 pub fn reraise(exception_msg: &str) -> String {
     // py:362-366  raise exception (or exception[0].with_traceback)
     exception_msg.to_string()
+}
+
+/// Port of the inner `get_module_attr()` closure from
+/// `powerline/__init__.py:370-405` (inside `gen_module_attr_getter`).
+///
+/// Python: `__import__(module)` + `getattr(module, attr)` with
+/// import-path push/pop. Rust port surfaces the dispatch via the
+/// caller-supplied module/attr lookup closure.
+pub fn get_module_attr<F>(module: &str, attr: &str, lookup: F) -> Option<String>
+where
+    F: FnOnce(&str, &str) -> Option<String>,
+{
+    // py:370  def get_module_attr(module, attr, prefix='powerline'):
+    // py:386-405  sys.path manipulation + __import__ + getattr
+    lookup(module, attr)
 }
 
 /// Port of `gen_module_attr_getter()` from
