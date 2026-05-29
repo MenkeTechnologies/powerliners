@@ -282,3 +282,10 @@ render_load_format
 # it as a lazy OnceLock-backed accessor fn matching the Python
 # identifier byte-for-byte.
 NON_PRINTABLE_RE
+
+# Approved 2026-05-29: format_strftime helper wrapping libc::strftime
+# and libc::localtime_r. Python inlines `nw.strftime(format)` directly
+# in date()'s body (py:26). Rust splits out the FFI dance into a
+# testable helper since calling libc::strftime requires 4 unsafe steps
+# (zeroed tm, localtime_r, CString conversion, strftime buffer).
+format_strftime
