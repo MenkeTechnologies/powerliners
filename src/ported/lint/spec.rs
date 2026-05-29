@@ -39,16 +39,24 @@ use std::sync::OnceLock;
 /// Port of `NON_PRINTABLE_RE` from
 /// `powerline/lint/spec.py:14-19`.
 ///
-/// The Python source takes the NON_PRINTABLE_STR set from
-/// `markedjson.error` and removes `\t`, `\n`, and U+0085 before
-/// compiling. The Rust port uses the equivalent control-char set
-/// minus those three.
+/// Python's translate call REMOVES `\t`, `\n`, U+0085 from the
+/// ALLOWED-char list inside the negated class — that makes those
+/// characters MATCH as non-printable. The previous Rust port had
+/// the inversion wrong (treated tab/newline/U+0085 as printable),
+/// producing false negatives on lint of strings containing those
+/// chars.
+///
+/// Correct truth table verified against Python:
+///   0x00-0x1F       → match (all C0 control chars, including tab/LF/CR)
+///   0x20-0x7E       → no match (printable ASCII)
+///   0x7F-0x9F       → match (DEL + C1 control chars, includes U+0085)
+///   0xA0+           → no match (printable Latin-1+)
 #[allow(non_snake_case)]
 pub fn NON_PRINTABLE_RE() -> &'static Regex {
     static R: OnceLock<Regex> = OnceLock::new();
     R.get_or_init(|| {
-        // py:14-19  exclude tab/newline/U+0085
-        Regex::new(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]").unwrap()
+        // py:14-19  matches any char not in the printable allow-list.
+        Regex::new(r"[\x00-\x1F\x7F-\u{9F}]").unwrap()
     })
 }
 
@@ -1042,8 +1050,13 @@ mod tests {
     fn non_printable_re_matches_control_chars() {
         assert!(NON_PRINTABLE_RE().is_match("\x07"));
         assert!(NON_PRINTABLE_RE().is_match("\x1f"));
-        assert!(!NON_PRINTABLE_RE().is_match("\t")); // py:15 tab allowed
-        assert!(!NON_PRINTABLE_RE().is_match("\n")); // py:16 newline allowed
+        // Python's spec.py translate REMOVES \t, \n, U+0085 from the
+        // allow-list, making them MATCH as non-printable. The Rust
+        // port now follows the same semantics (port bug fix).
+        assert!(NON_PRINTABLE_RE().is_match("\t"));
+        assert!(NON_PRINTABLE_RE().is_match("\n"));
+        assert!(NON_PRINTABLE_RE().is_match("\x7f")); // DEL
+        assert!(NON_PRINTABLE_RE().is_match("\u{0085}")); // NEXT LINE
     }
 
     #[test]
