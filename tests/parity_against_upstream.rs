@@ -2192,6 +2192,45 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_surrogate_pair_to_character_full_range() {
+    if !python_available() {
+        return;
+    }
+    // surrogate_pair_to_character(high, low) reconstructs a 32-bit
+    // codepoint from a UTF-16 surrogate pair via:
+    //   0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00)
+    // Verify with both ports across emoji + boundary values.
+    let cases: &[(u32, u32, u32)] = &[
+        (0xD83D, 0xDE00, 128512),   // 😀
+        (0xD83D, 0xDE0A, 128522),   // 😊
+        (0xD800, 0xDC00, 0x10000),  // minimum supplementary
+        (0xDBFF, 0xDFFF, 0x10FFFF), // maximum Unicode codepoint
+    ];
+    for (high, low, expected) in cases {
+        let py_expr = format!(
+            "__import__('powerline.lib.unicode', fromlist=['surrogate_pair_to_character']).surrogate_pair_to_character({}, {})",
+            high, low
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_val: u32 = py.trim().parse().expect("py returned non-integer");
+        assert_eq!(
+            py_val, *expected,
+            "Python fixture drift for (0x{:X}, 0x{:X})",
+            high, low
+        );
+        let rs = powerliners::lib::unicode::surrogate_pair_to_character(*high, *low);
+        assert_eq!(
+            rs, *expected,
+            "Rust surrogate_pair_to_character(0x{:X}, 0x{:X}) mismatch",
+            high, low
+        );
+    }
+}
+
+#[test]
 fn parity_path_join_handles_absolute_components() {
     if !python_available() {
         return;
