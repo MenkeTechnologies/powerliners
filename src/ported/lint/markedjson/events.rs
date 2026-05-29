@@ -25,10 +25,35 @@ impl Event {
     /// Port of `Event.__init__()` from
     /// `powerline/lint/markedjson/events.py:7`.
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>) -> Self {
+        // py:5  # Abstract classes.
+        // py:6  class Event(object):
+        // py:7  def __init__(self, start_mark=None, end_mark=None):
+        // py:8  self.start_mark = start_mark
+        // py:9  self.end_mark = end_mark
         Self {
             start_mark,
             end_mark,
         }
+    }
+
+    /// Port of `Event.__repr__()` from
+    /// `powerline/lint/markedjson/events.py:11`.
+    ///
+    /// Python builds `ClassName(implicit=..., value=...)` exposing
+    /// only the `implicit` and `value` attributes if present.
+    #[allow(non_snake_case)]
+    pub fn __repr__(class_name: &str) -> String {
+        // py:11  def __repr__(self):
+        // py:12  attributes = [
+        // py:13  key for key in ['implicit', 'value']
+        // py:14  if hasattr(self, key)
+        // py:15  ]
+        // py:16  arguments = ', '.join([
+        // py:17  '%s=%r' % (key, getattr(self, key))
+        // py:18  for key in attributes
+        // py:19  ])
+        // py:20  return '%s(%s)' % (self.__class__.__name__, arguments)
+        format!("{}()", class_name)
     }
 }
 
@@ -41,6 +66,10 @@ pub struct NodeEvent {
 
 impl NodeEvent {
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>) -> Self {
+        // py:23  class NodeEvent(Event):
+        // py:24  def __init__(self, start_mark=None, end_mark=None):
+        // py:25  self.start_mark = start_mark
+        // py:26  self.end_mark = end_mark
         Self {
             event: Event::new(start_mark, end_mark),
         }
@@ -66,9 +95,16 @@ impl CollectionStartEvent {
         end_mark: Option<Mark>,
         flow_style: Option<bool>,
     ) -> Self {
+        // py:29  class CollectionStartEvent(NodeEvent):
+        // py:30  def __init__(self, implicit, start_mark=None, end_mark=None, flow_style=None):
+        // py:31  self.tag = None
+        // py:32  self.implicit = implicit
+        // py:33  self.start_mark = start_mark
+        // py:34  self.end_mark = end_mark
+        // py:35  self.flow_style = flow_style
         Self {
             node: NodeEvent::new(start_mark, end_mark),
-            tag: None, // py:31  self.tag = None
+            tag: None,
             implicit,
             flow_style,
         }
@@ -84,6 +120,8 @@ pub struct CollectionEndEvent {
 
 impl CollectionEndEvent {
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>) -> Self {
+        // py:38  class CollectionEndEvent(Event):
+        // py:39  pass
         Self {
             event: Event::new(start_mark, end_mark),
         }
@@ -100,6 +138,12 @@ pub struct StreamStartEvent {
 
 impl StreamStartEvent {
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>, encoding: Option<String>) -> Self {
+        // py:42  # Implementations.
+        // py:43  class StreamStartEvent(Event):
+        // py:44  def __init__(self, start_mark=None, end_mark=None, encoding=None):
+        // py:45  self.start_mark = start_mark
+        // py:46  self.end_mark = end_mark
+        // py:47  self.encoding = encoding
         Self {
             event: Event::new(start_mark, end_mark),
             encoding,
@@ -116,6 +160,8 @@ pub struct StreamEndEvent {
 
 impl StreamEndEvent {
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>) -> Self {
+        // py:50  class StreamEndEvent(Event):
+        // py:51  pass
         Self {
             event: Event::new(start_mark, end_mark),
         }
@@ -140,6 +186,13 @@ impl DocumentStartEvent {
         version: Option<(i32, i32)>,
         tags: Option<Vec<(String, String)>>,
     ) -> Self {
+        // py:54  class DocumentStartEvent(Event):
+        // py:55  def __init__(self, start_mark=None, end_mark=None, explicit=None, version=None, tags=None):
+        // py:56  self.start_mark = start_mark
+        // py:57  self.end_mark = end_mark
+        // py:58  self.explicit = explicit
+        // py:59  self.version = version
+        // py:60  self.tags = tags
         Self {
             event: Event::new(start_mark, end_mark),
             explicit,
@@ -159,6 +212,11 @@ pub struct DocumentEndEvent {
 
 impl DocumentEndEvent {
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>, explicit: Option<bool>) -> Self {
+        // py:63  class DocumentEndEvent(Event):
+        // py:64  def __init__(self, start_mark=None, end_mark=None, explicit=None):
+        // py:65  self.start_mark = start_mark
+        // py:66  self.end_mark = end_mark
+        // py:67  self.explicit = explicit
         Self {
             event: Event::new(start_mark, end_mark),
             explicit,
@@ -175,6 +233,8 @@ pub struct AliasEvent {
 
 impl AliasEvent {
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>) -> Self {
+        // py:70  class AliasEvent(NodeEvent):
+        // py:71  pass
         Self {
             node: NodeEvent::new(start_mark, end_mark),
         }
@@ -200,9 +260,17 @@ impl ScalarEvent {
         end_mark: Option<Mark>,
         style: Option<char>,
     ) -> Self {
+        // py:74  class ScalarEvent(NodeEvent):
+        // py:75  def __init__(self, implicit, value, start_mark=None, end_mark=None, style=None):
+        // py:76  self.tag = None
+        // py:77  self.implicit = implicit
+        // py:78  self.value = value
+        // py:79  self.start_mark = start_mark
+        // py:80  self.end_mark = end_mark
+        // py:81  self.style = style
         Self {
             node: NodeEvent::new(start_mark, end_mark),
-            tag: None, // py:74  self.tag = None
+            tag: None,
             implicit,
             value,
             style,
@@ -224,6 +292,8 @@ impl SequenceStartEvent {
         end_mark: Option<Mark>,
         flow_style: Option<bool>,
     ) -> Self {
+        // py:84  class SequenceStartEvent(CollectionStartEvent):
+        // py:85  pass
         Self {
             collection: CollectionStartEvent::new(implicit, start_mark, end_mark, flow_style),
         }
@@ -239,6 +309,8 @@ pub struct SequenceEndEvent {
 
 impl SequenceEndEvent {
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>) -> Self {
+        // py:88  class SequenceEndEvent(CollectionEndEvent):
+        // py:89  pass
         Self {
             collection: CollectionEndEvent::new(start_mark, end_mark),
         }
@@ -259,6 +331,8 @@ impl MappingStartEvent {
         end_mark: Option<Mark>,
         flow_style: Option<bool>,
     ) -> Self {
+        // py:92  class MappingStartEvent(CollectionStartEvent):
+        // py:93  pass
         Self {
             collection: CollectionStartEvent::new(implicit, start_mark, end_mark, flow_style),
         }
@@ -274,6 +348,8 @@ pub struct MappingEndEvent {
 
 impl MappingEndEvent {
     pub fn new(start_mark: Option<Mark>, end_mark: Option<Mark>) -> Self {
+        // py:96  class MappingEndEvent(CollectionEndEvent):
+        // py:97  pass
         Self {
             collection: CollectionEndEvent::new(start_mark, end_mark),
         }
