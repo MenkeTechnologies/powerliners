@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">639</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3481</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">62.2%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">644</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3489</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">62.6%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -195,8 +195,8 @@ columns:
   <!-- SYM py_file=powerline/lib/vcs/git.py rs_file=src/ported/lib/vcs/git.rs rs_exists=True py_fn_total=13 ported_count=11 missing_count=2 rs_extra_count=30 coverage=0.8462 -->
   <!-- END-GROUP py_file=powerline/lib/vcs/git.py -->
   <!-- BEGIN-GROUP py_file=powerline/segments/common/sys.py -->
-  <tr class="partial"><td><code>segments/common/sys.py</code></td><td>✔ <code>segments/common/sys.rs</code></td><td>13</td><td><code>system_load</code>, <code>render</code>, <code>render</code>, <code>_get_uptime</code>, <code>_get_uptime</code>, <code>_get_uptime</code>, <code>_get_uptime</code>, <code>uptime</code></td><td><code>update</code>, <code>run</code>, <code>startup</code>, <code>start</code>, <code>shutdown</code></td><td><code>_cpu_count</code>, <code>_getloadavg</code>, <code>render_load_format</code>, <code>render_load_format_one_decimal</code>, <code>render_load_format_two_decimal</code>, <code>render_load_format_zero_decimal</code>, <code>render_load_format_plain_avg</code>, <code>cpu_count_helper_returns_at_least_one</code>, <code>getloadavg_returns_three_values_on_unix</code>, <code>system_load_short_returns_one_entry</code>, <code>system_load_full_returns_three_entries_or_none</code>, <code>system_load_gradient_level_thresholds</code></td><td class="coverage">62%</td></tr>
-  <!-- SYM py_file=powerline/segments/common/sys.py rs_file=src/ported/segments/common/sys.rs rs_exists=True py_fn_total=13 ported_count=8 missing_count=5 rs_extra_count=12 coverage=0.6154 -->
+  <tr class="full"><td><code>segments/common/sys.py</code></td><td>✔ <code>segments/common/sys.rs</code></td><td>13</td><td><code>system_load</code>, <code>update</code>, <code>run</code>, <code>render</code>, <code>startup</code>, <code>start</code>, <code>shutdown</code>, <code>render</code>, <code>_get_uptime</code>, <code>_get_uptime</code>, <code>_get_uptime</code>, <code>_get_uptime</code>, <code>uptime</code></td><td>—</td><td><code>_cpu_count</code>, <code>_getloadavg</code>, <code>render_load_format</code>, <code>render_load_format_one_decimal</code>, <code>render_load_format_two_decimal</code>, <code>render_load_format_zero_decimal</code>, <code>render_load_format_plain_avg</code>, <code>cpu_count_helper_returns_at_least_one</code>, <code>getloadavg_returns_three_values_on_unix</code>, <code>system_load_short_returns_one_entry</code>, <code>system_load_full_returns_three_entries_or_none</code>, <code>system_load_gradient_level_thresholds</code>, <code>update_returns_supplied_cpu_percent</code>, <code>run_terminates_when_shutdown_returns_true</code>, <code>startup_start_shutdown_are_documented_no_ops</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/segments/common/sys.py rs_file=src/ported/segments/common/sys.rs rs_exists=True py_fn_total=13 ported_count=13 missing_count=0 rs_extra_count=15 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/segments/common/sys.py -->
   <!-- BEGIN-GROUP py_file=powerline/renderers/ipython/since_5.py -->
   <tr class="partial"><td><code>renderers/ipython/since_5.py</code></td><td>✔ <code>renderers/ipython/since_5.rs</code></td><td>12</td><td><code>get_attrs_for_token</code>, <code>get_token_to_attributes_dict</code>, <code>invalidation_hash</code>, <code>get_segment_info</code>, <code>hl_join</code>, <code>hl</code>, <code>hlstyle</code>, <code>get_client_id</code></td><td><code>__new__</code>, <code>__init__</code>, <code>__missing__</code>, <code>fallback</code></td><td><code>attrs_to_attr_names</code>, <code>build_token_name</code>, <code>default</code>, <code>new</code>, <code>lookup</code>, <code>insert</code>, <code>powerline_prompt_style_invalidation_hash</code>, <code>parse_token_attrs</code>, <code>new</code>, <code>default</code>, <code>attrs_to_attr_names_zero_is_empty</code>, <code>attrs_to_attr_names_bold</code>, <code>attrs_to_attr_names_italic</code>, <code>attrs_to_attr_names_all_three</code>, <code>build_token_name_capital_pl_prefix</code>, <code>build_token_name_with_fg_uses_space_padded_hex</code>, <code>build_token_name_with_small_fg_pads_with_space</code>, <code>build_token_name_with_bg</code>, <code>build_token_name_with_attrs</code>, <code>build_token_name_with_all_three</code>, <code>hl_returns_single_segment_pair</code>, <code>hl_uses_token_name_with_color</code>, <code>hlstyle_returns_empty</code>, <code>hl_join_flattens_segments</code>, <code>powerline_style_dict_lookup_returns_existing</code>, <code>powerline_style_dict_lookup_calls_missing_func_on_miss</code>, <code>powerline_prompt_style_invalidation_hash_adds_one</code>, <code>parse_token_attrs_plain_pl_returns_default</code>, <code>parse_token_attrs_non_pl_returns_none</code>, <code>parse_token_attrs_bold</code>, <code>parse_token_attrs_fg_color</code>, <code>parse_token_attrs_bg_color</code>, <code>parse_token_attrs_all_three</code>, <code>parse_token_attrs_default_reverse_and_blink_false</code>, <code>reduce_initial_const_is_empty_array</code>, <code>powerline_prompt_style_get_attrs_for_token_pl_format</code>, <code>powerline_prompt_style_get_attrs_for_token_non_pl_returns_none</code>, <code>powerline_prompt_style_invalidation_hash_bumps_by_one</code>, <code>powerline_prompt_style_get_token_to_attributes_dict_returns_dict</code>, <code>ipython_pygments_renderer_each_instance_gets_unique_id</code>, <code>ipython_pygments_renderer_get_client_id_returns_self_id</code>, <code>ipython_pygments_renderer_get_segment_info_wraps_payload_under_ipython_key</code></td><td class="coverage">67%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3481,
-    "ported_fns": 639,
-    "coverage": 0.6215953307392996
+    "rs_fns_in_ported": 3489,
+    "ported_fns": 644,
+    "coverage": 0.6264591439688716
   },
   "rows": [
     {
@@ -2347,7 +2347,12 @@ columns:
       "py_fn_total": 13,
       "ported_fns": [
         "system_load",
+        "update",
+        "run",
         "render",
+        "startup",
+        "start",
+        "shutdown",
         "render",
         "_get_uptime",
         "_get_uptime",
@@ -2355,13 +2360,7 @@ columns:
         "_get_uptime",
         "uptime"
       ],
-      "missing_fns": [
-        "update",
-        "run",
-        "startup",
-        "start",
-        "shutdown"
-      ],
+      "missing_fns": [],
       "rs_extra_fns": [
         "_cpu_count",
         "_getloadavg",
@@ -2374,9 +2373,12 @@ columns:
         "getloadavg_returns_three_values_on_unix",
         "system_load_short_returns_one_entry",
         "system_load_full_returns_three_entries_or_none",
-        "system_load_gradient_level_thresholds"
+        "system_load_gradient_level_thresholds",
+        "update_returns_supplied_cpu_percent",
+        "run_terminates_when_shutdown_returns_true",
+        "startup_start_shutdown_are_documented_no_ops"
       ],
-      "coverage": 0.6153846153846154
+      "coverage": 1.0
     },
     {
       "py_file": "powerline/renderers/ipython/since_5.py",
