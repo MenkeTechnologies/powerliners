@@ -2192,6 +2192,46 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_get_attrs_flag_combines_attrs() {
+    if !python_available() {
+        return;
+    }
+    // get_attrs_flag(['bold','italic','underline']) → bit OR of the
+    // ATTR_NAMES table:
+    //   bold = 1, italic = 2, underline = 4
+    // Unknown attrs contribute 0.
+    let cases: &[(&[&str], u32)] = &[
+        (&["bold"], 1),
+        (&["italic"], 2),
+        (&["underline"], 4),
+        (&[], 0),
+        (&["bold", "italic"], 3),
+        (&["bold", "italic", "underline"], 7),
+        (&["unknown_attr"], 0),
+    ];
+    for (input, expected) in cases {
+        let py_list = input
+            .iter()
+            .map(|s| format!("{:?}", s))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let py_expr = format!(
+            "__import__('powerline.colorscheme', fromlist=['get_attrs_flag']).get_attrs_flag([{}])",
+            py_list
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_val: u32 = py.trim().parse().expect("py returned non-integer");
+        assert_eq!(py_val, *expected, "Python fixture drift for {:?}", input);
+        let rs_in: Vec<String> = input.iter().map(|s| s.to_string()).collect();
+        let rs = powerliners::colorscheme::get_attrs_flag(&rs_in);
+        assert_eq!(rs, *expected, "Rust get_attrs_flag({:?}) mismatch", input);
+    }
+}
+
+#[test]
 fn parity_cterm_to_hex_full_256_entry_table() {
     if !python_available() {
         return;
