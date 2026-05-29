@@ -2192,6 +2192,59 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_lint_load_json_file_valid_and_missing() {
+    if !python_available() {
+        return;
+    }
+    // lint.load_json_file returns (hadproblem, config, error).
+    let tmpfile = std::env::temp_dir().join(format!(
+        "powerliners_parity_ljf_{}.json",
+        std::process::id()
+    ));
+    std::fs::write(&tmpfile, r#"{"a": [1, 2]}"#).expect("write fixture");
+
+    let py_expr = format!(
+        "(lambda hp, cfg, err: __import__('json').dumps([hp, dict(cfg) if cfg else None, err]))(*__import__('powerline.lint').lint.load_json_file({:?}))",
+        tmpfile.to_string_lossy()
+    );
+    let py = match py_eval(&py_expr) {
+        Some(v) => v,
+        None => {
+            let _ = std::fs::remove_file(&tmpfile);
+            return;
+        }
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let py_arr = py_value.as_array().expect("py array");
+    assert_eq!(py_arr[0].as_bool(), Some(false), "Python hadproblem drift");
+    let py_cfg = py_arr[1].as_object().expect("py config");
+    assert_eq!(
+        py_cfg.get("a").unwrap(),
+        &serde_json::json!([1, 2]),
+        "Python config drift"
+    );
+    assert!(py_arr[2].is_null(), "Python error should be None");
+
+    let rs = powerliners::lint::load_json_file(&tmpfile);
+    assert!(!rs.hadproblem, "Rust hadproblem should be false");
+    let cfg = rs.config.expect("Rust config missing");
+    assert_eq!(cfg["a"], serde_json::json!([1, 2]));
+    let _ = std::fs::remove_file(&tmpfile);
+
+    let missing = std::env::temp_dir().join(format!(
+        "powerliners_parity_ljf_missing_{}.json",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_file(&missing);
+
+    let rs_missing = powerliners::lint::load_json_file(&missing);
+    assert!(
+        rs_missing.hadproblem,
+        "Rust hadproblem must be true for missing file"
+    );
+}
+
+#[test]
 fn parity_markedjson_marked_int_and_float_value_preserved() {
     if !python_available() {
         return;
