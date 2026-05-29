@@ -2192,6 +2192,47 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_reader_init_state() {
+    if !python_available() {
+        return;
+    }
+    // Reader.__init__ — py:28-42 — populates initial state:
+    //   pointer=0, index=0, line=0, column=0
+    //   buffer = stream content + '\0' terminator
+    //   peek(0) returns the first char
+    let py = match py_eval(
+        "(lambda r: __import__('json').dumps([r.pointer, r.line, r.column, r.buffer, r.peek()]))(__import__('powerline.lint.markedjson.reader', fromlist=['Reader']).Reader(__import__('io').BytesIO(b'hello')))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let py_arr = py_value.as_array().expect("py array");
+    assert_eq!(py_arr[0].as_i64(), Some(0), "Python pointer drift");
+    assert_eq!(py_arr[1].as_i64(), Some(0), "Python line drift");
+    assert_eq!(py_arr[2].as_i64(), Some(0), "Python column drift");
+    let py_buf = py_arr[3].as_str().expect("py buffer");
+    assert!(
+        py_buf.starts_with("hello"),
+        "Python buffer should start with 'hello': {:?}",
+        py_buf
+    );
+    assert_eq!(py_arr[4].as_str(), Some("h"), "Python peek() drift");
+
+    let r = powerliners::lint::markedjson::reader::Reader::new("hello", "<file>");
+    assert_eq!(r.pointer, 0);
+    assert_eq!(r.index, 0);
+    assert_eq!(r.line, 0);
+    assert_eq!(r.column, 0);
+    assert!(r.buffer.starts_with(&['h', 'e', 'l', 'l', 'o']));
+    assert_eq!(
+        r.buffer.last(),
+        Some(&'\0'),
+        "Rust buffer must end with NUL"
+    );
+}
+
+#[test]
 fn parity_shell_readlines_subprocess_line_split() {
     if !python_available() {
         return;
