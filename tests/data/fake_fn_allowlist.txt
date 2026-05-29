@@ -1680,3 +1680,15 @@ statusline_no_window_message
 # doesn't survive the Rust fn-name rules; the `_table` suffix
 # disambiguates from the omitted_args method that wraps it.
 omitted_args_table
+
+# lib/threaded.rs::ThreadedSegment::call_dispatch — extracts the
+# Python __call__ body's branch chain at
+# powerline/lib/threaded.py:48-67 into a pure dispatch helper.
+# Python's __call__ both decides and acts (calls set_state,
+# render, etc.); Rust splits the decision (this fn) from the
+# action (caller-wired) so the dispatch shape is testable
+# without the live worker thread. The CallDecision enum
+# encodes the three branches: crashed-returns / run_once-forces /
+# is_alive-or-stale-renders. Same body-extraction pattern as
+# resolve_renderer_module.
+call_dispatch

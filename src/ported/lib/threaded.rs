@@ -450,6 +450,121 @@ impl KwThreadedSegment {
             }
         }
     }
+
+    /// Port of `KwThreadedSegment.key()` (staticmethod) from
+    /// `powerline/lib/threaded.py:185-187`.
+    ///
+    /// Python: `frozenset(kwargs.items())`. Returns the kwargs as a
+    /// sorted list of (key, value) pairs since Rust has no
+    /// frozenset; callers compare for equality.
+    pub fn key(kwargs: &[(String, String)]) -> Vec<(String, String)> {
+        // py:187  frozenset(kwargs.items())
+        let mut out: Vec<(String, String)> = kwargs.to_vec();
+        out.sort();
+        out
+    }
+
+    /// Port of `KwThreadedSegment.render_one()` (staticmethod) from
+    /// `powerline/lib/threaded.py:254-256`.
+    ///
+    /// Identity helper: returns `update_state` unchanged per
+    /// py:256. Subclasses override to format the state into a
+    /// renderable string.
+    pub fn render_one(update_state: Option<String>) -> Option<String> {
+        // py:256  return update_state
+        update_state
+    }
+
+    /// Port of `KwThreadedSegment._omitted_args` class attribute at
+    /// `powerline/lib/threaded.py:258-262`.
+    ///
+    /// Overrides ThreadedSegment._omitted_args per py:258-262.
+    /// 'render' → ('update_value', 'key', 'after_update');
+    /// 'set_state' → ('shutdown_event',);
+    /// 'render_one' → (0,).
+    pub fn omitted_args_table(name: &str) -> Vec<&'static str> {
+        // py:259-261
+        match name {
+            "render" => vec!["update_value", "key", "after_update"],
+            "set_state" => vec!["shutdown_event"],
+            "render_one" => vec!["0"],
+            _ => Vec::new(),
+        }
+    }
+
+    /// Port of `KwThreadedSegment.set_state()` from
+    /// `powerline/lib/threaded.py:249-252`.
+    ///
+    /// Override that pins `do_update_first = update_first` per
+    /// py:251 since KwThreadedSegment.update_first defaults to true.
+    pub fn set_state(&mut self, interval: Option<f64>, update_first: bool) {
+        // py:250-252  set_interval + do_update_first + shutdown_event
+        self.base.set_interval(interval);
+        self.base.do_update_first = update_first;
+    }
+}
+
+/// Decision shape returned by [`ThreadedSegment::call_dispatch`].
+///
+/// Mirrors the Python `__call__` body's branch chain at py:48-67:
+/// either return `crashed_value` per py:64-65, or dispatch to
+/// `self.render(...)` per py:67 with the (update_value,
+/// update_first) pair.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CallDecision {
+    /// py:64-65  if crashed: return crashed_value
+    Crashed,
+    /// py:67  return self.render(update_value, update_first=..., pl=..., **kwargs)
+    Render {
+        update_first: bool,
+        do_update_first: bool,
+    },
+}
+
+impl ThreadedSegment {
+    /// Port of `ThreadedSegment.__call__()` from
+    /// `powerline/lib/threaded.py:48-67`.
+    ///
+    /// Returns the dispatch decision based on:
+    /// - `run_once` (py:49-52) — sets state + force-updates
+    /// - `is_alive` (py:53-60) — starts the worker + maybe updates
+    /// - default (py:61-62) — updates when stale
+    ///
+    /// The actual `render()` dispatch + state mutations live with
+    /// the caller; this fn returns the decision so the dispatch is
+    /// testable without the live worker thread.
+    pub fn call_dispatch(
+        run_once: bool,
+        is_alive: bool,
+        updated: bool,
+        do_update_first: bool,
+        crashed: bool,
+        update_first: bool,
+    ) -> CallDecision {
+        // py:64-65  if self.crashed: return self.crashed_value
+        if crashed {
+            return CallDecision::Crashed;
+        }
+        // py:49-52  run_once: force update
+        if run_once {
+            return CallDecision::Render {
+                update_first,
+                do_update_first: true,
+            };
+        }
+        // py:53-60  not is_alive: start + maybe update
+        if !is_alive {
+            return CallDecision::Render {
+                update_first,
+                do_update_first,
+            };
+        }
+        // py:61-62  default: update if not updated
+        CallDecision::Render {
+            update_first,
+            do_update_first: !updated,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -716,5 +831,141 @@ mod tests {
         assert_eq!(ThreadedSegment::error("X", "e"), ("X".into(), "e".into()));
         assert_eq!(ThreadedSegment::warn("X", "w"), ("X".into(), "w".into()));
         assert_eq!(ThreadedSegment::debug("X", "d"), ("X".into(), "d".into()));
+    }
+
+    #[test]
+    fn kw_key_sorts_kwargs() {
+        // py:187  frozenset(kwargs.items())
+        let r = KwThreadedSegment::key(&[
+            ("b".to_string(), "2".to_string()),
+            ("a".to_string(), "1".to_string()),
+        ]);
+        assert_eq!(
+            r,
+            vec![
+                ("a".to_string(), "1".to_string()),
+                ("b".to_string(), "2".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn kw_key_empty_returns_empty() {
+        let r = KwThreadedSegment::key(&[]);
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn kw_render_one_returns_update_state_unchanged() {
+        // py:256
+        assert_eq!(
+            KwThreadedSegment::render_one(Some("hi".to_string())),
+            Some("hi".to_string())
+        );
+        assert_eq!(KwThreadedSegment::render_one(None), None);
+    }
+
+    #[test]
+    fn kw_omitted_args_table_render_includes_three_args() {
+        // py:259  ('update_value', 'key', 'after_update')
+        let r = KwThreadedSegment::omitted_args_table("render");
+        assert_eq!(r, vec!["update_value", "key", "after_update"]);
+    }
+
+    #[test]
+    fn kw_omitted_args_table_render_one_omits_first() {
+        // py:261  'render_one': (0,)
+        let r = KwThreadedSegment::omitted_args_table("render_one");
+        assert_eq!(r, vec!["0"]);
+    }
+
+    #[test]
+    fn kw_omitted_args_table_set_state_omits_shutdown_event() {
+        // py:260
+        let r = KwThreadedSegment::omitted_args_table("set_state");
+        assert_eq!(r, vec!["shutdown_event"]);
+    }
+
+    #[test]
+    fn kw_omitted_args_table_unknown_returns_empty() {
+        let r = KwThreadedSegment::omitted_args_table("other");
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn kw_set_state_pins_do_update_first() {
+        // py:251  do_update_first = update_first
+        let mut s = KwThreadedSegment::new();
+        s.set_state(Some(5.0), false);
+        assert!(!s.base.do_update_first);
+        s.set_state(Some(5.0), true);
+        assert!(s.base.do_update_first);
+    }
+
+    #[test]
+    fn kw_set_state_calls_set_interval() {
+        // py:250  self.set_interval(interval)
+        let mut s = KwThreadedSegment::new();
+        s.set_state(Some(2.0), true);
+        assert!((s.base.interval - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn call_dispatch_crashed_returns_crashed() {
+        // py:64-65
+        let d = ThreadedSegment::call_dispatch(false, true, true, false, true, true);
+        assert_eq!(d, CallDecision::Crashed);
+    }
+
+    #[test]
+    fn call_dispatch_run_once_forces_update() {
+        // py:49-52
+        let d = ThreadedSegment::call_dispatch(true, false, false, false, false, true);
+        assert_eq!(
+            d,
+            CallDecision::Render {
+                update_first: true,
+                do_update_first: true,
+            }
+        );
+    }
+
+    #[test]
+    fn call_dispatch_not_alive_uses_do_update_first() {
+        // py:53-60
+        let d = ThreadedSegment::call_dispatch(false, false, false, true, false, true);
+        assert_eq!(
+            d,
+            CallDecision::Render {
+                update_first: true,
+                do_update_first: true,
+            }
+        );
+    }
+
+    #[test]
+    fn call_dispatch_default_updates_when_stale() {
+        // py:61-62  not self.updated → update
+        let d = ThreadedSegment::call_dispatch(false, true, false, true, false, true);
+        assert_eq!(
+            d,
+            CallDecision::Render {
+                update_first: true,
+                do_update_first: true,
+            }
+        );
+    }
+
+    #[test]
+    fn call_dispatch_default_skips_update_when_fresh() {
+        // py:62  self.updated → skip update
+        let d = ThreadedSegment::call_dispatch(false, true, true, true, false, true);
+        assert_eq!(
+            d,
+            CallDecision::Render {
+                update_first: true,
+                do_update_first: false,
+            }
+        );
     }
 }
