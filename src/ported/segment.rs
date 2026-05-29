@@ -42,59 +42,82 @@ pub fn list_segment_key_values(
     module: Option<&str>,
     default: Option<Value>,
 ) -> Vec<Value> {
+    // py:7  def list_segment_key_values(segment, theme_configs, segment_data, key, function_name=None, name=None, module=None, default=None):
+    // py:8  try:
+    // py:9  yield segment[key]
+    // py:10  except KeyError:
+    // py:11  pass
     let mut out: Vec<Value> = Vec::new();
-    // py:8-11  yield segment[key] if present
     if let Some(v) = segment.get(key) {
         out.push(v.clone());
     }
-    let mut found_module_key = false; // py:12
+    // py:12  found_module_key = False
+    let mut found_module_key = false;
+    // py:13  for theme_config in theme_configs:
     for theme_config in theme_configs {
-        // py:13
-        // py:14-17  segment_data = theme_config['segment_data'] or pass
+        // py:14  try:
+        // py:15  segment_data = theme_config['segment_data']
+        // py:16  except KeyError:
+        // py:17  pass
+        // py:18  else:
         let seg_data = match theme_config.get("segment_data").and_then(|v| v.as_object()) {
             Some(s) => s,
             None => continue,
         };
+        // py:19  if function_name and not name:
         if let (Some(fname), None) = (function_name, name) {
-            // py:19
+            // py:20  if module:
             if let Some(module) = module {
-                // py:20
+                // py:21  try:
+                // py:22  yield segment_data[module + '.' + function_name][key]
+                // py:23  found_module_key = True
+                // py:24  except KeyError:
+                // py:25  pass
                 let mod_key = format!("{}.{}", module, fname);
                 if let Some(v) = seg_data
                     .get(&mod_key)
                     .and_then(|x| x.as_object())
                     .and_then(|o| o.get(key))
                 {
-                    // py:21-23
                     out.push(v.clone());
                     found_module_key = true;
                 }
             }
+            // py:26  if not found_module_key:
             if !found_module_key {
-                // py:26
+                // py:27  try:
+                // py:28  yield segment_data[function_name][key]
+                // py:29  except KeyError:
+                // py:30  pass
                 if let Some(v) = seg_data
                     .get(fname)
                     .and_then(|x| x.as_object())
                     .and_then(|o| o.get(key))
                 {
-                    // py:27-30
                     out.push(v.clone());
                 }
             }
         }
+        // py:31  if name:
         if let Some(n) = name {
-            // py:31
+            // py:32  try:
+            // py:33  yield segment_data[name][key]
+            // py:34  except KeyError:
+            // py:35  pass
             if let Some(v) = seg_data
                 .get(n)
                 .and_then(|x| x.as_object())
                 .and_then(|o| o.get(key))
             {
-                // py:32-35
                 out.push(v.clone());
             }
         }
     }
-    // py:36-40  segment_data root lookup
+    // py:36  if segment_data is not None:
+    // py:37  try:
+    // py:38  yield segment_data[key]
+    // py:39  except KeyError:
+    // py:40  pass
     if let Some(sd) = segment_data {
         if let Some(v) = sd.get(key) {
             out.push(v.clone());
@@ -139,15 +162,22 @@ pub fn get_segment_key(
         default,
     );
 
+    // py:44  def get_segment_key(merge, *args, **kwargs):
+    // py:45  if merge:
     if merge {
-        // py:45
-        let mut ret: Option<Value> = None; // py:46
+        // py:46  ret = None
+        let mut ret: Option<Value> = None;
+        // py:47  for value in list_segment_key_values(*args, **kwargs):
         for value in candidates {
-            // py:47
+            // py:48  if ret is None:
+            // py:49  ret = value
             if ret.is_none() {
-                ret = Some(value); // py:49
+                ret = Some(value);
             } else if matches!(ret, Some(Value::Object(_))) && matches!(value, Value::Object(_)) {
-                // py:50-53  merge dicts: old wins (`ret = value.copy(); ret.update(old_ret)`)
+                // py:50  elif isinstance(ret, dict) and isinstance(value, dict):
+                // py:51  old_ret = ret
+                // py:52  ret = value.copy()
+                // py:53  ret.update(old_ret)
                 let old_ret = ret.take().unwrap();
                 let mut new_ret = value.as_object().unwrap().clone();
                 for (k, v) in old_ret.as_object().unwrap() {
@@ -155,14 +185,16 @@ pub fn get_segment_key(
                 }
                 ret = Some(Value::Object(new_ret));
             } else {
-                // py:54-55
+                // py:54  else:
+                // py:55  return ret
                 return ret;
             }
         }
-        ret // py:56
+        // py:56  return ret
+        ret
     } else {
-        // py:57
-        // py:58  return next(...)
+        // py:57  else:
+        // py:58  return next(list_segment_key_values(*args, **kwargs))
         candidates.into_iter().next()
     }
 }
@@ -183,16 +215,44 @@ pub fn get_string(
     Option<String>,
     Option<String>,
 ) {
+    // py:61  def get_function(data, segment):
+    // py:62  function_name = segment['function']
+    // py:63  if '.' in function_name:
+    // py:64  module, function_name = function_name.rpartition('.')[::2]
+    // py:65  else:
+    // py:66  module = data['default_module']
+    // py:67  function = data['get_module_attr'](module, function_name, prefix='segment_generator')
+    // py:68  if not function:
+    // py:69  raise ImportError('Failed to obtain segment function')
+    // py:70  return None, function, module, function_name, segment.get('name')
+    // py:73  def get_string(data, segment):
     // py:74  name = segment.get('name')
+    // py:75  return data['get_key'](False, segment, None, None, name, 'contents'), None, None, None, name
+    // py:78  segment_getters = {
+    // py:79  'function': get_function,
+    // py:80  'string': get_string,
+    // py:81  'segment_list': get_function,
+    // py:82  }
+    // py:85  def get_attr_func(contents_func, key, args, is_space_func=False):
+    // py:86  try:
+    // py:87  func = getattr(contents_func, key)
+    // py:88  except AttributeError:
+    // py:89  return None
+    // py:90  else:
+    // py:91  if is_space_func:
+    // py:92  def expand_func(pl, amount, segment):
+    // py:93  try:
+    // py:94  return func(pl=pl, amount=amount, segment=segment, **args)
+    // py:95  except Exception as e:
+    // py:96  pl.exception('Exception while computing {0} function: {1}', key, str(e))
+    // py:97  return segment['contents'] + (' ' * amount)
+    // py:98  return expand_func
+    // py:99  else:
+    // py:100  return lambda pl, shutdown_event: func(pl=pl, shutdown_event=shutdown_event, **args)
     let name = segment
         .get("name")
         .and_then(|v| v.as_str())
         .map(String::from);
-    // py:75  return data['get_key'](False, segment, None, None, name, 'contents'), None, None, None, name
-    // (data['get_key'] is the closure built by gen_segment_getter; not callable from here
-    //  without the closure being constructed. For the simple-port phase we surface the
-    //  raw `contents` key from the segment dict — equivalent for the common case where
-    //  no theme-config layer overrides it.)
     let contents = segment.get("contents").cloned();
     let _ = data;
     (contents, None, None, None, name)
@@ -217,14 +277,21 @@ pub fn set_segment_highlighting(
     segment: &mut Map<String, Value>,
     mode: Option<&str>,
 ) -> bool {
-    // py:139  literal-contents short-circuit
+    // py:138  def set_segment_highlighting(pl, colorscheme, segment, mode):
+    // py:139  if segment['literal_contents'][1]:
+    // py:140  return True
     if let Some(Value::Array(lc)) = segment.get("literal_contents") {
         if lc.len() == 2 && !lc[1].as_str().unwrap_or("").is_empty() {
-            return true; // py:140  return True
+            return true;
         }
     }
 
-    // py:141-146  build hl_groups closure
+    // py:141  try:
+    // py:142  highlight_group_prefix = segment['highlight_group_prefix']
+    // py:143  except KeyError:
+    // py:144  hl_groups = lambda hlgs: hlgs
+    // py:145  else:
+    // py:146  hl_groups = lambda hlgs: [highlight_group_prefix + ':' + hlg for hlg in hlgs] + hlgs
     let highlight_group_prefix = segment
         .get("highlight_group_prefix")
         .and_then(|v| v.as_str())
@@ -232,9 +299,8 @@ pub fn set_segment_highlighting(
 
     let hl_groups = |hlgs: Vec<String>| -> Vec<String> {
         match &highlight_group_prefix {
-            None => hlgs, // py:144  lambda hlgs: hlgs
+            None => hlgs,
             Some(prefix) => {
-                // py:146  prefix + ':' + hlg + hlgs
                 let mut out: Vec<String> =
                     hlgs.iter().map(|h| format!("{}:{}", prefix, h)).collect();
                 out.extend(hlgs);
@@ -243,7 +309,12 @@ pub fn set_segment_highlighting(
         }
     };
 
-    // py:148-152  resolve main highlight
+    // py:147  try:
+    // py:148  segment['highlight'] = colorscheme.get_highlighting(
+    // py:149  hl_groups(segment['highlight_groups']),
+    // py:150  mode,
+    // py:151  segment.get('gradient_level')
+    // py:152  )
     let hlgs_raw: Vec<String> = segment
         .get("highlight_groups")
         .and_then(|v| v.as_array())
@@ -258,15 +329,23 @@ pub fn set_segment_highlighting(
 
     match colorscheme.get_highlighting(&hl_groups(hlgs_raw), mode, gradient_level) {
         Ok(hl) => {
-            segment.insert("highlight".to_string(), Value::Object(hl)); // py:148
+            segment.insert("highlight".to_string(), Value::Object(hl));
         }
         Err(_) => {
-            // py:160-162  except Exception: log + return False
+            // py:160  except Exception as e:
+            // py:161  pl.exception('Failed to set highlight group: {0}', str(e))
+            // py:162  return False
             return false;
         }
     }
 
-    // py:153-159  resolve divider_highlight
+    // py:153  if segment['divider_highlight_group']:
+    // py:154  segment['divider_highlight'] = colorscheme.get_highlighting(
+    // py:155  hl_groups([segment['divider_highlight_group']]),
+    // py:156  mode
+    // py:157  )
+    // py:158  else:
+    // py:159  segment['divider_highlight'] = None
     if let Some(dhg) = segment
         .get("divider_highlight_group")
         .and_then(|v| v.as_str())
@@ -288,7 +367,9 @@ pub fn set_segment_highlighting(
         segment.insert("divider_highlight".to_string(), Value::Null);
     }
 
-    true // py:164  return True
+    // py:163  else:
+    // py:164  return True
+    true
 }
 
 /// Port of module-level binding `always_true` from
@@ -301,7 +382,70 @@ pub fn always_true(
     _segment_info: Option<&Map<String, Value>>,
     _mode: Option<&str>,
 ) -> bool {
-    true // py:225
+    // py:103  def process_segment_lister(pl, segment_info, parsed_segments, side, mode, colorscheme,
+    // py:104  lister, subsegments, patcher_args):
+    // py:105  subsegments = [
+    // py:106  subsegment
+    // py:107  for subsegment in subsegments
+    // py:108  if subsegment['display_condition'](pl, segment_info, mode)
+    // py:109  ]
+    // py:110  for subsegment_info, subsegment_update in lister(pl=pl, segment_info=segment_info, **patcher_args):
+    // py:111  draw_inner_divider = subsegment_update.pop('draw_inner_divider', False)
+    // py:112  old_pslen = len(parsed_segments)
+    // py:113  for subsegment in subsegments:
+    // py:114  if subsegment_update:
+    // py:115  subsegment = subsegment.copy()
+    // py:116  subsegment.update(subsegment_update)
+    // py:117  if 'priority_multiplier' in subsegment_update and subsegment['priority']:
+    // py:118  subsegment['priority'] *= subsegment_update['priority_multiplier']
+    // py:120  process_segment(
+    // py:121  pl,
+    // py:122  side,
+    // py:123  subsegment_info,
+    // py:124  parsed_segments,
+    // py:125  subsegment,
+    // py:126  mode,
+    // py:127  colorscheme,
+    // py:128  )
+    // py:129  new_pslen = len(parsed_segments)
+    // py:130  while parsed_segments[new_pslen - 1]['literal_contents'][1]:
+    // py:131  new_pslen -= 1
+    // py:132  if new_pslen > old_pslen + 1 and draw_inner_divider is not None:
+    // py:133  for i in range(old_pslen, new_pslen - 1) if side == 'left' else range(old_pslen + 1, new_pslen):
+    // py:134  parsed_segments[i]['draw_soft_divider'] = draw_inner_divider
+    // py:135  return None
+    // py:167  def process_segment(pl, side, segment_info, parsed_segments, segment, mode, colorscheme):
+    // py:168  segment = segment.copy()
+    // py:169  pl.prefix = segment['name']
+    // py:170  if segment['type'] in ('function', 'segment_list'):
+    // py:171  try:
+    // py:172  if segment['type'] == 'function':
+    // py:173  contents = segment['contents_func'](pl, segment_info)
+    // py:174  else:
+    // py:175  contents = segment['contents_func'](pl, segment_info, parsed_segments, side, mode, colorscheme)
+    // py:176  except Exception as e:
+    // py:177  pl.exception('Exception while computing segment: {0}', str(e))
+    // py:178  return
+    // py:180  if contents is None:
+    // py:181  return
+    // py:183  if isinstance(contents, list):
+    // py:184  # Needs copying here, but it was performed at the very start of the
+    // py:185  # function
+    // py:186  segment_base = segment
+    // py:187  if contents:
+    // py:188  draw_divider_position = -1 if side == 'left' else 0
+    // py:189  for key, i, newval in (
+    // py:190  ('before', 0, ''),
+    // py:191  ('after', -1, ''),
+    // py:192  ('draw_soft_divider', draw_divider_position, True),
+    // py:193  ('draw_hard_divider', draw_divider_position, True),
+    // py:194  ):
+    // py:195  try:
+    // py:196  contents[i][key] = segment_base.pop(key)
+    // py:197  segment_base[key] = newval
+    // py:198  except KeyError:
+    // py:199  pass
+    true
 }
 
 /// Port of module-level binding `get_fallback_segment` from

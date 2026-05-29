@@ -41,10 +41,19 @@ pub fn BATTERY_PERCENT_RE() -> &'static Regex {
 ///   ac_charging = 'AC' in output
 ///   return int(percent), ac_charging
 pub fn parse_pmset_output(text: &str) -> Option<(u8, bool)> {
-    // py:149  BATTERY_PERCENT_RE.search(output).group(1)
+    // py:141  if which('pmset'):
+    // py:142  pl.debug('Using pmset')
+    // py:144  BATTERY_PERCENT_RE = re.compile(r'(\d+)%')
+    // py:146  def _get_battery_status(pl):
+    // py:147  battery_summary = run_cmd(pl, ['pmset', '-g', 'batt'])
+    // py:148  battery_percent = BATTERY_PERCENT_RE.search(battery_summary).group(1)
+    // py:149  ac_charging = 'AC' in battery_summary
+    // py:150  return int(battery_percent), ac_charging
+    // py:151  return _get_battery_status
+    // py:152  else:
+    // py:153  pl.debug('Not using pmset: executable not found')
     let caps = BATTERY_PERCENT_RE().captures(text)?;
     let percent: u8 = caps.get(1)?.as_str().parse().ok()?;
-    // py:150  ac_charging = 'AC' in battery_summary
     let ac_charging = text.contains("AC");
     Some((percent, ac_charging))
 }
@@ -57,7 +66,40 @@ pub fn parse_pmset_output(text: &str) -> Option<(u8, bool)> {
 /// the standalone parser returns true when the device is not
 /// discharging.
 pub fn parse_linux_status(text: &str) -> bool {
-    // py:111  line.strip() != 'Discharging'
+    // py:82  if os.path.isdir('/sys/class/power_supply'):
+    // py:83  # ENERGY_* attributes represents capacity in µWh only.
+    // py:84  # CHARGE_* attributes represents capacity in µAh only.
+    // py:85  linux_capacity_units = ('energy', 'charge')
+    // py:86  linux_energy_full_fmt = '/sys/class/power_supply/{0}/{1}_full'
+    // py:87  linux_energy_fmt = '/sys/class/power_supply/{0}/{1}_now'
+    // py:88  linux_status_fmt = '/sys/class/power_supply/{0}/status'
+    // py:89  devices = []
+    // py:90  for linux_supplier in os.listdir('/sys/class/power_supply'):
+    // py:91  for unit in linux_capacity_units:
+    // py:92  energy_path = linux_energy_fmt.format(linux_supplier, unit)
+    // py:93  if not os.path.exists(energy_path):
+    // py:94  continue
+    // py:95  pl.debug('Using /sys/class/power_supply with battery {0} and unit {1}',
+    // py:96  linux_supplier, unit)
+    // py:97  devices.append((linux_supplier, unit))
+    // py:98  break  # energy or charge, not both
+    // py:100  def _get_battery_status(pl):
+    // py:101  energy = 0.0
+    // py:102  energy_full = 0.0
+    // py:103  state = True
+    // py:104  for device, unit in devices:
+    // py:105  with open(linux_energy_full_fmt.format(device, unit), 'r') as f:
+    // py:106  energy_full += int(float(f.readline().split()[0]))
+    // py:107  with open(linux_energy_fmt.format(device, unit), 'r') as f:
+    // py:108  energy += int(float(f.readline().split()[0]))
+    // py:109  try:
+    // py:110  with open(linux_status_fmt.format(device), 'r') as f:
+    // py:111  state &= (f.readline().strip() != 'Discharging')
+    // py:112  except IOError:
+    // py:113  state = None
+    // py:114  return (energy * 100.0 / energy_full), state
+    // py:115  return _get_battery_status
+    // py:116  pl.debug('Not using /sys/class/power_supply as no batteries were found')
     text.trim() != "Discharging"
 }
 
@@ -69,7 +111,52 @@ pub fn parse_linux_status(text: &str) -> bool {
 /// tuples. `state` accumulator starts at true and ANDs each
 /// device's state.
 pub fn flatten_battery(devices: &[(f64, f64, bool)]) -> (f64, bool) {
-    // py:54-72  iterate energy + energy_full + state
+    // py:11  def _fetch_battery_info(pl):
+    // py:12  try:
+    // py:13  import dbus
+    // py:14  except ImportError:
+    // py:15  pl.debug('Not using DBUS+UPower as dbus is not available')
+    // py:16  else:
+    // py:17  try:
+    // py:18  bus = dbus.SystemBus()
+    // py:19  except Exception as e:
+    // py:20  pl.exception('Failed to connect to system bus: {0}', str(e))
+    // py:22  interface = 'org.freedesktop.UPower'
+    // py:24  up = bus.get_object(interface, '/org/freedesktop/UPower')
+    // py:33  devices = []
+    // py:34  for devpath in up.EnumerateDevices(dbus_interface=interface):
+    // py:41  if int(devget('Type')) != 2:
+    // py:44  if not bool(devget('IsPresent')):
+    // py:47  if not bool(devget('PowerSupply')):
+    // py:50  devices.append(devpath)
+    // py:53  def _flatten_battery(pl):
+    // py:54  energy = 0.0
+    // py:55  energy_full = 0.0
+    // py:56  state = True
+    // py:57  for devpath in devices:
+    // py:58  dev = bus.get_object(interface, devpath)
+    // py:59  energy_full += float(
+    // py:60  dbus.Interface(dev, dbus_interface=devinterface).Get(
+    // py:61  devtype_name,
+    // py:62  'EnergyFull'
+    // py:63  ),
+    // py:64  )
+    // py:65  energy += float(
+    // py:66  dbus.Interface(dev, dbus_interface=devinterface).Get(
+    // py:67  devtype_name,
+    // py:68  'Energy'
+    // py:69  ),
+    // py:70  )
+    // py:71  state &= dbus.Interface(dev, dbus_interface=devinterface).Get(
+    // py:72  devtype_name,
+    // py:73  'State'
+    // py:74  ) != 2
+    // py:75  if energy_full > 0:
+    // py:76  return (energy * 100.0 / energy_full), state
+    // py:77  else:
+    // py:78  return 0.0, state
+    // py:79  return _flatten_battery
+    // py:80  pl.debug('Not using DBUS+UPower as no batteries were found')
     let mut total_energy = 0.0;
     let mut total_full = 0.0;
     let mut state = true;
@@ -78,7 +165,6 @@ pub fn flatten_battery(devices: &[(f64, f64, bool)]) -> (f64, bool) {
         total_full += f;
         state &= s;
     }
-    // py:74-77  if energy_full > 0: return (energy * 100 / energy_full)
     let percent = if total_full > 0.0 {
         total_energy * 100.0 / total_full
     } else {
@@ -104,15 +190,29 @@ pub fn battery(
     online: &str,
     offline: &str,
 ) -> Option<Vec<Value>> {
-    // py:255-257  if status is None: return None
+    // py:230  def battery(pl, format='{ac_state} {capacity:3.0%}', steps=5, gamify=False, full_heart='O', empty_heart='O', online='C', offline=' '):
+    // py:231-263  docstring
+    // py:264  try:
+    // py:265  capacity, ac_powered = _get_battery_status(pl)
+    // py:266  except NotImplementedError:
+    // py:267  pl.info('Unable to get battery status.')
+    // py:268  return None
     let (capacity, ac_powered) = get_status()?;
     let ac_state = if ac_powered { online } else { offline };
+    // py:270  ret = []
     let mut ret: Vec<Value> = Vec::new();
+    // py:271  if gamify:
     if gamify {
-        // py:262-263  denom = int(steps); numer = int(denom * capacity / 100)
+        // py:272  denom = int(steps)
+        // py:273  numer = int(denom * capacity / 100)
         let denom = steps as i64;
         let numer = ((denom as f64) * capacity / 100.0) as i64;
-        // py:264-269  ac_state segment
+        // py:274  ret.append({
+        // py:275  'contents': online if ac_powered else offline,
+        // py:276  'draw_inner_divider': False,
+        // py:277  'highlight_groups': ['battery_online' if ac_powered else 'battery_offline', 'battery_ac_state', 'battery_gradient', 'battery'],
+        // py:278  'gradient_level': 0,
+        // py:279  })
         let online_or_offline_group = if ac_powered {
             "battery_online"
         } else {
@@ -129,14 +229,26 @@ pub fn battery(
             ],
             "gradient_level": 0,
         }));
-        // py:270-275  full_heart segment (numer hearts)
+        // py:280  ret.append({
+        // py:281  'contents': full_heart * numer,
+        // py:282  'draw_inner_divider': False,
+        // py:283  'highlight_groups': ['battery_full', 'battery_gradient', 'battery'],
+        // py:284  # Using zero as "nothing to worry about": it is least alert color.
+        // py:285  'gradient_level': 0,
+        // py:286  })
         ret.push(json!({
             "contents": full_heart.repeat(numer.max(0) as usize),
             "draw_inner_divider": false,
             "highlight_groups": ["battery_full", "battery_gradient", "battery"],
             "gradient_level": 0,
         }));
-        // py:276-282  empty_heart segment
+        // py:287  ret.append({
+        // py:288  'contents': empty_heart * (denom - numer),
+        // py:289  'draw_inner_divider': False,
+        // py:290  'highlight_groups': ['battery_empty', 'battery_gradient', 'battery'],
+        // py:291  # Using a hundred as it is most alert color.
+        // py:292  'gradient_level': 100,
+        // py:293  })
         let empty_count = (denom - numer).max(0) as usize;
         ret.push(json!({
             "contents": empty_heart.repeat(empty_count),
@@ -145,7 +257,14 @@ pub fn battery(
             "gradient_level": 100,
         }));
     } else {
-        // py:284-288  format.format(ac_state=..., capacity=capacity/100.0)
+        // py:294  else:
+        // py:295  ret.append({
+        // py:296  'contents': format.format(ac_state=(online if ac_powered else offline), capacity=(capacity / 100.0)),
+        // py:297  'highlight_groups': ['battery_gradient', 'battery'],
+        // py:298  # Gradients are "least alert – most alert" by default, capacity has
+        // py:299  # the opposite semantics.
+        // py:300  'gradient_level': 100 - capacity,
+        // py:301  })
         let pct_str = format!("{:3.0}%", capacity);
         let contents = format
             .replace("{ac_state}", ac_state)
@@ -156,6 +275,7 @@ pub fn battery(
             "gradient_level": 100.0 - capacity,
         }));
     }
+    // py:302  return ret
     Some(ret)
 }
 
@@ -170,7 +290,84 @@ pub fn _get_battery_status<F>(fetcher: F) -> Option<(f64, bool)>
 where
     F: FnOnce() -> Option<(f64, bool)>,
 {
-    // py:213-216  try _fetch_battery_info; except: _failing_get_status
+    // py:117  else:
+    // py:118  pl.debug("Checking for first capacity battery percentage")
+    // py:119  for batt in os.listdir('/sys/class/power_supply'):
+    // py:120  if os.path.exists('/sys/class/power_supply/{0}/capacity'.format(batt)):
+    // py:121  def _get_battery_perc(pl):
+    // py:122  state = True
+    // py:123  with open('/sys/class/power_supply/{0}/capacity'.format(batt), 'r') as f:
+    // py:124  perc = int(f.readline().split()[0])
+    // py:125  try:
+    // py:126  with open(linux_status_fmt.format(batt), 'r') as f:
+    // py:127  state &= (f.readline().strip() != 'Discharging')
+    // py:128  except IOError:
+    // py:129  state = None
+    // py:130  return perc, state
+    // py:131  return _get_battery_perc
+    // py:132  else:
+    // py:133  pl.debug('Not using /sys/class/power_supply: no directory')
+    // py:135  try:
+    // py:136  from shutil import which  # Python-3.3 and later
+    // py:137  except ImportError:
+    // py:138  pl.info('Using dumb "which" which only checks for file in /usr/bin')
+    // py:139  which = lambda f: (lambda fp: os.path.exists(fp) and fp)(os.path.join('/usr/bin', f))
+    // py:155  if sys.platform.startswith('win') or sys.platform == 'cygwin':
+    // py:156  # From http://stackoverflow.com/a/21083571/273566, reworked
+    // py:157  try:
+    // py:158  from win32com.client import GetObject
+    // py:159  except ImportError:
+    // py:160  pl.debug('Not using win32com.client as it is not available')
+    // py:161  else:
+    // py:162  try:
+    // py:163  wmi = GetObject('winmgmts:')
+    // py:164  except Exception as e:
+    // py:165  pl.exception('Failed to run GetObject from win32com.client: {0}', str(e))
+    // py:166  else:
+    // py:167  for battery in wmi.InstancesOf('Win32_Battery'):
+    // py:168  pl.debug('Using win32com.client with Win32_Battery')
+    // py:170  def _get_battery_status(pl):
+    // py:171  # http://msdn.microsoft.com/en-us/library/aa394074(v=vs.85).aspx
+    // py:172  return battery.EstimatedChargeRemaining, battery.BatteryStatus == 6
+    // py:174  return _get_battery_status
+    // py:175  pl.debug('Not using win32com.client as no batteries were found')
+    // py:176  from ctypes import Structure, c_byte, c_ulong, byref
+    // py:177  if sys.platform == 'cygwin':
+    // py:178  pl.debug('Using cdll to communicate with kernel32 (Cygwin)')
+    // py:186  class PowerClass(Structure):
+    // py:187  _fields_ = [
+    // py:188  ('ACLineStatus', c_byte),
+    // py:189  ('BatteryFlag', c_byte),
+    // py:190  ('BatteryLifePercent', c_byte),
+    // py:191  ('Reserved1', c_byte),
+    // py:192  ('BatteryLifeTime', c_ulong),
+    // py:193  ('BatteryFullLifeTime', c_ulong)
+    // py:194  ]
+    // py:196  def _get_battery_status(pl):
+    // py:197  powerclass = PowerClass()
+    // py:198  result = library_loader.kernel32.GetSystemPowerStatus(byref(powerclass))
+    // py:199  # http://msdn.microsoft.com/en-us/library/windows/desktop/aa372693(v=vs.85).aspx
+    // py:200  if result:
+    // py:201  return None
+    // py:202  return powerclass.BatteryLifePercent, powerclass.ACLineStatus == 1
+    // py:204  if _get_battery_status() is None:
+    // py:205  pl.debug('Not using GetSystemPowerStatus because it failed')
+    // py:206  else:
+    // py:207  pl.debug('Using GetSystemPowerStatus')
+    // py:209  return _get_battery_status
+    // py:211  raise NotImplementedError
+    // py:214  def _get_battery_status(pl):
+    // py:215  global _get_battery_status
+    // py:217  def _failing_get_status(pl):
+    // py:218  raise NotImplementedError
+    // py:220  try:
+    // py:221  _get_battery_status = _fetch_battery_info(pl)
+    // py:222  except NotImplementedError:
+    // py:223  _get_battery_status = _failing_get_status
+    // py:224  except Exception as e:
+    // py:225  pl.exception('Exception while obtaining battery status: {0}', str(e))
+    // py:226  _get_battery_status = _failing_get_status
+    // py:227  return _get_battery_status(pl)
     fetcher()
 }
 
