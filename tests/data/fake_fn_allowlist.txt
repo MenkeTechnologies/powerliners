@@ -1288,6 +1288,16 @@ parse_daemon_argv
 # pane_id=%0, powerline shell left -w 80 -r .zsh).
 parse_client_argv
 
+# Rust-only method on Powerline. Python performs `Renderer =
+# self.get_module_attr(self.renderer_module, 'renderer');
+# self.renderer = Renderer(**self.renderer_options)` inline at
+# __init__.py:679-686 — Python can do runtime module attribute
+# imports; Rust can't. instantiate_renderer takes a factory closure
+# that the per-ext shim (tmux daemon, future shell/vim) provides
+# to construct the concrete typed renderer from the published
+# renderer_options dict.
+instantiate_renderer
+
 # Rust-only helper for do_read. Python uses select.select((conn,),
 # (), (conn,), timeout) at sh:153; the Rust port factors that one-fd
 # poll out into poll_readable so do_read stays readable. The
@@ -1869,3 +1879,86 @@ lockpidfile
 parse_daemon_argv
 install_sigint_flag
 redirect_std_to_devnull
+
+# Module-level Spec bindings from powerline/lint/__init__.py:165-180.
+# Python: `name_spec = Spec()...copy` etc — module-level assignments
+# that the `scripts/extract_py_names.py` extractor doesn't pick up
+# because it only walks `def` statements. The Rust port renders each
+# as `pub fn <name>() -> Spec` returning a fresh composed Spec per
+# call (mirrors Python's `.copy` callable reference). Same pattern
+# already approved for color_spec above.
+name_spec
+group_name_spec
+attrs_spec
+group_spec
+groups_spec
+colorscheme_spec
+
+# Approved 2026-05-29: more module-level Spec bindings from
+# powerline/lint/__init__.py:49-208. Same pattern as the above batch.
+# Each is `<name> = Spec()....copy` — module-level assignment that
+# scripts/extract_py_names.py misses because it only walks `def`
+# statements. The Rust port renders each as `pub fn <name>() -> Spec`
+# returning a fresh composed Spec per call (mirrors Python's `.copy`
+# callable reference).
+top_theme_spec
+ext_theme_spec
+log_format_spec
+log_level_spec
+term_color_spec
+true_color_spec
+colors_spec
+mode_translations_value_spec
+top_colorscheme_spec
+vim_mode_spec
+shell_mode_spec
+
+# Approved 2026-05-29: more module-level Spec composers from
+# powerline/lint/__init__.py:47-224 and checks.py:349. Same pattern as
+# the above batches — each `<name> = Spec()....copy` at module scope is
+# rendered as `pub fn <name>() -> Spec`. gen_components_spec is the
+# `lambda *components` factory at py:58 ported as a parameterized fn.
+divider_spec
+ext_spec
+gen_components_spec
+args_spec
+segment_module_spec
+exinclude_spec
+highlight_group_spec
+vim_colorscheme_spec
+shell_colorscheme_spec
+
+# Approved 2026-05-29: theme + segment Spec composers from
+# powerline/lint/__init__.py:225-318. Same module-level-binding pattern.
+# `top_theme_structure_spec` is the Rust-disambiguated name for the
+# rebound `top_theme_spec` at py:293 (Python rebinds the name; Rust
+# can't, so the structure-variant gets a `_structure_spec` suffix —
+# the unicode-name variant retains the plain `top_theme_spec` name
+# from py:50). Same name-disambiguation pattern as the existing
+# load_config_instance / _load_hierarhical_config_instance entries.
+segment_spec_base
+subsegment_spec
+segment_spec
+segments_spec
+segdict_spec
+divside_spec
+segment_data_value_spec
+dividers_spec
+spaces_spec
+common_theme_spec
+top_theme_structure_spec
+main_theme_spec
+theme_spec
+
+# Approved 2026-05-29: main_spec composers from
+# powerline/lint/__init__.py:64-140. main_spec is the top-level
+# Powerline config validator. log_file_spec extracts the inline
+# either-of-two-shapes spec at py:75-98 to keep main_spec readable
+# (Python embeds it directly). common_spec is the common-config
+# block at py:65-104 and ext_block_spec is the ext-config block at
+# py:105-139. Same module-level Spec composer pattern as the prior
+# batches.
+log_file_spec
+common_spec
+ext_block_spec
+main_spec
