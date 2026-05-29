@@ -1833,6 +1833,93 @@ fn parity_spec_unsigned_chains_type_int_and_cmp_ge_zero() {
 }
 
 #[test]
+fn parity_spec_len_check_appended() {
+    if !python_available() {
+        return;
+    }
+    // Spec().len('eq', 5) registers 1 check_func entry on Python.
+    // Rust stores (Cmp::Eq, 5) in len_constraint.
+    let py = match py_eval(
+        "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().len('eq', 5).checks)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_len: usize = py.parse().expect("Python returned non-int len");
+    assert_eq!(py_len, 1, "Python Spec.len() should append 1 check entry");
+    use powerliners::lint::spec::{Cmp, Spec};
+    let s = Spec::new().len(Cmp::Eq, 5);
+    assert_eq!(
+        s.len_constraint,
+        Some((Cmp::Eq, 5)),
+        "Rust len_constraint storage mismatch"
+    );
+}
+
+#[test]
+fn parity_spec_list_chains_type_list_and_adds_check_list() {
+    if !python_available() {
+        return;
+    }
+    // Spec().list(Spec()) appends check_type (for list) AND check_list
+    // on Python, so len(checks) == 2. Rust pins SpecType::List and stores
+    // the item_spec in self.specs.
+    let py = match py_eval(
+        "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().list(__import__('powerline.lint.spec', fromlist=['Spec']).Spec()).checks)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_len: usize = py.parse().expect("Python returned non-int len");
+    assert_eq!(
+        py_len, 2,
+        "Python Spec.list() should append 2 check entries (type+list)"
+    );
+    use powerliners::lint::spec::{Spec, SpecType};
+    let s = Spec::new().list(Spec::new());
+    assert!(
+        s.allowed_types.contains(&SpecType::List),
+        "Rust list() should pin allowed type to List"
+    );
+    assert_eq!(
+        s.specs.len(),
+        1,
+        "Rust list() should push exactly 1 item spec into self.specs"
+    );
+}
+
+#[test]
+fn parity_spec_tuple_chains_type_list_and_adds_check_tuple() {
+    if !python_available() {
+        return;
+    }
+    // Spec().tuple(Spec(), Spec()) appends check_type + check_func (length
+    // constraint) + check_tuple on Python — 3 entries.
+    let py = match py_eval(
+        "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().tuple(__import__('powerline.lint.spec', fromlist=['Spec']).Spec(), __import__('powerline.lint.spec', fromlist=['Spec']).Spec()).checks)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_len: usize = py.parse().expect("Python returned non-int len");
+    assert_eq!(
+        py_len, 3,
+        "Python Spec.tuple() with 2 specs should append 3 check entries (type+func+tuple)"
+    );
+    use powerliners::lint::spec::{Spec, SpecType};
+    let s = Spec::new().tuple(vec![Spec::new(), Spec::new()]);
+    assert!(
+        s.allowed_types.contains(&SpecType::List),
+        "Rust tuple() should pin allowed type to List"
+    );
+    assert_eq!(
+        s.specs.len(),
+        2,
+        "Rust tuple() should push exactly 2 specs into self.specs"
+    );
+}
+
+#[test]
 fn parity_spec_cmp_check_appended() {
     if !python_available() {
         return;
