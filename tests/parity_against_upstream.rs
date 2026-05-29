@@ -2155,6 +2155,40 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_pick_gradient_value_with_5_element_grad() {
+    if !python_available() {
+        return;
+    }
+    // Use a non-monotonic 5-element gradient to verify both ports
+    // index identically via the same `round(level * (n-1) / 100)`
+    // formula across 5 levels (0, 25, 50, 75, 100).
+    let grad: Vec<u64> = vec![0, 50, 100, 150, 200];
+    let levels = [0.0_f64, 25.0, 50.0, 75.0, 100.0];
+    for level in levels {
+        let py_grad_str = grad
+            .iter()
+            .map(|n| n.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let expr = format!(
+            "__import__('powerline.colorscheme', fromlist=['pick_gradient_value']).pick_gradient_value([{}], {})",
+            py_grad_str, level
+        );
+        let py = match py_eval(&expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_int: u64 = py.parse().expect("Python returned non-int");
+        let rs = powerliners::colorscheme::pick_gradient_value(&grad, level);
+        assert_eq!(
+            py_int, rs,
+            "pick_gradient_value(level={}) mismatch: py={}, rs={}",
+            level, py_int, rs
+        );
+    }
+}
+
+#[test]
 fn parity_humanize_bytes_custom_suffix_and_extremes() {
     if !python_available() {
         return;
