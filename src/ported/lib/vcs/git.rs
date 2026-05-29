@@ -349,18 +349,29 @@ mod tests {
     use super::*;
     use std::io::Write;
     use std::sync::Mutex;
-    use std::sync::OnceLock as TestOnceLock;
+    use std::sync::OnceLock;
 
-    /// Serializes access to the process-global `$PATH` env var.
-    /// `repository_new_errors_when_git_not_on_path` mutates PATH;
-    /// every test that calls `Repository::new` (which internally calls
-    /// `which_exists("git")` reading PATH) must hold this guard.
-    /// Without this, cargo's parallel runner intermittently races a
-    /// PATH-mutating test against a PATH-reading test and the latter
-    /// panics on `.unwrap()` of `Err(NotFound)`.
-    fn path_lock() -> &'static Mutex<()> {
-        static L: TestOnceLock<Mutex<()>> = TestOnceLock::new();
-        L.get_or_init(|| Mutex::new(()))
+    // Serializes access to the process-global `$PATH` env var.
+    // `repository_new_errors_when_git_not_on_path` mutates PATH;
+    // every test that calls `Repository::new` (which internally calls
+    // `which_exists("git")` reading PATH) must hold this guard.
+    // Without this, cargo's parallel runner intermittently races a
+    // PATH-mutating test against a PATH-reading test and the latter
+    // panics on `.unwrap()` of `Err(NotFound)`.
+    //
+    // Pattern matches the lock_env! style used in src/ported/pdb.rs
+    // and src/ported/mod.rs. A bare helper fn returning `&'static
+    // Mutex<()>` would break the drift gate's char-literal tracker
+    // (it doesn't recognise the `'static` lifetime after `&`).
+    static PATH_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+    macro_rules! lock_path {
+        () => {{
+            PATH_LOCK
+                .get_or_init(|| Mutex::new(()))
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+        }};
     }
 
     fn tmp_dir() -> std::path::PathBuf {
@@ -512,7 +523,7 @@ mod tests {
         // Serialize against other tests that read PATH (via Repository::new
         // → which_exists("git")). Without the guard, those tests panic on
         // `.unwrap()` of `Err(NotFound)` when this mutation races them.
-        let _g = path_lock().lock().unwrap_or_else(|e| e.into_inner());
+        let _g = lock_path!();
         let saved = std::env::var_os("PATH");
         // SAFETY: path_lock guard ensures no concurrent reader; brief mutation
         // followed by restore.
@@ -607,7 +618,7 @@ mod tests {
     fn do_status_stub_returns_none() {
         // Hold path_lock across the read so the env-mutating test
         // can't race us between the which_exists probe and Repository::new.
-        let _g = path_lock().lock().unwrap_or_else(|e| e.into_inner());
+        let _g = lock_path!();
         // Skip if no git on path; test only the stub return.
         if which_exists("git").is_none() {
             return;
@@ -620,7 +631,7 @@ mod tests {
 
     #[test]
     fn stash_stub_returns_zero() {
-        let _g = path_lock().lock().unwrap_or_else(|e| e.into_inner());
+        let _g = lock_path!();
         if which_exists("git").is_none() {
             return;
         }
