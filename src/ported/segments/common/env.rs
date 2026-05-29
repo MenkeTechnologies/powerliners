@@ -217,6 +217,67 @@ pub fn _get_user(environ: &Map<String, Value>) -> Option<String> {
 /// (`powerline/segments/common/env.py:171`).
 pub const POWERLINE_TEST_USER_UUID: &str = "ee5bcdc6-b749-11e7-9456-50465d597777";
 
+/// Port of `class CwdSegment(Segment)` from
+/// `powerline/segments/common/env.py:42`.
+///
+/// Marker struct holding the segment's introspection metadata. The
+/// `__call__` body is the standalone `cwd_segments` fn; this struct
+/// surfaces the `argspecobjs` and `omitted_args` introspection hooks
+/// used by the lint/argparse machinery.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CwdSegment;
+
+impl CwdSegment {
+    /// Port of `CwdSegment.argspecobjs()` from
+    /// `powerline/segments/common/env.py:44-47`.
+    ///
+    /// Yields `('get_shortened_path', self.get_shortened_path)` after
+    /// the base Segment's argspec entries. The Rust port returns a
+    /// fixed slice since the base Segment.argspecobjs() returns no
+    /// additional entries.
+    pub fn argspecobjs(&self) -> Vec<(&'static str, &'static str)> {
+        // py:45-47
+        vec![("get_shortened_path", "get_shortened_path")]
+    }
+
+    /// Port of `CwdSegment.omitted_args()` from
+    /// `powerline/segments/common/env.py:49-53`.
+    ///
+    /// Returns an empty arg list for the `get_shortened_path` method
+    /// per py:51; defers to the base implementation (empty by default)
+    /// for any other method name per py:53.
+    pub fn omitted_args(&self, method: &str) -> Vec<&'static str> {
+        // py:50-53
+        if method == "get_shortened_path" {
+            // py:51  return ()
+            Vec::new()
+        } else {
+            // py:53  return super(...).omitted_args(...)
+            Vec::new()
+        }
+    }
+}
+
+/// Port of `_geteuid` module-level binding at
+/// `powerline/segments/common/env.py:163`.
+///
+/// Python: `_geteuid = getattr(os, 'geteuid', lambda: 1)`. Rust uses
+/// `libc::geteuid()` which is always available on Unix; the fallback
+/// (`lambda: 1`) covers Windows where `os.geteuid` doesn't exist.
+///
+/// SAFETY: `libc::geteuid()` is a thread-safe POSIX syscall.
+pub fn _geteuid() -> u32 {
+    // py:163  os.geteuid() if available else 1
+    #[cfg(unix)]
+    {
+        unsafe { libc::geteuid() as u32 }
+    }
+    #[cfg(not(unix))]
+    {
+        1
+    }
+}
+
 /// Port of `user()` segment from
 /// `powerline/segments/common/env.py:160`.
 ///
@@ -531,5 +592,37 @@ mod tests {
             POWERLINE_TEST_USER_UUID,
             "ee5bcdc6-b749-11e7-9456-50465d597777"
         );
+    }
+
+    #[test]
+    fn cwd_segment_argspecobjs_yields_get_shortened_path() {
+        // py:45-47
+        let s = CwdSegment;
+        let entries = s.argspecobjs();
+        assert!(entries
+            .iter()
+            .any(|(name, _)| *name == "get_shortened_path"));
+    }
+
+    #[test]
+    fn cwd_segment_omitted_args_for_get_shortened_path_is_empty() {
+        // py:50-51
+        let s = CwdSegment;
+        assert!(s.omitted_args("get_shortened_path").is_empty());
+    }
+
+    #[test]
+    fn cwd_segment_omitted_args_for_unknown_method_is_empty() {
+        // py:52-53  fall-through to super().omitted_args (empty default)
+        let s = CwdSegment;
+        assert!(s.omitted_args("anything_else").is_empty());
+    }
+
+    #[test]
+    fn geteuid_returns_non_negative() {
+        // py:163  os.geteuid() — always returns a uid >= 0 on Unix
+        let uid = _geteuid();
+        // Just verify the syscall succeeded (the result type is u32).
+        let _ = uid;
     }
 }

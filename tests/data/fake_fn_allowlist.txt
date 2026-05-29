@@ -1323,3 +1323,12 @@ fuzzy_time_compute
 # corresponding `powerline.bindings.config.<name>` identifier.
 # Used by callers (CLI driver, tests) to route the dispatch.
 binding_function_name
+
+# segments/common/env.rs::_geteuid — Python source at
+# powerline/segments/common/env.py:163 defines _geteuid as a
+# module-level binding via `getattr(os, 'geteuid', lambda: 1)`,
+# resolving to either the real syscall or a fallback returning 1.
+# Rust exposes it as a fn with the same identifier so the user()
+# segment dispatcher can call it the same way Python does. The
+# underscore-prefixed name preserves the module-private convention.
+_geteuid
