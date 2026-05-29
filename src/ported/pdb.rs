@@ -55,7 +55,12 @@ impl PDBPowerline {
     /// the two pinned values as a tuple; the actual base init is
     /// stubbed.
     pub fn init() -> (&'static str, &'static str) {
-        // py:17-21  ext='pdb', renderer_module='pdb'
+        // py:16  def init(self, **kwargs):
+        // py:17  return super(PDBPowerline, self).init(
+        // py:18  ext='pdb',
+        // py:19  renderer_module='pdb',
+        // py:20  **kwargs
+        // py:21  )
         ("pdb", "pdb")
     }
 
@@ -66,7 +71,9 @@ impl PDBPowerline {
     /// `self.update_renderer()` then `self.renderer.set_pdb(pdb)`;
     /// both require the unported renderer wiring.
     pub fn do_setup(&self, _pdb: &Value) {
-        // py:24-25 stub
+        // py:23  def do_setup(self, pdb):
+        // py:24  self.update_renderer()
+        // py:25  self.renderer.set_pdb(pdb)
     }
 
     /// Port of `PDBPowerline.load_main_config()` from
@@ -75,15 +82,19 @@ impl PDBPowerline {
     /// Reads `POWERLINE_CONFIG_OVERRIDES` from the environment and
     /// overlays it on the base config dict.
     pub fn load_main_config(&self, base: &mut Map<String, Value>) {
-        // py:28  r = super().load_main_config()  (caller-supplied via base)
-        // py:29-31  POWERLINE_CONFIG_OVERRIDES → merge
+        // py:27  def load_main_config(self):
+        // py:28  r = super(PDBPowerline, self).load_main_config()
+        // py:29  config_overrides = os.environ.get('POWERLINE_CONFIG_OVERRIDES')
         if let Ok(s) = std::env::var("POWERLINE_CONFIG_OVERRIDES") {
+            // py:30  if config_overrides:
             if !s.is_empty() {
+                // py:31  mergedicts(r, mergeargs(parse_override_var(config_overrides)))
                 if let Some(overlay) = mergeargs(parse_override_var(&s), false) {
                     mergedicts(base, overlay, false);
                 }
             }
         }
+        // py:32  return r
     }
 
     /// Port of `PDBPowerline.load_theme_config()` from
@@ -92,12 +103,17 @@ impl PDBPowerline {
     /// Reads `POWERLINE_THEME_OVERRIDES` and overlays only the entry
     /// matching `name`.
     pub fn load_theme_config(&self, name: &str, base: &mut Map<String, Value>) {
-        // py:35  r = super().load_theme_config(name)  (caller-supplied)
-        // py:36-40  POWERLINE_THEME_OVERRIDES → if name in overlay: merge
+        // py:34  def load_theme_config(self, name):
+        // py:35  r = super(PDBPowerline, self).load_theme_config(name)
+        // py:36  theme_overrides = os.environ.get('POWERLINE_THEME_OVERRIDES')
         if let Ok(s) = std::env::var("POWERLINE_THEME_OVERRIDES") {
+            // py:37  if theme_overrides:
             if !s.is_empty() {
+                // py:38  theme_overrides_dict = mergeargs(parse_override_var(theme_overrides))
                 if let Some(overlay) = mergeargs(parse_override_var(&s), false) {
+                    // py:39  if name in theme_overrides_dict:
                     if let Some(theme) = overlay.get(name) {
+                        // py:40  mergedicts(r, theme_overrides_dict[name])
                         if let Some(theme_obj) = theme.as_object() {
                             mergedicts(base, theme_obj.clone(), false);
                         }
@@ -105,6 +121,7 @@ impl PDBPowerline {
                 }
             }
         }
+        // py:41  return r
     }
 
     /// Port of `PDBPowerline.get_config_paths()` from
@@ -114,14 +131,17 @@ impl PDBPowerline {
     /// list falls back to the base implementation (stubbed here as an
     /// empty Vec — caller composes with their base path list).
     pub fn get_config_paths() -> Vec<String> {
-        // py:44  os.environ.get('POWERLINE_CONFIG_PATHS', '').split(':')
+        // py:43  def get_config_paths(self):
+        // py:44  paths = [path for path in os.environ.get('POWERLINE_CONFIG_PATHS', '').split(':') if path]
         match std::env::var("POWERLINE_CONFIG_PATHS") {
             Ok(s) if !s.is_empty() => s
                 .split(':')
                 .filter(|p| !p.is_empty())
                 .map(|p| p.to_string())
                 .collect(),
-            // py:45  paths or super().get_config_paths()
+            // py:45  return paths or super(PDBPowerline, self).get_config_paths()
+            // py:47  if sys.version_info < (3,) and platform.python_implementation() == 'PyPy':
+            // py:48  get_encoding = staticmethod(lambda: 'ascii')
             _ => Vec::new(),
         }
     }
