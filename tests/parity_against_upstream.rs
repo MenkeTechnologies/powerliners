@@ -2192,6 +2192,67 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_register_strwidth_error_name_format() {
+    if !python_available() {
+        return;
+    }
+    // register_strwidth_error(strwidth) returns a unique handler name
+    // of shape 'powerline_encode_strwidth_error_<N>'. The counter
+    // increments per call. In a fresh Python subprocess two
+    // consecutive calls produce _1 and _2.
+    let py = match py_eval(
+        "(lambda r: __import__('json').dumps([r(lambda s: 1), r(lambda s: 2)]))(__import__('powerline.lib.unicode', fromlist=['register_strwidth_error']).register_strwidth_error)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let py_arr = py_value.as_array().expect("expected JSON array");
+    assert_eq!(py_arr.len(), 2);
+    assert_eq!(
+        py_arr[0], "powerline_encode_strwidth_error_1",
+        "Python first call should produce _1"
+    );
+    assert_eq!(
+        py_arr[1], "powerline_encode_strwidth_error_2",
+        "Python second call should produce _2"
+    );
+
+    // Rust side: verify the name format AND monotonic-increment shape
+    // without committing to a specific starting index (other tests may
+    // bump the counter before/after).
+    use powerliners::lib::unicode::register_strwidth_error;
+    let (name_a, _) = register_strwidth_error(|s: &str| s.len());
+    let (name_b, _) = register_strwidth_error(|s: &str| s.len());
+    let prefix = "powerline_encode_strwidth_error_";
+    assert!(
+        name_a.starts_with(prefix),
+        "Rust handler name must start with {:?}",
+        prefix
+    );
+    assert!(
+        name_b.starts_with(prefix),
+        "Rust handler name must start with {:?}",
+        prefix
+    );
+    let idx_a: u64 = name_a
+        .strip_prefix(prefix)
+        .unwrap()
+        .parse()
+        .expect("name must end with integer");
+    let idx_b: u64 = name_b
+        .strip_prefix(prefix)
+        .unwrap()
+        .parse()
+        .expect("name must end with integer");
+    assert_eq!(
+        idx_b,
+        idx_a + 1,
+        "Rust counter must increment monotonically by 1 between calls"
+    );
+}
+
+#[test]
 fn parity_spec_copy_preserves_state_and_decouples_mutation() {
     if !python_available() {
         return;
