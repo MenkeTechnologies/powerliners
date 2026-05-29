@@ -2192,6 +2192,46 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_mark_get_snippet_truncates_with_ellipses() {
+    if !python_available() {
+        return;
+    }
+    // get_snippet truncates the snippet when the line exceeds
+    // max_length, adding ' ... ' markers. Default max_length=75,
+    // indent=4. With a 100-x line at pointer 50 both head and tail
+    // get truncation markers.
+    let buffer = "x".repeat(100);
+    let py_expr = format!(
+        "__import__('powerline.lint.markedjson.error', fromlist=['Mark']).Mark('cfg', 0, 50, {:?}, 50).get_snippet()",
+        buffer
+    );
+    let py = match py_eval(&py_expr) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_payload = py.as_str();
+
+    let m = powerliners::lint::markedjson::error::RichMark::new(
+        "cfg",
+        0,
+        50,
+        Some(buffer.chars().collect()),
+        50,
+    );
+    let rs = m
+        .get_snippet(4, 75)
+        .expect("Rust get_snippet returned None");
+    assert_eq!(
+        py_payload, &rs,
+        "Mark.get_snippet truncation parity mismatch"
+    );
+    assert!(
+        rs.contains(" ... "),
+        "Rust snippet should contain ' ... ' truncation marker"
+    );
+}
+
+#[test]
 fn parity_markedjson_mark_get_snippet_extracts_line_with_caret() {
     if !python_available() {
         return;
