@@ -76,6 +76,70 @@ impl<W, O> WrappedOrigin<W, O> {
     }
 }
 
+/// Port of `wraps_saveargs()` from
+/// `powerline/lib/__init__.py:7-12`.
+///
+/// Python returns a decorator factory that wraps the wrapped fn
+/// via `functools.wraps` and copies the `powerline_origin` attr
+/// from the wrapped fn (or the wrapped fn itself when the attr
+/// is missing). Rust port wraps the (wrapper, origin) pair in
+/// the [`WrappedOrigin`] struct (the structural surface, since
+/// the runtime attribute-attachment pattern doesn't translate to
+/// Rust closures).
+///
+/// Returns the `WrappedOrigin` with `wrapper=wrapper` and the
+/// resolved `origin=wrapped` per py:10's `getattr` fallback.
+pub fn wraps_saveargs<W>(wrapped: W, wrapper: W) -> WrappedOrigin<W, W> {
+    // py:7  def wraps_saveargs(wrapped):
+    // py:8  def dec(wrapper):
+    // py:9  r = wraps(wrapped)(wrapper)
+    // py:10  r.powerline_origin = getattr(wrapped, 'powerline_origin', wrapped)
+    // py:11  return r
+    // py:12  return dec
+    WrappedOrigin::new(wrapper, wrapped)
+}
+
+/// Port of the inner `dec()` closure from
+/// `powerline/lib/__init__.py:8-11` (inside `wraps_saveargs`).
+///
+/// Python returns the decorator that wraps `wrapper` via
+/// `functools.wraps(wrapped)` then attaches the `powerline_origin`
+/// attribute. Rust port surfaces the dispatch as a free fn that
+/// constructs the [`WrappedOrigin`] pair directly — same data
+/// flow as [`wraps_saveargs`].
+pub fn dec<W>(wrapped: W, wrapper: W) -> WrappedOrigin<W, W> {
+    // py:8  def dec(wrapper):
+    // py:9-11  r = wraps(wrapped)(wrapper); r.powerline_origin = ...; return r
+    WrappedOrigin::new(wrapper, wrapped)
+}
+
+/// Port of the inner `f()` closure from
+/// `powerline/lib/__init__.py:18-25` (inside
+/// `add_divider_highlight_group`'s inner `dec`).
+///
+/// Python returns the segment wrapper that calls the underlying
+/// function, lifts a non-empty result into a single-segment list
+/// with the supplied `divider_highlight_group`, and returns None
+/// when the underlying fn returns None/empty.
+///
+/// Rust port takes the already-computed `contents` + the
+/// highlight group name and returns the segment list (or None).
+pub fn f(contents: Option<String>, highlight_group: &str) -> Option<Vec<Value>> {
+    // py:18  def f(**kwargs):
+    // py:19  r = func(**kwargs)
+    // py:20  if r:
+    let r = contents?;
+    if r.is_empty() {
+        // py:24-25  else: return None
+        return None;
+    }
+    // py:21-23  return [{'contents': r, 'divider_highlight_group': highlight_group}]
+    Some(vec![json!({
+        "contents": r,
+        "divider_highlight_group": highlight_group,
+    })])
+}
+
 /// Port of `add_divider_highlight_group()` from
 /// `powerline/lib/__init__.py:14`.
 ///
@@ -254,5 +318,37 @@ mod tests {
         let _ = wrapped();
         drop(wrapped);
         assert_eq!(call_count.get(), 3);
+    }
+
+    #[test]
+    fn wraps_saveargs_returns_wrapper_origin_pair() {
+        // py:7-12
+        let result = wraps_saveargs("original_fn", "wrapper_fn");
+        assert_eq!(result.wrapper(), &"wrapper_fn");
+        assert_eq!(result.origin(), &"original_fn");
+    }
+
+    #[test]
+    fn dec_returns_wrapped_origin_pair() {
+        // py:8-11
+        let result = dec("original_fn", "wrapper_fn");
+        assert_eq!(result.wrapper(), &"wrapper_fn");
+        assert_eq!(result.origin(), &"original_fn");
+    }
+
+    #[test]
+    fn f_returns_single_segment_list_for_non_empty_contents() {
+        // py:21-23
+        let r = f(Some("hello".to_string()), "branch_divider").unwrap();
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0]["contents"], "hello");
+        assert_eq!(r[0]["divider_highlight_group"], "branch_divider");
+    }
+
+    #[test]
+    fn f_returns_none_for_empty_contents() {
+        // py:24-25
+        assert!(f(None, "x").is_none());
+        assert!(f(Some("".to_string()), "x").is_none());
     }
 }
