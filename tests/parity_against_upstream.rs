@@ -1583,6 +1583,59 @@ fn parity_surrogate_pair_to_character() {
 // ─────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────
+// lemonbar.py — LemonbarPowerline class consts
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_lemonbar_powerline_get_encoding() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "__import__('powerline.lemonbar', fromlist=['LemonbarPowerline']).LemonbarPowerline.get_encoding()",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::lemonbar::LemonbarPowerline::get_encoding();
+    assert_eq!(py, rs, "LemonbarPowerline.get_encoding() mismatch");
+}
+
+#[test]
+fn parity_lemonbar_powerline_init_ext_and_renderer_module() {
+    if !python_available() {
+        return;
+    }
+    // Python's init() calls super().init(ext='wm', renderer_module='lemonbar').
+    // Verify the kwargs pinned in the call by reading the source via
+    // inspect.getsource.
+    let py_source = match py_eval(
+        "__import__('inspect').getsource(__import__('powerline.lemonbar', fromlist=['LemonbarPowerline']).LemonbarPowerline.init)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert!(
+        py_source.contains("ext='wm'"),
+        "Python LemonbarPowerline.init source missing ext='wm'\nsource:\n{}",
+        py_source
+    );
+    assert!(
+        py_source.contains("renderer_module='lemonbar'"),
+        "Python LemonbarPowerline.init source missing renderer_module='lemonbar'\nsource:\n{}",
+        py_source
+    );
+    assert_eq!(
+        powerliners::ported::lemonbar::LemonbarPowerline::init_ext,
+        "wm"
+    );
+    assert_eq!(
+        powerliners::ported::lemonbar::LemonbarPowerline::init_renderer_module,
+        "lemonbar"
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // renderer.py — NBSP constant (U+00A0 non-breaking space)
 // ─────────────────────────────────────────────────────────────────────
 
