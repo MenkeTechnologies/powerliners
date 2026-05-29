@@ -43,16 +43,20 @@ impl LemonbarPowerline {
     /// without the `Powerline.load_theme_config` orchestrator, this
     /// port forwards the val as-is into the config slot.
     pub fn get_local_themes(local_themes: Option<&HashMap<String, Value>>) -> Map<String, Value> {
-        // py:16-17  if not local_themes: return {}
+        // py:14  def get_local_themes(self, local_themes):
+        // py:15  if not local_themes:
+        // py:16  return {}
         let themes = match local_themes {
             None => return Map::new(),
             Some(t) if t.is_empty() => return Map::new(),
             Some(t) => t,
         };
-        // py:19-22  dict((key, {'config': ...}) for ...)
+        // py:18  return dict((
+        // py:19  (key, {'config': self.load_theme_config(val)})
+        // py:20  for key, val in local_themes.items()
+        // py:21  ))
         let mut out = Map::new();
         for (key, val) in themes {
-            // load_theme_config stub: pass the value through.
             let mut wrapper = Map::new();
             wrapper.insert("config".to_string(), val.clone());
             out.insert(key.clone(), Value::Object(wrapper));
