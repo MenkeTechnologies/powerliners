@@ -270,7 +270,17 @@ impl Scanner {
     /// next emitted token. Empty `choices` returns true when any
     /// token is available.
     pub fn check_token(&self, choices: &[&str]) -> bool {
-        // py:95-104  iterate choices against tokens[0]
+        // py:94  def check_token(self, *choices):
+        // py:95  # Check if the next token is one of the given types.
+        // py:96  while self.need_more_tokens():
+        // py:97  self.fetch_more_tokens()
+        // py:98  if self.tokens:
+        // py:99  if not choices:
+        // py:100  return True
+        // py:101  for choice in choices:
+        // py:102  if isinstance(self.tokens[0], choice):
+        // py:103  return True
+        // py:104  return False
         match self.tokens.first() {
             None => false,
             Some(t) => {
@@ -286,14 +296,25 @@ impl Scanner {
     /// Port of `Scanner.peek_token()` from
     /// `powerline/lint/markedjson/scanner.py:106`.
     pub fn peek_token(&self) -> Option<&str> {
-        // py:108-112  return tokens[0]
+        // py:106  def peek_token(self):
+        // py:107  # Return the next token, but do not delete if from the queue.
+        // py:108  while self.need_more_tokens():
+        // py:109  self.fetch_more_tokens()
+        // py:110  if self.tokens:
+        // py:111  return self.tokens[0]
         self.tokens.first().map(String::as_str)
     }
 
     /// Port of `Scanner.get_token()` from
     /// `powerline/lint/markedjson/scanner.py:113`.
     pub fn get_token(&mut self) -> Option<String> {
-        // py:115-121  pop tokens[0] + increment tokens_taken
+        // py:113  def get_token(self):
+        // py:114  # Return the next token.
+        // py:115  while self.need_more_tokens():
+        // py:116  self.fetch_more_tokens()
+        // py:117  if self.tokens:
+        // py:118  self.tokens_taken += 1
+        // py:119  return self.tokens.pop(0)
         if self.tokens.is_empty() {
             return None;
         }
@@ -304,14 +325,22 @@ impl Scanner {
     /// Port of `Scanner.need_more_tokens()` from
     /// `powerline/lint/markedjson/scanner.py:123`.
     pub fn need_more_tokens(&self) -> bool {
-        // py:124-132  done / empty tokens queue / simple-key lookahead
+        // py:123  def need_more_tokens(self):
+        // py:124  if self.done:
+        // py:125  return False
+        // py:126  if not self.tokens:
+        // py:127  return True
+        // py:128  # The current token may be a potential simple key, so we
+        // py:129  # need to look further.
+        // py:130  self.stale_possible_simple_keys()
+        // py:131  if self.next_possible_simple_key() == self.tokens_taken:
+        // py:132  return True
         if self.done {
             return false;
         }
         if self.tokens.is_empty() {
             return true;
         }
-        // py:131-132  next_possible_simple_key == tokens_taken
         match self.next_possible_simple_key() {
             Some(n) if n == self.tokens_taken => true,
             _ => false,
@@ -321,7 +350,14 @@ impl Scanner {
     /// Port of `Scanner.next_possible_simple_key()` from
     /// `powerline/lint/markedjson/scanner.py:192`.
     pub fn next_possible_simple_key(&self) -> Option<usize> {
-        // py:201-206  min over possible_simple_keys' token_numbers
+        // py:192  def next_possible_simple_key(self):
+        // py:193  # Return the number of the nearest possible simple key. ...
+        // py:200  min_token_number = None
+        // py:201  for level in self.possible_simple_keys:
+        // py:202  key = self.possible_simple_keys[level]
+        // py:203  if min_token_number is None or key.token_number < min_token_number:
+        // py:204  min_token_number = key.token_number
+        // py:205  return min_token_number
         self.possible_simple_keys
             .values()
             .map(|k| k.token_number)
@@ -331,7 +367,13 @@ impl Scanner {
     /// Port of `Scanner.save_possible_simple_key()` from
     /// `powerline/lint/markedjson/scanner.py:218`.
     pub fn save_possible_simple_key(&mut self, index: usize, line: usize, column: usize) {
-        // py:220-230  capture key state when allow_simple_key
+        // py:218  def save_possible_simple_key(self):
+        // py:219  # The next token may start a simple key. ...
+        // py:225  if self.allow_simple_key:
+        // py:226  self.remove_possible_simple_key()
+        // py:227  token_number = self.tokens_taken + len(self.tokens)
+        // py:228  key = SimpleKey(token_number, index, line, column, self.get_mark())
+        // py:229  self.possible_simple_keys[self.flow_level] = key
         if !self.allow_simple_key {
             return;
         }
@@ -343,7 +385,11 @@ impl Scanner {
     /// Port of `Scanner.remove_possible_simple_key()` from
     /// `powerline/lint/markedjson/scanner.py:231`.
     pub fn remove_possible_simple_key(&mut self) {
-        // py:233-237  remove key at current flow_level
+        // py:231  def remove_possible_simple_key(self):
+        // py:232  # Remove the saved possible key position at the current flow level.
+        // py:233  if self.flow_level in self.possible_simple_keys:
+        // py:234  key = self.possible_simple_keys[self.flow_level]
+        // py:235  del self.possible_simple_keys[self.flow_level]
         self.possible_simple_keys.remove(&self.flow_level);
     }
 
@@ -432,12 +478,95 @@ impl Scanner {
     /// Port of `Scanner.fetch_plain()` from
     /// `powerline/lint/markedjson/scanner.py:348-356`.
     pub fn fetch_plain(&mut self, index: usize, line: usize, column: usize) {
+        // py:348  def fetch_plain(self):
+        // py:349  # A plain scalar could be a simple key.
         // py:350  self.save_possible_simple_key()
         self.save_possible_simple_key(index, line, column);
+        // py:351  # No simple keys after plain scalars. But note that `scan_plain` will
+        // py:352  # change this flag if the scan is finished at the beginning of the line.
         // py:353  self.allow_simple_key = False
         self.allow_simple_key = false;
-        // py:356  self.tokens.append(self.scan_plain())
+        // py:354  # Scan and add SCALAR. May change `allow_simple_key`.
+        // py:355  self.tokens.append(self.scan_plain())
         self.tokens.push("ScalarToken".to_string());
+    }
+
+    /// Port of `Scanner.fetch_more_tokens()` from
+    /// `powerline/lint/markedjson/scanner.py:134`.
+    ///
+    /// **Status:** stub. The Rust port surfaces the dispatch shape;
+    /// callers drive `scan_to_next_token` + per-char dispatch via
+    /// the module-level `dispatch_fetch_for` helper.
+    pub fn fetch_more_tokens(&mut self) {
+        // py:134  def fetch_more_tokens(self):
+        // py:136  # Eat whitespaces and comments until we reach the next token.
+        // py:137  self.scan_to_next_token()
+        // py:139  # Remove obsolete possible simple keys.
+        // py:140  self.stale_possible_simple_keys()
+        // py:142  # Peek the next character.
+        // py:143  ch = self.peek()
+        // py:145  # Is it the end of stream?
+        // py:146  if ch == '\0':
+        // py:147  return self.fetch_stream_end()
+        // py:149  # Note: the order of the following checks is NOT significant.
+        // py:151  # Is it the flow sequence start indicator?
+        // py:152  if ch == '[':
+        // py:153  return self.fetch_flow_sequence_start()
+        // py:155  # Is it the flow mapping start indicator?
+        // py:156  if ch == '{':
+        // py:157  return self.fetch_flow_mapping_start()
+        // py:159  # Is it the flow sequence end indicator?
+        // py:160  if ch == ']':
+        // py:161  return self.fetch_flow_sequence_end()
+        // py:163  # Is it the flow mapping end indicator?
+        // py:164  if ch == '}':
+        // py:165  return self.fetch_flow_mapping_end()
+        // py:167  # Is it the flow entry indicator?
+        // py:168  if ch == ',':
+        // py:169  return self.fetch_flow_entry()
+        // py:171  # Is it the value indicator?
+        // py:172  if ch == ':' and self.flow_level:
+        // py:173  return self.fetch_value()
+        // py:175  # Is it a double quoted scalar?
+        // py:176  if ch == '"':
+        // py:177  return self.fetch_double()
+        // py:179  # It must be a plain scalar then.
+        // py:180  if self.check_plain():
+        // py:181  return self.fetch_plain()
+        // py:183  # No? It's an error. Let's produce a nice error message.
+        // py:184  raise ScannerError(
+        // py:185  'while scanning for the next token', None,
+        // py:186  'found character %r that cannot start any token' % ch,
+        // py:187  self.get_mark()
+        // py:188  )
+    }
+
+    /// Port of `Scanner.stale_possible_simple_keys()` from
+    /// `powerline/lint/markedjson/scanner.py:207`.
+    ///
+    /// Removes simple-key entries whose line differs from
+    /// `current_line` per py:213-216.
+    pub fn stale_possible_simple_keys(&mut self, current_line: usize) {
+        // py:207  def stale_possible_simple_keys(self):
+        // py:208  # Remove entries that are no longer possible simple keys. ...
+        // py:213  for level in list(self.possible_simple_keys):
+        // py:214  key = self.possible_simple_keys[level]
+        // py:215  if key.line != self.line:
+        // py:216  del self.possible_simple_keys[level]
+        let stale: Vec<u32> = self
+            .possible_simple_keys
+            .iter()
+            .filter_map(|(k, v)| {
+                if v.line != current_line {
+                    Some(*k)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        for k in stale {
+            self.possible_simple_keys.remove(&k);
+        }
     }
 }
 
