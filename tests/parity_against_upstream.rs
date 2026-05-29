@@ -2192,6 +2192,54 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_spec_unknown_spec_and_unknown_msg_record_state() {
+    if !python_available() {
+        return;
+    }
+    // Spec.unknown_spec(keyfunc, spec) — py:155-159 pushes both onto
+    // self.specs and records (keyfunc_id, spec_id) in self.uspecs.
+    // Spec.unknown_msg(msgfunc) — py:175 sets self.ufailmsg.
+    //
+    // Python observables:
+    let py = match py_eval(
+        "(lambda S: __import__('json').dumps([len(S().unknown_spec(S(), S()).specs), S().unknown_spec(S(), S()).uspecs, isinstance(S().unknown_msg('boom').ufailmsg, str) or callable(S().unknown_msg('boom').ufailmsg)]))(__import__('powerline.lint.spec', fromlist=['Spec']).Spec)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    assert_eq!(py_value[0], 2, "Python unknown_spec should push 2 specs");
+    assert_eq!(
+        py_value[1],
+        serde_json::json!([[0, 1]]),
+        "Python uspecs should be [(0, 1)] after unknown_spec(S(), S())"
+    );
+    assert_eq!(
+        py_value[2], true,
+        "Python ufailmsg should be set (str or callable) after unknown_msg('boom')"
+    );
+
+    use powerliners::lint::spec::Spec;
+    // Rust port: previously DROPPED both calls. New fields:
+    //   uspecs: Vec<(usize, usize)>
+    //   ufailmsg: Option<String>
+    let s = Spec::default().unknown_spec(Spec::default(), Spec::default());
+    assert_eq!(s.specs.len(), 2);
+    assert_eq!(
+        s.uspecs,
+        vec![(0, 1)],
+        "Rust unknown_spec must push (keyfunc_id, spec_id) onto uspecs"
+    );
+
+    let s2 = Spec::default().unknown_msg("unknown key");
+    assert_eq!(
+        s2.ufailmsg.as_deref(),
+        Some("unknown key"),
+        "Rust unknown_msg must set ufailmsg"
+    );
+}
+
+#[test]
 fn parity_spec_either_appends_all_variants_and_one_check() {
     if !python_available() {
         return;

@@ -150,6 +150,18 @@ pub struct Spec {
     /// `(Cmp::Le, max)` for `Spec::tuple` with trailing optional specs,
     /// matching `lint/spec.py:534-536`.
     pub len_constraints: Vec<(Cmp, i64)>,
+    /// Registered unknown-key spec pairs from `Spec::unknown_spec`.
+    ///
+    /// Each entry is `(keyfunc_id, value_spec_id)` indexing into
+    /// `self.specs`. Python: `self.uspecs.append((keyfunc, len(self.specs) - 1))`
+    /// at `lint/spec.py:159`. Consumed by `Spec::match` at py:722 for
+    /// dynamic key dispatch.
+    pub uspecs: Vec<(usize, usize)>,
+    /// Custom message template for unknown keys, set by
+    /// `Spec::unknown_msg`. Python: `self.ufailmsg = msgfunc` at
+    /// `lint/spec.py:175`. Consumed at py:744 when reporting the
+    /// "found unknown key" diagnostic.
+    pub ufailmsg: Option<String>,
     /// Registered cmp constraint from `Spec::cmp`.
     pub cmp_constraint: Option<(Cmp, f64)>,
     /// Registered unsigned flag from `Spec::unsigned`.
@@ -194,6 +206,8 @@ impl Spec {
             regex: None,
             oneof: None,
             len_constraints: Vec::new(),
+            uspecs: Vec::new(),
+            ufailmsg: None,
             cmp_constraint: None,
             unsigned_flag: false,
             printable_flag: false,
@@ -434,6 +448,8 @@ impl Spec {
             regex: self.regex.clone(),
             oneof: self.oneof.clone(),
             len_constraints: self.len_constraints.clone(),
+            uspecs: self.uspecs.clone(),
+            ufailmsg: self.ufailmsg.clone(),
             cmp_constraint: self.cmp_constraint,
             unsigned_flag: self.unsigned_flag,
             printable_flag: self.printable_flag,
@@ -621,15 +637,13 @@ impl Spec {
     /// Records the message format for unknown keys. The Rust port
     /// takes a static message string since Python's msgfunc takes
     /// the bad key as input — most callers use static strings.
-    pub fn unknown_msg(self, msg: impl Into<String>) -> Self {
+    pub fn unknown_msg(mut self, msg: impl Into<String>) -> Self {
         // py:162  def unknown_msg(self, msgfunc):
         // py:163  '''Define how unknown key message look like
         // py:164  ...
-        // py:173  if isinstance(msgfunc, str):
-        // py:174  msgfunc = self._wrap_msg(msgfunc)
         // py:175  self.ufailmsg = msgfunc
         // py:176  return self
-        let _ = msg.into();
+        self.ufailmsg = Some(msg.into());
         self
     }
 
@@ -640,19 +654,18 @@ impl Spec {
     /// registered keys set. Pushes both the keyfunc spec + the
     /// value spec onto `self.specs` per py:135-136.
     pub fn unknown_spec(mut self, key_spec: Spec, value_spec: Spec) -> Self {
-        // py:130  def unknown_spec(self, keyfunc, spec):
-        // py:131  '''Define unknown keys specification
-        // py:132  ...
-        // py:142  self.specs.append(keyfunc)
-        // py:143  keyfunc_id = len(self.specs) - 1
-        // py:144  self.specs.append(spec)
-        // py:145  spec_id = len(self.specs) - 1
-        // py:146  if isinstance(keyfunc, Spec):
-        // py:147  keyfunc.copy = self.copy
-        // py:148  self.uspecs.append((keyfunc_id, spec_id))
-        // py:149  return self
+        // py:130-160  def unknown_spec(self, keyfunc, spec):
+        // py:155  if isinstance(keyfunc, Spec):
+        // py:156      self.specs.append(keyfunc)
+        // py:157      keyfunc = len(self.specs) - 1
+        // py:158  self.specs.append(spec)
+        // py:159  self.uspecs.append((keyfunc, len(self.specs) - 1))
+        // py:160  return self
         self.specs.push(key_spec);
+        let keyfunc_id = self.specs.len() - 1;
         self.specs.push(value_spec);
+        let spec_id = self.specs.len() - 1;
+        self.uspecs.push((keyfunc_id, spec_id));
         self
     }
 
@@ -786,6 +799,8 @@ impl Spec {
         self.regex = other.regex.clone();
         self.oneof = other.oneof.clone();
         self.len_constraints = other.len_constraints.clone();
+        self.uspecs = other.uspecs.clone();
+        self.ufailmsg = other.ufailmsg.clone();
         self.cmp_constraint = other.cmp_constraint;
         self.unsigned_flag = other.unsigned_flag;
         self.printable_flag = other.printable_flag;
