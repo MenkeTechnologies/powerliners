@@ -2192,6 +2192,43 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_spec_optional_required_toggle_isoptional() {
+    if !python_available() {
+        return;
+    }
+    // optional() sets self.isoptional = True
+    // required() sets self.isoptional = False
+    // default state is False
+    // Verify exact toggling sequence in both ports.
+    let py = match py_eval(
+        "(lambda S: __import__('json').dumps([S().isoptional, S().optional().isoptional, S().optional().required().isoptional]))(__import__('powerline.lint.spec', fromlist=['Spec']).Spec)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    assert_eq!(
+        py_value,
+        serde_json::json!([false, true, false]),
+        "Python isoptional toggle drift"
+    );
+
+    use powerliners::lint::spec::Spec;
+    let rs0 = Spec::default().isoptional;
+    let rs1 = Spec::default().optional().isoptional;
+    let rs2 = Spec::default().optional().required().isoptional;
+    assert!(!rs0, "Rust Spec::default().isoptional must be false");
+    assert!(
+        rs1,
+        "Rust Spec::default().optional().isoptional must be true"
+    );
+    assert!(
+        !rs2,
+        "Rust Spec::default().optional().required().isoptional must be false"
+    );
+}
+
+#[test]
 fn parity_spec_len_appends_check_only_no_type() {
     if !python_available() {
         return;
