@@ -36,6 +36,30 @@ impl I3Powerline {
     pub const default_log_stream: &'static str = "stderr";
 }
 
+/// Port of the inner `render()` closure from
+/// `powerline/bindings/i3/powerline-i3.py:40-44`.
+///
+/// Returns the i3bar JSON output line for one frame:
+/// `,[<powerline.render()[:-1]>]` per py:43.
+///
+/// Python's `powerline.render()` returns the full segment array
+/// JSON-encoded with a trailing newline; the `[:-1]` slice strips
+/// the newline before wrapping in `,[ ... ]`. The Rust port takes
+/// the rendered string as a closure result so callers route through
+/// their own Powerline instance.
+pub fn render<F>(render_fn: F) -> String
+where
+    F: FnOnce() -> String,
+{
+    // py:40  def render(event=None, data=None, sub=None):
+    // py:41-42  global lock; with lock:
+    // py:43  print (',[' + powerline.render()[:-1] + ']')
+    let rendered = render_fn();
+    // Python's [:-1] strips the trailing newline; mirror with trim_end.
+    let trimmed = rendered.strip_suffix('\n').unwrap_or(&rendered);
+    format!(",[{}]", trimmed)
+}
+
 /// Port of the `if __name__ == '__main__':` block from
 /// `powerline/bindings/i3/powerline-i3.py:24`.
 ///
@@ -85,5 +109,18 @@ mod tests {
     #[test]
     fn i3powerline_log_stream_is_stderr() {
         assert_eq!(I3Powerline::default_log_stream, "stderr");
+    }
+
+    #[test]
+    fn render_strips_trailing_newline_and_wraps_with_array_comma() {
+        // py:43  ',[' + powerline.render()[:-1] + ']'
+        let out = render(|| "[seg1, seg2]\n".to_string());
+        assert_eq!(out, ",[[seg1, seg2]]");
+    }
+
+    #[test]
+    fn render_passes_through_when_no_trailing_newline() {
+        let out = render(|| "[seg]".to_string());
+        assert_eq!(out, ",[[seg]]");
     }
 }

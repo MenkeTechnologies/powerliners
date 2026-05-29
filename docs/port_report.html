@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">595</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3384</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">57.9%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">601</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3398</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">58.5%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -390,6 +390,14 @@ columns:
   <tr class="full"><td><code>segments/vim/plugin/commandt.py</code></td><td>✔ <code>segments/vim/plugin/commandt.rs</code></td><td>3</td><td><code>initialize</code>, <code>finder</code>, <code>path</code></td><td>—</td><td><code>FINDERS_WITHOUT_PATH</code>, <code>finders_without_path_includes_buffer_finder</code>, <code>finder_returns_one_segment_with_empty_contents</code>, <code>path_returns_some_when_finder_not_excluded</code>, <code>initialize_is_idempotent</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/segments/vim/plugin/commandt.py rs_file=src/ported/segments/vim/plugin/commandt.rs rs_exists=True py_fn_total=3 ported_count=3 missing_count=0 rs_extra_count=5 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/segments/vim/plugin/commandt.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/bar/powerline-bar.py -->
+  <tr class="full"><td><code>bindings/bar/powerline-bar.py</code></td><td>✔ <code>bindings/bar/powerline-bar.rs</code></td><td>2</td><td><code>render</code>, <code>update</code></td><td>—</td><td><code>get_argparser</code>, <code>main</code>, <code>argparser_has_only_i3_flag</code>, <code>render_appends_newline_to_render_fn_output</code>, <code>update_sets_mode_then_renders</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/bindings/bar/powerline-bar.py rs_file=src/ported/bindings/bar/powerline-bar.rs rs_exists=True py_fn_total=2 ported_count=2 missing_count=0 rs_extra_count=5 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/bar/powerline-bar.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/lemonbar/powerline-lemonbar.py -->
+  <tr class="full"><td><code>bindings/lemonbar/powerline-lemonbar.py</code></td><td>✔ <code>bindings/lemonbar/powerline-lemonbar.rs</code></td><td>2</td><td><code>render</code>, <code>update</code></td><td>—</td><td><code>build_bar_command</code>, <code>main</code>, <code>fake_screen</code>, <code>build_bar_command_assembles_geometry</code>, <code>build_bar_command_appends_extra_args</code>, <code>render_emits_one_payload_per_bar_with_newline</code>, <code>update_sets_new_mode_and_renders</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/bindings/lemonbar/powerline-lemonbar.py rs_file=src/ported/bindings/lemonbar/powerline-lemonbar.rs rs_exists=True py_fn_total=2 ported_count=2 missing_count=0 rs_extra_count=7 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/lemonbar/powerline-lemonbar.py -->
   <!-- BEGIN-GROUP py_file=powerline/lemonbar.py -->
   <tr class="full"><td><code>lemonbar.py</code></td><td>✔ <code>lemonbar.rs</code></td><td>2</td><td><code>init</code>, <code>get_local_themes</code></td><td>—</td><td><code>get_encoding</code>, <code>init_ext_is_wm</code>, <code>init_renderer_module_is_lemonbar</code>, <code>get_encoding_is_utf8</code>, <code>get_local_themes_none_returns_empty</code>, <code>get_local_themes_wraps_each_value_in_config_key</code>, <code>init_constructs_powerline_with_wm_and_lemonbar</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/lemonbar.py rs_file=src/ported/lemonbar.rs rs_exists=True py_fn_total=2 ported_count=2 missing_count=0 rs_extra_count=7 coverage=1.0000 -->
@@ -434,6 +442,10 @@ columns:
   <tr class="full"><td><code>bindings/awesome/powerline-awesome.py</code></td><td>✔ <code>bindings/awesome/powerline-awesome.rs</code></td><td>1</td><td><code>main</code></td><td>—</td><td><code>main_runs_without_panic</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/bindings/awesome/powerline-awesome.py rs_file=src/ported/bindings/awesome/powerline-awesome.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=1 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/bindings/awesome/powerline-awesome.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/i3/powerline-i3.py -->
+  <tr class="full"><td><code>bindings/i3/powerline-i3.py</code></td><td>✔ <code>bindings/i3/powerline-i3.rs</code></td><td>1</td><td><code>render</code></td><td>—</td><td><code>main</code>, <code>i3powerline_log_stream_is_stderr</code>, <code>render_strips_trailing_newline_and_wraps_with_array_comma</code>, <code>render_passes_through_when_no_trailing_newline</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/bindings/i3/powerline-i3.py rs_file=src/ported/bindings/i3/powerline-i3.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=4 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/i3/powerline-i3.py -->
   <!-- BEGIN-GROUP py_file=powerline/commands/daemon.py -->
   <tr class="full"><td><code>commands/daemon.py</code></td><td>✔ <code>commands/daemon.rs</code></td><td>1</td><td><code>get_argparser</code></td><td>—</td><td><code>daemon_parser_description_matches_upstream</code>, <code>daemon_parser_has_five_arguments</code>, <code>daemon_parser_flag_set</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/commands/daemon.py rs_file=src/ported/commands/daemon.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=3 coverage=1.0000 -->
@@ -474,6 +486,10 @@ columns:
   <tr class="full"><td><code>renderers/shell/bash.py</code></td><td>✔ <code>renderers/shell/bash.rs</code></td><td>1</td><td><code>do_render</code></td><td>—</td><td><code>character_translations</code>, <code>bash_escape_markers_are_prompt_safe</code>, <code>bash_translations_escape_shell_specials</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/renderers/shell/bash.py rs_file=src/ported/renderers/shell/bash.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=3 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/renderers/shell/bash.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/shell/ksh.py -->
+  <tr class="full"><td><code>renderers/shell/ksh.py</code></td><td>✔ <code>renderers/shell/ksh.rs</code></td><td>1</td><td><code>render</code></td><td>—</td><td><code>render_prefix</code>, <code>character_translations</code>, <code>ksh_uses_soh_for_both_markers</code>, <code>ksh_render_prefix_carries_soh_cr</code>, <code>ksh_render_prepends_soh_cr_to_super_output</code>, <code>ksh_render_empty_super_yields_just_prefix</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/renderers/shell/ksh.py rs_file=src/ported/renderers/shell/ksh.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=6 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/shell/ksh.py -->
   <!-- BEGIN-GROUP py_file=powerline/renderers/shell/tcsh.py -->
   <tr class="full"><td><code>renderers/shell/tcsh.py</code></td><td>✔ <code>renderers/shell/tcsh.rs</code></td><td>1</td><td><code>do_render</code></td><td>—</td><td><code>character_translations</code>, <code>tcsh_inherits_zsh_escape_markers</code>, <code>tcsh_translations_include_caret_bang_backslash</code></td><td class="coverage">100%</td></tr>
   <!-- SYM py_file=powerline/renderers/shell/tcsh.py rs_file=src/ported/renderers/shell/tcsh.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=3 coverage=1.0000 -->
@@ -574,30 +590,14 @@ columns:
   <tr class="zero"><td><code>renderers/ipython/__init__.py</code></td><td>✘ <code>renderers/ipython/__init__.rs</code></td><td>3</td><td>—</td><td><code>get_segment_info</code>, <code>get_theme</code>, <code>shutdown</code></td><td>—</td><td class="coverage">0%</td></tr>
   <!-- SYM py_file=powerline/renderers/ipython/__init__.py rs_file=src/ported/renderers/ipython/__init__.rs rs_exists=False py_fn_total=3 ported_count=0 missing_count=3 rs_extra_count=0 coverage=0.0000 -->
   <!-- END-GROUP py_file=powerline/renderers/ipython/__init__.py -->
-  <!-- BEGIN-GROUP py_file=powerline/bindings/bar/powerline-bar.py -->
-  <tr class="zero"><td><code>bindings/bar/powerline-bar.py</code></td><td>✔ <code>bindings/bar/powerline-bar.rs</code></td><td>2</td><td>—</td><td><code>render</code>, <code>update</code></td><td><code>get_argparser</code>, <code>main</code>, <code>argparser_has_only_i3_flag</code></td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/bindings/bar/powerline-bar.py rs_file=src/ported/bindings/bar/powerline-bar.rs rs_exists=True py_fn_total=2 ported_count=0 missing_count=2 rs_extra_count=3 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/bindings/bar/powerline-bar.py -->
-  <!-- BEGIN-GROUP py_file=powerline/bindings/lemonbar/powerline-lemonbar.py -->
-  <tr class="zero"><td><code>bindings/lemonbar/powerline-lemonbar.py</code></td><td>✔ <code>bindings/lemonbar/powerline-lemonbar.rs</code></td><td>2</td><td>—</td><td><code>render</code>, <code>update</code></td><td><code>build_bar_command</code>, <code>main</code>, <code>fake_screen</code>, <code>build_bar_command_assembles_geometry</code>, <code>build_bar_command_appends_extra_args</code></td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/bindings/lemonbar/powerline-lemonbar.py rs_file=src/ported/bindings/lemonbar/powerline-lemonbar.rs rs_exists=True py_fn_total=2 ported_count=0 missing_count=2 rs_extra_count=5 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/bindings/lemonbar/powerline-lemonbar.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/watcher/__init__.py -->
   <tr class="zero"><td><code>lib/watcher/__init__.py</code></td><td>✘ <code>lib/watcher/__init__.rs</code></td><td>2</td><td>—</td><td><code>create_file_watcher</code>, <code>create_tree_watcher</code></td><td>—</td><td class="coverage">0%</td></tr>
   <!-- SYM py_file=powerline/lib/watcher/__init__.py rs_file=src/ported/lib/watcher/__init__.rs rs_exists=False py_fn_total=2 ported_count=0 missing_count=2 rs_extra_count=0 coverage=0.0000 -->
   <!-- END-GROUP py_file=powerline/lib/watcher/__init__.py -->
-  <!-- BEGIN-GROUP py_file=powerline/bindings/i3/powerline-i3.py -->
-  <tr class="zero"><td><code>bindings/i3/powerline-i3.py</code></td><td>✔ <code>bindings/i3/powerline-i3.rs</code></td><td>1</td><td>—</td><td><code>render</code></td><td><code>main</code>, <code>i3powerline_log_stream_is_stderr</code></td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/bindings/i3/powerline-i3.py rs_file=src/ported/bindings/i3/powerline-i3.rs rs_exists=True py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=2 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/bindings/i3/powerline-i3.py -->
   <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/__init__.py -->
   <tr class="zero"><td><code>lint/markedjson/__init__.py</code></td><td>✘ <code>lint/markedjson/__init__.rs</code></td><td>1</td><td>—</td><td><code>load</code></td><td>—</td><td class="coverage">0%</td></tr>
   <!-- SYM py_file=powerline/lint/markedjson/__init__.py rs_file=src/ported/lint/markedjson/__init__.rs rs_exists=False py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=0 coverage=0.0000 -->
   <!-- END-GROUP py_file=powerline/lint/markedjson/__init__.py -->
-  <!-- BEGIN-GROUP py_file=powerline/renderers/shell/ksh.py -->
-  <tr class="zero"><td><code>renderers/shell/ksh.py</code></td><td>✔ <code>renderers/shell/ksh.rs</code></td><td>1</td><td>—</td><td><code>render</code></td><td><code>render_prefix</code>, <code>character_translations</code>, <code>ksh_uses_soh_for_both_markers</code>, <code>ksh_render_prefix_carries_soh_cr</code></td><td class="coverage">0%</td></tr>
-  <!-- SYM py_file=powerline/renderers/shell/ksh.py rs_file=src/ported/renderers/shell/ksh.rs rs_exists=True py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=4 coverage=0.0000 -->
-  <!-- END-GROUP py_file=powerline/renderers/shell/ksh.py -->
   <!-- BEGIN-GROUP py_file=powerline/bindings/__init__.py -->
   <tr class="zero"><td><code>bindings/__init__.py</code></td><td>✘ <code>bindings/__init__.rs</code></td><td>0</td><td>—</td><td>—</td><td>—</td><td class="coverage">0%</td></tr>
   <!-- SYM py_file=powerline/bindings/__init__.py rs_file=src/ported/bindings/__init__.rs rs_exists=False py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=0 coverage=0.0000 -->
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3384,
-    "ported_fns": 595,
-    "coverage": 0.5787937743190662
+    "rs_fns_in_ported": 3398,
+    "ported_fns": 601,
+    "coverage": 0.5846303501945526
   },
   "rows": [
     {
@@ -4162,6 +4162,46 @@ columns:
       "coverage": 1.0
     },
     {
+      "py_file": "powerline/bindings/bar/powerline-bar.py",
+      "rs_file": "src/ported/bindings/bar/powerline-bar.rs",
+      "rs_exists": true,
+      "py_fn_total": 2,
+      "ported_fns": [
+        "render",
+        "update"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "get_argparser",
+        "main",
+        "argparser_has_only_i3_flag",
+        "render_appends_newline_to_render_fn_output",
+        "update_sets_mode_then_renders"
+      ],
+      "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/bindings/lemonbar/powerline-lemonbar.py",
+      "rs_file": "src/ported/bindings/lemonbar/powerline-lemonbar.rs",
+      "rs_exists": true,
+      "py_fn_total": 2,
+      "ported_fns": [
+        "render",
+        "update"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "build_bar_command",
+        "main",
+        "fake_screen",
+        "build_bar_command_assembles_geometry",
+        "build_bar_command_appends_extra_args",
+        "render_emits_one_payload_per_bar_with_newline",
+        "update_sets_new_mode_and_renders"
+      ],
+      "coverage": 1.0
+    },
+    {
       "py_file": "powerline/lemonbar.py",
       "rs_file": "src/ported/lemonbar.rs",
       "rs_exists": true,
@@ -4405,6 +4445,23 @@ columns:
       "coverage": 1.0
     },
     {
+      "py_file": "powerline/bindings/i3/powerline-i3.py",
+      "rs_file": "src/ported/bindings/i3/powerline-i3.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [
+        "render"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "main",
+        "i3powerline_log_stream_is_stderr",
+        "render_strips_trailing_newline_and_wraps_with_array_comma",
+        "render_passes_through_when_no_trailing_newline"
+      ],
+      "coverage": 1.0
+    },
+    {
       "py_file": "powerline/commands/daemon.py",
       "rs_file": "src/ported/commands/daemon.rs",
       "rs_exists": true,
@@ -4571,6 +4628,25 @@ columns:
         "character_translations",
         "bash_escape_markers_are_prompt_safe",
         "bash_translations_escape_shell_specials"
+      ],
+      "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/renderers/shell/ksh.py",
+      "rs_file": "src/ported/renderers/shell/ksh.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [
+        "render"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "render_prefix",
+        "character_translations",
+        "ksh_uses_soh_for_both_markers",
+        "ksh_render_prefix_carries_soh_cr",
+        "ksh_render_prepends_soh_cr_to_super_output",
+        "ksh_render_empty_super_yields_just_prefix"
       ],
       "coverage": 1.0
     },
@@ -5151,42 +5227,6 @@ columns:
       "coverage": 0.0
     },
     {
-      "py_file": "powerline/bindings/bar/powerline-bar.py",
-      "rs_file": "src/ported/bindings/bar/powerline-bar.rs",
-      "rs_exists": true,
-      "py_fn_total": 2,
-      "ported_fns": [],
-      "missing_fns": [
-        "render",
-        "update"
-      ],
-      "rs_extra_fns": [
-        "get_argparser",
-        "main",
-        "argparser_has_only_i3_flag"
-      ],
-      "coverage": 0.0
-    },
-    {
-      "py_file": "powerline/bindings/lemonbar/powerline-lemonbar.py",
-      "rs_file": "src/ported/bindings/lemonbar/powerline-lemonbar.rs",
-      "rs_exists": true,
-      "py_fn_total": 2,
-      "ported_fns": [],
-      "missing_fns": [
-        "render",
-        "update"
-      ],
-      "rs_extra_fns": [
-        "build_bar_command",
-        "main",
-        "fake_screen",
-        "build_bar_command_assembles_geometry",
-        "build_bar_command_appends_extra_args"
-      ],
-      "coverage": 0.0
-    },
-    {
       "py_file": "powerline/lib/watcher/__init__.py",
       "rs_file": "src/ported/lib/watcher/__init__.rs",
       "rs_exists": false,
@@ -5200,21 +5240,6 @@ columns:
       "coverage": 0.0
     },
     {
-      "py_file": "powerline/bindings/i3/powerline-i3.py",
-      "rs_file": "src/ported/bindings/i3/powerline-i3.rs",
-      "rs_exists": true,
-      "py_fn_total": 1,
-      "ported_fns": [],
-      "missing_fns": [
-        "render"
-      ],
-      "rs_extra_fns": [
-        "main",
-        "i3powerline_log_stream_is_stderr"
-      ],
-      "coverage": 0.0
-    },
-    {
       "py_file": "powerline/lint/markedjson/__init__.py",
       "rs_file": "src/ported/lint/markedjson/__init__.rs",
       "rs_exists": false,
@@ -5224,23 +5249,6 @@ columns:
         "load"
       ],
       "rs_extra_fns": [],
-      "coverage": 0.0
-    },
-    {
-      "py_file": "powerline/renderers/shell/ksh.py",
-      "rs_file": "src/ported/renderers/shell/ksh.rs",
-      "rs_exists": true,
-      "py_fn_total": 1,
-      "ported_fns": [],
-      "missing_fns": [
-        "render"
-      ],
-      "rs_extra_fns": [
-        "render_prefix",
-        "character_translations",
-        "ksh_uses_soh_for_both_markers",
-        "ksh_render_prefix_carries_soh_cr"
-      ],
       "coverage": 0.0
     },
     {

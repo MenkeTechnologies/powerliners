@@ -55,6 +55,68 @@ pub fn build_bar_command(
     cmd
 }
 
+/// Port of the inner `render()` closure from
+/// `powerline/bindings/lemonbar/powerline-lemonbar.py:32-40`.
+///
+/// For each `(output, process, width)` triple in `bars`, calls
+/// `powerline.render(mode, width, matcher_info=output)` and writes
+/// the result + `\n` into the lemonbar process's stdin.
+///
+/// Python uses `Timer` for `reschedule=True` to call itself again
+/// after `args.interval` seconds (py:33-34); the Rust port returns
+/// the encoded per-bar bytes and leaves the timer wiring + stdin
+/// flush to the caller (real-binary loop).
+///
+/// `mode` is `modes[0]` from the outer scope; `render_fn` is the
+/// caller-supplied closure that maps `(mode, width, matcher_info)`
+/// to the rendered statusline string.
+pub fn render<F>(
+    bars: &[(String, i64)], // (matcher_info, width) per screen
+    mode: &str,
+    mut render_fn: F,
+) -> Vec<(String, Vec<u8>)>
+where
+    F: FnMut(&str, i64, &str) -> String,
+{
+    // py:32  def render(reschedule=False):
+    // py:33-34  if reschedule: Timer(args.interval, render, kwargs={'reschedule': True}).start()
+    // (timer scheduling lives in the binary driver)
+    // py:36-40  for output, process, width in bars: write(powerline.render(...))
+    let mut out: Vec<(String, Vec<u8>)> = Vec::with_capacity(bars.len());
+    for (output, width) in bars {
+        let rendered = render_fn(mode, *width, output);
+        let mut buf = rendered.into_bytes();
+        buf.push(b'\n');
+        out.push((output.clone(), buf));
+    }
+    out
+}
+
+/// Port of the inner `update()` closure from
+/// `powerline/bindings/lemonbar/powerline-lemonbar.py:42-44`.
+///
+/// Stores the new mode (`evt.change` in the i3-ipc event payload)
+/// into the shared `modes[0]` slot and re-runs `render()`.
+///
+/// Python captures `modes` and `render` from the outer scope; the
+/// Rust port takes the mode slot as `&mut String` and returns the
+/// rendered output (callers route through `render()` themselves).
+pub fn update<F>(
+    modes_slot: &mut String,
+    new_mode: &str,
+    bars: &[(String, i64)],
+    render_fn: F,
+) -> Vec<(String, Vec<u8>)>
+where
+    F: FnMut(&str, i64, &str) -> String,
+{
+    // py:42  def update(evt):
+    // py:43  modes[0] = evt.change
+    *modes_slot = new_mode.to_string();
+    // py:44  render()
+    render(bars, modes_slot, render_fn)
+}
+
 /// Port of the `if __name__ == '__main__':` block from
 /// `powerline/bindings/lemonbar/powerline-lemonbar.py:16`.
 ///
@@ -114,5 +176,34 @@ mod tests {
             "-B".to_string(),
             "#000000".to_string(),
         ]);
+    }
+
+    #[test]
+    fn render_emits_one_payload_per_bar_with_newline() {
+        // py:39-40  process.stdin.write(rendered + b'\n')
+        let bars = vec![
+            ("HDMI-1".to_string(), 100_i64),
+            ("DP-1".to_string(), 200_i64),
+        ];
+        let out = render(&bars, "default", |mode, width, matcher| {
+            format!("[{mode}:{width}:{matcher}]")
+        });
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].0, "HDMI-1");
+        assert_eq!(out[0].1, b"[default:100:HDMI-1]\n");
+        assert_eq!(out[1].0, "DP-1");
+        assert_eq!(out[1].1, b"[default:200:DP-1]\n");
+    }
+
+    #[test]
+    fn update_sets_new_mode_and_renders() {
+        // py:43-44  modes[0] = evt.change; render()
+        let mut mode = "default".to_string();
+        let bars = vec![("X".to_string(), 50_i64)];
+        let out = update(&mut mode, "resize", &bars, |m, w, mi| {
+            format!("m={m},w={w},mi={mi}")
+        });
+        assert_eq!(mode, "resize");
+        assert_eq!(out[0].1, b"m=resize,w=50,mi=X\n");
     }
 }
