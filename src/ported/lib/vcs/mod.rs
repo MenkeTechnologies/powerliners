@@ -546,10 +546,7 @@ pub fn file_watcher_initialised() -> bool {
 /// the OnceLock-style initialiser via a `&mut Option<T>` slot.
 /// Returns the watcher's id (caller routes through the actual
 /// watcher dispatch).
-pub fn file_watcher<F>(
-    slot: &mut Option<u64>,
-    create_watcher: F,
-) -> u64
+pub fn file_watcher<F>(slot: &mut Option<u64>, create_watcher: F) -> u64
 where
     F: FnOnce() -> u64,
 {
@@ -568,10 +565,7 @@ where
 /// `powerline/lib/vcs/__init__.py:41-45`.
 ///
 /// Same shape as [`file_watcher`].
-pub fn branch_watcher<F>(
-    slot: &mut Option<u64>,
-    create_watcher: F,
-) -> u64
+pub fn branch_watcher<F>(slot: &mut Option<u64>, create_watcher: F) -> u64
 where
     F: FnOnce() -> u64,
 {

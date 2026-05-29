@@ -563,10 +563,7 @@ pub fn workspace(
 /// Each input tuple is `(scratchpad_state, flags)`. Output dicts
 /// have `contents` from `icons[state]` (defaulting to `'changed'`
 /// per py:288) and `highlight_groups` per [`scratchpad_groups`].
-pub fn scratchpad(
-    windows: &[(&str, ScratchpadFlags)],
-    icons: &Map<String, Value>,
-) -> Vec<Value> {
+pub fn scratchpad(windows: &[(&str, ScratchpadFlags)], icons: &Map<String, Value>) -> Vec<Value> {
     // py:276  def scratchpad(pl, icons=SCRATCHPAD_ICONS):
     // py:286-293  list comprehension
     let mut out: Vec<Value> = Vec::with_capacity(windows.len());

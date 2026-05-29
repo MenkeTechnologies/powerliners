@@ -447,11 +447,7 @@ pub fn _get_battery_perc(_pl: &(), batt: &str) -> Option<(u8, Option<bool>)> {
     let capacity_path = format!("/sys/class/power_supply/{}/capacity", batt);
     let capacity_text = std::fs::read_to_string(capacity_path).ok()?;
     // py:124  perc = int(f.readline().split()[0])
-    let perc: u8 = capacity_text
-        .split_whitespace()
-        .next()?
-        .parse()
-        .ok()?;
+    let perc: u8 = capacity_text.split_whitespace().next()?.parse().ok()?;
     // py:125  try:
     // py:126  with open(linux_status_fmt.format(batt), 'r') as f:
     let status_path = format!("/sys/class/power_supply/{}/status", batt);

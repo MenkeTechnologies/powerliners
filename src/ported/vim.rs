@@ -597,11 +597,7 @@ impl VimPowerline {
     /// reach vim.windows directly — see [`new_win_idx`] /
     /// [`old_win_idx`]). `render` is the caller's render dispatch
     /// returning the formatted statusline.
-    pub fn statusline<W, R>(
-        window_id: Option<u64>,
-        win_idx: W,
-        render: R,
-    ) -> String
+    pub fn statusline<W, R>(window_id: Option<u64>, win_idx: W, render: R) -> String
     where
         W: FnOnce(Option<u64>) -> Option<(u64, u64, i64)>,
         R: FnOnce(u64, u64, i64) -> String,
@@ -629,11 +625,7 @@ impl VimPowerline {
     /// `(window, window_id, winnr)` tuple from vim.current.window
     /// per py:311-317. `render` dispatches the actual render with
     /// is_tabline=true per py:309 / py:317.
-    pub fn tabline<W, F, R>(
-        win_idx_none: W,
-        current_window_fallback: F,
-        render: R,
-    ) -> String
+    pub fn tabline<W, F, R>(win_idx_none: W, current_window_fallback: F, render: R) -> String
     where
         W: FnOnce() -> Option<(u64, u64, i64)>,
         F: FnOnce() -> (u64, u64, i64),
@@ -1310,9 +1302,7 @@ mod tests {
         // py:267-279
         let mut assignments: Vec<(u64, u64)> = Vec::new();
         let windows = vec![(100_u64, None, 1_i64, true)];
-        let r = VimPowerline::new_win_idx(&windows, None, 10, |w, id| {
-            assignments.push((w, id))
-        });
+        let r = VimPowerline::new_win_idx(&windows, None, 10, |w, id| assignments.push((w, id)));
         assert_eq!(r, Some((100, 10, 1)));
         assert_eq!(assignments, vec![(100, 10)]);
     }
@@ -1389,9 +1379,8 @@ mod tests {
     #[test]
     fn get_matcher_dotted_name_splits_via_rpartition() {
         // py:177
-        let r = VimPowerline::get_matcher("foo.bar.baz", "vim", |m, f| {
-            m == "foo.bar" && f == "baz"
-        });
+        let r =
+            VimPowerline::get_matcher("foo.bar.baz", "vim", |m, f| m == "foo.bar" && f == "baz");
         assert_eq!(r, Some(("foo.bar".to_string(), "baz".to_string())));
     }
 
@@ -1418,12 +1407,9 @@ mod tests {
     fn do_setup_uses_supplied_pyeval_and_pycmd() {
         // py:191-202
         let mut cmd_calls = Vec::<String>::new();
-        let (py, cm) = VimPowerline::do_setup(
-            Some("CustomEval"),
-            Some("custom_cmd"),
-            true,
-            |c| cmd_calls.push(c.to_string()),
-        );
+        let (py, cm) = VimPowerline::do_setup(Some("CustomEval"), Some("custom_cmd"), true, |c| {
+            cmd_calls.push(c.to_string())
+        });
         assert_eq!(py, "CustomEval");
         assert_eq!(cm, "custom_cmd");
         assert_eq!(cmd_calls, vec!["custom_cmd"]);

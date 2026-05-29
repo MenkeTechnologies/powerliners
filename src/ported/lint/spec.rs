@@ -393,7 +393,6 @@ impl Spec {
         self.regex(pattern)
     }
 
-
     /// Port of `Spec.oneof()` from
     /// `powerline/lint/spec.py:590`.
     pub fn oneof(mut self, values: &[&str]) -> Self {

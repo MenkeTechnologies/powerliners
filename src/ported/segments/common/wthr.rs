@@ -171,10 +171,7 @@ pub const WEATHER_INTERVAL: u32 = 600;
 /// Python `key` identifier byte-for-byte. The `weather_` prefix
 /// on the primary fn exists to disambiguate from other `key` fns
 /// across the codebase.
-pub fn key(
-    location_query: Option<String>,
-    weather_api_key: Option<String>,
-) -> _WeatherKey {
+pub fn key(location_query: Option<String>, weather_api_key: Option<String>) -> _WeatherKey {
     // py:115  def key(location_query=None, **kwargs):
     weather_key(location_query, weather_api_key)
 }

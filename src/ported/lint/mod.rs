@@ -460,11 +460,10 @@ pub fn true_color_spec() -> spec::Spec {
 /// `powerline/lint/__init__.py:147-162`.
 pub fn colors_spec() -> spec::Spec {
     // py:147-162
-    let color_value = spec::Spec::new()
-        .either(vec![
-            spec::Spec::new().tuple(vec![term_color_spec(), true_color_spec()]),
-            term_color_spec(),
-        ]);
+    let color_value = spec::Spec::new().either(vec![
+        spec::Spec::new().tuple(vec![term_color_spec(), true_color_spec()]),
+        term_color_spec(),
+    ]);
     let colors_inner = spec::Spec::new()
         .unknown_spec(spec::Spec::new().ident(), color_value)
         .context_message("Error while checking colors (key {key})");
@@ -592,7 +591,8 @@ pub fn args_spec() -> spec::Spec {
     let mut s = spec::Spec::new();
     s = s.update("pl", pl_err);
     s = s.update("segment_info", segment_info_err);
-    s.unknown_spec(spec::Spec::new(), spec::Spec::new()).optional()
+    s.unknown_spec(spec::Spec::new(), spec::Spec::new())
+        .optional()
 }
 
 /// Port of module-level `segment_module_spec` binding from
@@ -630,8 +630,9 @@ pub fn highlight_group_spec() -> spec::Spec {
 /// inside function docstring scans.
 pub fn _highlight_group_spec() -> spec::Spec {
     // checks.py:350-351
-    highlight_group_spec()
-        .context_message("Error while checking function documentation while checking theme (key {key})")
+    highlight_group_spec().context_message(
+        "Error while checking function documentation while checking theme (key {key})",
+    )
 }
 
 /// Port of module-level `vim_colorscheme_spec` binding from
@@ -671,9 +672,7 @@ pub fn shell_colorscheme_spec() -> spec::Spec {
 /// `type=` key differs between them and is added by the caller.
 pub fn segment_spec_base() -> spec::Spec {
     // py:226
-    let name_inner = spec::Spec::new()
-        .regex(r"^[a-zA-Z_]\w*$")
-        .optional();
+    let name_inner = spec::Spec::new().regex(r"^[a-zA-Z_]\w*$").optional();
     // py:227
     let function_inner = spec::Spec::new()
         .regex(r"^(\w+\.)*[a-zA-Z_]\w*$")
@@ -726,8 +725,7 @@ pub fn segment_spec_base() -> spec::Spec {
     // py:243
     let contents_inner = spec::Spec::new().printable().optional();
     // py:244-249
-    let highlight_group_item = highlight_group_spec()
-        .regex(r"^(?:(?!:divider$).)+$");
+    let highlight_group_item = highlight_group_spec().regex(r"^(?:(?!:divider$).)+$");
     let highlight_groups_inner = spec::Spec::new()
         .list(highlight_group_item)
         .func("check_highlight_groups")
@@ -1112,10 +1110,8 @@ pub fn theme_spec() -> spec::Spec {
         .optional()
         .context_message("Error while loading segment data (key {key})");
     // py:317  segments=segdict_spec().update(above=Spec().list(segdict_spec()).optional())
-    let segments_inner = segdict_spec().update(
-        "above",
-        spec::Spec::new().list(segdict_spec()).optional(),
-    );
+    let segments_inner =
+        segdict_spec().update("above", spec::Spec::new().list(segdict_spec()).optional());
     common_theme_spec()
         .update("dividers", dividers_spec().optional())
         .update("spaces", spaces_spec().optional())
@@ -1206,11 +1202,7 @@ pub fn colorscheme_spec() -> spec::Spec {
     s.context_message("Error while loading colorscheme")
 }
 
-pub fn check(
-    paths: Option<&[String]>,
-    debug: bool,
-    require_ext: Option<&str>,
-) -> bool {
+pub fn check(paths: Option<&[String]>, debug: bool, require_ext: Option<&str>) -> bool {
     let _ = (debug, require_ext);
     // py:412  hadproblem = False
     let mut hadproblem = false;
@@ -1235,9 +1227,7 @@ pub fn check(
             }
             // py:471-478  Reject `__name__`/`name__` filenames except __main__
             if let Some(name) = entry.name.as_deref() {
-                if name != "__main__"
-                    && (name.starts_with("__") || name.ends_with("__"))
-                {
+                if name != "__main__" && (name.starts_with("__") || name.ends_with("__")) {
                     eprintln!(
                         "powerline-lint: File name is not supposed to start or end with \u{201c}__\u{201d}: {}",
                         entry.path.display()
@@ -2139,11 +2129,26 @@ mod tests {
         // py:225-254  segment_spec_base lists 20 segment-config keys.
         let s = segment_spec_base();
         for k in &[
-            "name", "function", "exclude_modes", "include_modes",
-            "exclude_function", "include_function", "draw_hard_divider",
-            "draw_soft_divider", "draw_inner_divider", "display", "module",
-            "priority", "after", "before", "width", "align", "args",
-            "contents", "highlight_groups", "divider_highlight_group",
+            "name",
+            "function",
+            "exclude_modes",
+            "include_modes",
+            "exclude_function",
+            "include_function",
+            "draw_hard_divider",
+            "draw_soft_divider",
+            "draw_inner_divider",
+            "display",
+            "module",
+            "priority",
+            "after",
+            "before",
+            "width",
+            "align",
+            "args",
+            "contents",
+            "highlight_groups",
+            "divider_highlight_group",
         ] {
             assert!(s.get(k).is_some(), "missing key {k} in segment_spec_base");
         }

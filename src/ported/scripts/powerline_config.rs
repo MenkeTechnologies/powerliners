@@ -111,7 +111,10 @@ pub fn main(args: &[String]) -> i32 {
                     sh.to_uppercase(),
                     component.to_uppercase()
                 );
-                if std::env::var(&varname).map(|v| !v.is_empty()).unwrap_or(false) {
+                if std::env::var(&varname)
+                    .map(|v| !v.is_empty())
+                    .unwrap_or(false)
+                {
                     return 1;
                 }
             }

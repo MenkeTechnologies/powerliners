@@ -442,12 +442,7 @@ impl INotifyTreeWatcher {
     /// `add_wd` is the caller's inotify syscall hook (same shape as
     /// `add_watch`). Returns `Err(())` when the underlying syscall
     /// hits `ENOSPC` (caller surfaces `DirTooLarge`).
-    pub fn add_watches<F>(
-        &mut self,
-        base: &str,
-        top_level: bool,
-        add_wd: &mut F,
-    ) -> Result<(), ()>
+    pub fn add_watches<F>(&mut self, base: &str, top_level: bool, add_wd: &mut F) -> Result<(), ()>
     where
         F: FnMut(&str) -> Option<(i32, bool)>,
     {
@@ -915,6 +910,9 @@ mod tests {
         assert!(r.is_ok());
         assert_eq!(calls, 1);
         assert_eq!(w.watched_dirs.get("/data/synthetic_path"), Some(&100));
-        assert_eq!(w.watched_rmap.get(&100), Some(&"/data/synthetic_path".to_string()));
+        assert_eq!(
+            w.watched_rmap.get(&100),
+            Some(&"/data/synthetic_path".to_string())
+        );
     }
 }

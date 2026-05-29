@@ -420,9 +420,8 @@ pub fn source_tmux_files(
 ) -> Vec<std::path::PathBuf> {
     // py:73  tmux_version = tmux_version or get_tmux_version(pl)
     // py:74  source_tmux_file('powerline-base.conf')
-    let mut files = vec![
-        crate::ported::config::TMUX_CONFIG_DIRECTORY().join("powerline-base.conf")
-    ];
+    let mut files =
+        vec![crate::ported::config::TMUX_CONFIG_DIRECTORY().join("powerline-base.conf")];
     // py:75-76  for fname, priority in sorted(get_tmux_configs(tmux_version), key=...):
     for (fname, _priority) in sorted_tmux_configs(tmux_version) {
         files.push(fname);
@@ -465,7 +464,10 @@ pub fn init_tmux_environment(
 /// Surfaces the closure for parity; takes the
 /// colorscheme.get_highlighting closure as a caller-supplied
 /// resolver since the colorscheme isn't reachable as data here.
-pub fn get_highlighting<R>(group: &str, get_highlighting_fn: R) -> serde_json::Map<String, serde_json::Value>
+pub fn get_highlighting<R>(
+    group: &str,
+    get_highlighting_fn: R,
+) -> serde_json::Map<String, serde_json::Value>
 where
     R: FnOnce(&[&str], Option<&str>) -> serde_json::Map<String, serde_json::Value>,
 {
@@ -485,9 +487,7 @@ where
 /// Returns the (env_map, source_flag) pair; the actual `tmux
 /// setenv` / file-sourcing dispatch is caller-side since it
 /// needs the live tmux runtime.
-pub fn tmux_setup(
-    source: Option<bool>,
-) -> (std::collections::HashMap<String, String>, bool) {
+pub fn tmux_setup(source: Option<bool>) -> (std::collections::HashMap<String, String>, bool) {
     // py:182  def tmux_setup(pl, args):
     // py:183  tmux_environ = {}
     // py:184  tmux_version = get_tmux_version(pl)
@@ -1104,9 +1104,10 @@ mod tests {
     #[test]
     fn get_main_config_returns_err_when_no_config_found() {
         // py:218-221  no config.json in any search path → err
-        let r = get_main_config(&[std::path::PathBuf::from("/nonexistent_xxx")], |_| {
-            unreachable!()
-        });
+        let r = get_main_config(
+            &[std::path::PathBuf::from("/nonexistent_xxx")],
+            |_| unreachable!(),
+        );
         assert!(r.is_err());
         assert!(r.unwrap_err().contains("Could not find config.json"));
     }
@@ -1116,11 +1117,7 @@ mod tests {
         // py:218-221
         let tmp = std::env::temp_dir().join("powerliners_test_get_main_config");
         std::fs::create_dir_all(&tmp).unwrap();
-        std::fs::write(
-            tmp.join("config.json"),
-            r#"{"common":{},"ext":{}}"#,
-        )
-        .unwrap();
+        std::fs::write(tmp.join("config.json"), r#"{"common":{},"ext":{}}"#).unwrap();
         let r = get_main_config(&[tmp.clone()], |path| {
             let s = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
             serde_json::from_str(&s).map_err(|e| e.to_string())
@@ -1174,9 +1171,11 @@ mod tests {
         // py:74 always sources powerline-base.conf first
         let v = ver(2.0, 0);
         let files = source_tmux_files(&v);
-        let base = files
-            .iter()
-            .find(|p| p.file_name().map(|s| s == "powerline-base.conf").unwrap_or(false));
+        let base = files.iter().find(|p| {
+            p.file_name()
+                .map(|s| s == "powerline-base.conf")
+                .unwrap_or(false)
+        });
         assert!(base.is_some());
     }
 

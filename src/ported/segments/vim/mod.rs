@@ -878,8 +878,20 @@ pub fn visual_range(
     v_text: &str,
 ) -> Option<String> {
     // py:120  def visual_range(pl, segment_info, ...):
-    let r = visual_range_text(mode, rows, vcols, ctrl_v_text, v_text_oneline, v_text_multiline, v_text);
-    if r.is_empty() { None } else { Some(r) }
+    let r = visual_range_text(
+        mode,
+        rows,
+        vcols,
+        ctrl_v_text,
+        v_text_oneline,
+        v_text_multiline,
+        v_text,
+    );
+    if r.is_empty() {
+        None
+    } else {
+        Some(r)
+    }
 }
 
 /// Port of `file_directory()` from
@@ -921,11 +933,7 @@ pub fn file_directory(
 /// the buffer has no name and `display_no_file=True`. Python
 /// reads `vim.current.buffer.name`; Rust port takes the
 /// pre-resolved name.
-pub fn file_name(
-    name: Option<&str>,
-    display_no_file: bool,
-    no_file_text: &str,
-) -> Option<String> {
+pub fn file_name(name: Option<&str>, display_no_file: bool, no_file_text: &str) -> Option<String> {
     // py:291  def file_name(pl, segment_info, display_no_file=False, no_file_text='[No file]'):
     match name {
         Some(n) if !n.is_empty() => Some(n.to_string()),
@@ -967,7 +975,10 @@ pub fn file_vcs_status(
         return None;
     }
     let mut seg = serde_json::Map::new();
-    seg.insert("contents".to_string(), serde_json::Value::String(status.to_string()));
+    seg.insert(
+        "contents".to_string(),
+        serde_json::Value::String(status.to_string()),
+    );
     if let Some(hg) = highlight_group {
         seg.insert(
             "highlight_groups".to_string(),
