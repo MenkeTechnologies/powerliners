@@ -2192,6 +2192,64 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_delayed_echoerr_echo_all_full_dispatch_sequence() {
+    if !python_available() {
+        return;
+    }
+    // DelayedEchoErr.echo_all — py:227-236:
+    //   if message:                   echoerr(problem=message, indent=parent.indent)
+    //   for each variant:
+    //     if non-first and sep_msg:   echoerr(problem=sep, indent=parent.indent)
+    //     dispatch each kwargs entry through echoerr
+    //
+    // Verify the FULL sequence Python's parent echoerr receives matches
+    // Rust's echo_all() return value byte-for-byte (4 entries for this
+    // case: header, c1, separator, c2).
+    let py = match py_eval(
+        "(lambda EE, DEE: (lambda captured, d: (d(context='c1', problem='p1'), d.next_variant(), d(context='c2', problem='p2'), d.echo_all(), __import__('json').dumps(captured, sort_keys=True))[4])([], DEE((lambda c: EE(lambda **kw: c.append(dict(kw)), object(), indent=4))((lambda x: x)([])), message='Outer msg', separator_message='Sep msg')))(__import__('powerline.lint.markedjson.error', fromlist=['EchoErr']).EchoErr, __import__('powerline.lint.markedjson.error', fromlist=['DelayedEchoErr']).DelayedEchoErr)"
+    ) {
+        Some(_) => "ok",
+        None => return,
+    };
+    let _ = py;
+
+    // Use an exec-based approach since the deeply nested lambda
+    // chains hit Python's closure capture limitations.
+    let py_final = py_eval(
+        "(lambda exec_str: (lambda d: (__import__('builtins').exec(exec_str, d), __import__('json').dumps(d['captured'], sort_keys=True))[1])({'captured': []}))('from powerline.lint.markedjson.error import EchoErr, DelayedEchoErr\\nee = EchoErr(lambda **kw: captured.append(dict(kw)), object(), indent=4)\\nd = DelayedEchoErr(ee, message=\"Outer msg\", separator_message=\"Sep msg\")\\nd(context=\"c1\", problem=\"p1\")\\nd.next_variant()\\nd(context=\"c2\", problem=\"p2\")\\nd.echo_all()')"
+    ).expect("py_eval failed");
+    let py_value: serde_json::Value = serde_json::from_str(&py_final).expect("py JSON malformed");
+    let expected = serde_json::json!([
+        {"problem": "Outer msg", "indent": 4},
+        {"context": "c1", "problem": "p1", "indent": 8},
+        {"problem": "Sep msg", "indent": 4},
+        {"context": "c2", "problem": "p2", "indent": 8}
+    ]);
+    assert_eq!(
+        py_value, expected,
+        "Python echo_all dispatch sequence fixture drift"
+    );
+
+    use powerliners::lint::markedjson::error::DelayedEchoErr;
+    let mut d = DelayedEchoErr::new(4, "Outer msg", "Sep msg");
+    d.call(serde_json::Map::from_iter(vec![
+        ("context".to_string(), serde_json::Value::from("c1")),
+        ("problem".to_string(), serde_json::Value::from("p1")),
+    ]));
+    d.next_variant();
+    d.call(serde_json::Map::from_iter(vec![
+        ("context".to_string(), serde_json::Value::from("c2")),
+        ("problem".to_string(), serde_json::Value::from("p2")),
+    ]));
+
+    let rs_value = serde_json::to_value(d.echo_all()).expect("Rust echo_all JSON encode");
+    assert_eq!(
+        rs_value, expected,
+        "Rust DelayedEchoErr.echo_all sequence mismatch"
+    );
+}
+
+#[test]
 fn parity_delayed_echoerr_call_accumulates_and_next_variant_buckets() {
     if !python_available() {
         return;
