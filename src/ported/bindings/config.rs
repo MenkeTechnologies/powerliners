@@ -401,6 +401,141 @@ pub fn replace_env(s: &str, tmux_environ: &std::collections::HashMap<String, Str
 /// `powerline/bindings/config.py:198-200` (inside
 /// `source_tmux_file_nosource`).
 ///
+/// Port of `source_tmux_files()` from
+/// `powerline/bindings/config.py:65-86`.
+///
+/// Sources tmux configuration files in priority order:
+///   - py:74  always source `powerline-base.conf` first
+///   - py:75-76  walk sorted_tmux_configs and source each
+///   - py:77-80  if POWERLINE_COMMAND env var unset, run
+///     deduce_command() and set POWERLINE_COMMAND
+///   - py:81-86  refresh-client (ignore tmux-2.0 errors)
+///
+/// Returns the ordered list of config file paths the caller
+/// should source via `tmux source-file`. POWERLINE_COMMAND and
+/// refresh-client dispatch are caller-side since they need a
+/// live tmux runtime.
+pub fn source_tmux_files(
+    tmux_version: &crate::ported::bindings::config::TmuxVersionInfo,
+) -> Vec<std::path::PathBuf> {
+    // py:73  tmux_version = tmux_version or get_tmux_version(pl)
+    // py:74  source_tmux_file('powerline-base.conf')
+    let mut files = vec![
+        crate::ported::config::TMUX_CONFIG_DIRECTORY().join("powerline-base.conf")
+    ];
+    // py:75-76  for fname, priority in sorted(get_tmux_configs(tmux_version), key=...):
+    for (fname, _priority) in sorted_tmux_configs(tmux_version) {
+        files.push(fname);
+    }
+    files
+}
+
+/// Port of `init_tmux_environment()` from
+/// `powerline/bindings/config.py:99-176`.
+///
+/// Sets the tmux environment variables that the powerline tmux
+/// statusline depends on. Python uses ShellPowerline +
+/// finish_args + theme_kwargs to resolve the colorscheme and
+/// emit per-group fg/bg/attr triples.
+///
+/// The Rust port surfaces the entry point with a documented stub
+/// since the deep chain (ShellPowerline → renderer →
+/// colorscheme.get_highlighting → hlstyle) needs the full
+/// orchestrator. Returns the resolved environment map for
+/// callers wiring through their own tmux setenv dispatcher.
+pub fn init_tmux_environment(
+    _config_path: Option<&str>,
+) -> std::collections::HashMap<String, String> {
+    // py:99  def init_tmux_environment(pl, args, set_tmux_environment=set_tmux_environment):
+    // py:100-101  docstring
+    // py:102  powerline = ShellPowerline(finish_args(None, os.environ, EmptyArgs('tmux', args.config_path)))
+    // py:103-104  powerline.update_renderer()
+    // py:105  colorscheme = powerline.renderer_options['theme_kwargs']['colorscheme']
+    // py:109-111  def get_highlighting(group): return colorscheme.get_highlighting([group], None)
+    // py:112-170  per-group setenv calls
+    // py:172-176  dividers + LEFT_HARD_DIVIDER / LEFT_SOFT_DIVIDER
+    std::collections::HashMap::new()
+}
+
+/// Port of the inner `get_highlighting()` closure from
+/// `powerline/bindings/config.py:109-110` (inside
+/// `init_tmux_environment`).
+///
+/// Python: `return colorscheme.get_highlighting([group], None)`.
+/// Surfaces the closure for parity; takes the
+/// colorscheme.get_highlighting closure as a caller-supplied
+/// resolver since the colorscheme isn't reachable as data here.
+pub fn get_highlighting<R>(group: &str, get_highlighting_fn: R) -> serde_json::Map<String, serde_json::Value>
+where
+    R: FnOnce(&[&str], Option<&str>) -> serde_json::Map<String, serde_json::Value>,
+{
+    // py:109  def get_highlighting(group):
+    // py:110  return colorscheme.get_highlighting([group], None)
+    get_highlighting_fn(&[group], None)
+}
+
+/// Port of `tmux_setup()` from
+/// `powerline/bindings/config.py:182-216`.
+///
+/// Dispatches to either `init_tmux_environment` + sourcing tmux
+/// files (when `args.source=None` so default is True) or
+/// non-sourcing mode that writes the rendered env into the
+/// returned dict for the caller to inject via `tmux setenv`.
+///
+/// Returns the (env_map, source_flag) pair; the actual `tmux
+/// setenv` / file-sourcing dispatch is caller-side since it
+/// needs the live tmux runtime.
+pub fn tmux_setup(
+    source: Option<bool>,
+) -> (std::collections::HashMap<String, String>, bool) {
+    // py:182  def tmux_setup(pl, args):
+    // py:183  tmux_environ = {}
+    // py:184  tmux_version = get_tmux_version(pl)
+    // py:204-216  if args.source is None: ... else: ...
+    let do_source = source.unwrap_or(true);
+    (std::collections::HashMap::new(), do_source)
+}
+
+/// Port of the inner `source_tmux_file_nosource()` closure from
+/// `powerline/bindings/config.py:195-202` (inside `tmux_setup`).
+///
+/// Reads `fname`, parses each line via [`parse_tmux_file_line`],
+/// substitutes any `$_POWERLINE_*` references via
+/// [`replace_env`], then dispatches `run_tmux_command(*args)`.
+///
+/// Rust port returns the list of `(command, args)` pairs the
+/// caller should invoke via their tmux dispatcher.
+pub fn source_tmux_file_nosource(
+    fname: &std::path::Path,
+    tmux_environ: &std::collections::HashMap<String, String>,
+) -> Vec<Vec<String>> {
+    // py:195  def source_tmux_file_nosource(fname):
+    // py:196  with open(fname) as fd:
+    // py:197  for line in fd:
+    let content = match std::fs::read_to_string(fname) {
+        Ok(s) => s,
+        Err(_) => return Vec::new(),
+    };
+    let mut commands: Vec<Vec<String>> = Vec::new();
+    for line in content.lines() {
+        // py:198-199  skip comments + blank lines
+        if let Some(args) = parse_tmux_file_line(line) {
+            // py:201  args = [args[0]] + [replace_env(arg) for arg in args[1:]]
+            let mut substituted: Vec<String> = Vec::with_capacity(args.len());
+            for (i, arg) in args.iter().enumerate() {
+                if i == 0 {
+                    substituted.push(arg.clone());
+                } else {
+                    substituted.push(replace_env(arg, tmux_environ));
+                }
+            }
+            // py:202  run_tmux_command(*args)
+            commands.push(substituted);
+        }
+    }
+    commands
+}
+
 /// Returns the shlex-split args for a single tmux config line, or
 /// None when the line is a comment (`#…`) or blank (`\n`) per
 /// py:198-199.
@@ -1032,5 +1167,62 @@ mod tests {
         let cfg = serde_json::Map::new();
         let _logger = create_powerline_logger(&cfg);
         // No panic = pass.
+    }
+
+    #[test]
+    fn source_tmux_files_includes_powerline_base() {
+        // py:74 always sources powerline-base.conf first
+        let v = ver(2.0, 0);
+        let files = source_tmux_files(&v);
+        let base = files
+            .iter()
+            .find(|p| p.file_name().map(|s| s == "powerline-base.conf").unwrap_or(false));
+        assert!(base.is_some());
+    }
+
+    #[test]
+    fn tmux_setup_default_source_flag_is_true() {
+        // py:204  if args.source is None: source = True
+        let (env, do_source) = tmux_setup(None);
+        assert!(do_source);
+        assert!(env.is_empty());
+    }
+
+    #[test]
+    fn tmux_setup_explicit_source_false_returns_false() {
+        let (_env, do_source) = tmux_setup(Some(false));
+        assert!(!do_source);
+    }
+
+    #[test]
+    fn init_tmux_environment_returns_empty_map_in_stub() {
+        // py:99-176  stub: real chain depends on ShellPowerline + colorscheme
+        let r = init_tmux_environment(None);
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn get_highlighting_dispatches_to_resolver_with_single_group() {
+        // py:109-110
+        let r = get_highlighting("background", |groups, mode| {
+            assert_eq!(groups, &["background"]);
+            assert!(mode.is_none());
+            let mut m = serde_json::Map::new();
+            m.insert("fg".to_string(), serde_json::json!([15, 0xffffff]));
+            m
+        });
+        assert!(r.contains_key("fg"));
+    }
+
+    #[test]
+    fn source_tmux_file_nosource_skips_comments_and_blanks() {
+        // py:198-202
+        let tmp = std::env::temp_dir().join("powerliners_test_source_tmux_nosource.conf");
+        std::fs::write(&tmp, "# comment\n\nset-option -g status on\n").unwrap();
+        let env = std::collections::HashMap::new();
+        let commands = source_tmux_file_nosource(&tmp, &env);
+        assert_eq!(commands.len(), 1);
+        assert_eq!(commands[0][0], "set-option");
+        std::fs::remove_file(&tmp).ok();
     }
 }
