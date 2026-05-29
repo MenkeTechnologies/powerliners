@@ -129,18 +129,24 @@ mod tests {
     #[test]
     fn read_to_log_does_not_panic_on_success() {
         let out = std::process::Output {
-            status: std::process::Command::new("true").status().unwrap_or_else(|_| {
-                // Fallback for systems without /bin/true — fabricate a success.
-                #[cfg(unix)]
-                {
-                    use std::os::unix::process::ExitStatusExt;
-                    std::process::ExitStatus::from_raw(0)
-                }
-                #[cfg(not(unix))]
-                {
-                    std::process::Command::new("cmd").arg("/c").arg("exit 0").status().unwrap()
-                }
-            }),
+            status: std::process::Command::new("true")
+                .status()
+                .unwrap_or_else(|_| {
+                    // Fallback for systems without /bin/true — fabricate a success.
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::process::ExitStatusExt;
+                        std::process::ExitStatus::from_raw(0)
+                    }
+                    #[cfg(not(unix))]
+                    {
+                        std::process::Command::new("cmd")
+                            .arg("/c")
+                            .arg("exit 0")
+                            .status()
+                            .unwrap()
+                    }
+                }),
             stdout: b"hello\nworld\n".to_vec(),
             stderr: Vec::new(),
         };

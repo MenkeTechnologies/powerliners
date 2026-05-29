@@ -143,7 +143,7 @@ mod tests {
     fn parse_value_number() {
         assert_eq!(parse_value("42"), json!(42));
         assert_eq!(parse_value("-3"), json!(-3));
-        assert_eq!(parse_value("3.14"), json!(3.14));
+        assert_eq!(parse_value("2.5"), json!(2.5_f64));
     }
 
     #[test]

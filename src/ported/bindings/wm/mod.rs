@@ -31,7 +31,7 @@ use std::sync::OnceLock;
 /// Port of module-level binding `DEFAULT_UPDATE_INTERVAL` from
 /// `powerline/bindings/wm/__init__.py:11`.
 #[allow(non_upper_case_globals)]
-pub const DEFAULT_UPDATE_INTERVAL: f64 = 0.5;        // py:11
+pub const DEFAULT_UPDATE_INTERVAL: f64 = 0.5; // py:11
 
 // py:14  conn = None
 // Module-level i3 connection cache. Bucket-2 per PORT_PLAN.md
@@ -114,12 +114,7 @@ pub struct XrandrOutput {
 /// upstream walks are bounded.
 pub fn get_connected_xrandr_outputs(pl: &()) -> Vec<XrandrOutput> {
     // py:65-67  run_cmd(pl, ['xrandr', '-q'])
-    let output = match run_cmd(
-        pl,
-        &["xrandr".to_string(), "-q".to_string()],
-        None,
-        true,
-    ) {
+    let output = match run_cmd(pl, &["xrandr".to_string(), "-q".to_string()], None, true) {
         Some(s) => s,
         None => return Vec::new(),
     };
@@ -127,12 +122,27 @@ pub fn get_connected_xrandr_outputs(pl: &()) -> Vec<XrandrOutput> {
     let re = XRANDR_OUTPUT_RE();
     re.captures_iter(&output)
         .map(|cap| XrandrOutput {
-            name: cap.name("name").map(|m| m.as_str().to_string()).unwrap_or_default(),
+            name: cap
+                .name("name")
+                .map(|m| m.as_str().to_string())
+                .unwrap_or_default(),
             primary: cap.name("primary").is_some(),
-            width: cap.name("width").and_then(|m| m.as_str().parse().ok()).unwrap_or(0),
-            height: cap.name("height").and_then(|m| m.as_str().parse().ok()).unwrap_or(0),
-            x: cap.name("x").and_then(|m| m.as_str().parse().ok()).unwrap_or(0),
-            y: cap.name("y").and_then(|m| m.as_str().parse().ok()).unwrap_or(0),
+            width: cap
+                .name("width")
+                .and_then(|m| m.as_str().parse().ok())
+                .unwrap_or(0),
+            height: cap
+                .name("height")
+                .and_then(|m| m.as_str().parse().ok())
+                .unwrap_or(0),
+            x: cap
+                .name("x")
+                .and_then(|m| m.as_str().parse().ok())
+                .unwrap_or(0),
+            y: cap
+                .name("y")
+                .and_then(|m| m.as_str().parse().ok())
+                .unwrap_or(0),
         })
         .collect()
 }
