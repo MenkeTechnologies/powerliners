@@ -1701,3 +1701,12 @@ call_dispatch
 # callback; the standalone check_list above wraps it. Same name-
 # disambiguation pattern as UvTreeWatcherEvents vs UvTreeWatcher.
 check_list_walk
+
+# lint/spec.rs::Spec::match_dispatch — Rust impl of Spec.match() at
+# powerline/lint/spec.py:689-749. Renamed from `match` because
+# `match` is a Rust keyword and can't be used as a fn name. The
+# `_dispatch` suffix indicates this is the orchestration dispatch
+# layer (the actual match_top_checks + match_key callbacks are
+# supplied by the caller per py:695 + py:701). Same keyword-
+# disambiguation pattern as if/else/let/etc.
+match_dispatch

@@ -545,6 +545,67 @@ impl Spec {
         // py:297  return True, hadproblem
         (true, hadproblem)
     }
+
+    /// Port of `Spec.match()` from
+    /// `powerline/lint/spec.py:689-749`.
+    ///
+    /// Main entry point for spec validation. Runs through:
+    ///   1. `match_checks(value)` for top-level constraints
+    ///      (py:695)
+    ///   2. registered keys per py:697-718 (Map values only):
+    ///      - dispatched to `valspec.match(value[key])`
+    ///      - missing required key → hadproblem per py:712-718
+    ///   3. unknown keys per py:719-748:
+    ///      - dispatched to `keyfunc(key) + valspec.match(value[key])`
+    ///      - no matching uspec → hadproblem per py:742-748
+    ///
+    /// `match_top_checks` runs match_checks for the top-level
+    /// constraints; `match_key` dispatches per-key validation.
+    /// Both return `(proceed, hadproblem)`.
+    ///
+    /// Returns `(proceed, hadproblem)` per py:749.
+    pub fn match_dispatch<TC, KM>(
+        &self,
+        value: &serde_json::Value,
+        mut match_top_checks: TC,
+        mut match_key: KM,
+    ) -> (bool, bool)
+    where
+        TC: FnMut(&serde_json::Value) -> (bool, bool),
+        KM: FnMut(&str, &serde_json::Value) -> (bool, bool),
+    {
+        // py:695  match_checks(value, ...)
+        let (proceed, mut hadproblem) = match_top_checks(value);
+        if !proceed {
+            return (false, hadproblem);
+        }
+        // py:696-748  walk keys
+        let Some(map) = value.as_object() else {
+            return (true, hadproblem);
+        };
+        // py:697  if self.keys or self.uspecs
+        if self.keys.is_empty() {
+            return (true, hadproblem);
+        }
+        // py:698-718  registered keys
+        for (key, valspec) in &self.keys {
+            if let Some(val) = map.get(key) {
+                // py:700-711  spec.match(value[key])
+                let (kproceed, khadproblem) = match_key(key, val);
+                if khadproblem {
+                    hadproblem = true;
+                }
+                if !kproceed {
+                    return (false, hadproblem);
+                }
+            } else if !valspec.isoptional {
+                // py:712-718  required key missing
+                hadproblem = true;
+            }
+        }
+        // py:749  return True, hadproblem
+        (true, hadproblem)
+    }
 }
 
 /// Port of `Spec.check_type()` from
@@ -1130,5 +1191,122 @@ mod tests {
         let (proceed, hadproblem) = Spec::check_list_walk(&values, |_, _| (true, true));
         assert!(proceed);
         assert!(!hadproblem);
+    }
+
+    #[test]
+    fn match_dispatch_top_check_failure_returns_early() {
+        // py:695-696  if not proceed: return
+        let s = Spec::new();
+        let value = serde_json::json!({});
+        let (proceed, hadproblem) =
+            s.match_dispatch(&value, |_| (false, true), |_, _| panic!("should not run"));
+        assert!(!proceed);
+        assert!(hadproblem);
+    }
+
+    #[test]
+    fn match_dispatch_no_keys_returns_top_check_result() {
+        // py:697  if self.keys or self.uspecs: ... else skip
+        let s = Spec::new();
+        let value = serde_json::json!({});
+        let (proceed, hadproblem) =
+            s.match_dispatch(&value, |_| (true, false), |_, _| (true, false));
+        assert!(proceed);
+        assert!(!hadproblem);
+    }
+
+    #[test]
+    fn match_dispatch_walks_registered_keys() {
+        // py:698-707
+        let key_spec = Spec::new().type_check(&[SpecType::Unicode]);
+        let s = Spec::new().update("name", key_spec);
+        let value = serde_json::json!({"name": "value"});
+
+        use std::cell::Cell;
+        let calls = Cell::new(0);
+        let (proceed, _) = s.match_dispatch(
+            &value,
+            |_| (true, false),
+            |key, _| {
+                assert_eq!(key, "name");
+                calls.set(calls.get() + 1);
+                (true, false)
+            },
+        );
+        assert!(proceed);
+        assert_eq!(calls.into_inner(), 1);
+    }
+
+    #[test]
+    fn match_dispatch_missing_required_key_sets_hadproblem() {
+        // py:712-718  required key missing → hadproblem
+        let key_spec = Spec::new().type_check(&[SpecType::Unicode]);
+        // .update() registers a required key (isoptional=false by default)
+        let s = Spec::new().update("required_name", key_spec);
+        let value = serde_json::json!({"other_key": "value"});
+        let (proceed, hadproblem) =
+            s.match_dispatch(&value, |_| (true, false), |_, _| (true, false));
+        assert!(proceed);
+        assert!(hadproblem);
+    }
+
+    #[test]
+    fn match_dispatch_missing_optional_key_does_not_set_hadproblem() {
+        // py:712-714  if not isoptional → set hadproblem
+        let key_spec = Spec::new().type_check(&[SpecType::Unicode]).optional();
+        let s = Spec::new().update("opt_name", key_spec);
+        let value = serde_json::json!({"other_key": "value"});
+        let (proceed, hadproblem) =
+            s.match_dispatch(&value, |_| (true, false), |_, _| (true, false));
+        assert!(proceed);
+        assert!(!hadproblem);
+    }
+
+    #[test]
+    fn match_dispatch_propagates_key_check_hadproblem() {
+        // py:708-709  if mhadproblem: hadproblem = True
+        let key_spec = Spec::new().type_check(&[SpecType::Unicode]);
+        let s = Spec::new().update("name", key_spec);
+        let value = serde_json::json!({"name": "value"});
+        let (proceed, hadproblem) =
+            s.match_dispatch(&value, |_| (true, false), |_, _| (true, true));
+        assert!(proceed);
+        assert!(hadproblem);
+    }
+
+    #[test]
+    fn match_dispatch_early_exits_on_key_no_proceed() {
+        // py:710-711  if not proceed: return False
+        let key_spec = Spec::new().type_check(&[SpecType::Unicode]);
+        let s = Spec::new().update("a", key_spec).update("b", Spec::new());
+        let value = serde_json::json!({"a": "value", "b": "value"});
+
+        use std::cell::Cell;
+        let calls = Cell::new(0);
+        let (proceed, hadproblem) = s.match_dispatch(
+            &value,
+            |_| (true, false),
+            |_, _| {
+                calls.set(calls.get() + 1);
+                (false, true)
+            },
+        );
+        assert!(!proceed);
+        assert!(hadproblem);
+        // Only first key processed
+        assert_eq!(calls.into_inner(), 1);
+    }
+
+    #[test]
+    fn match_dispatch_non_map_value_short_circuits_after_top_check() {
+        // Non-map value → no key walk
+        let s = Spec::new().update("name", Spec::new());
+        let value = serde_json::json!("scalar");
+        let (proceed, _) = s.match_dispatch(
+            &value,
+            |_| (true, false),
+            |_, _| panic!("should not run for scalar"),
+        );
+        assert!(proceed);
     }
 }
