@@ -1,0 +1,3429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="powerliners port report — per-py-file coverage of the Rust port against upstream powerline-status.">
+  <title>powerliners — Port Report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&amp;family=Share+Tech+Mono&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="hud-static.css">
+  <style>
+    .report-main { max-width: 86rem; padding: 1.5rem 1.5rem 4rem; margin: 0 auto; }
+    .stat-row { display: flex; gap: 14px; flex-wrap: wrap; margin: 1rem 0 1.5rem; }
+    .stat-card {
+      background: var(--bg-card); border: 1px solid var(--cyan); border-radius: 2px;
+      padding: 10px 16px; box-shadow: 0 0 12px var(--cyan-dim); min-width: 8rem;
+    }
+    .stat-card .n {
+      font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 900;
+      color: var(--cyan); letter-spacing: 1.5px;
+    }
+    .stat-card .l {
+      font-size: 9.5px; letter-spacing: 1.5px; color: var(--text-muted);
+      text-transform: uppercase; margin-top: 2px;
+    }
+    table.port {
+      width: 100%; border-collapse: collapse; font-size: 11.5px;
+      font-family: 'Share Tech Mono', ui-monospace, monospace;
+    }
+    table.port th {
+      background: var(--bg-secondary); color: var(--cyan);
+      font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700;
+      letter-spacing: 1px; text-transform: uppercase; text-align: left;
+      padding: 6px 8px; border: 1px solid var(--border); position: sticky; top: 0;
+    }
+    table.port td { padding: 5px 8px; border: 1px solid var(--border); vertical-align: top; }
+    table.port tr.zero td { background: color-mix(in srgb, #f55 8%, transparent); }
+    table.port tr.partial td { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+    table.port tr.full td { background: color-mix(in srgb, var(--cyan) 6%, transparent); }
+    table.port td.coverage { text-align: right; font-weight: 700; color: var(--cyan); }
+    table.port tr.zero td.coverage { color: #f55; }
+    table.port tr.full td.coverage { color: #39ff14; }
+    table.port td code { background: var(--bg); color: var(--accent-light); padding: 0 4px; }
+    .group-title {
+      font-family: 'Orbitron', sans-serif; font-size: 12px;
+      letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--accent); margin: 1.6rem 0 0.4rem;
+    }
+    .report-header {
+      border-bottom: 1px solid var(--border); padding: 1.2rem 1.5rem;
+      background: linear-gradient(180deg, #070714 0%, #0d0d22 60%, var(--bg-secondary) 100%);
+    }
+    .report-header-inner { max-width: 86rem; margin: 0 auto; }
+    .report-brand {
+      font-family: 'Orbitron', sans-serif; font-size: 1.5rem; font-weight: 900;
+      letter-spacing: 2.5px; text-transform: uppercase;
+      background: linear-gradient(90deg, var(--cyan), #fff, var(--accent), var(--cyan));
+      background-size: 300% 100%;
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 12px var(--cyan-glow));
+      margin: 0 0 0.4rem;
+    }
+    .report-crumbs {
+      font-family: 'Share Tech Mono', ui-monospace, monospace;
+      font-size: 11px; color: var(--text-dim); letter-spacing: 0.04em;
+    }
+    .report-crumbs a { color: var(--cyan); text-decoration: none; }
+    .report-crumbs .sep { color: var(--text-muted); margin: 0 6px; }
+    .report-crumbs .current { color: var(--accent); }
+
+  </style>
+</head>
+<body class="crt">
+<!--PORT-REPORT-SCHEMA
+columns:
+  py_file       upstream .py source path (relative to powerline/ clone root)
+  rs_file       expected Rust counterpart (relative to powerliners/ repo root)
+  rs_exists     true iff a file at rs_file is present in src/ported/
+  py_fn_total   count of top-level `def NAME(` in py_file
+  ported_count  count of py fns whose name appears in rs_file's `fn NAME` set
+  missing_count py_fn_total - ported_count
+  rs_extra      Rust fns in rs_file whose name does NOT appear in upstream py
+                (these need to be in tests/data/fake_fn_allowlist.txt to pass
+                the audit test — see tests/ported_fn_names_match_py.rs)
+  coverage      ported_count / py_fn_total (0.0 to 1.0)
+-->
+
+<header class="report-header"><div class="report-header-inner">
+  <h1 class="report-brand">// POWERLINERS — PORT REPORT</h1>
+  <nav class="report-crumbs" aria-label="Breadcrumb">
+    <a href="index.html">Docs</a>
+    <span class="sep">/</span>
+    <a href="report.html">Engineering report</a>
+    <span class="sep">/</span>
+    <span class="current">Port report</span>
+    <span class="sep">/</span>
+    <a href="https://github.com/MenkeTechnologies/powerliners" target="_blank" rel="noopener noreferrer">GitHub</a>
+  </nav>
+  <p style="margin-top:.5rem;color:var(--text-dim);font-family:'Share Tech Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.04em">Generated 2026-05-28 from upstream <code>11808cbe5c16</code></p>
+</div></header>
+<main class="report-main">
+<div class="stat-row">
+  <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
+  <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
+  <div class="stat-card"><div class="n">80</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">302</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">7.8%</div><div class="l">overall coverage</div></div>
+</div>
+<h2 class="group-title">// PER-FILE COVERAGE</h2>
+<table class="port">
+  <thead><tr>
+    <th>upstream py</th><th>rust port</th><th>py fns</th><th>ported</th><th>missing</th><th>rs extra</th><th class="coverage">cov</th>
+  </tr></thead><tbody>
+  <!-- BEGIN-GROUP py_file=powerline/lib/threaded.py -->
+  <tr class="partial"><td><code>lib/threaded.py</code></td><td>✔ <code>lib/threaded.rs</code></td><td>29</td><td><code>is_alive</code>, <code>join</code></td><td><code>__init__</code>, <code>start</code>, <code>__init__</code>, <code>__call__</code>, <code>set_update_value</code>, <code>get_update_value</code>, <code>run</code>, <code>shutdown</code>, <code>set_interval</code>, <code>set_state</code>, <code>startup</code>, <code>critical</code>, <code>exception</code>, <code>info</code>, <code>error</code>, <code>warn</code>, <code>debug</code>, <code>argspecobjs</code>, <code>additional_args</code>, <code>omitted_args</code>, <code>__init__</code>, <code>key</code>, <code>render</code>, <code>update_one</code>, <code>update</code>, <code>set_state</code>, <code>render_one</code></td><td><code>default</code>, <code>new</code>, <code>start_with</code>, <code>set_shutdown</code>, <code>new_thread_is_not_alive</code>, <code>start_then_join_runs_closure</code>, <code>set_shutdown_signals_the_thread</code></td><td class="coverage">7%</td></tr>
+  <!-- SYM py_file=powerline/lib/threaded.py rs_file=src/ported/lib/threaded.rs rs_exists=True py_fn_total=29 ported_count=2 missing_count=27 rs_extra_count=7 coverage=0.0690 -->
+  <!-- END-GROUP py_file=powerline/lib/threaded.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/config.py -->
+  <tr class="partial"><td><code>lib/config.py</code></td><td>✔ <code>lib/config.rs</code></td><td>21</td><td><code>open_file</code>, <code>load_json_config</code>, <code>watch</code>, <code>watch</code>, <code>unwatch</code>, <code>transfer_calls</code></td><td><code>__call__</code>, <code>__init__</code>, <code>__call__</code>, <code>__init__</code>, <code>set_watcher</code>, <code>set_pl</code>, <code>set_interval</code>, <code>register</code>, <code>register_missing</code>, <code>unregister_functions</code>, <code>unregister_missing</code>, <code>load</code>, <code>update</code>, <code>run</code>, <code>exception</code></td><td><code>check</code>, <code>default</code>, <code>new</code>, <code>check</code>, <code>tmp_json</code>, <code>open_file_reads_utf8_contents</code>, <code>load_json_config_parses_basic</code>, <code>load_json_config_returns_err_on_bad_json</code>, <code>dummy_watcher_always_returns_false</code>, <code>deferred_watcher_queues_calls</code></td><td class="coverage">29%</td></tr>
+  <!-- SYM py_file=powerline/lib/config.py rs_file=src/ported/lib/config.rs rs_exists=True py_fn_total=21 ported_count=6 missing_count=15 rs_extra_count=10 coverage=0.2857 -->
+  <!-- END-GROUP py_file=powerline/lib/config.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/config.py -->
+  <tr class="partial"><td><code>bindings/config.py</code></td><td>✔ <code>bindings/config.rs</code></td><td>18</td><td><code>list_all_tmux_configs</code>, <code>get_tmux_configs</code></td><td><code>source_tmux_files</code>, <code>__init__</code>, <code>__getattr__</code>, <code>init_tmux_environment</code>, <code>get_highlighting</code>, <code>tmux_setup</code>, <code>set_tmux_environment_nosource</code>, <code>replace_cb</code>, <code>replace_env</code>, <code>source_tmux_file_nosource</code>, <code>get_main_config</code>, <code>create_powerline_logger</code>, <code>check_command</code>, <code>deduce_command</code>, <code>shell_command</code>, <code>uses</code></td><td><code>CONFIG_FILE_NAME</code>, <code>applies</code>, <code>priority</code>, <code>ver</code>, <code>config_file_name_matches_standard_format</code>, <code>exact_matcher_requires_same_major_minor</code>, <code>plus_matcher_applies_when_file_lte_tmux</code>, <code>minus_matcher_applies_when_file_gte_tmux</code>, <code>priority_order_matches_upstream</code></td><td class="coverage">11%</td></tr>
+  <!-- SYM py_file=powerline/bindings/config.py rs_file=src/ported/bindings/config.rs rs_exists=True py_fn_total=18 ported_count=2 missing_count=16 rs_extra_count=9 coverage=0.1111 -->
+  <!-- END-GROUP py_file=powerline/bindings/config.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segment.py -->
+  <tr class="partial"><td><code>segment.py</code></td><td>✔ <code>segment.rs</code></td><td>15</td><td><code>list_segment_key_values</code>, <code>get_segment_key</code>, <code>get_string</code>, <code>set_segment_highlighting</code></td><td><code>get_function</code>, <code>get_attr_func</code>, <code>expand_func</code>, <code>process_segment_lister</code>, <code>process_segment</code>, <code>gen_segment_getter</code>, <code>get_key</code>, <code>get_selector</code>, <code>get_segment_selector</code>, <code>gen_display_condition</code>, <code>get</code></td><td><code>always_true</code>, <code>get_fallback_segment</code>, <code>always_true_is_always_true</code>, <code>get_fallback_segment_has_expected_shape</code>, <code>list_segment_key_values_finds_segment_key_first</code>, <code>get_segment_key_merge_collapses_dicts_old_wins</code>, <code>get_segment_key_no_merge_returns_first</code>, <code>set_segment_highlighting_basic</code></td><td class="coverage">27%</td></tr>
+  <!-- SYM py_file=powerline/segment.py rs_file=src/ported/segment.rs rs_exists=True py_fn_total=15 ported_count=4 missing_count=11 rs_extra_count=8 coverage=0.2667 -->
+  <!-- END-GROUP py_file=powerline/segment.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/unicode.py -->
+  <tr class="partial"><td><code>lib/unicode.py</code></td><td>✔ <code>lib/unicode.rs</code></td><td>14</td><td><code>u</code>, <code>safe_unicode</code></td><td><code>unichr</code>, <code>tointiter</code>, <code>tointiter</code>, <code>powerline_decode_error</code>, <code>register_strwidth_error</code>, <code>powerline_encode_strwidth_error</code>, <code>out_u</code>, <code>string</code>, <code>string</code>, <code>surrogate_pair_to_character</code>, <code>strwidth_ucs_4</code>, <code>strwidth_ucs_2</code></td><td><code>safe_unicode_str</code>, <code>safe_unicode_bytes</code>, <code>u_passes_through_str</code>, <code>u_handles_utf8</code>, <code>safe_unicode_str_round_trips</code>, <code>safe_unicode_bytes_handles_valid_utf8</code>, <code>safe_unicode_bytes_lossy_on_invalid</code>, <code>safe_unicode_display_works_on_int</code></td><td class="coverage">14%</td></tr>
+  <!-- SYM py_file=powerline/lib/unicode.py rs_file=src/ported/lib/unicode.rs rs_exists=True py_fn_total=14 ported_count=2 missing_count=12 rs_extra_count=8 coverage=0.1429 -->
+  <!-- END-GROUP py_file=powerline/lib/unicode.py -->
+  <!-- BEGIN-GROUP py_file=powerline/theme.py -->
+  <tr class="partial"><td><code>theme.py</code></td><td>✔ <code>theme.rs</code></td><td>12</td><td><code>requires_segment_info</code>, <code>requires_filesystem_watcher</code>, <code>new_empty_segment_line</code>, <code>add_spaces_left</code>, <code>add_spaces_right</code>, <code>add_spaces_center</code></td><td><code>__init__</code>, <code>shutdown</code>, <code>get_divider</code>, <code>get_spaces</code>, <code>get_line_number</code>, <code>get_segments</code></td><td><code>expand_functions</code>, <code>seg</code>, <code>new_empty_segment_line_has_left_and_right</code>, <code>add_spaces_left_pads_on_left</code>, <code>add_spaces_right_pads_on_right</code>, <code>add_spaces_center_pads_evenly_extra_left_when_odd</code>, <code>expand_functions_returns_correct_fn_for_each_align</code>, <code>requires_decorators_are_identity</code>, <code>alignment_idiom_matches_documented_inverse_mapping</code></td><td class="coverage">50%</td></tr>
+  <!-- SYM py_file=powerline/theme.py rs_file=src/ported/theme.rs rs_exists=True py_fn_total=12 ported_count=6 missing_count=6 rs_extra_count=9 coverage=0.5000 -->
+  <!-- END-GROUP py_file=powerline/theme.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/dict.py -->
+  <tr class="full"><td><code>lib/dict.py</code></td><td>✔ <code>lib/dict.rs</code></td><td>7</td><td><code>mergeargs</code>, <code>_clear_special_values</code>, <code>mergedicts</code>, <code>mergedefaults</code>, <code>_setmerged</code>, <code>mergedicts_copy</code>, <code>updated</code></td><td>—</td><td><code>REMOVE_THIS_KEY</code>, <code>obj</code>, <code>mergedicts_overwrites_scalar</code>, <code>mergedicts_recurses_into_nested</code>, <code>mergedicts_remove_this_key_deletes</code>, <code>mergedefaults_keeps_existing</code>, <code>mergedicts_copy_does_not_mutate_inputs</code>, <code>mergeargs_empty_returns_none</code>, <code>mergeargs_folds_pairs</code>, <code>updated_does_not_mutate_input</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/lib/dict.py rs_file=src/ported/lib/dict.rs rs_exists=True py_fn_total=7 ported_count=7 missing_count=0 rs_extra_count=10 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/lib/dict.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/encoding.py -->
+  <tr class="full"><td><code>lib/encoding.py</code></td><td>✔ <code>lib/encoding.rs</code></td><td>7</td><td><code>get_preferred_file_name_encoding</code>, <code>get_preferred_file_contents_encoding</code>, <code>get_preferred_output_encoding</code>, <code>get_preferred_input_encoding</code>, <code>get_preferred_arguments_encoding</code>, <code>get_preferred_environment_encoding</code>, <code>get_unicode_writer</code></td><td>—</td><td><code>all_encodings_return_known_values</code>, <code>unicode_writer_writes_to_buffer</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/lib/encoding.py rs_file=src/ported/lib/encoding.rs rs_exists=True py_fn_total=7 ported_count=7 missing_count=0 rs_extra_count=2 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/lib/encoding.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/inotify.py -->
+  <tr class="partial"><td><code>lib/inotify.py</code></td><td>✔ <code>lib/inotify.rs</code></td><td>7</td><td><code>load_inotify</code>, <code>handle_error</code>, <code>close</code>, <code>read</code>, <code>process_event</code></td><td><code>__init__</code>, <code>__del__</code></td><td><code>fmt</code>, <code>load_inotify_returns_error_in_stub</code>, <code>inotify_error_implements_display</code></td><td class="coverage">71%</td></tr>
+  <!-- SYM py_file=powerline/lib/inotify.py rs_file=src/ported/lib/inotify.rs rs_exists=True py_fn_total=7 ported_count=5 missing_count=2 rs_extra_count=3 coverage=0.7143 -->
+  <!-- END-GROUP py_file=powerline/lib/inotify.py -->
+  <!-- BEGIN-GROUP py_file=powerline/colorscheme.py -->
+  <tr class="partial"><td><code>colorscheme.py</code></td><td>✔ <code>colorscheme.rs</code></td><td>6</td><td><code>get_attrs_flag</code>, <code>pick_gradient_value</code>, <code>get_gradient</code>, <code>get_group_props</code>, <code>get_highlighting</code></td><td><code>__init__</code></td><td><code>py_round</code>, <code>new</code>, <code>attr_constants_match_upstream</code>, <code>cterm_to_hex_has_256_entries</code>, <code>cterm_to_hex_spot_check</code>, <code>get_attrs_flag_combines_bits</code>, <code>get_attrs_flag_empty_is_zero</code>, <code>pick_gradient_value_endpoints</code>, <code>colorscheme_new_minimal_config</code>, <code>get_highlighting_resolves_group</code></td><td class="coverage">83%</td></tr>
+  <!-- SYM py_file=powerline/colorscheme.py rs_file=src/ported/colorscheme.rs rs_exists=True py_fn_total=6 ported_count=5 missing_count=1 rs_extra_count=10 coverage=0.8333 -->
+  <!-- END-GROUP py_file=powerline/colorscheme.py -->
+  <!-- BEGIN-GROUP py_file=powerline/commands/main.py -->
+  <tr class="partial"><td><code>commands/main.py</code></td><td>✔ <code>commands/main.rs</code></td><td>6</td><td><code>arg_to_unicode</code>, <code>arg_to_unicode</code>, <code>finish_args</code>, <code>int_or_sig</code>, <code>get_argparser</code></td><td><code>write_output</code></td><td><code>arg_to_unicode_is_identity_in_py3</code>, <code>int_or_sig_parses_integer</code>, <code>int_or_sig_parses_signal_name</code>, <code>int_or_sig_rejects_invalid_int</code>, <code>finish_args_validates_ext_side</code>, <code>finish_args_accepts_wm_ext_without_side</code>, <code>finish_args_merges_config_override</code>, <code>finish_args_combines_env_and_arg_config_path</code>, <code>finish_args_merges_renderer_arg_with_pane_id_int_parsing</code>, <code>get_argparser_has_expected_argument_count</code>, <code>get_argparser_description_matches_upstream</code>, <code>get_argparser_has_required_flags</code></td><td class="coverage">83%</td></tr>
+  <!-- SYM py_file=powerline/commands/main.py rs_file=src/ported/commands/main.rs rs_exists=True py_fn_total=6 ported_count=5 missing_count=1 rs_extra_count=12 coverage=0.8333 -->
+  <!-- END-GROUP py_file=powerline/commands/main.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/watcher/stat.py -->
+  <tr class="partial"><td><code>lib/watcher/stat.py</code></td><td>✔ <code>lib/watcher/stat.rs</code></td><td>6</td><td><code>watch</code>, <code>unwatch</code>, <code>is_watching</code>, <code>close</code></td><td><code>__init__</code>, <code>__call__</code></td><td><code>default</code>, <code>new</code>, <code>check</code>, <code>tmp_file_with_content</code>, <code>watch_then_check_returns_false_unchanged</code>, <code>check_returns_true_when_unwatched</code>, <code>check_returns_true_after_mtime_change</code>, <code>unwatch_removes_from_set</code>, <code>close_clears_all_watches</code></td><td class="coverage">67%</td></tr>
+  <!-- SYM py_file=powerline/lib/watcher/stat.py rs_file=src/ported/lib/watcher/stat.rs rs_exists=True py_fn_total=6 ported_count=4 missing_count=2 rs_extra_count=9 coverage=0.6667 -->
+  <!-- END-GROUP py_file=powerline/lib/watcher/stat.py -->
+  <!-- BEGIN-GROUP py_file=powerline/commands/config.py -->
+  <tr class="partial"><td><code>commands/config.py</code></td><td>✔ <code>commands/config.rs</code></td><td>5</td><td><code>get_argparser</code></td><td><code>__init__</code>, <code>__call__</code>, <code>__str__</code>, <code>parse_args</code></td><td><code>name</code>, <code>fmt</code>, <code>TMUX_ACTIONS</code>, <code>SHELL_ACTIONS</code>, <code>tmux_action_from_name</code>, <code>shell_action_from_name</code>, <code>str_function_names_match_upstream</code>, <code>str_function_display_round_trips_via_name</code>, <code>tmux_actions_has_three_entries</code>, <code>shell_actions_has_two_entries</code>, <code>tmux_action_lookup_unknown_returns_none</code>, <code>get_argparser_description_matches_upstream</code>, <code>get_argparser_includes_subcommand_handles</code></td><td class="coverage">20%</td></tr>
+  <!-- SYM py_file=powerline/commands/config.py rs_file=src/ported/commands/config.rs rs_exists=True py_fn_total=5 ported_count=1 missing_count=4 rs_extra_count=13 coverage=0.2000 -->
+  <!-- END-GROUP py_file=powerline/commands/config.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/shell.py -->
+  <tr class="full"><td><code>lib/shell.py</code></td><td>✔ <code>lib/shell.rs</code></td><td>5</td><td><code>run_cmd</code>, <code>asrun</code>, <code>readlines</code>, <code>which</code>, <code>_access_check</code></td><td>—</td><td><code>run_cmd_echo_returns_stdout</code>, <code>run_cmd_missing_command_returns_none</code>, <code>run_cmd_no_strip_keeps_trailing_newline</code>, <code>which_finds_echo</code>, <code>which_missing_returns_none</code>, <code>readlines_returns_per_line</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/lib/shell.py rs_file=src/ported/lib/shell.rs rs_exists=True py_fn_total=5 ported_count=5 missing_count=0 rs_extra_count=6 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/lib/shell.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/memoize.py -->
+  <tr class="partial"><td><code>lib/memoize.py</code></td><td>✔ <code>lib/memoize.rs</code></td><td>4</td><td><code>default_cache_key</code></td><td><code>__init__</code>, <code>__call__</code>, <code>decorated_function</code></td><td><code>new</code>, <code>get_or_compute</code>, <code>default_cache_key_is_stable_across_iteration_order</code>, <code>memoize_caches_within_timeout</code>, <code>memoize_recomputes_on_different_key</code>, <code>memoize_recomputes_after_timeout</code></td><td class="coverage">25%</td></tr>
+  <!-- SYM py_file=powerline/lib/memoize.py rs_file=src/ported/lib/memoize.rs rs_exists=True py_fn_total=4 ported_count=1 missing_count=3 rs_extra_count=6 coverage=0.2500 -->
+  <!-- END-GROUP py_file=powerline/lib/memoize.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/monotonic.py -->
+  <tr class="partial"><td><code>lib/monotonic.py</code></td><td>✔ <code>lib/monotonic.rs</code></td><td>4</td><td><code>monotonic</code>, <code>monotonic</code>, <code>monotonic</code></td><td><code>mach_timebase_info</code></td><td><code>monotonic_is_non_decreasing</code>, <code>monotonic_advances</code></td><td class="coverage">75%</td></tr>
+  <!-- SYM py_file=powerline/lib/monotonic.py rs_file=src/ported/lib/monotonic.rs rs_exists=True py_fn_total=4 ported_count=3 missing_count=1 rs_extra_count=2 coverage=0.7500 -->
+  <!-- END-GROUP py_file=powerline/lib/monotonic.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/overrides.py -->
+  <tr class="partial"><td><code>lib/overrides.py</code></td><td>✔ <code>lib/overrides.rs</code></td><td>4</td><td><code>parse_value</code>, <code>keyvaluesplit</code>, <code>parse_override_var</code></td><td><code>parsedotval</code></td><td><code>parsedotval_str</code>, <code>parsedotval_tuple</code>, <code>build_nested</code>, <code>parse_value_empty_returns_remove_marker</code>, <code>parse_value_number</code>, <code>parse_value_string_in_quotes</code>, <code>parse_value_specials</code>, <code>parse_value_array_and_object</code>, <code>parse_value_raw_string</code>, <code>keyvaluesplit_basic</code>, <code>keyvaluesplit_no_equals_errors</code>, <code>keyvaluesplit_leading_underscore_errors</code>, <code>parsedotval_str_builds_nested</code>, <code>parsedotval_str_no_dot_is_flat</code>, <code>parse_override_var_splits_on_semicolon</code>, <code>parse_override_var_skips_empty</code></td><td class="coverage">75%</td></tr>
+  <!-- SYM py_file=powerline/lib/overrides.py rs_file=src/ported/lib/overrides.rs rs_exists=True py_fn_total=4 ported_count=3 missing_count=1 rs_extra_count=16 coverage=0.7500 -->
+  <!-- END-GROUP py_file=powerline/lib/overrides.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/debug.py -->
+  <tr class="partial"><td><code>lib/debug.py</code></td><td>✔ <code>lib/debug.rs</code></td><td>3</td><td><code>print_cycles</code></td><td><code>print_path</code>, <code>recurse</code></td><td><code>print_cycles_is_no_op</code></td><td class="coverage">33%</td></tr>
+  <!-- SYM py_file=powerline/lib/debug.py rs_file=src/ported/lib/debug.rs rs_exists=True py_fn_total=3 ported_count=1 missing_count=2 rs_extra_count=1 coverage=0.3333 -->
+  <!-- END-GROUP py_file=powerline/lib/debug.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/path.py -->
+  <tr class="full"><td><code>lib/path.py</code></td><td>✔ <code>lib/path.rs</code></td><td>2</td><td><code>realpath</code>, <code>join</code></td><td>—</td><td><code>realpath_of_cwd_is_absolute</code>, <code>realpath_of_missing_path_is_absolute_join_with_cwd</code>, <code>join_concatenates_components_in_order</code>, <code>join_empty_returns_empty_path</code>, <code>join_absolute_component_resets</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/lib/path.py rs_file=src/ported/lib/path.rs rs_exists=True py_fn_total=2 ported_count=2 missing_count=0 rs_extra_count=5 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/lib/path.py -->
+  <!-- BEGIN-GROUP py_file=powerline/commands/daemon.py -->
+  <tr class="full"><td><code>commands/daemon.py</code></td><td>✔ <code>commands/daemon.rs</code></td><td>1</td><td><code>get_argparser</code></td><td>—</td><td><code>daemon_parser_description_matches_upstream</code>, <code>daemon_parser_has_five_arguments</code>, <code>daemon_parser_flag_set</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/commands/daemon.py rs_file=src/ported/commands/daemon.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=3 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/commands/daemon.py -->
+  <!-- BEGIN-GROUP py_file=powerline/commands/lemonbar.py -->
+  <tr class="full"><td><code>commands/lemonbar.py</code></td><td>✔ <code>commands/lemonbar.rs</code></td><td>1</td><td><code>get_argparser</code></td><td>—</td><td><code>lemonbar_parser_description_matches_upstream</code>, <code>lemonbar_parser_has_five_arguments</code>, <code>lemonbar_parser_has_i3_flag</code>, <code>lemonbar_parser_bar_command_default_meta</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/commands/lemonbar.py rs_file=src/ported/commands/lemonbar.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=4 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/commands/lemonbar.py -->
+  <!-- BEGIN-GROUP py_file=powerline/commands/lint.py -->
+  <tr class="full"><td><code>commands/lint.py</code></td><td>✔ <code>commands/lint.rs</code></td><td>1</td><td><code>get_argparser</code></td><td>—</td><td><code>lint_parser_description_matches_upstream</code>, <code>lint_parser_has_two_arguments</code>, <code>config_path_uses_append_action</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/commands/lint.py rs_file=src/ported/commands/lint.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=3 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/commands/lint.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/humanize_bytes.py -->
+  <tr class="full"><td><code>lib/humanize_bytes.py</code></td><td>✔ <code>lib/humanize_bytes.rs</code></td><td>1</td><td><code>humanize_bytes</code></td><td>—</td><td><code>unit_list_matches_upstream_shape</code>, <code>zero_returns_suffix_only</code>, <code>binary_prefix_matches_upstream</code>, <code>si_prefix_matches_upstream</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/lib/humanize_bytes.py rs_file=src/ported/lib/humanize_bytes.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=4 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/lib/humanize_bytes.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/url.py -->
+  <tr class="full"><td><code>lib/url.py</code></td><td>✔ <code>lib/url.rs</code></td><td>1</td><td><code>urllib_read</code></td><td>—</td><td><code>urllib_urlencode</code>, <code>percent_encode</code>, <code>urllib_read_returns_none_stub</code>, <code>urllib_urlencode_simple</code>, <code>urllib_urlencode_escapes_spaces_as_plus</code>, <code>urllib_urlencode_percent_escapes_non_safe</code>, <code>urllib_urlencode_preserves_safe_chars</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/lib/url.py rs_file=src/ported/lib/url.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=7 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/lib/url.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/selfcheck.py -->
+  <tr class="full"><td><code>lint/selfcheck.py</code></td><td>✔ <code>lint/selfcheck.rs</code></td><td>1</td><td><code>havemarks</code></td><td>—</td><td><code>havemarks_walks_nested_structure</code>, <code>havemarks_empty_input_ok</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/lint/selfcheck.py rs_file=src/ported/lint/selfcheck.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=2 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/selfcheck.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/ipython.py -->
+  <tr class="full"><td><code>segments/ipython.py</code></td><td>✔ <code>segments/ipython.rs</code></td><td>1</td><td><code>prompt_count</code></td><td>—</td><td><code>prompt_count_returns_str_of_count</code>, <code>prompt_count_missing_key_returns_none</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/segments/ipython.py rs_file=src/ported/segments/ipython.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=2 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/ipython.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/tmux.py -->
+  <tr class="full"><td><code>segments/tmux.py</code></td><td>✔ <code>segments/tmux.rs</code></td><td>1</td><td><code>attached_clients</code></td><td>—</td><td><code>attached_clients_safe_when_tmux_unavailable</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/segments/tmux.py rs_file=src/ported/segments/tmux.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=1 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/tmux.py -->
+  <!-- BEGIN-GROUP py_file=powerline/version.py -->
+  <tr class="full"><td><code>version.py</code></td><td>✔ <code>version.rs</code></td><td>1</td><td><code>get_version</code></td><td>—</td><td><code>version_constant_matches_upstream</code>, <code>get_version_returns_nonempty</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/version.py rs_file=src/ported/version.rs rs_exists=True py_fn_total=1 ported_count=1 missing_count=0 rs_extra_count=2 coverage=1.0000 -->
+  <!-- END-GROUP py_file=powerline/version.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/vim/__init__.py -->
+  <tr class="zero"><td><code>bindings/vim/__init__.py</code></td><td>✘ <code>bindings/vim/__init__.rs</code></td><td>60</td><td>—</td><td><code>get_vim_encoding</code>, <code>get_vim_encoding</code>, <code>get_vim_encoding</code>, <code>get_vim_encoding</code>, <code>python_to_vim</code>, <code>str_to_bytes</code>, <code>unicode_eval</code>, <code>str_to_bytes</code>, <code>unicode_eval</code>, <code>safe_bytes_eval</code>, <code>eval_bytes</code>, <code>eval_unicode</code>, <code>vim_get_func</code>, <code>__init__</code>, <code>__call__</code>, <code>vim_get_autoload_func</code>, <code>vim_func_exists</code>, <code>vim_func_exists</code>, <code>vim_getvar</code>, <code>bufvar_exists</code>, <code>vim_getwinvar</code>, <code>vim_global_exists</code>, <code>vim_getvar</code>, <code>bufvar_exists</code>, <code>vim_getwinvar</code>, <code>vim_global_exists</code>, <code>vim_command_exists</code>, <code>getbufvar</code>, <code>_vim_to_python</code>, <code>vim_getbufoption</code>, <code>vim_getoption</code>, <code>vim_setoption</code>, <code>vim_getbufoption</code>, <code>vim_getoption</code>, <code>vim_setoption</code>, <code>list_tabpage_buffers_segment_info</code>, <code>__nonzero__</code>, <code>get_buffer</code>, <code>__init__</code>, <code>__getitem__</code>, <code>get</code>, <code>__init__</code>, <code>buffer</code>, <code>__init__</code>, <code>__eq__</code>, <code>window</code>, <code>_last_tab_nr</code>, <code>current_tabpage</code>, <code>list_tabpages</code>, <code>__getitem__</code>, <code>list_tabpage_buffers_segment_info</code>, <code>__getitem__</code>, <code>get</code>, <code>__setitem__</code>, <code>buffer_name</code>, <code>buffer_name</code>, <code>powerline_vim_strtrans_error</code>, <code>register_buffer_cache</code>, <code>on_bwipe</code>, <code>create_ruby_dpowerline</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/vim/__init__.py rs_file=src/ported/bindings/vim/__init__.rs rs_exists=False py_fn_total=60 ported_count=0 missing_count=60 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/vim/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/__init__.py -->
+  <tr class="zero"><td><code>__init__.py</code></td><td>✘ <code>__init__.rs</code></td><td>48</td><td>—</td><td><code>_config_loader_condition</code>, <code>_find_config_files</code>, <code>__init__</code>, <code>_log</code>, <code>critical</code>, <code>exception</code>, <code>info</code>, <code>error</code>, <code>warn</code>, <code>debug</code>, <code>get_fallback_logger</code>, <code>_generate_change_callback</code>, <code>on_file_change</code>, <code>get_config_paths</code>, <code>generate_config_finder</code>, <code>load_config</code>, <code>_set_log_handlers</code>, <code>create_logger</code>, <code>get_default_theme</code>, <code>finish_common_config</code>, <code>reraise</code>, <code>gen_module_attr_getter</code>, <code>get_module_attr</code>, <code>_get_log_keys</code>, <code>__init__</code>, <code>init</code>, <code>create_logger</code>, <code>create_renderer</code>, <code>setup_components</code>, <code>get_config_paths</code>, <code>load_config</code>, <code>_purge_configs</code>, <code>load_main_config</code>, <code>_load_hierarhical_config</code>, <code>load_colorscheme_config</code>, <code>load_theme_config</code>, <code>load_colors_config</code>, <code>get_local_themes</code>, <code>update_renderer</code>, <code>render</code>, <code>render_above_lines</code>, <code>setup</code>, <code>do_setup</code>, <code>reload</code>, <code>shutdown</code>, <code>__enter__</code>, <code>__exit__</code>, <code>exception</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/__init__.py rs_file=src/ported/__init__.rs rs_exists=False py_fn_total=48 ported_count=0 missing_count=48 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/vim/__init__.py -->
+  <tr class="zero"><td><code>segments/vim/__init__.py</code></td><td>✘ <code>segments/vim/__init__.rs</code></td><td>37</td><td>—</td><td><code>window_cached</code>, <code>ret</code>, <code>mode</code>, <code>visual_range</code>, <code>modified_indicator</code>, <code>tab_modified_indicator</code>, <code>paste_indicator</code>, <code>readonly_indicator</code>, <code>file_scheme</code>, <code>file_directory</code>, <code>file_name</code>, <code>file_size</code>, <code>file_format</code>, <code>file_encoding</code>, <code>file_bom</code>, <code>file_type</code>, <code>window_title</code>, <code>line_percent</code>, <code>position</code>, <code>line_current</code>, <code>line_count</code>, <code>col_current</code>, <code>virtcol_current</code>, <code>modified_buffers</code>, <code>get_directory</code>, <code>get_directory</code>, <code>file_vcs_status</code>, <code>trailing_whitespace</code>, <code>tabnr</code>, <code>bufnr</code>, <code>winnr</code>, <code>detect_text_csv_dialect</code>, <code>read_csv</code>, <code>read_csv</code>, <code>process_csv_buffer</code>, <code>csv_col_current</code>, <code>tab</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/vim/__init__.py rs_file=src/ported/segments/vim/__init__.rs rs_exists=False py_fn_total=37 ported_count=0 missing_count=37 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/vim/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/spec.py -->
+  <tr class="zero"><td><code>lint/spec.py</code></td><td>✔ <code>lint/spec.rs</code></td><td>32</td><td>—</td><td><code>__init__</code>, <code>update</code>, <code>copy</code>, <code>_update</code>, <code>unknown_spec</code>, <code>unknown_msg</code>, <code>context_message</code>, <code>check_type</code>, <code>check_func</code>, <code>check_list</code>, <code>check_either</code>, <code>check_tuple</code>, <code>check_printable</code>, <code>printable</code>, <code>type</code>, <code>len</code>, <code>cmp</code>, <code>unsigned</code>, <code>list</code>, <code>tuple</code>, <code>func</code>, <code>re</code>, <code>ident</code>, <code>oneof</code>, <code>error</code>, <code>either</code>, <code>optional</code>, <code>required</code>, <code>match_checks</code>, <code>match</code>, <code>__getitem__</code>, <code>__setitem__</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/spec.py rs_file=src/ported/lint/spec.rs rs_exists=True py_fn_total=32 ported_count=0 missing_count=32 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/spec.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/scanner.py -->
+  <tr class="zero"><td><code>lint/markedjson/scanner.py</code></td><td>✔ <code>lint/markedjson/scanner.rs</code></td><td>29</td><td>—</td><td><code>__init__</code>, <code>__init__</code>, <code>check_token</code>, <code>peek_token</code>, <code>get_token</code>, <code>need_more_tokens</code>, <code>fetch_more_tokens</code>, <code>next_possible_simple_key</code>, <code>stale_possible_simple_keys</code>, <code>save_possible_simple_key</code>, <code>remove_possible_simple_key</code>, <code>fetch_stream_start</code>, <code>fetch_stream_end</code>, <code>fetch_flow_sequence_start</code>, <code>fetch_flow_mapping_start</code>, <code>fetch_flow_collection_start</code>, <code>fetch_flow_sequence_end</code>, <code>fetch_flow_mapping_end</code>, <code>fetch_flow_collection_end</code>, <code>fetch_value</code>, <code>fetch_flow_entry</code>, <code>fetch_double</code>, <code>fetch_plain</code>, <code>check_plain</code>, <code>scan_to_next_token</code>, <code>scan_flow_scalar</code>, <code>scan_flow_scalar_non_spaces</code>, <code>scan_flow_scalar_spaces</code>, <code>scan_plain</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/markedjson/scanner.py rs_file=src/ported/lint/markedjson/scanner.rs rs_exists=True py_fn_total=29 ported_count=0 missing_count=29 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/markedjson/scanner.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/checks.py -->
+  <tr class="zero"><td><code>lint/checks.py</code></td><td>✔ <code>lint/checks.rs</code></td><td>27</td><td>—</td><td><code>get_function_strings</code>, <code>check_matcher_func</code>, <code>check_ext</code>, <code>check_config</code>, <code>check_top_theme</code>, <code>check_color</code>, <code>check_translated_group_name</code>, <code>check_group</code>, <code>listed_key</code>, <code>check_key_compatibility</code>, <code>check_segment_module</code>, <code>check_full_segment_data</code>, <code>check_hl_group_name</code>, <code>check_segment_function</code>, <code>hl_group_in_colorscheme</code>, <code>hl_exists</code>, <code>check_highlight_group</code>, <code>check_highlight_groups</code>, <code>check_segment_data_key</code>, <code>check_args_variant</code>, <code>check_args</code>, <code>get_one_segment_function</code>, <code>register_common_name</code>, <code>get_all_possible_functions</code>, <code>check_exinclude_function</code>, <code>check_log_file_level</code>, <code>check_logging_handler</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/checks.py rs_file=src/ported/lint/checks.rs rs_exists=True py_fn_total=27 ported_count=0 missing_count=27 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/checks.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/watcher/uv.py -->
+  <tr class="zero"><td><code>lib/watcher/uv.py</code></td><td>✔ <code>lib/watcher/uv.rs</code></td><td>24</td><td>—</td><td><code>import_pyuv</code>, <code>__init__</code>, <code>_async_cb</code>, <code>run</code>, <code>join</code>, <code>start_uv_thread</code>, <code>normpath</code>, <code>__init__</code>, <code>_start_watch_1_x</code>, <code>_start_watch_0_x</code>, <code>watch</code>, <code>unwatch</code>, <code>is_watching</code>, <code>__del__</code>, <code>__init__</code>, <code>_record_event</code>, <code>_stopped_watching</code>, <code>__call__</code>, <code>__init__</code>, <code>watch_directory</code>, <code>watch_one_directory</code>, <code>_stopped_watching</code>, <code>_record_event</code>, <code>__call__</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lib/watcher/uv.py rs_file=src/ported/lib/watcher/uv.rs rs_exists=True py_fn_total=24 ported_count=0 missing_count=24 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lib/watcher/uv.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/error.py -->
+  <tr class="zero"><td><code>lint/markedjson/error.py</code></td><td>✔ <code>lint/markedjson/error.rs</code></td><td>24</td><td>—</td><td><code>repl</code>, <code>strtrans</code>, <code>__init__</code>, <code>copy</code>, <code>get_snippet</code>, <code>advance_string</code>, <code>set_old_mark</code>, <code>set_merged_mark</code>, <code>to_string</code>, <code>__str__</code>, <code>__unicode__</code>, <code>__str__</code>, <code>__eq__</code>, <code>echoerr</code>, <code>echoerr</code>, <code>format_error</code>, <code>__init__</code>, <code>__init__</code>, <code>__call__</code>, <code>__init__</code>, <code>__call__</code>, <code>next_variant</code>, <code>echo_all</code>, <code>__nonzero__</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/markedjson/error.py rs_file=src/ported/lint/markedjson/error.rs rs_exists=True py_fn_total=24 ported_count=0 missing_count=24 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/markedjson/error.py -->
+  <!-- BEGIN-GROUP py_file=powerline/vim.py -->
+  <tr class="zero"><td><code>vim.py</code></td><td>✔ <code>vim.rs</code></td><td>24</td><td>—</td><td><code>_override_from</code>, <code>__init__</code>, <code>emit</code>, <code>init</code>, <code>create_window_statusline_constructor</code>, <code>create_window_statusline_constructor</code>, <code>add_local_theme</code>, <code>load_main_config</code>, <code>load_theme_config</code>, <code>get_local_themes</code>, <code>get_matcher</code>, <code>get_config_paths</code>, <code>do_setup</code>, <code>reset_highlight</code>, <code>new_win_idx</code>, <code>old_win_idx</code>, <code>statusline</code>, <code>tabline</code>, <code>new_window</code>, <code>do_pyeval</code>, <code>setup_components</code>, <code>set_pycmd</code>, <code>get_default_pycmd</code>, <code>setup</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/vim.py rs_file=src/ported/vim.rs rs_exists=True py_fn_total=24 ported_count=0 missing_count=24 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/vim.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/constructor.py -->
+  <tr class="zero"><td><code>lint/markedjson/constructor.py</code></td><td>✔ <code>lint/markedjson/constructor.rs</code></td><td>23</td><td>—</td><td><code>marked</code>, <code>f</code>, <code>__init__</code>, <code>check_data</code>, <code>get_data</code>, <code>get_single_data</code>, <code>construct_document</code>, <code>construct_object</code>, <code>construct_scalar</code>, <code>construct_sequence</code>, <code>construct_mapping</code>, <code>add_constructor</code>, <code>construct_scalar</code>, <code>flatten_mapping</code>, <code>construct_mapping</code>, <code>construct_yaml_null</code>, <code>construct_yaml_bool</code>, <code>construct_yaml_int</code>, <code>construct_yaml_float</code>, <code>construct_yaml_str</code>, <code>construct_yaml_seq</code>, <code>construct_yaml_map</code>, <code>construct_undefined</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/markedjson/constructor.py rs_file=src/ported/lint/markedjson/constructor.rs rs_exists=True py_fn_total=23 ported_count=0 missing_count=23 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/markedjson/constructor.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/pdb/__init__.py -->
+  <tr class="zero"><td><code>bindings/pdb/__init__.py</code></td><td>✘ <code>bindings/pdb/__init__.rs</code></td><td>22</td><td>—</td><td><code>__new__</code>, <code>__len__</code>, <code>__getitem__</code>, <code>__getslice__</code>, <code>add</code>, <code>__add__</code>, <code>__radd__</code>, <code>__unicode__</code>, <code>__new__</code>, <code>__str__</code>, <code>__getitem__</code>, <code>__getslice__</code>, <code>add</code>, <code>__add__</code>, <code>__radd__</code>, <code>encode</code>, <code>use_powerline_prompt</code>, <code>prompt</code>, <code>prompt</code>, <code>prompt</code>, <code>main</code>, <code>__init__</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/pdb/__init__.py rs_file=src/ported/bindings/pdb/__init__.rs rs_exists=False py_fn_total=22 ported_count=0 missing_count=22 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/pdb/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/zsh/__init__.py -->
+  <tr class="zero"><td><code>bindings/zsh/__init__.py</code></td><td>✘ <code>bindings/zsh/__init__.rs</code></td><td>21</td><td>—</td><td><code>shutdown</code>, <code>get_var_config</code>, <code>config_override</code>, <code>theme_override</code>, <code>config_path</code>, <code>jobnum</code>, <code>string</code>, <code>__getitem__</code>, <code>get</code>, <code>__contains__</code>, <code>zsh_expand</code>, <code>init</code>, <code>precmd</code>, <code>do_setup</code>, <code>__init__</code>, <code>__str__</code>, <code>__del__</code>, <code>set_prompt</code>, <code>reload</code>, <code>reload_config</code>, <code>setup</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/zsh/__init__.py rs_file=src/ported/bindings/zsh/__init__.rs rs_exists=False py_fn_total=21 ported_count=0 missing_count=21 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/zsh/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/markedvalue.py -->
+  <tr class="zero"><td><code>lint/markedjson/markedvalue.py</code></td><td>✔ <code>lint/markedjson/markedvalue.rs</code></td><td>17</td><td>—</td><td><code>gen_new</code>, <code>__new__</code>, <code>gen_init</code>, <code>__init__</code>, <code>gen_getnewargs</code>, <code>__getnewargs__</code>, <code>_proc_partition</code>, <code>rpartition</code>, <code>partition</code>, <code>__new__</code>, <code>setmerged</code>, <code>__setitem__</code>, <code>update</code>, <code>copy</code>, <code>__init__</code>, <code>gen_marked_value</code>, <code>copy</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/markedjson/markedvalue.py rs_file=src/ported/lint/markedjson/markedvalue.rs rs_exists=True py_fn_total=17 ported_count=0 missing_count=17 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/markedjson/markedvalue.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/parser.py -->
+  <tr class="zero"><td><code>lint/markedjson/parser.py</code></td><td>✔ <code>lint/markedjson/parser.rs</code></td><td>17</td><td>—</td><td><code>__init__</code>, <code>dispose</code>, <code>check_event</code>, <code>peek_event</code>, <code>get_event</code>, <code>parse_stream_start</code>, <code>parse_implicit_document_start</code>, <code>parse_document_start</code>, <code>parse_document_end</code>, <code>parse_document_content</code>, <code>parse_node</code>, <code>parse_flow_sequence_first_entry</code>, <code>parse_flow_sequence_entry</code>, <code>parse_flow_sequence_entry_mapping_end</code>, <code>parse_flow_mapping_first_key</code>, <code>parse_flow_mapping_key</code>, <code>parse_flow_mapping_value</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/markedjson/parser.py rs_file=src/ported/lint/markedjson/parser.rs rs_exists=True py_fn_total=17 ported_count=0 missing_count=17 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/markedjson/parser.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/common/players.py -->
+  <tr class="zero"><td><code>segments/common/players.py</code></td><td>✔ <code>segments/common/players.rs</code></td><td>17</td><td>—</td><td><code>_convert_state</code>, <code>_convert_seconds</code>, <code>__call__</code>, <code>get_player_status</code>, <code>argspecobjs</code>, <code>omitted_args</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>_get_dbus_player_status</code>, <code>_get_dbus_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/common/players.py rs_file=src/ported/segments/common/players.rs rs_exists=True py_fn_total=17 ported_count=0 missing_count=17 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/common/players.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/ipython/pre_0_11.py -->
+  <tr class="zero"><td><code>bindings/ipython/pre_0_11.py</code></td><td>✔ <code>bindings/ipython/pre_0_11.rs</code></td><td>16</td><td>—</td><td><code>__init__</code>, <code>prompt_count</code>, <code>__init__</code>, <code>__str__</code>, <code>set_p_str</code>, <code>set_colors</code>, <code>__str__</code>, <code>set_p_str</code>, <code>auto_rewrite</code>, <code>set_p_str</code>, <code>init</code>, <code>ipython_magic</code>, <code>do_setup</code>, <code>__call__</code>, <code>setup</code>, <code>late_startup_hook</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/ipython/pre_0_11.py rs_file=src/ported/bindings/ipython/pre_0_11.rs rs_exists=True py_fn_total=16 ported_count=0 missing_count=16 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/ipython/pre_0_11.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/vcs/__init__.py -->
+  <tr class="zero"><td><code>lib/vcs/__init__.py</code></td><td>✘ <code>lib/vcs/__init__.rs</code></td><td>16</td><td>—</td><td><code>generate_directories</code>, <code>file_watcher</code>, <code>branch_watcher</code>, <code>get_branch_name</code>, <code>__init__</code>, <code>update_maps</code>, <code>invalidate</code>, <code>ignore_files</code>, <code>get_file_status</code>, <code>__init__</code>, <code>cache_and_get</code>, <code>__call__</code>, <code>tree_status</code>, <code>guess</code>, <code>get_fallback_create_watcher</code>, <code>debug</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lib/vcs/__init__.py rs_file=src/ported/lib/vcs/__init__.rs rs_exists=False py_fn_total=16 ported_count=0 missing_count=16 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lib/vcs/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/watcher/inotify.py -->
+  <tr class="zero"><td><code>lib/watcher/inotify.py</code></td><td>✔ <code>lib/watcher/inotify.rs</code></td><td>15</td><td>—</td><td><code>__init__</code>, <code>expire_watches</code>, <code>process_event</code>, <code>unwatch</code>, <code>watch</code>, <code>is_watching</code>, <code>__call__</code>, <code>close</code>, <code>__init__</code>, <code>__init__</code>, <code>watch_tree</code>, <code>add_watches</code>, <code>add_watch</code>, <code>process_event</code>, <code>__call__</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lib/watcher/inotify.py rs_file=src/ported/lib/watcher/inotify.rs rs_exists=True py_fn_total=15 ported_count=0 missing_count=15 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lib/watcher/inotify.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderer.py -->
+  <tr class="zero"><td><code>renderer.py</code></td><td>✔ <code>renderer.rs</code></td><td>15</td><td>—</td><td><code>construct_returned_value</code>, <code>__init__</code>, <code>get_theme</code>, <code>shutdown</code>, <code>get_segment_info</code>, <code>render_above_lines</code>, <code>render</code>, <code>compute_divider_widths</code>, <code>do_render</code>, <code>_prepare_segments</code>, <code>_render_length</code>, <code>_render_segments</code>, <code>escape</code>, <code>hlstyle</code>, <code>hl</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderer.py rs_file=src/ported/renderer.rs rs_exists=True py_fn_total=15 ported_count=0 missing_count=15 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderer.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/common/net.py -->
+  <tr class="zero"><td><code>segments/common/net.py</code></td><td>✔ <code>segments/common/net.rs</code></td><td>15</td><td>—</td><td><code>hostname</code>, <code>_external_ip</code>, <code>set_state</code>, <code>update</code>, <code>render</code>, <code>internal_ip</code>, <code>_interface_key</code>, <code>internal_ip</code>, <code>_get_bytes</code>, <code>_get_interfaces</code>, <code>_get_bytes</code>, <code>_get_interfaces</code>, <code>key</code>, <code>compute_state</code>, <code>render_one</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/common/net.py rs_file=src/ported/segments/common/net.rs rs_exists=True py_fn_total=15 ported_count=0 missing_count=15 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/common/net.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/vcs/git.py -->
+  <tr class="zero"><td><code>lib/vcs/git.py</code></td><td>✔ <code>lib/vcs/git.rs</code></td><td>13</td><td>—</td><td><code>branch_name_from_config_file</code>, <code>git_directory</code>, <code>__init__</code>, <code>status</code>, <code>branch</code>, <code>ignore_event</code>, <code>stash</code>, <code>do_status</code>, <code>__init__</code>, <code>ignore_event</code>, <code>_gitcmd</code>, <code>stash</code>, <code>do_status</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lib/vcs/git.py rs_file=src/ported/lib/vcs/git.rs rs_exists=True py_fn_total=13 ported_count=0 missing_count=13 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lib/vcs/git.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/common/sys.py -->
+  <tr class="zero"><td><code>segments/common/sys.py</code></td><td>✔ <code>segments/common/sys.rs</code></td><td>13</td><td>—</td><td><code>system_load</code>, <code>update</code>, <code>run</code>, <code>render</code>, <code>startup</code>, <code>start</code>, <code>shutdown</code>, <code>render</code>, <code>_get_uptime</code>, <code>_get_uptime</code>, <code>_get_uptime</code>, <code>_get_uptime</code>, <code>uptime</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/common/sys.py rs_file=src/ported/segments/common/sys.rs rs_exists=True py_fn_total=13 ported_count=0 missing_count=13 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/common/sys.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/ipython/since_5.py -->
+  <tr class="zero"><td><code>renderers/ipython/since_5.py</code></td><td>✔ <code>renderers/ipython/since_5.rs</code></td><td>12</td><td>—</td><td><code>__new__</code>, <code>__init__</code>, <code>__missing__</code>, <code>get_attrs_for_token</code>, <code>get_token_to_attributes_dict</code>, <code>fallback</code>, <code>invalidation_hash</code>, <code>get_segment_info</code>, <code>hl_join</code>, <code>hl</code>, <code>hlstyle</code>, <code>get_client_id</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/ipython/since_5.py rs_file=src/ported/renderers/ipython/since_5.rs rs_exists=True py_fn_total=12 ported_count=0 missing_count=12 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/ipython/since_5.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/i3wm.py -->
+  <tr class="zero"><td><code>segments/i3wm.py</code></td><td>✔ <code>segments/i3wm.rs</code></td><td>12</td><td>—</td><td><code>workspace_groups</code>, <code>format_name</code>, <code>is_empty_workspace</code>, <code>get_icon</code>, <code>workspaces</code>, <code>sort_ws</code>, <code>natural_key</code>, <code>workspace</code>, <code>mode</code>, <code>scratchpad_groups</code>, <code>scratchpad</code>, <code>active_window</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/i3wm.py rs_file=src/ported/segments/i3wm.rs rs_exists=True py_fn_total=12 ported_count=0 missing_count=12 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/i3wm.py -->
+  <!-- BEGIN-GROUP py_file=powerline/ipython.py -->
+  <tr class="zero"><td><code>ipython.py</code></td><td>✔ <code>ipython.rs</code></td><td>11</td><td>—</td><td><code>__init__</code>, <code>prompt_count</code>, <code>__init__</code>, <code>__str__</code>, <code>__add__</code>, <code>init</code>, <code>get_config_paths</code>, <code>get_local_themes</code>, <code>load_main_config</code>, <code>load_theme_config</code>, <code>do_setup</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/ipython.py rs_file=src/ported/ipython.rs rs_exists=True py_fn_total=11 ported_count=0 missing_count=11 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/ipython.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/vim.py -->
+  <tr class="zero"><td><code>renderers/vim.py</code></td><td>✔ <code>renderers/vim.rs</code></td><td>11</td><td>—</td><td><code>__init__</code>, <code>shutdown</code>, <code>add_local_theme</code>, <code>get_matched_theme</code>, <code>get_theme</code>, <code>strwidth</code>, <code>strwidth</code>, <code>get_segment_info</code>, <code>render</code>, <code>reset_highlight</code>, <code>hlstyle</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/vim.py rs_file=src/ported/renderers/vim.rs rs_exists=True py_fn_total=11 ported_count=0 missing_count=11 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/vim.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/ipython/post_0_11.py -->
+  <tr class="zero"><td><code>bindings/ipython/post_0_11.py</code></td><td>✔ <code>bindings/ipython/post_0_11.rs</code></td><td>10</td><td>—</td><td><code>__init__</code>, <code>powerline</code>, <code>__init__</code>, <code>__call__</code>, <code>__init__</code>, <code>render</code>, <code>init</code>, <code>do_setup</code>, <code>load_ipython_extension</code>, <code>unload_ipython_extension</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/ipython/post_0_11.py rs_file=src/ported/bindings/ipython/post_0_11.rs rs_exists=True py_fn_total=10 ported_count=0 missing_count=10 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/ipython/post_0_11.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/common/bat.py -->
+  <tr class="zero"><td><code>segments/common/bat.py</code></td><td>✔ <code>segments/common/bat.rs</code></td><td>10</td><td>—</td><td><code>_fetch_battery_info</code>, <code>_flatten_battery</code>, <code>_get_battery_status</code>, <code>_get_battery_perc</code>, <code>_get_battery_status</code>, <code>_get_battery_status</code>, <code>_get_battery_status</code>, <code>_get_battery_status</code>, <code>_failing_get_status</code>, <code>battery</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/common/bat.py rs_file=src/ported/segments/common/bat.rs rs_exists=True py_fn_total=10 ported_count=0 missing_count=10 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/common/bat.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/common/env.py -->
+  <tr class="zero"><td><code>segments/common/env.py</code></td><td>✔ <code>segments/common/env.rs</code></td><td>10</td><td>—</td><td><code>environment</code>, <code>virtualenv</code>, <code>argspecobjs</code>, <code>omitted_args</code>, <code>get_shortened_path</code>, <code>__call__</code>, <code>_get_user</code>, <code>_get_user</code>, <code>_get_user</code>, <code>user</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/common/env.py rs_file=src/ported/segments/common/env.rs rs_exists=True py_fn_total=10 ported_count=0 missing_count=10 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/common/env.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/__init__.py -->
+  <tr class="zero"><td><code>lint/__init__.py</code></td><td>✘ <code>lint/__init__.rs</code></td><td>9</td><td>—</td><td><code>open_file</code>, <code>generate_json_config_loader</code>, <code>load_json_config</code>, <code>register_common_names</code>, <code>load_json_file</code>, <code>updated_with_config</code>, <code>find_all_ext_config_files</code>, <code>dict2</code>, <code>check</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/__init__.py rs_file=src/ported/lint/__init__.rs rs_exists=False py_fn_total=9 ported_count=0 missing_count=9 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/composer.py -->
+  <tr class="zero"><td><code>lint/markedjson/composer.py</code></td><td>✔ <code>lint/markedjson/composer.rs</code></td><td>9</td><td>—</td><td><code>__init__</code>, <code>check_node</code>, <code>get_node</code>, <code>get_single_node</code>, <code>compose_document</code>, <code>compose_node</code>, <code>compose_scalar_node</code>, <code>compose_sequence_node</code>, <code>compose_mapping_node</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/markedjson/composer.py rs_file=src/ported/lint/markedjson/composer.rs rs_exists=True py_fn_total=9 ported_count=0 missing_count=9 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/markedjson/composer.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/reader.py -->
+  <tr class="zero"><td><code>lint/markedjson/reader.py</code></td><td>✔ <code>lint/markedjson/reader.rs</code></td><td>9</td><td>—</td><td><code>__init__</code>, <code>peek</code>, <code>prefix</code>, <code>update_pointer</code>, <code>forward</code>, <code>get_mark</code>, <code>check_printable</code>, <code>update</code>, <code>update_raw</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/markedjson/reader.py rs_file=src/ported/lint/markedjson/reader.rs rs_exists=True py_fn_total=9 ported_count=0 missing_count=9 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/markedjson/reader.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/events.py -->
+  <tr class="zero"><td><code>lint/markedjson/events.py</code></td><td>✔ <code>lint/markedjson/events.rs</code></td><td>8</td><td>—</td><td><code>__init__</code>, <code>__repr__</code>, <code>__init__</code>, <code>__init__</code>, <code>__init__</code>, <code>__init__</code>, <code>__init__</code>, <code>__init__</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/markedjson/events.py rs_file=src/ported/lint/markedjson/events.rs rs_exists=True py_fn_total=8 ported_count=0 missing_count=8 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/markedjson/events.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/ipython/since_7.py -->
+  <tr class="zero"><td><code>renderers/ipython/since_7.py</code></td><td>✔ <code>renderers/ipython/since_7.rs</code></td><td>8</td><td>—</td><td><code>style_rules</code>, <code>invalidation_hash</code>, <code>__init__</code>, <code>get_segment_info</code>, <code>hl_join</code>, <code>hl</code>, <code>hlstyle</code>, <code>get_client_id</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/ipython/since_7.py rs_file=src/ported/renderers/ipython/since_7.rs rs_exists=True py_fn_total=8 ported_count=0 missing_count=8 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/ipython/since_7.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/shell/__init__.py -->
+  <tr class="zero"><td><code>renderers/shell/__init__.py</code></td><td>✘ <code>renderers/shell/__init__.rs</code></td><td>8</td><td>—</td><td><code>int_to_rgb</code>, <code>__init__</code>, <code>get_client_id</code>, <code>do_render</code>, <code>render</code>, <code>do_render</code>, <code>hlstyle</code>, <code>get_theme</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/shell/__init__.py rs_file=src/ported/renderers/shell/__init__.rs rs_exists=False py_fn_total=8 ported_count=0 missing_count=8 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/shell/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/qtile/widget.py -->
+  <tr class="zero"><td><code>bindings/qtile/widget.py</code></td><td>✔ <code>bindings/qtile/widget.rs</code></td><td>7</td><td>—</td><td><code>do_setup</code>, <code>__init__</code>, <code>update</code>, <code>cmd_update</code>, <code>cmd_get</code>, <code>timer_setup</code>, <code>_configure</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/qtile/widget.py rs_file=src/ported/bindings/qtile/widget.rs rs_exists=True py_fn_total=7 ported_count=0 missing_count=7 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/qtile/widget.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/tmux/__init__.py -->
+  <tr class="zero"><td><code>bindings/tmux/__init__.py</code></td><td>✘ <code>bindings/tmux/__init__.rs</code></td><td>7</td><td>—</td><td><code>get_tmux_executable_name</code>, <code>_run_tmux</code>, <code>run_tmux_command</code>, <code>get_tmux_output</code>, <code>set_tmux_environment</code>, <code>source_tmux_file</code>, <code>get_tmux_version</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/tmux/__init__.py rs_file=src/ported/bindings/tmux/__init__.rs rs_exists=False py_fn_total=7 ported_count=0 missing_count=7 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/tmux/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/vcs/bzr.py -->
+  <tr class="zero"><td><code>lib/vcs/bzr.py</code></td><td>✔ <code>lib/vcs/bzr.rs</code></td><td>7</td><td>—</td><td><code>write</code>, <code>branch_name_from_config_file</code>, <code>__init__</code>, <code>status</code>, <code>do_status</code>, <code>_status</code>, <code>branch</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lib/vcs/bzr.py rs_file=src/ported/lib/vcs/bzr.rs rs_exists=True py_fn_total=7 ported_count=0 missing_count=7 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lib/vcs/bzr.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/watcher/tree.py -->
+  <tr class="zero"><td><code>lib/watcher/tree.py</code></td><td>✔ <code>lib/watcher/tree.rs</code></td><td>7</td><td>—</td><td><code>__init__</code>, <code>__call__</code>, <code>__init__</code>, <code>get_watcher</code>, <code>watch</code>, <code>expire_old_queries</code>, <code>__call__</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lib/watcher/tree.py rs_file=src/ported/lib/watcher/tree.rs rs_exists=True py_fn_total=7 ported_count=0 missing_count=7 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lib/watcher/tree.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/context.py -->
+  <tr class="zero"><td><code>lint/context.py</code></td><td>✔ <code>lint/context.rs</code></td><td>7</td><td>—</td><td><code>join</code>, <code>list_themes</code>, <code>__new__</code>, <code>key</code>, <code>enter_key</code>, <code>enter_item</code>, <code>enter</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/context.py rs_file=src/ported/lint/context.rs rs_exists=True py_fn_total=7 ported_count=0 missing_count=7 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/context.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/vcs/mercurial.py -->
+  <tr class="zero"><td><code>lib/vcs/mercurial.py</code></td><td>✔ <code>lib/vcs/mercurial.rs</code></td><td>6</td><td>—</td><td><code>branch_name_from_config_file</code>, <code>__init__</code>, <code>_repo</code>, <code>status</code>, <code>do_status</code>, <code>branch</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lib/vcs/mercurial.py rs_file=src/ported/lib/vcs/mercurial.rs rs_exists=True py_fn_total=6 ported_count=0 missing_count=6 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lib/vcs/mercurial.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/resolver.py -->
+  <tr class="zero"><td><code>lint/markedjson/resolver.py</code></td><td>✔ <code>lint/markedjson/resolver.rs</code></td><td>6</td><td>—</td><td><code>__init__</code>, <code>add_implicit_resolver</code>, <code>descend_resolver</code>, <code>ascend_resolver</code>, <code>check_resolver_prefix</code>, <code>resolve</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/markedjson/resolver.py rs_file=src/ported/lint/markedjson/resolver.rs rs_exists=True py_fn_total=6 ported_count=0 missing_count=6 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/markedjson/resolver.py -->
+  <!-- BEGIN-GROUP py_file=powerline/listers/vim.py -->
+  <tr class="zero"><td><code>listers/vim.py</code></td><td>✔ <code>listers/vim.rs</code></td><td>6</td><td>—</td><td><code>tabpage_updated_segment_info</code>, <code>tablister</code>, <code>add_multiplier</code>, <code>buffer_updated_segment_info</code>, <code>bufferlister</code>, <code>add_multiplier</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/listers/vim.py rs_file=src/ported/listers/vim.rs rs_exists=True py_fn_total=6 ported_count=0 missing_count=6 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/listers/vim.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/ipython/pre_5.py -->
+  <tr class="zero"><td><code>renderers/ipython/pre_5.py</code></td><td>✔ <code>renderers/ipython/pre_5.rs</code></td><td>6</td><td>—</td><td><code>render</code>, <code>do_render</code>, <code>__init__</code>, <code>render_above_lines</code>, <code>render</code>, <code>shutdown</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/ipython/pre_5.py rs_file=src/ported/renderers/ipython/pre_5.rs rs_exists=True py_fn_total=6 ported_count=0 missing_count=6 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/ipython/pre_5.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/shell.py -->
+  <tr class="zero"><td><code>segments/shell.py</code></td><td>✔ <code>segments/shell.rs</code></td><td>6</td><td>—</td><td><code>jobnum</code>, <code>last_status</code>, <code>last_pipe_status</code>, <code>mode</code>, <code>continuation</code>, <code>get_shortened_path</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/shell.py rs_file=src/ported/segments/shell.rs rs_exists=True py_fn_total=6 ported_count=0 missing_count=6 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/shell.py -->
+  <!-- BEGIN-GROUP py_file=powerline/shell.py -->
+  <tr class="zero"><td><code>shell.py</code></td><td>✔ <code>shell.rs</code></td><td>6</td><td>—</td><td><code>init</code>, <code>load_main_config</code>, <code>load_theme_config</code>, <code>get_config_paths</code>, <code>get_local_themes</code>, <code>do_setup</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/shell.py rs_file=src/ported/shell.rs rs_exists=True py_fn_total=6 ported_count=0 missing_count=6 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/shell.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/wm/__init__.py -->
+  <tr class="zero"><td><code>bindings/wm/__init__.py</code></td><td>✘ <code>bindings/wm/__init__.rs</code></td><td>5</td><td>—</td><td><code>i3_subscribe</code>, <code>__init__</code>, <code>run</code>, <code>get_i3_connection</code>, <code>get_connected_xrandr_outputs</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/wm/__init__.py rs_file=src/ported/bindings/wm/__init__.rs rs_exists=False py_fn_total=5 ported_count=0 missing_count=5 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/wm/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/__init__.py -->
+  <tr class="zero"><td><code>lib/__init__.py</code></td><td>✘ <code>lib/__init__.rs</code></td><td>5</td><td>—</td><td><code>wraps_saveargs</code>, <code>dec</code>, <code>add_divider_highlight_group</code>, <code>dec</code>, <code>f</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lib/__init__.py rs_file=src/ported/lib/__init__.rs rs_exists=False py_fn_total=5 ported_count=0 missing_count=5 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lib/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/imp.py -->
+  <tr class="zero"><td><code>lint/imp.py</code></td><td>✔ <code>lint/imp.rs</code></td><td>5</td><td>—</td><td><code>__init__</code>, <code>__enter__</code>, <code>__exit__</code>, <code>import_function</code>, <code>import_segment</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/imp.py rs_file=src/ported/lint/imp.rs rs_exists=True py_fn_total=5 ported_count=0 missing_count=5 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/imp.py -->
+  <!-- BEGIN-GROUP py_file=powerline/pdb.py -->
+  <tr class="zero"><td><code>pdb.py</code></td><td>✔ <code>pdb.rs</code></td><td>5</td><td>—</td><td><code>init</code>, <code>do_setup</code>, <code>load_main_config</code>, <code>load_theme_config</code>, <code>get_config_paths</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/pdb.py rs_file=src/ported/pdb.rs rs_exists=True py_fn_total=5 ported_count=0 missing_count=5 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/pdb.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/__init__.py -->
+  <tr class="zero"><td><code>segments/__init__.py</code></td><td>✘ <code>segments/__init__.rs</code></td><td>5</td><td>—</td><td><code>argspecobjs</code>, <code>argspecobjs</code>, <code>omitted_args</code>, <code>additional_args</code>, <code>with_docstring</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/__init__.py rs_file=src/ported/segments/__init__.rs rs_exists=False py_fn_total=5 ported_count=0 missing_count=5 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/pdb.py -->
+  <tr class="zero"><td><code>segments/pdb.py</code></td><td>✔ <code>segments/pdb.rs</code></td><td>5</td><td>—</td><td><code>current_line</code>, <code>current_file</code>, <code>current_code_name</code>, <code>current_context</code>, <code>stack_depth</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/pdb.py rs_file=src/ported/segments/pdb.rs rs_exists=True py_fn_total=5 ported_count=0 missing_count=5 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/pdb.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/ipython/since_5.py -->
+  <tr class="zero"><td><code>bindings/ipython/since_5.py</code></td><td>✔ <code>bindings/ipython/since_5.rs</code></td><td>4</td><td>—</td><td><code>init</code>, <code>do_setup</code>, <code>_make_style_from_name</code>, <code>__init__</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/ipython/since_5.py rs_file=src/ported/bindings/ipython/since_5.rs rs_exists=True py_fn_total=4 ported_count=0 missing_count=4 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/ipython/since_5.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/ipython/since_7.py -->
+  <tr class="zero"><td><code>bindings/ipython/since_7.py</code></td><td>✔ <code>bindings/ipython/since_7.rs</code></td><td>4</td><td>—</td><td><code>init</code>, <code>do_setup</code>, <code>_make_style_from_name</code>, <code>__init__</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/ipython/since_7.py rs_file=src/ported/bindings/ipython/since_7.rs rs_exists=True py_fn_total=4 ported_count=0 missing_count=4 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/ipython/since_7.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/wm/awesome.py -->
+  <tr class="zero"><td><code>bindings/wm/awesome.py</code></td><td>✔ <code>bindings/wm/awesome.rs</code></td><td>4</td><td>—</td><td><code>read_to_log</code>, <code>run</code>, <code>__init__</code>, <code>run</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/wm/awesome.py rs_file=src/ported/bindings/wm/awesome.rs rs_exists=True py_fn_total=4 ported_count=0 missing_count=4 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/wm/awesome.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/nodes.py -->
+  <tr class="zero"><td><code>lint/markedjson/nodes.py</code></td><td>✔ <code>lint/markedjson/nodes.rs</code></td><td>4</td><td>—</td><td><code>__init__</code>, <code>__repr__</code>, <code>__init__</code>, <code>__init__</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/markedjson/nodes.py rs_file=src/ported/lint/markedjson/nodes.rs rs_exists=True py_fn_total=4 ported_count=0 missing_count=4 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/markedjson/nodes.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/tokens.py -->
+  <tr class="zero"><td><code>lint/markedjson/tokens.py</code></td><td>✔ <code>lint/markedjson/tokens.rs</code></td><td>4</td><td>—</td><td><code>__init__</code>, <code>__repr__</code>, <code>__init__</code>, <code>__init__</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/markedjson/tokens.py rs_file=src/ported/lint/markedjson/tokens.rs rs_exists=True py_fn_total=4 ported_count=0 missing_count=4 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/markedjson/tokens.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/lemonbar.py -->
+  <tr class="zero"><td><code>renderers/lemonbar.py</code></td><td>✔ <code>renderers/lemonbar.rs</code></td><td>4</td><td>—</td><td><code>hlstyle</code>, <code>hl</code>, <code>render</code>, <code>get_theme</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/lemonbar.py rs_file=src/ported/renderers/lemonbar.rs rs_exists=True py_fn_total=4 ported_count=0 missing_count=4 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/lemonbar.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/pdb.py -->
+  <tr class="zero"><td><code>renderers/pdb.py</code></td><td>✔ <code>renderers/pdb.rs</code></td><td>4</td><td>—</td><td><code>get_segment_info</code>, <code>set_pdb</code>, <code>render</code>, <code>do_render</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/pdb.py rs_file=src/ported/renderers/pdb.rs rs_exists=True py_fn_total=4 ported_count=0 missing_count=4 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/pdb.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/tmux.py -->
+  <tr class="zero"><td><code>renderers/tmux.py</code></td><td>✔ <code>renderers/tmux.rs</code></td><td>4</td><td>—</td><td><code>attrs_to_tmux_attrs</code>, <code>render</code>, <code>hlstyle</code>, <code>get_segment_info</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/tmux.py rs_file=src/ported/renderers/tmux.rs rs_exists=True py_fn_total=4 ported_count=0 missing_count=4 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/tmux.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/common/vcs.py -->
+  <tr class="zero"><td><code>segments/common/vcs.py</code></td><td>✔ <code>segments/common/vcs.rs</code></td><td>4</td><td>—</td><td><code>get_directory</code>, <code>__call__</code>, <code>get_directory</code>, <code>__call__</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/common/vcs.py rs_file=src/ported/segments/common/vcs.rs rs_exists=True py_fn_total=4 ported_count=0 missing_count=4 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/common/vcs.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/common/wthr.py -->
+  <tr class="zero"><td><code>segments/common/wthr.py</code></td><td>✔ <code>segments/common/wthr.rs</code></td><td>4</td><td>—</td><td><code>key</code>, <code>get_request_url</code>, <code>compute_state</code>, <code>render_one</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/common/wthr.py rs_file=src/ported/segments/common/wthr.rs rs_exists=True py_fn_total=4 ported_count=0 missing_count=4 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/common/wthr.py -->
+  <!-- BEGIN-GROUP py_file=powerline/matchers/vim/__init__.py -->
+  <tr class="zero"><td><code>matchers/vim/__init__.py</code></td><td>✘ <code>matchers/vim/__init__.rs</code></td><td>3</td><td>—</td><td><code>help</code>, <code>cmdwin</code>, <code>quickfix</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/matchers/vim/__init__.py rs_file=src/ported/matchers/vim/__init__.rs rs_exists=False py_fn_total=3 ported_count=0 missing_count=3 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/matchers/vim/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/ipython/__init__.py -->
+  <tr class="zero"><td><code>renderers/ipython/__init__.py</code></td><td>✘ <code>renderers/ipython/__init__.rs</code></td><td>3</td><td>—</td><td><code>get_segment_info</code>, <code>get_theme</code>, <code>shutdown</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/ipython/__init__.py rs_file=src/ported/renderers/ipython/__init__.rs rs_exists=False py_fn_total=3 ported_count=0 missing_count=3 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/ipython/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/common/mail.py -->
+  <tr class="zero"><td><code>segments/common/mail.py</code></td><td>✔ <code>segments/common/mail.rs</code></td><td>3</td><td>—</td><td><code>key</code>, <code>compute_state</code>, <code>render_one</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/common/mail.py rs_file=src/ported/segments/common/mail.rs rs_exists=True py_fn_total=3 ported_count=0 missing_count=3 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/common/mail.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/vim/plugin/commandt.py -->
+  <tr class="zero"><td><code>segments/vim/plugin/commandt.py</code></td><td>✔ <code>segments/vim/plugin/commandt.rs</code></td><td>3</td><td>—</td><td><code>initialize</code>, <code>finder</code>, <code>path</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/vim/plugin/commandt.py rs_file=src/ported/segments/vim/plugin/commandt.rs rs_exists=True py_fn_total=3 ported_count=0 missing_count=3 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/vim/plugin/commandt.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/bar/powerline-bar.py -->
+  <tr class="zero"><td><code>bindings/bar/powerline-bar.py</code></td><td>✔ <code>bindings/bar/powerline-bar.rs</code></td><td>2</td><td>—</td><td><code>render</code>, <code>update</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/bar/powerline-bar.py rs_file=src/ported/bindings/bar/powerline-bar.rs rs_exists=True py_fn_total=2 ported_count=0 missing_count=2 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/bar/powerline-bar.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/lemonbar/powerline-lemonbar.py -->
+  <tr class="zero"><td><code>bindings/lemonbar/powerline-lemonbar.py</code></td><td>✔ <code>bindings/lemonbar/powerline-lemonbar.rs</code></td><td>2</td><td>—</td><td><code>render</code>, <code>update</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/lemonbar/powerline-lemonbar.py rs_file=src/ported/bindings/lemonbar/powerline-lemonbar.rs rs_exists=True py_fn_total=2 ported_count=0 missing_count=2 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/lemonbar/powerline-lemonbar.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lemonbar.py -->
+  <tr class="zero"><td><code>lemonbar.py</code></td><td>✔ <code>lemonbar.rs</code></td><td>2</td><td>—</td><td><code>init</code>, <code>get_local_themes</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lemonbar.py rs_file=src/ported/lemonbar.rs rs_exists=True py_fn_total=2 ported_count=0 missing_count=2 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lemonbar.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lib/watcher/__init__.py -->
+  <tr class="zero"><td><code>lib/watcher/__init__.py</code></td><td>✘ <code>lib/watcher/__init__.rs</code></td><td>2</td><td>—</td><td><code>create_file_watcher</code>, <code>create_tree_watcher</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lib/watcher/__init__.py rs_file=src/ported/lib/watcher/__init__.rs rs_exists=False py_fn_total=2 ported_count=0 missing_count=2 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lib/watcher/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/inspect.py -->
+  <tr class="zero"><td><code>lint/inspect.py</code></td><td>✔ <code>lint/inspect.rs</code></td><td>2</td><td>—</td><td><code>getconfigargspec</code>, <code>formatconfigargspec</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/inspect.py rs_file=src/ported/lint/inspect.rs rs_exists=True py_fn_total=2 ported_count=0 missing_count=2 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/inspect.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/loader.py -->
+  <tr class="zero"><td><code>lint/markedjson/loader.py</code></td><td>✔ <code>lint/markedjson/loader.rs</code></td><td>2</td><td>—</td><td><code>__init__</code>, <code>echoerr</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/markedjson/loader.py rs_file=src/ported/lint/markedjson/loader.rs rs_exists=True py_fn_total=2 ported_count=0 missing_count=2 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/markedjson/loader.py -->
+  <!-- BEGIN-GROUP py_file=powerline/listers/i3wm.py -->
+  <tr class="zero"><td><code>listers/i3wm.py</code></td><td>✔ <code>listers/i3wm.rs</code></td><td>2</td><td>—</td><td><code>output_lister</code>, <code>workspace_lister</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/listers/i3wm.py rs_file=src/ported/listers/i3wm.rs rs_exists=True py_fn_total=2 ported_count=0 missing_count=2 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/listers/i3wm.py -->
+  <!-- BEGIN-GROUP py_file=powerline/matchers/vim/plugin/gundo.py -->
+  <tr class="zero"><td><code>matchers/vim/plugin/gundo.py</code></td><td>✔ <code>matchers/vim/plugin/gundo.rs</code></td><td>2</td><td>—</td><td><code>gundo</code>, <code>gundo_preview</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/matchers/vim/plugin/gundo.py rs_file=src/ported/matchers/vim/plugin/gundo.rs rs_exists=True py_fn_total=2 ported_count=0 missing_count=2 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/matchers/vim/plugin/gundo.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/i3bar.py -->
+  <tr class="zero"><td><code>renderers/i3bar.py</code></td><td>✔ <code>renderers/i3bar.rs</code></td><td>2</td><td>—</td><td><code>hlstyle</code>, <code>hl</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/i3bar.py rs_file=src/ported/renderers/i3bar.rs rs_exists=True py_fn_total=2 ported_count=0 missing_count=2 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/i3bar.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/pango_markup.py -->
+  <tr class="zero"><td><code>renderers/pango_markup.py</code></td><td>✔ <code>renderers/pango_markup.rs</code></td><td>2</td><td>—</td><td><code>hlstyle</code>, <code>hl</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/pango_markup.py rs_file=src/ported/renderers/pango_markup.rs rs_exists=True py_fn_total=2 ported_count=0 missing_count=2 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/pango_markup.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/common/time.py -->
+  <tr class="zero"><td><code>segments/common/time.py</code></td><td>✔ <code>segments/common/time.rs</code></td><td>2</td><td>—</td><td><code>date</code>, <code>fuzzy_time</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/common/time.py rs_file=src/ported/segments/common/time.rs rs_exists=True py_fn_total=2 ported_count=0 missing_count=2 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/common/time.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/vim/plugin/coc.py -->
+  <tr class="zero"><td><code>segments/vim/plugin/coc.py</code></td><td>✔ <code>segments/vim/plugin/coc.rs</code></td><td>2</td><td>—</td><td><code>parse_coc_status</code>, <code>coc</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/vim/plugin/coc.py rs_file=src/ported/segments/vim/plugin/coc.rs rs_exists=True py_fn_total=2 ported_count=0 missing_count=2 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/vim/plugin/coc.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/awesome/powerline-awesome.py -->
+  <tr class="zero"><td><code>bindings/awesome/powerline-awesome.py</code></td><td>✔ <code>bindings/awesome/powerline-awesome.rs</code></td><td>1</td><td>—</td><td><code>main</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/awesome/powerline-awesome.py rs_file=src/ported/bindings/awesome/powerline-awesome.rs rs_exists=True py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/awesome/powerline-awesome.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/i3/powerline-i3.py -->
+  <tr class="zero"><td><code>bindings/i3/powerline-i3.py</code></td><td>✔ <code>bindings/i3/powerline-i3.rs</code></td><td>1</td><td>—</td><td><code>render</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/i3/powerline-i3.py rs_file=src/ported/bindings/i3/powerline-i3.rs rs_exists=True py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/i3/powerline-i3.py -->
+  <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/__init__.py -->
+  <tr class="zero"><td><code>lint/markedjson/__init__.py</code></td><td>✘ <code>lint/markedjson/__init__.rs</code></td><td>1</td><td>—</td><td><code>load</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/lint/markedjson/__init__.py rs_file=src/ported/lint/markedjson/__init__.rs rs_exists=False py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/lint/markedjson/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/listers/pdb.py -->
+  <tr class="zero"><td><code>listers/pdb.py</code></td><td>✔ <code>listers/pdb.rs</code></td><td>1</td><td>—</td><td><code>frame_lister</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/listers/pdb.py rs_file=src/ported/listers/pdb.rs rs_exists=True py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/listers/pdb.py -->
+  <!-- BEGIN-GROUP py_file=powerline/matchers/vim/plugin/commandt.py -->
+  <tr class="zero"><td><code>matchers/vim/plugin/commandt.py</code></td><td>✔ <code>matchers/vim/plugin/commandt.rs</code></td><td>1</td><td>—</td><td><code>commandt</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/matchers/vim/plugin/commandt.py rs_file=src/ported/matchers/vim/plugin/commandt.rs rs_exists=True py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/matchers/vim/plugin/commandt.py -->
+  <!-- BEGIN-GROUP py_file=powerline/matchers/vim/plugin/nerdtree.py -->
+  <tr class="zero"><td><code>matchers/vim/plugin/nerdtree.py</code></td><td>✔ <code>matchers/vim/plugin/nerdtree.rs</code></td><td>1</td><td>—</td><td><code>nerdtree</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/matchers/vim/plugin/nerdtree.py rs_file=src/ported/matchers/vim/plugin/nerdtree.rs rs_exists=True py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/matchers/vim/plugin/nerdtree.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/shell/bash.py -->
+  <tr class="zero"><td><code>renderers/shell/bash.py</code></td><td>✔ <code>renderers/shell/bash.rs</code></td><td>1</td><td>—</td><td><code>do_render</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/shell/bash.py rs_file=src/ported/renderers/shell/bash.rs rs_exists=True py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/shell/bash.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/shell/ksh.py -->
+  <tr class="zero"><td><code>renderers/shell/ksh.py</code></td><td>✔ <code>renderers/shell/ksh.rs</code></td><td>1</td><td>—</td><td><code>render</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/shell/ksh.py rs_file=src/ported/renderers/shell/ksh.rs rs_exists=True py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/shell/ksh.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/shell/tcsh.py -->
+  <tr class="zero"><td><code>renderers/shell/tcsh.py</code></td><td>✔ <code>renderers/shell/tcsh.rs</code></td><td>1</td><td>—</td><td><code>do_render</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/shell/tcsh.py rs_file=src/ported/renderers/shell/tcsh.rs rs_exists=True py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/shell/tcsh.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/vim/plugin/ale.py -->
+  <tr class="zero"><td><code>segments/vim/plugin/ale.py</code></td><td>✔ <code>segments/vim/plugin/ale.rs</code></td><td>1</td><td>—</td><td><code>ale</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/vim/plugin/ale.py rs_file=src/ported/segments/vim/plugin/ale.rs rs_exists=True py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/vim/plugin/ale.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/vim/plugin/capslock.py -->
+  <tr class="zero"><td><code>segments/vim/plugin/capslock.py</code></td><td>✔ <code>segments/vim/plugin/capslock.rs</code></td><td>1</td><td>—</td><td><code>capslock_indicator</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/vim/plugin/capslock.py rs_file=src/ported/segments/vim/plugin/capslock.rs rs_exists=True py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/vim/plugin/capslock.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/vim/plugin/nerdtree.py -->
+  <tr class="zero"><td><code>segments/vim/plugin/nerdtree.py</code></td><td>✔ <code>segments/vim/plugin/nerdtree.rs</code></td><td>1</td><td>—</td><td><code>nerdtree</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/vim/plugin/nerdtree.py rs_file=src/ported/segments/vim/plugin/nerdtree.rs rs_exists=True py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/vim/plugin/nerdtree.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/vim/plugin/syntastic.py -->
+  <tr class="zero"><td><code>segments/vim/plugin/syntastic.py</code></td><td>✔ <code>segments/vim/plugin/syntastic.rs</code></td><td>1</td><td>—</td><td><code>syntastic</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/vim/plugin/syntastic.py rs_file=src/ported/segments/vim/plugin/syntastic.rs rs_exists=True py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/vim/plugin/syntastic.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/vim/plugin/tagbar.py -->
+  <tr class="zero"><td><code>segments/vim/plugin/tagbar.py</code></td><td>✔ <code>segments/vim/plugin/tagbar.rs</code></td><td>1</td><td>—</td><td><code>current_tag</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/vim/plugin/tagbar.py rs_file=src/ported/segments/vim/plugin/tagbar.rs rs_exists=True py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/vim/plugin/tagbar.py -->
+  <!-- BEGIN-GROUP py_file=powerline/selectors/vim.py -->
+  <tr class="zero"><td><code>selectors/vim.py</code></td><td>✔ <code>selectors/vim.rs</code></td><td>1</td><td>—</td><td><code>single_tab</code></td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/selectors/vim.py rs_file=src/ported/selectors/vim.rs rs_exists=True py_fn_total=1 ported_count=0 missing_count=1 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/selectors/vim.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/__init__.py -->
+  <tr class="zero"><td><code>bindings/__init__.py</code></td><td>✘ <code>bindings/__init__.rs</code></td><td>0</td><td>—</td><td>—</td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/__init__.py rs_file=src/ported/bindings/__init__.rs rs_exists=False py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/ipython/__init__.py -->
+  <tr class="zero"><td><code>bindings/ipython/__init__.py</code></td><td>✘ <code>bindings/ipython/__init__.rs</code></td><td>0</td><td>—</td><td>—</td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/ipython/__init__.py rs_file=src/ported/bindings/ipython/__init__.rs rs_exists=False py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/ipython/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/pdb/__main__.py -->
+  <tr class="zero"><td><code>bindings/pdb/__main__.py</code></td><td>✔ <code>bindings/pdb/__main__.rs</code></td><td>0</td><td>—</td><td>—</td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/pdb/__main__.py rs_file=src/ported/bindings/pdb/__main__.rs rs_exists=True py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/pdb/__main__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/bindings/qtile/__init__.py -->
+  <tr class="zero"><td><code>bindings/qtile/__init__.py</code></td><td>✘ <code>bindings/qtile/__init__.rs</code></td><td>0</td><td>—</td><td>—</td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/bindings/qtile/__init__.py rs_file=src/ported/bindings/qtile/__init__.rs rs_exists=False py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/bindings/qtile/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/commands/__init__.py -->
+  <tr class="zero"><td><code>commands/__init__.py</code></td><td>✘ <code>commands/__init__.rs</code></td><td>0</td><td>—</td><td>—</td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/commands/__init__.py rs_file=src/ported/commands/__init__.rs rs_exists=False py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/commands/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/config.py -->
+  <tr class="zero"><td><code>config.py</code></td><td>✔ <code>config.rs</code></td><td>0</td><td>—</td><td>—</td><td><code>POWERLINE_ROOT</code>, <code>BINDINGS_DIRECTORY</code>, <code>TMUX_CONFIG_DIRECTORY</code>, <code>DEFAULT_SYSTEM_CONFIG_DIR</code>, <code>config_constants_are_consistent</code></td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/config.py rs_file=src/ported/config.rs rs_exists=True py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=5 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/config.py -->
+  <!-- BEGIN-GROUP py_file=powerline/listers/__init__.py -->
+  <tr class="zero"><td><code>listers/__init__.py</code></td><td>✘ <code>listers/__init__.rs</code></td><td>0</td><td>—</td><td>—</td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/listers/__init__.py rs_file=src/ported/listers/__init__.rs rs_exists=False py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/listers/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/matchers/__init__.py -->
+  <tr class="zero"><td><code>matchers/__init__.py</code></td><td>✘ <code>matchers/__init__.rs</code></td><td>0</td><td>—</td><td>—</td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/matchers/__init__.py rs_file=src/ported/matchers/__init__.rs rs_exists=False py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/matchers/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/matchers/vim/plugin/__init__.py -->
+  <tr class="zero"><td><code>matchers/vim/plugin/__init__.py</code></td><td>✘ <code>matchers/vim/plugin/__init__.rs</code></td><td>0</td><td>—</td><td>—</td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/matchers/vim/plugin/__init__.py rs_file=src/ported/matchers/vim/plugin/__init__.rs rs_exists=False py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/matchers/vim/plugin/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/__init__.py -->
+  <tr class="zero"><td><code>renderers/__init__.py</code></td><td>✘ <code>renderers/__init__.rs</code></td><td>0</td><td>—</td><td>—</td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/__init__.py rs_file=src/ported/renderers/__init__.rs rs_exists=False py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/shell/rcsh.py -->
+  <tr class="zero"><td><code>renderers/shell/rcsh.py</code></td><td>✔ <code>renderers/shell/rcsh.rs</code></td><td>0</td><td>—</td><td>—</td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/shell/rcsh.py rs_file=src/ported/renderers/shell/rcsh.rs rs_exists=True py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/shell/rcsh.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/shell/readline.py -->
+  <tr class="zero"><td><code>renderers/shell/readline.py</code></td><td>✔ <code>renderers/shell/readline.rs</code></td><td>0</td><td>—</td><td>—</td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/shell/readline.py rs_file=src/ported/renderers/shell/readline.rs rs_exists=True py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/shell/readline.py -->
+  <!-- BEGIN-GROUP py_file=powerline/renderers/shell/zsh.py -->
+  <tr class="zero"><td><code>renderers/shell/zsh.py</code></td><td>✔ <code>renderers/shell/zsh.rs</code></td><td>0</td><td>—</td><td>—</td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/renderers/shell/zsh.py rs_file=src/ported/renderers/shell/zsh.rs rs_exists=True py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/renderers/shell/zsh.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/common/__init__.py -->
+  <tr class="zero"><td><code>segments/common/__init__.py</code></td><td>✘ <code>segments/common/__init__.rs</code></td><td>0</td><td>—</td><td>—</td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/common/__init__.py rs_file=src/ported/segments/common/__init__.rs rs_exists=False py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/common/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/segments/vim/plugin/__init__.py -->
+  <tr class="zero"><td><code>segments/vim/plugin/__init__.py</code></td><td>✘ <code>segments/vim/plugin/__init__.rs</code></td><td>0</td><td>—</td><td>—</td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/segments/vim/plugin/__init__.py rs_file=src/ported/segments/vim/plugin/__init__.rs rs_exists=False py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/segments/vim/plugin/__init__.py -->
+  <!-- BEGIN-GROUP py_file=powerline/selectors/__init__.py -->
+  <tr class="zero"><td><code>selectors/__init__.py</code></td><td>✘ <code>selectors/__init__.rs</code></td><td>0</td><td>—</td><td>—</td><td>—</td><td class="coverage">0%</td></tr>
+  <!-- SYM py_file=powerline/selectors/__init__.py rs_file=src/ported/selectors/__init__.rs rs_exists=False py_fn_total=0 ported_count=0 missing_count=0 rs_extra_count=0 coverage=0.0000 -->
+  <!-- END-GROUP py_file=powerline/selectors/__init__.py -->
+  </tbody>
+</table>
+<script id="port-report-data" type="application/json">
+{
+  "generated": "2026-05-28",
+  "upstream": {
+    "remote": "https://github.com/powerline/powerline",
+    "sha": "11808cbe5c16"
+  },
+  "totals": {
+    "py_files": 137,
+    "py_fns": 1028,
+    "rs_files_in_ported": 110,
+    "rs_fns_in_ported": 302,
+    "ported_fns": 80,
+    "coverage": 0.07782101167315175
+  },
+  "rows": [
+    {
+      "py_file": "powerline/lib/threaded.py",
+      "rs_file": "src/ported/lib/threaded.rs",
+      "rs_exists": true,
+      "py_fn_total": 29,
+      "ported_fns": [
+        "is_alive",
+        "join"
+      ],
+      "missing_fns": [
+        "__init__",
+        "start",
+        "__init__",
+        "__call__",
+        "set_update_value",
+        "get_update_value",
+        "run",
+        "shutdown",
+        "set_interval",
+        "set_state",
+        "startup",
+        "critical",
+        "exception",
+        "info",
+        "error",
+        "warn",
+        "debug",
+        "argspecobjs",
+        "additional_args",
+        "omitted_args",
+        "__init__",
+        "key",
+        "render",
+        "update_one",
+        "update",
+        "set_state",
+        "render_one"
+      ],
+      "rs_extra_fns": [
+        "default",
+        "new",
+        "start_with",
+        "set_shutdown",
+        "new_thread_is_not_alive",
+        "start_then_join_runs_closure",
+        "set_shutdown_signals_the_thread"
+      ],
+      "coverage": 0.06896551724137931
+    },
+    {
+      "py_file": "powerline/lib/config.py",
+      "rs_file": "src/ported/lib/config.rs",
+      "rs_exists": true,
+      "py_fn_total": 21,
+      "ported_fns": [
+        "open_file",
+        "load_json_config",
+        "watch",
+        "watch",
+        "unwatch",
+        "transfer_calls"
+      ],
+      "missing_fns": [
+        "__call__",
+        "__init__",
+        "__call__",
+        "__init__",
+        "set_watcher",
+        "set_pl",
+        "set_interval",
+        "register",
+        "register_missing",
+        "unregister_functions",
+        "unregister_missing",
+        "load",
+        "update",
+        "run",
+        "exception"
+      ],
+      "rs_extra_fns": [
+        "check",
+        "default",
+        "new",
+        "check",
+        "tmp_json",
+        "open_file_reads_utf8_contents",
+        "load_json_config_parses_basic",
+        "load_json_config_returns_err_on_bad_json",
+        "dummy_watcher_always_returns_false",
+        "deferred_watcher_queues_calls"
+      ],
+      "coverage": 0.2857142857142857
+    },
+    {
+      "py_file": "powerline/bindings/config.py",
+      "rs_file": "src/ported/bindings/config.rs",
+      "rs_exists": true,
+      "py_fn_total": 18,
+      "ported_fns": [
+        "list_all_tmux_configs",
+        "get_tmux_configs"
+      ],
+      "missing_fns": [
+        "source_tmux_files",
+        "__init__",
+        "__getattr__",
+        "init_tmux_environment",
+        "get_highlighting",
+        "tmux_setup",
+        "set_tmux_environment_nosource",
+        "replace_cb",
+        "replace_env",
+        "source_tmux_file_nosource",
+        "get_main_config",
+        "create_powerline_logger",
+        "check_command",
+        "deduce_command",
+        "shell_command",
+        "uses"
+      ],
+      "rs_extra_fns": [
+        "CONFIG_FILE_NAME",
+        "applies",
+        "priority",
+        "ver",
+        "config_file_name_matches_standard_format",
+        "exact_matcher_requires_same_major_minor",
+        "plus_matcher_applies_when_file_lte_tmux",
+        "minus_matcher_applies_when_file_gte_tmux",
+        "priority_order_matches_upstream"
+      ],
+      "coverage": 0.1111111111111111
+    },
+    {
+      "py_file": "powerline/segment.py",
+      "rs_file": "src/ported/segment.rs",
+      "rs_exists": true,
+      "py_fn_total": 15,
+      "ported_fns": [
+        "list_segment_key_values",
+        "get_segment_key",
+        "get_string",
+        "set_segment_highlighting"
+      ],
+      "missing_fns": [
+        "get_function",
+        "get_attr_func",
+        "expand_func",
+        "process_segment_lister",
+        "process_segment",
+        "gen_segment_getter",
+        "get_key",
+        "get_selector",
+        "get_segment_selector",
+        "gen_display_condition",
+        "get"
+      ],
+      "rs_extra_fns": [
+        "always_true",
+        "get_fallback_segment",
+        "always_true_is_always_true",
+        "get_fallback_segment_has_expected_shape",
+        "list_segment_key_values_finds_segment_key_first",
+        "get_segment_key_merge_collapses_dicts_old_wins",
+        "get_segment_key_no_merge_returns_first",
+        "set_segment_highlighting_basic"
+      ],
+      "coverage": 0.26666666666666666
+    },
+    {
+      "py_file": "powerline/lib/unicode.py",
+      "rs_file": "src/ported/lib/unicode.rs",
+      "rs_exists": true,
+      "py_fn_total": 14,
+      "ported_fns": [
+        "u",
+        "safe_unicode"
+      ],
+      "missing_fns": [
+        "unichr",
+        "tointiter",
+        "tointiter",
+        "powerline_decode_error",
+        "register_strwidth_error",
+        "powerline_encode_strwidth_error",
+        "out_u",
+        "string",
+        "string",
+        "surrogate_pair_to_character",
+        "strwidth_ucs_4",
+        "strwidth_ucs_2"
+      ],
+      "rs_extra_fns": [
+        "safe_unicode_str",
+        "safe_unicode_bytes",
+        "u_passes_through_str",
+        "u_handles_utf8",
+        "safe_unicode_str_round_trips",
+        "safe_unicode_bytes_handles_valid_utf8",
+        "safe_unicode_bytes_lossy_on_invalid",
+        "safe_unicode_display_works_on_int"
+      ],
+      "coverage": 0.14285714285714285
+    },
+    {
+      "py_file": "powerline/theme.py",
+      "rs_file": "src/ported/theme.rs",
+      "rs_exists": true,
+      "py_fn_total": 12,
+      "ported_fns": [
+        "requires_segment_info",
+        "requires_filesystem_watcher",
+        "new_empty_segment_line",
+        "add_spaces_left",
+        "add_spaces_right",
+        "add_spaces_center"
+      ],
+      "missing_fns": [
+        "__init__",
+        "shutdown",
+        "get_divider",
+        "get_spaces",
+        "get_line_number",
+        "get_segments"
+      ],
+      "rs_extra_fns": [
+        "expand_functions",
+        "seg",
+        "new_empty_segment_line_has_left_and_right",
+        "add_spaces_left_pads_on_left",
+        "add_spaces_right_pads_on_right",
+        "add_spaces_center_pads_evenly_extra_left_when_odd",
+        "expand_functions_returns_correct_fn_for_each_align",
+        "requires_decorators_are_identity",
+        "alignment_idiom_matches_documented_inverse_mapping"
+      ],
+      "coverage": 0.5
+    },
+    {
+      "py_file": "powerline/lib/dict.py",
+      "rs_file": "src/ported/lib/dict.rs",
+      "rs_exists": true,
+      "py_fn_total": 7,
+      "ported_fns": [
+        "mergeargs",
+        "_clear_special_values",
+        "mergedicts",
+        "mergedefaults",
+        "_setmerged",
+        "mergedicts_copy",
+        "updated"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "REMOVE_THIS_KEY",
+        "obj",
+        "mergedicts_overwrites_scalar",
+        "mergedicts_recurses_into_nested",
+        "mergedicts_remove_this_key_deletes",
+        "mergedefaults_keeps_existing",
+        "mergedicts_copy_does_not_mutate_inputs",
+        "mergeargs_empty_returns_none",
+        "mergeargs_folds_pairs",
+        "updated_does_not_mutate_input"
+      ],
+      "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/lib/encoding.py",
+      "rs_file": "src/ported/lib/encoding.rs",
+      "rs_exists": true,
+      "py_fn_total": 7,
+      "ported_fns": [
+        "get_preferred_file_name_encoding",
+        "get_preferred_file_contents_encoding",
+        "get_preferred_output_encoding",
+        "get_preferred_input_encoding",
+        "get_preferred_arguments_encoding",
+        "get_preferred_environment_encoding",
+        "get_unicode_writer"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "all_encodings_return_known_values",
+        "unicode_writer_writes_to_buffer"
+      ],
+      "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/lib/inotify.py",
+      "rs_file": "src/ported/lib/inotify.rs",
+      "rs_exists": true,
+      "py_fn_total": 7,
+      "ported_fns": [
+        "load_inotify",
+        "handle_error",
+        "close",
+        "read",
+        "process_event"
+      ],
+      "missing_fns": [
+        "__init__",
+        "__del__"
+      ],
+      "rs_extra_fns": [
+        "fmt",
+        "load_inotify_returns_error_in_stub",
+        "inotify_error_implements_display"
+      ],
+      "coverage": 0.7142857142857143
+    },
+    {
+      "py_file": "powerline/colorscheme.py",
+      "rs_file": "src/ported/colorscheme.rs",
+      "rs_exists": true,
+      "py_fn_total": 6,
+      "ported_fns": [
+        "get_attrs_flag",
+        "pick_gradient_value",
+        "get_gradient",
+        "get_group_props",
+        "get_highlighting"
+      ],
+      "missing_fns": [
+        "__init__"
+      ],
+      "rs_extra_fns": [
+        "py_round",
+        "new",
+        "attr_constants_match_upstream",
+        "cterm_to_hex_has_256_entries",
+        "cterm_to_hex_spot_check",
+        "get_attrs_flag_combines_bits",
+        "get_attrs_flag_empty_is_zero",
+        "pick_gradient_value_endpoints",
+        "colorscheme_new_minimal_config",
+        "get_highlighting_resolves_group"
+      ],
+      "coverage": 0.8333333333333334
+    },
+    {
+      "py_file": "powerline/commands/main.py",
+      "rs_file": "src/ported/commands/main.rs",
+      "rs_exists": true,
+      "py_fn_total": 6,
+      "ported_fns": [
+        "arg_to_unicode",
+        "arg_to_unicode",
+        "finish_args",
+        "int_or_sig",
+        "get_argparser"
+      ],
+      "missing_fns": [
+        "write_output"
+      ],
+      "rs_extra_fns": [
+        "arg_to_unicode_is_identity_in_py3",
+        "int_or_sig_parses_integer",
+        "int_or_sig_parses_signal_name",
+        "int_or_sig_rejects_invalid_int",
+        "finish_args_validates_ext_side",
+        "finish_args_accepts_wm_ext_without_side",
+        "finish_args_merges_config_override",
+        "finish_args_combines_env_and_arg_config_path",
+        "finish_args_merges_renderer_arg_with_pane_id_int_parsing",
+        "get_argparser_has_expected_argument_count",
+        "get_argparser_description_matches_upstream",
+        "get_argparser_has_required_flags"
+      ],
+      "coverage": 0.8333333333333334
+    },
+    {
+      "py_file": "powerline/lib/watcher/stat.py",
+      "rs_file": "src/ported/lib/watcher/stat.rs",
+      "rs_exists": true,
+      "py_fn_total": 6,
+      "ported_fns": [
+        "watch",
+        "unwatch",
+        "is_watching",
+        "close"
+      ],
+      "missing_fns": [
+        "__init__",
+        "__call__"
+      ],
+      "rs_extra_fns": [
+        "default",
+        "new",
+        "check",
+        "tmp_file_with_content",
+        "watch_then_check_returns_false_unchanged",
+        "check_returns_true_when_unwatched",
+        "check_returns_true_after_mtime_change",
+        "unwatch_removes_from_set",
+        "close_clears_all_watches"
+      ],
+      "coverage": 0.6666666666666666
+    },
+    {
+      "py_file": "powerline/commands/config.py",
+      "rs_file": "src/ported/commands/config.rs",
+      "rs_exists": true,
+      "py_fn_total": 5,
+      "ported_fns": [
+        "get_argparser"
+      ],
+      "missing_fns": [
+        "__init__",
+        "__call__",
+        "__str__",
+        "parse_args"
+      ],
+      "rs_extra_fns": [
+        "name",
+        "fmt",
+        "TMUX_ACTIONS",
+        "SHELL_ACTIONS",
+        "tmux_action_from_name",
+        "shell_action_from_name",
+        "str_function_names_match_upstream",
+        "str_function_display_round_trips_via_name",
+        "tmux_actions_has_three_entries",
+        "shell_actions_has_two_entries",
+        "tmux_action_lookup_unknown_returns_none",
+        "get_argparser_description_matches_upstream",
+        "get_argparser_includes_subcommand_handles"
+      ],
+      "coverage": 0.2
+    },
+    {
+      "py_file": "powerline/lib/shell.py",
+      "rs_file": "src/ported/lib/shell.rs",
+      "rs_exists": true,
+      "py_fn_total": 5,
+      "ported_fns": [
+        "run_cmd",
+        "asrun",
+        "readlines",
+        "which",
+        "_access_check"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "run_cmd_echo_returns_stdout",
+        "run_cmd_missing_command_returns_none",
+        "run_cmd_no_strip_keeps_trailing_newline",
+        "which_finds_echo",
+        "which_missing_returns_none",
+        "readlines_returns_per_line"
+      ],
+      "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/lib/memoize.py",
+      "rs_file": "src/ported/lib/memoize.rs",
+      "rs_exists": true,
+      "py_fn_total": 4,
+      "ported_fns": [
+        "default_cache_key"
+      ],
+      "missing_fns": [
+        "__init__",
+        "__call__",
+        "decorated_function"
+      ],
+      "rs_extra_fns": [
+        "new",
+        "get_or_compute",
+        "default_cache_key_is_stable_across_iteration_order",
+        "memoize_caches_within_timeout",
+        "memoize_recomputes_on_different_key",
+        "memoize_recomputes_after_timeout"
+      ],
+      "coverage": 0.25
+    },
+    {
+      "py_file": "powerline/lib/monotonic.py",
+      "rs_file": "src/ported/lib/monotonic.rs",
+      "rs_exists": true,
+      "py_fn_total": 4,
+      "ported_fns": [
+        "monotonic",
+        "monotonic",
+        "monotonic"
+      ],
+      "missing_fns": [
+        "mach_timebase_info"
+      ],
+      "rs_extra_fns": [
+        "monotonic_is_non_decreasing",
+        "monotonic_advances"
+      ],
+      "coverage": 0.75
+    },
+    {
+      "py_file": "powerline/lib/overrides.py",
+      "rs_file": "src/ported/lib/overrides.rs",
+      "rs_exists": true,
+      "py_fn_total": 4,
+      "ported_fns": [
+        "parse_value",
+        "keyvaluesplit",
+        "parse_override_var"
+      ],
+      "missing_fns": [
+        "parsedotval"
+      ],
+      "rs_extra_fns": [
+        "parsedotval_str",
+        "parsedotval_tuple",
+        "build_nested",
+        "parse_value_empty_returns_remove_marker",
+        "parse_value_number",
+        "parse_value_string_in_quotes",
+        "parse_value_specials",
+        "parse_value_array_and_object",
+        "parse_value_raw_string",
+        "keyvaluesplit_basic",
+        "keyvaluesplit_no_equals_errors",
+        "keyvaluesplit_leading_underscore_errors",
+        "parsedotval_str_builds_nested",
+        "parsedotval_str_no_dot_is_flat",
+        "parse_override_var_splits_on_semicolon",
+        "parse_override_var_skips_empty"
+      ],
+      "coverage": 0.75
+    },
+    {
+      "py_file": "powerline/lib/debug.py",
+      "rs_file": "src/ported/lib/debug.rs",
+      "rs_exists": true,
+      "py_fn_total": 3,
+      "ported_fns": [
+        "print_cycles"
+      ],
+      "missing_fns": [
+        "print_path",
+        "recurse"
+      ],
+      "rs_extra_fns": [
+        "print_cycles_is_no_op"
+      ],
+      "coverage": 0.3333333333333333
+    },
+    {
+      "py_file": "powerline/lib/path.py",
+      "rs_file": "src/ported/lib/path.rs",
+      "rs_exists": true,
+      "py_fn_total": 2,
+      "ported_fns": [
+        "realpath",
+        "join"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "realpath_of_cwd_is_absolute",
+        "realpath_of_missing_path_is_absolute_join_with_cwd",
+        "join_concatenates_components_in_order",
+        "join_empty_returns_empty_path",
+        "join_absolute_component_resets"
+      ],
+      "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/commands/daemon.py",
+      "rs_file": "src/ported/commands/daemon.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [
+        "get_argparser"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "daemon_parser_description_matches_upstream",
+        "daemon_parser_has_five_arguments",
+        "daemon_parser_flag_set"
+      ],
+      "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/commands/lemonbar.py",
+      "rs_file": "src/ported/commands/lemonbar.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [
+        "get_argparser"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "lemonbar_parser_description_matches_upstream",
+        "lemonbar_parser_has_five_arguments",
+        "lemonbar_parser_has_i3_flag",
+        "lemonbar_parser_bar_command_default_meta"
+      ],
+      "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/commands/lint.py",
+      "rs_file": "src/ported/commands/lint.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [
+        "get_argparser"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "lint_parser_description_matches_upstream",
+        "lint_parser_has_two_arguments",
+        "config_path_uses_append_action"
+      ],
+      "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/lib/humanize_bytes.py",
+      "rs_file": "src/ported/lib/humanize_bytes.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [
+        "humanize_bytes"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "unit_list_matches_upstream_shape",
+        "zero_returns_suffix_only",
+        "binary_prefix_matches_upstream",
+        "si_prefix_matches_upstream"
+      ],
+      "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/lib/url.py",
+      "rs_file": "src/ported/lib/url.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [
+        "urllib_read"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "urllib_urlencode",
+        "percent_encode",
+        "urllib_read_returns_none_stub",
+        "urllib_urlencode_simple",
+        "urllib_urlencode_escapes_spaces_as_plus",
+        "urllib_urlencode_percent_escapes_non_safe",
+        "urllib_urlencode_preserves_safe_chars"
+      ],
+      "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/lint/selfcheck.py",
+      "rs_file": "src/ported/lint/selfcheck.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [
+        "havemarks"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "havemarks_walks_nested_structure",
+        "havemarks_empty_input_ok"
+      ],
+      "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/segments/ipython.py",
+      "rs_file": "src/ported/segments/ipython.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [
+        "prompt_count"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "prompt_count_returns_str_of_count",
+        "prompt_count_missing_key_returns_none"
+      ],
+      "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/segments/tmux.py",
+      "rs_file": "src/ported/segments/tmux.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [
+        "attached_clients"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "attached_clients_safe_when_tmux_unavailable"
+      ],
+      "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/version.py",
+      "rs_file": "src/ported/version.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [
+        "get_version"
+      ],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "version_constant_matches_upstream",
+        "get_version_returns_nonempty"
+      ],
+      "coverage": 1.0
+    },
+    {
+      "py_file": "powerline/bindings/vim/__init__.py",
+      "rs_file": "src/ported/bindings/vim/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 60,
+      "ported_fns": [],
+      "missing_fns": [
+        "get_vim_encoding",
+        "get_vim_encoding",
+        "get_vim_encoding",
+        "get_vim_encoding",
+        "python_to_vim",
+        "str_to_bytes",
+        "unicode_eval",
+        "str_to_bytes",
+        "unicode_eval",
+        "safe_bytes_eval",
+        "eval_bytes",
+        "eval_unicode",
+        "vim_get_func",
+        "__init__",
+        "__call__",
+        "vim_get_autoload_func",
+        "vim_func_exists",
+        "vim_func_exists",
+        "vim_getvar",
+        "bufvar_exists",
+        "vim_getwinvar",
+        "vim_global_exists",
+        "vim_getvar",
+        "bufvar_exists",
+        "vim_getwinvar",
+        "vim_global_exists",
+        "vim_command_exists",
+        "getbufvar",
+        "_vim_to_python",
+        "vim_getbufoption",
+        "vim_getoption",
+        "vim_setoption",
+        "vim_getbufoption",
+        "vim_getoption",
+        "vim_setoption",
+        "list_tabpage_buffers_segment_info",
+        "__nonzero__",
+        "get_buffer",
+        "__init__",
+        "__getitem__",
+        "get",
+        "__init__",
+        "buffer",
+        "__init__",
+        "__eq__",
+        "window",
+        "_last_tab_nr",
+        "current_tabpage",
+        "list_tabpages",
+        "__getitem__",
+        "list_tabpage_buffers_segment_info",
+        "__getitem__",
+        "get",
+        "__setitem__",
+        "buffer_name",
+        "buffer_name",
+        "powerline_vim_strtrans_error",
+        "register_buffer_cache",
+        "on_bwipe",
+        "create_ruby_dpowerline"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/__init__.py",
+      "rs_file": "src/ported/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 48,
+      "ported_fns": [],
+      "missing_fns": [
+        "_config_loader_condition",
+        "_find_config_files",
+        "__init__",
+        "_log",
+        "critical",
+        "exception",
+        "info",
+        "error",
+        "warn",
+        "debug",
+        "get_fallback_logger",
+        "_generate_change_callback",
+        "on_file_change",
+        "get_config_paths",
+        "generate_config_finder",
+        "load_config",
+        "_set_log_handlers",
+        "create_logger",
+        "get_default_theme",
+        "finish_common_config",
+        "reraise",
+        "gen_module_attr_getter",
+        "get_module_attr",
+        "_get_log_keys",
+        "__init__",
+        "init",
+        "create_logger",
+        "create_renderer",
+        "setup_components",
+        "get_config_paths",
+        "load_config",
+        "_purge_configs",
+        "load_main_config",
+        "_load_hierarhical_config",
+        "load_colorscheme_config",
+        "load_theme_config",
+        "load_colors_config",
+        "get_local_themes",
+        "update_renderer",
+        "render",
+        "render_above_lines",
+        "setup",
+        "do_setup",
+        "reload",
+        "shutdown",
+        "__enter__",
+        "__exit__",
+        "exception"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/vim/__init__.py",
+      "rs_file": "src/ported/segments/vim/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 37,
+      "ported_fns": [],
+      "missing_fns": [
+        "window_cached",
+        "ret",
+        "mode",
+        "visual_range",
+        "modified_indicator",
+        "tab_modified_indicator",
+        "paste_indicator",
+        "readonly_indicator",
+        "file_scheme",
+        "file_directory",
+        "file_name",
+        "file_size",
+        "file_format",
+        "file_encoding",
+        "file_bom",
+        "file_type",
+        "window_title",
+        "line_percent",
+        "position",
+        "line_current",
+        "line_count",
+        "col_current",
+        "virtcol_current",
+        "modified_buffers",
+        "get_directory",
+        "get_directory",
+        "file_vcs_status",
+        "trailing_whitespace",
+        "tabnr",
+        "bufnr",
+        "winnr",
+        "detect_text_csv_dialect",
+        "read_csv",
+        "read_csv",
+        "process_csv_buffer",
+        "csv_col_current",
+        "tab"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/spec.py",
+      "rs_file": "src/ported/lint/spec.rs",
+      "rs_exists": true,
+      "py_fn_total": 32,
+      "ported_fns": [],
+      "missing_fns": [
+        "__init__",
+        "update",
+        "copy",
+        "_update",
+        "unknown_spec",
+        "unknown_msg",
+        "context_message",
+        "check_type",
+        "check_func",
+        "check_list",
+        "check_either",
+        "check_tuple",
+        "check_printable",
+        "printable",
+        "type",
+        "len",
+        "cmp",
+        "unsigned",
+        "list",
+        "tuple",
+        "func",
+        "re",
+        "ident",
+        "oneof",
+        "error",
+        "either",
+        "optional",
+        "required",
+        "match_checks",
+        "match",
+        "__getitem__",
+        "__setitem__"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/markedjson/scanner.py",
+      "rs_file": "src/ported/lint/markedjson/scanner.rs",
+      "rs_exists": true,
+      "py_fn_total": 29,
+      "ported_fns": [],
+      "missing_fns": [
+        "__init__",
+        "__init__",
+        "check_token",
+        "peek_token",
+        "get_token",
+        "need_more_tokens",
+        "fetch_more_tokens",
+        "next_possible_simple_key",
+        "stale_possible_simple_keys",
+        "save_possible_simple_key",
+        "remove_possible_simple_key",
+        "fetch_stream_start",
+        "fetch_stream_end",
+        "fetch_flow_sequence_start",
+        "fetch_flow_mapping_start",
+        "fetch_flow_collection_start",
+        "fetch_flow_sequence_end",
+        "fetch_flow_mapping_end",
+        "fetch_flow_collection_end",
+        "fetch_value",
+        "fetch_flow_entry",
+        "fetch_double",
+        "fetch_plain",
+        "check_plain",
+        "scan_to_next_token",
+        "scan_flow_scalar",
+        "scan_flow_scalar_non_spaces",
+        "scan_flow_scalar_spaces",
+        "scan_plain"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/checks.py",
+      "rs_file": "src/ported/lint/checks.rs",
+      "rs_exists": true,
+      "py_fn_total": 27,
+      "ported_fns": [],
+      "missing_fns": [
+        "get_function_strings",
+        "check_matcher_func",
+        "check_ext",
+        "check_config",
+        "check_top_theme",
+        "check_color",
+        "check_translated_group_name",
+        "check_group",
+        "listed_key",
+        "check_key_compatibility",
+        "check_segment_module",
+        "check_full_segment_data",
+        "check_hl_group_name",
+        "check_segment_function",
+        "hl_group_in_colorscheme",
+        "hl_exists",
+        "check_highlight_group",
+        "check_highlight_groups",
+        "check_segment_data_key",
+        "check_args_variant",
+        "check_args",
+        "get_one_segment_function",
+        "register_common_name",
+        "get_all_possible_functions",
+        "check_exinclude_function",
+        "check_log_file_level",
+        "check_logging_handler"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lib/watcher/uv.py",
+      "rs_file": "src/ported/lib/watcher/uv.rs",
+      "rs_exists": true,
+      "py_fn_total": 24,
+      "ported_fns": [],
+      "missing_fns": [
+        "import_pyuv",
+        "__init__",
+        "_async_cb",
+        "run",
+        "join",
+        "start_uv_thread",
+        "normpath",
+        "__init__",
+        "_start_watch_1_x",
+        "_start_watch_0_x",
+        "watch",
+        "unwatch",
+        "is_watching",
+        "__del__",
+        "__init__",
+        "_record_event",
+        "_stopped_watching",
+        "__call__",
+        "__init__",
+        "watch_directory",
+        "watch_one_directory",
+        "_stopped_watching",
+        "_record_event",
+        "__call__"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/markedjson/error.py",
+      "rs_file": "src/ported/lint/markedjson/error.rs",
+      "rs_exists": true,
+      "py_fn_total": 24,
+      "ported_fns": [],
+      "missing_fns": [
+        "repl",
+        "strtrans",
+        "__init__",
+        "copy",
+        "get_snippet",
+        "advance_string",
+        "set_old_mark",
+        "set_merged_mark",
+        "to_string",
+        "__str__",
+        "__unicode__",
+        "__str__",
+        "__eq__",
+        "echoerr",
+        "echoerr",
+        "format_error",
+        "__init__",
+        "__init__",
+        "__call__",
+        "__init__",
+        "__call__",
+        "next_variant",
+        "echo_all",
+        "__nonzero__"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/vim.py",
+      "rs_file": "src/ported/vim.rs",
+      "rs_exists": true,
+      "py_fn_total": 24,
+      "ported_fns": [],
+      "missing_fns": [
+        "_override_from",
+        "__init__",
+        "emit",
+        "init",
+        "create_window_statusline_constructor",
+        "create_window_statusline_constructor",
+        "add_local_theme",
+        "load_main_config",
+        "load_theme_config",
+        "get_local_themes",
+        "get_matcher",
+        "get_config_paths",
+        "do_setup",
+        "reset_highlight",
+        "new_win_idx",
+        "old_win_idx",
+        "statusline",
+        "tabline",
+        "new_window",
+        "do_pyeval",
+        "setup_components",
+        "set_pycmd",
+        "get_default_pycmd",
+        "setup"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/markedjson/constructor.py",
+      "rs_file": "src/ported/lint/markedjson/constructor.rs",
+      "rs_exists": true,
+      "py_fn_total": 23,
+      "ported_fns": [],
+      "missing_fns": [
+        "marked",
+        "f",
+        "__init__",
+        "check_data",
+        "get_data",
+        "get_single_data",
+        "construct_document",
+        "construct_object",
+        "construct_scalar",
+        "construct_sequence",
+        "construct_mapping",
+        "add_constructor",
+        "construct_scalar",
+        "flatten_mapping",
+        "construct_mapping",
+        "construct_yaml_null",
+        "construct_yaml_bool",
+        "construct_yaml_int",
+        "construct_yaml_float",
+        "construct_yaml_str",
+        "construct_yaml_seq",
+        "construct_yaml_map",
+        "construct_undefined"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/pdb/__init__.py",
+      "rs_file": "src/ported/bindings/pdb/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 22,
+      "ported_fns": [],
+      "missing_fns": [
+        "__new__",
+        "__len__",
+        "__getitem__",
+        "__getslice__",
+        "add",
+        "__add__",
+        "__radd__",
+        "__unicode__",
+        "__new__",
+        "__str__",
+        "__getitem__",
+        "__getslice__",
+        "add",
+        "__add__",
+        "__radd__",
+        "encode",
+        "use_powerline_prompt",
+        "prompt",
+        "prompt",
+        "prompt",
+        "main",
+        "__init__"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/zsh/__init__.py",
+      "rs_file": "src/ported/bindings/zsh/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 21,
+      "ported_fns": [],
+      "missing_fns": [
+        "shutdown",
+        "get_var_config",
+        "config_override",
+        "theme_override",
+        "config_path",
+        "jobnum",
+        "string",
+        "__getitem__",
+        "get",
+        "__contains__",
+        "zsh_expand",
+        "init",
+        "precmd",
+        "do_setup",
+        "__init__",
+        "__str__",
+        "__del__",
+        "set_prompt",
+        "reload",
+        "reload_config",
+        "setup"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/markedjson/markedvalue.py",
+      "rs_file": "src/ported/lint/markedjson/markedvalue.rs",
+      "rs_exists": true,
+      "py_fn_total": 17,
+      "ported_fns": [],
+      "missing_fns": [
+        "gen_new",
+        "__new__",
+        "gen_init",
+        "__init__",
+        "gen_getnewargs",
+        "__getnewargs__",
+        "_proc_partition",
+        "rpartition",
+        "partition",
+        "__new__",
+        "setmerged",
+        "__setitem__",
+        "update",
+        "copy",
+        "__init__",
+        "gen_marked_value",
+        "copy"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/markedjson/parser.py",
+      "rs_file": "src/ported/lint/markedjson/parser.rs",
+      "rs_exists": true,
+      "py_fn_total": 17,
+      "ported_fns": [],
+      "missing_fns": [
+        "__init__",
+        "dispose",
+        "check_event",
+        "peek_event",
+        "get_event",
+        "parse_stream_start",
+        "parse_implicit_document_start",
+        "parse_document_start",
+        "parse_document_end",
+        "parse_document_content",
+        "parse_node",
+        "parse_flow_sequence_first_entry",
+        "parse_flow_sequence_entry",
+        "parse_flow_sequence_entry_mapping_end",
+        "parse_flow_mapping_first_key",
+        "parse_flow_mapping_key",
+        "parse_flow_mapping_value"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/common/players.py",
+      "rs_file": "src/ported/segments/common/players.rs",
+      "rs_exists": true,
+      "py_fn_total": 17,
+      "ported_fns": [],
+      "missing_fns": [
+        "_convert_state",
+        "_convert_seconds",
+        "__call__",
+        "get_player_status",
+        "argspecobjs",
+        "omitted_args",
+        "get_player_status",
+        "get_player_status",
+        "_get_dbus_player_status",
+        "_get_dbus_player_status",
+        "get_player_status",
+        "get_player_status",
+        "get_player_status",
+        "get_player_status",
+        "get_player_status",
+        "get_player_status",
+        "get_player_status"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/ipython/pre_0_11.py",
+      "rs_file": "src/ported/bindings/ipython/pre_0_11.rs",
+      "rs_exists": true,
+      "py_fn_total": 16,
+      "ported_fns": [],
+      "missing_fns": [
+        "__init__",
+        "prompt_count",
+        "__init__",
+        "__str__",
+        "set_p_str",
+        "set_colors",
+        "__str__",
+        "set_p_str",
+        "auto_rewrite",
+        "set_p_str",
+        "init",
+        "ipython_magic",
+        "do_setup",
+        "__call__",
+        "setup",
+        "late_startup_hook"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lib/vcs/__init__.py",
+      "rs_file": "src/ported/lib/vcs/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 16,
+      "ported_fns": [],
+      "missing_fns": [
+        "generate_directories",
+        "file_watcher",
+        "branch_watcher",
+        "get_branch_name",
+        "__init__",
+        "update_maps",
+        "invalidate",
+        "ignore_files",
+        "get_file_status",
+        "__init__",
+        "cache_and_get",
+        "__call__",
+        "tree_status",
+        "guess",
+        "get_fallback_create_watcher",
+        "debug"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lib/watcher/inotify.py",
+      "rs_file": "src/ported/lib/watcher/inotify.rs",
+      "rs_exists": true,
+      "py_fn_total": 15,
+      "ported_fns": [],
+      "missing_fns": [
+        "__init__",
+        "expire_watches",
+        "process_event",
+        "unwatch",
+        "watch",
+        "is_watching",
+        "__call__",
+        "close",
+        "__init__",
+        "__init__",
+        "watch_tree",
+        "add_watches",
+        "add_watch",
+        "process_event",
+        "__call__"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderer.py",
+      "rs_file": "src/ported/renderer.rs",
+      "rs_exists": true,
+      "py_fn_total": 15,
+      "ported_fns": [],
+      "missing_fns": [
+        "construct_returned_value",
+        "__init__",
+        "get_theme",
+        "shutdown",
+        "get_segment_info",
+        "render_above_lines",
+        "render",
+        "compute_divider_widths",
+        "do_render",
+        "_prepare_segments",
+        "_render_length",
+        "_render_segments",
+        "escape",
+        "hlstyle",
+        "hl"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/common/net.py",
+      "rs_file": "src/ported/segments/common/net.rs",
+      "rs_exists": true,
+      "py_fn_total": 15,
+      "ported_fns": [],
+      "missing_fns": [
+        "hostname",
+        "_external_ip",
+        "set_state",
+        "update",
+        "render",
+        "internal_ip",
+        "_interface_key",
+        "internal_ip",
+        "_get_bytes",
+        "_get_interfaces",
+        "_get_bytes",
+        "_get_interfaces",
+        "key",
+        "compute_state",
+        "render_one"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lib/vcs/git.py",
+      "rs_file": "src/ported/lib/vcs/git.rs",
+      "rs_exists": true,
+      "py_fn_total": 13,
+      "ported_fns": [],
+      "missing_fns": [
+        "branch_name_from_config_file",
+        "git_directory",
+        "__init__",
+        "status",
+        "branch",
+        "ignore_event",
+        "stash",
+        "do_status",
+        "__init__",
+        "ignore_event",
+        "_gitcmd",
+        "stash",
+        "do_status"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/common/sys.py",
+      "rs_file": "src/ported/segments/common/sys.rs",
+      "rs_exists": true,
+      "py_fn_total": 13,
+      "ported_fns": [],
+      "missing_fns": [
+        "system_load",
+        "update",
+        "run",
+        "render",
+        "startup",
+        "start",
+        "shutdown",
+        "render",
+        "_get_uptime",
+        "_get_uptime",
+        "_get_uptime",
+        "_get_uptime",
+        "uptime"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/ipython/since_5.py",
+      "rs_file": "src/ported/renderers/ipython/since_5.rs",
+      "rs_exists": true,
+      "py_fn_total": 12,
+      "ported_fns": [],
+      "missing_fns": [
+        "__new__",
+        "__init__",
+        "__missing__",
+        "get_attrs_for_token",
+        "get_token_to_attributes_dict",
+        "fallback",
+        "invalidation_hash",
+        "get_segment_info",
+        "hl_join",
+        "hl",
+        "hlstyle",
+        "get_client_id"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/i3wm.py",
+      "rs_file": "src/ported/segments/i3wm.rs",
+      "rs_exists": true,
+      "py_fn_total": 12,
+      "ported_fns": [],
+      "missing_fns": [
+        "workspace_groups",
+        "format_name",
+        "is_empty_workspace",
+        "get_icon",
+        "workspaces",
+        "sort_ws",
+        "natural_key",
+        "workspace",
+        "mode",
+        "scratchpad_groups",
+        "scratchpad",
+        "active_window"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/ipython.py",
+      "rs_file": "src/ported/ipython.rs",
+      "rs_exists": true,
+      "py_fn_total": 11,
+      "ported_fns": [],
+      "missing_fns": [
+        "__init__",
+        "prompt_count",
+        "__init__",
+        "__str__",
+        "__add__",
+        "init",
+        "get_config_paths",
+        "get_local_themes",
+        "load_main_config",
+        "load_theme_config",
+        "do_setup"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/vim.py",
+      "rs_file": "src/ported/renderers/vim.rs",
+      "rs_exists": true,
+      "py_fn_total": 11,
+      "ported_fns": [],
+      "missing_fns": [
+        "__init__",
+        "shutdown",
+        "add_local_theme",
+        "get_matched_theme",
+        "get_theme",
+        "strwidth",
+        "strwidth",
+        "get_segment_info",
+        "render",
+        "reset_highlight",
+        "hlstyle"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/ipython/post_0_11.py",
+      "rs_file": "src/ported/bindings/ipython/post_0_11.rs",
+      "rs_exists": true,
+      "py_fn_total": 10,
+      "ported_fns": [],
+      "missing_fns": [
+        "__init__",
+        "powerline",
+        "__init__",
+        "__call__",
+        "__init__",
+        "render",
+        "init",
+        "do_setup",
+        "load_ipython_extension",
+        "unload_ipython_extension"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/common/bat.py",
+      "rs_file": "src/ported/segments/common/bat.rs",
+      "rs_exists": true,
+      "py_fn_total": 10,
+      "ported_fns": [],
+      "missing_fns": [
+        "_fetch_battery_info",
+        "_flatten_battery",
+        "_get_battery_status",
+        "_get_battery_perc",
+        "_get_battery_status",
+        "_get_battery_status",
+        "_get_battery_status",
+        "_get_battery_status",
+        "_failing_get_status",
+        "battery"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/common/env.py",
+      "rs_file": "src/ported/segments/common/env.rs",
+      "rs_exists": true,
+      "py_fn_total": 10,
+      "ported_fns": [],
+      "missing_fns": [
+        "environment",
+        "virtualenv",
+        "argspecobjs",
+        "omitted_args",
+        "get_shortened_path",
+        "__call__",
+        "_get_user",
+        "_get_user",
+        "_get_user",
+        "user"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/__init__.py",
+      "rs_file": "src/ported/lint/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 9,
+      "ported_fns": [],
+      "missing_fns": [
+        "open_file",
+        "generate_json_config_loader",
+        "load_json_config",
+        "register_common_names",
+        "load_json_file",
+        "updated_with_config",
+        "find_all_ext_config_files",
+        "dict2",
+        "check"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/markedjson/composer.py",
+      "rs_file": "src/ported/lint/markedjson/composer.rs",
+      "rs_exists": true,
+      "py_fn_total": 9,
+      "ported_fns": [],
+      "missing_fns": [
+        "__init__",
+        "check_node",
+        "get_node",
+        "get_single_node",
+        "compose_document",
+        "compose_node",
+        "compose_scalar_node",
+        "compose_sequence_node",
+        "compose_mapping_node"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/markedjson/reader.py",
+      "rs_file": "src/ported/lint/markedjson/reader.rs",
+      "rs_exists": true,
+      "py_fn_total": 9,
+      "ported_fns": [],
+      "missing_fns": [
+        "__init__",
+        "peek",
+        "prefix",
+        "update_pointer",
+        "forward",
+        "get_mark",
+        "check_printable",
+        "update",
+        "update_raw"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/markedjson/events.py",
+      "rs_file": "src/ported/lint/markedjson/events.rs",
+      "rs_exists": true,
+      "py_fn_total": 8,
+      "ported_fns": [],
+      "missing_fns": [
+        "__init__",
+        "__repr__",
+        "__init__",
+        "__init__",
+        "__init__",
+        "__init__",
+        "__init__",
+        "__init__"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/ipython/since_7.py",
+      "rs_file": "src/ported/renderers/ipython/since_7.rs",
+      "rs_exists": true,
+      "py_fn_total": 8,
+      "ported_fns": [],
+      "missing_fns": [
+        "style_rules",
+        "invalidation_hash",
+        "__init__",
+        "get_segment_info",
+        "hl_join",
+        "hl",
+        "hlstyle",
+        "get_client_id"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/shell/__init__.py",
+      "rs_file": "src/ported/renderers/shell/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 8,
+      "ported_fns": [],
+      "missing_fns": [
+        "int_to_rgb",
+        "__init__",
+        "get_client_id",
+        "do_render",
+        "render",
+        "do_render",
+        "hlstyle",
+        "get_theme"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/qtile/widget.py",
+      "rs_file": "src/ported/bindings/qtile/widget.rs",
+      "rs_exists": true,
+      "py_fn_total": 7,
+      "ported_fns": [],
+      "missing_fns": [
+        "do_setup",
+        "__init__",
+        "update",
+        "cmd_update",
+        "cmd_get",
+        "timer_setup",
+        "_configure"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/tmux/__init__.py",
+      "rs_file": "src/ported/bindings/tmux/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 7,
+      "ported_fns": [],
+      "missing_fns": [
+        "get_tmux_executable_name",
+        "_run_tmux",
+        "run_tmux_command",
+        "get_tmux_output",
+        "set_tmux_environment",
+        "source_tmux_file",
+        "get_tmux_version"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lib/vcs/bzr.py",
+      "rs_file": "src/ported/lib/vcs/bzr.rs",
+      "rs_exists": true,
+      "py_fn_total": 7,
+      "ported_fns": [],
+      "missing_fns": [
+        "write",
+        "branch_name_from_config_file",
+        "__init__",
+        "status",
+        "do_status",
+        "_status",
+        "branch"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lib/watcher/tree.py",
+      "rs_file": "src/ported/lib/watcher/tree.rs",
+      "rs_exists": true,
+      "py_fn_total": 7,
+      "ported_fns": [],
+      "missing_fns": [
+        "__init__",
+        "__call__",
+        "__init__",
+        "get_watcher",
+        "watch",
+        "expire_old_queries",
+        "__call__"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/context.py",
+      "rs_file": "src/ported/lint/context.rs",
+      "rs_exists": true,
+      "py_fn_total": 7,
+      "ported_fns": [],
+      "missing_fns": [
+        "join",
+        "list_themes",
+        "__new__",
+        "key",
+        "enter_key",
+        "enter_item",
+        "enter"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lib/vcs/mercurial.py",
+      "rs_file": "src/ported/lib/vcs/mercurial.rs",
+      "rs_exists": true,
+      "py_fn_total": 6,
+      "ported_fns": [],
+      "missing_fns": [
+        "branch_name_from_config_file",
+        "__init__",
+        "_repo",
+        "status",
+        "do_status",
+        "branch"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/markedjson/resolver.py",
+      "rs_file": "src/ported/lint/markedjson/resolver.rs",
+      "rs_exists": true,
+      "py_fn_total": 6,
+      "ported_fns": [],
+      "missing_fns": [
+        "__init__",
+        "add_implicit_resolver",
+        "descend_resolver",
+        "ascend_resolver",
+        "check_resolver_prefix",
+        "resolve"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/listers/vim.py",
+      "rs_file": "src/ported/listers/vim.rs",
+      "rs_exists": true,
+      "py_fn_total": 6,
+      "ported_fns": [],
+      "missing_fns": [
+        "tabpage_updated_segment_info",
+        "tablister",
+        "add_multiplier",
+        "buffer_updated_segment_info",
+        "bufferlister",
+        "add_multiplier"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/ipython/pre_5.py",
+      "rs_file": "src/ported/renderers/ipython/pre_5.rs",
+      "rs_exists": true,
+      "py_fn_total": 6,
+      "ported_fns": [],
+      "missing_fns": [
+        "render",
+        "do_render",
+        "__init__",
+        "render_above_lines",
+        "render",
+        "shutdown"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/shell.py",
+      "rs_file": "src/ported/segments/shell.rs",
+      "rs_exists": true,
+      "py_fn_total": 6,
+      "ported_fns": [],
+      "missing_fns": [
+        "jobnum",
+        "last_status",
+        "last_pipe_status",
+        "mode",
+        "continuation",
+        "get_shortened_path"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/shell.py",
+      "rs_file": "src/ported/shell.rs",
+      "rs_exists": true,
+      "py_fn_total": 6,
+      "ported_fns": [],
+      "missing_fns": [
+        "init",
+        "load_main_config",
+        "load_theme_config",
+        "get_config_paths",
+        "get_local_themes",
+        "do_setup"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/wm/__init__.py",
+      "rs_file": "src/ported/bindings/wm/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 5,
+      "ported_fns": [],
+      "missing_fns": [
+        "i3_subscribe",
+        "__init__",
+        "run",
+        "get_i3_connection",
+        "get_connected_xrandr_outputs"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lib/__init__.py",
+      "rs_file": "src/ported/lib/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 5,
+      "ported_fns": [],
+      "missing_fns": [
+        "wraps_saveargs",
+        "dec",
+        "add_divider_highlight_group",
+        "dec",
+        "f"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/imp.py",
+      "rs_file": "src/ported/lint/imp.rs",
+      "rs_exists": true,
+      "py_fn_total": 5,
+      "ported_fns": [],
+      "missing_fns": [
+        "__init__",
+        "__enter__",
+        "__exit__",
+        "import_function",
+        "import_segment"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/pdb.py",
+      "rs_file": "src/ported/pdb.rs",
+      "rs_exists": true,
+      "py_fn_total": 5,
+      "ported_fns": [],
+      "missing_fns": [
+        "init",
+        "do_setup",
+        "load_main_config",
+        "load_theme_config",
+        "get_config_paths"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/__init__.py",
+      "rs_file": "src/ported/segments/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 5,
+      "ported_fns": [],
+      "missing_fns": [
+        "argspecobjs",
+        "argspecobjs",
+        "omitted_args",
+        "additional_args",
+        "with_docstring"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/pdb.py",
+      "rs_file": "src/ported/segments/pdb.rs",
+      "rs_exists": true,
+      "py_fn_total": 5,
+      "ported_fns": [],
+      "missing_fns": [
+        "current_line",
+        "current_file",
+        "current_code_name",
+        "current_context",
+        "stack_depth"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/ipython/since_5.py",
+      "rs_file": "src/ported/bindings/ipython/since_5.rs",
+      "rs_exists": true,
+      "py_fn_total": 4,
+      "ported_fns": [],
+      "missing_fns": [
+        "init",
+        "do_setup",
+        "_make_style_from_name",
+        "__init__"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/ipython/since_7.py",
+      "rs_file": "src/ported/bindings/ipython/since_7.rs",
+      "rs_exists": true,
+      "py_fn_total": 4,
+      "ported_fns": [],
+      "missing_fns": [
+        "init",
+        "do_setup",
+        "_make_style_from_name",
+        "__init__"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/wm/awesome.py",
+      "rs_file": "src/ported/bindings/wm/awesome.rs",
+      "rs_exists": true,
+      "py_fn_total": 4,
+      "ported_fns": [],
+      "missing_fns": [
+        "read_to_log",
+        "run",
+        "__init__",
+        "run"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/markedjson/nodes.py",
+      "rs_file": "src/ported/lint/markedjson/nodes.rs",
+      "rs_exists": true,
+      "py_fn_total": 4,
+      "ported_fns": [],
+      "missing_fns": [
+        "__init__",
+        "__repr__",
+        "__init__",
+        "__init__"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/markedjson/tokens.py",
+      "rs_file": "src/ported/lint/markedjson/tokens.rs",
+      "rs_exists": true,
+      "py_fn_total": 4,
+      "ported_fns": [],
+      "missing_fns": [
+        "__init__",
+        "__repr__",
+        "__init__",
+        "__init__"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/lemonbar.py",
+      "rs_file": "src/ported/renderers/lemonbar.rs",
+      "rs_exists": true,
+      "py_fn_total": 4,
+      "ported_fns": [],
+      "missing_fns": [
+        "hlstyle",
+        "hl",
+        "render",
+        "get_theme"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/pdb.py",
+      "rs_file": "src/ported/renderers/pdb.rs",
+      "rs_exists": true,
+      "py_fn_total": 4,
+      "ported_fns": [],
+      "missing_fns": [
+        "get_segment_info",
+        "set_pdb",
+        "render",
+        "do_render"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/tmux.py",
+      "rs_file": "src/ported/renderers/tmux.rs",
+      "rs_exists": true,
+      "py_fn_total": 4,
+      "ported_fns": [],
+      "missing_fns": [
+        "attrs_to_tmux_attrs",
+        "render",
+        "hlstyle",
+        "get_segment_info"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/common/vcs.py",
+      "rs_file": "src/ported/segments/common/vcs.rs",
+      "rs_exists": true,
+      "py_fn_total": 4,
+      "ported_fns": [],
+      "missing_fns": [
+        "get_directory",
+        "__call__",
+        "get_directory",
+        "__call__"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/common/wthr.py",
+      "rs_file": "src/ported/segments/common/wthr.rs",
+      "rs_exists": true,
+      "py_fn_total": 4,
+      "ported_fns": [],
+      "missing_fns": [
+        "key",
+        "get_request_url",
+        "compute_state",
+        "render_one"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/matchers/vim/__init__.py",
+      "rs_file": "src/ported/matchers/vim/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 3,
+      "ported_fns": [],
+      "missing_fns": [
+        "help",
+        "cmdwin",
+        "quickfix"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/ipython/__init__.py",
+      "rs_file": "src/ported/renderers/ipython/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 3,
+      "ported_fns": [],
+      "missing_fns": [
+        "get_segment_info",
+        "get_theme",
+        "shutdown"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/common/mail.py",
+      "rs_file": "src/ported/segments/common/mail.rs",
+      "rs_exists": true,
+      "py_fn_total": 3,
+      "ported_fns": [],
+      "missing_fns": [
+        "key",
+        "compute_state",
+        "render_one"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/vim/plugin/commandt.py",
+      "rs_file": "src/ported/segments/vim/plugin/commandt.rs",
+      "rs_exists": true,
+      "py_fn_total": 3,
+      "ported_fns": [],
+      "missing_fns": [
+        "initialize",
+        "finder",
+        "path"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/bar/powerline-bar.py",
+      "rs_file": "src/ported/bindings/bar/powerline-bar.rs",
+      "rs_exists": true,
+      "py_fn_total": 2,
+      "ported_fns": [],
+      "missing_fns": [
+        "render",
+        "update"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/lemonbar/powerline-lemonbar.py",
+      "rs_file": "src/ported/bindings/lemonbar/powerline-lemonbar.rs",
+      "rs_exists": true,
+      "py_fn_total": 2,
+      "ported_fns": [],
+      "missing_fns": [
+        "render",
+        "update"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lemonbar.py",
+      "rs_file": "src/ported/lemonbar.rs",
+      "rs_exists": true,
+      "py_fn_total": 2,
+      "ported_fns": [],
+      "missing_fns": [
+        "init",
+        "get_local_themes"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lib/watcher/__init__.py",
+      "rs_file": "src/ported/lib/watcher/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 2,
+      "ported_fns": [],
+      "missing_fns": [
+        "create_file_watcher",
+        "create_tree_watcher"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/inspect.py",
+      "rs_file": "src/ported/lint/inspect.rs",
+      "rs_exists": true,
+      "py_fn_total": 2,
+      "ported_fns": [],
+      "missing_fns": [
+        "getconfigargspec",
+        "formatconfigargspec"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/markedjson/loader.py",
+      "rs_file": "src/ported/lint/markedjson/loader.rs",
+      "rs_exists": true,
+      "py_fn_total": 2,
+      "ported_fns": [],
+      "missing_fns": [
+        "__init__",
+        "echoerr"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/listers/i3wm.py",
+      "rs_file": "src/ported/listers/i3wm.rs",
+      "rs_exists": true,
+      "py_fn_total": 2,
+      "ported_fns": [],
+      "missing_fns": [
+        "output_lister",
+        "workspace_lister"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/matchers/vim/plugin/gundo.py",
+      "rs_file": "src/ported/matchers/vim/plugin/gundo.rs",
+      "rs_exists": true,
+      "py_fn_total": 2,
+      "ported_fns": [],
+      "missing_fns": [
+        "gundo",
+        "gundo_preview"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/i3bar.py",
+      "rs_file": "src/ported/renderers/i3bar.rs",
+      "rs_exists": true,
+      "py_fn_total": 2,
+      "ported_fns": [],
+      "missing_fns": [
+        "hlstyle",
+        "hl"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/pango_markup.py",
+      "rs_file": "src/ported/renderers/pango_markup.rs",
+      "rs_exists": true,
+      "py_fn_total": 2,
+      "ported_fns": [],
+      "missing_fns": [
+        "hlstyle",
+        "hl"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/common/time.py",
+      "rs_file": "src/ported/segments/common/time.rs",
+      "rs_exists": true,
+      "py_fn_total": 2,
+      "ported_fns": [],
+      "missing_fns": [
+        "date",
+        "fuzzy_time"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/vim/plugin/coc.py",
+      "rs_file": "src/ported/segments/vim/plugin/coc.rs",
+      "rs_exists": true,
+      "py_fn_total": 2,
+      "ported_fns": [],
+      "missing_fns": [
+        "parse_coc_status",
+        "coc"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/awesome/powerline-awesome.py",
+      "rs_file": "src/ported/bindings/awesome/powerline-awesome.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [],
+      "missing_fns": [
+        "main"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/i3/powerline-i3.py",
+      "rs_file": "src/ported/bindings/i3/powerline-i3.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [],
+      "missing_fns": [
+        "render"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/lint/markedjson/__init__.py",
+      "rs_file": "src/ported/lint/markedjson/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 1,
+      "ported_fns": [],
+      "missing_fns": [
+        "load"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/listers/pdb.py",
+      "rs_file": "src/ported/listers/pdb.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [],
+      "missing_fns": [
+        "frame_lister"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/matchers/vim/plugin/commandt.py",
+      "rs_file": "src/ported/matchers/vim/plugin/commandt.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [],
+      "missing_fns": [
+        "commandt"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/matchers/vim/plugin/nerdtree.py",
+      "rs_file": "src/ported/matchers/vim/plugin/nerdtree.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [],
+      "missing_fns": [
+        "nerdtree"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/shell/bash.py",
+      "rs_file": "src/ported/renderers/shell/bash.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [],
+      "missing_fns": [
+        "do_render"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/shell/ksh.py",
+      "rs_file": "src/ported/renderers/shell/ksh.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [],
+      "missing_fns": [
+        "render"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/shell/tcsh.py",
+      "rs_file": "src/ported/renderers/shell/tcsh.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [],
+      "missing_fns": [
+        "do_render"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/vim/plugin/ale.py",
+      "rs_file": "src/ported/segments/vim/plugin/ale.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [],
+      "missing_fns": [
+        "ale"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/vim/plugin/capslock.py",
+      "rs_file": "src/ported/segments/vim/plugin/capslock.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [],
+      "missing_fns": [
+        "capslock_indicator"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/vim/plugin/nerdtree.py",
+      "rs_file": "src/ported/segments/vim/plugin/nerdtree.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [],
+      "missing_fns": [
+        "nerdtree"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/vim/plugin/syntastic.py",
+      "rs_file": "src/ported/segments/vim/plugin/syntastic.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [],
+      "missing_fns": [
+        "syntastic"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/vim/plugin/tagbar.py",
+      "rs_file": "src/ported/segments/vim/plugin/tagbar.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [],
+      "missing_fns": [
+        "current_tag"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/selectors/vim.py",
+      "rs_file": "src/ported/selectors/vim.rs",
+      "rs_exists": true,
+      "py_fn_total": 1,
+      "ported_fns": [],
+      "missing_fns": [
+        "single_tab"
+      ],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/__init__.py",
+      "rs_file": "src/ported/bindings/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 0,
+      "ported_fns": [],
+      "missing_fns": [],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/ipython/__init__.py",
+      "rs_file": "src/ported/bindings/ipython/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 0,
+      "ported_fns": [],
+      "missing_fns": [],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/pdb/__main__.py",
+      "rs_file": "src/ported/bindings/pdb/__main__.rs",
+      "rs_exists": true,
+      "py_fn_total": 0,
+      "ported_fns": [],
+      "missing_fns": [],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/bindings/qtile/__init__.py",
+      "rs_file": "src/ported/bindings/qtile/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 0,
+      "ported_fns": [],
+      "missing_fns": [],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/commands/__init__.py",
+      "rs_file": "src/ported/commands/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 0,
+      "ported_fns": [],
+      "missing_fns": [],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/config.py",
+      "rs_file": "src/ported/config.rs",
+      "rs_exists": true,
+      "py_fn_total": 0,
+      "ported_fns": [],
+      "missing_fns": [],
+      "rs_extra_fns": [
+        "POWERLINE_ROOT",
+        "BINDINGS_DIRECTORY",
+        "TMUX_CONFIG_DIRECTORY",
+        "DEFAULT_SYSTEM_CONFIG_DIR",
+        "config_constants_are_consistent"
+      ],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/listers/__init__.py",
+      "rs_file": "src/ported/listers/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 0,
+      "ported_fns": [],
+      "missing_fns": [],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/matchers/__init__.py",
+      "rs_file": "src/ported/matchers/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 0,
+      "ported_fns": [],
+      "missing_fns": [],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/matchers/vim/plugin/__init__.py",
+      "rs_file": "src/ported/matchers/vim/plugin/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 0,
+      "ported_fns": [],
+      "missing_fns": [],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/__init__.py",
+      "rs_file": "src/ported/renderers/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 0,
+      "ported_fns": [],
+      "missing_fns": [],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/shell/rcsh.py",
+      "rs_file": "src/ported/renderers/shell/rcsh.rs",
+      "rs_exists": true,
+      "py_fn_total": 0,
+      "ported_fns": [],
+      "missing_fns": [],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/shell/readline.py",
+      "rs_file": "src/ported/renderers/shell/readline.rs",
+      "rs_exists": true,
+      "py_fn_total": 0,
+      "ported_fns": [],
+      "missing_fns": [],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/renderers/shell/zsh.py",
+      "rs_file": "src/ported/renderers/shell/zsh.rs",
+      "rs_exists": true,
+      "py_fn_total": 0,
+      "ported_fns": [],
+      "missing_fns": [],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/common/__init__.py",
+      "rs_file": "src/ported/segments/common/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 0,
+      "ported_fns": [],
+      "missing_fns": [],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/segments/vim/plugin/__init__.py",
+      "rs_file": "src/ported/segments/vim/plugin/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 0,
+      "ported_fns": [],
+      "missing_fns": [],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    },
+    {
+      "py_file": "powerline/selectors/__init__.py",
+      "rs_file": "src/ported/selectors/__init__.rs",
+      "rs_exists": false,
+      "py_fn_total": 0,
+      "ported_fns": [],
+      "missing_fns": [],
+      "rs_extra_fns": [],
+      "coverage": 0.0
+    }
+  ]
+}
+</script>
+</main>
+</body></html>
