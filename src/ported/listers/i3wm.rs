@@ -111,14 +111,19 @@ pub fn workspace_lister_for(
             // py:57-58  ((not only_show or any(getattr(w, typ) for typ in only_show))
             //          and (not output or w.output == output))
             let pass_only_show = match only_show {
+                // None and Some(empty) both mean "all windows pass" — same body,
+                // clippy flags the `is_empty()` guard as redundant against the
+                // None arm so collapse them into one or-pattern.
                 None => true,
-                Some(types) if types.is_empty() => true,
-                Some(types) => types.iter().any(|t| match *t {
-                    "visible" => w.visible,
-                    "urgent" => w.urgent,
-                    "focused" => w.focused,
-                    _ => false,
-                }),
+                Some(types) => {
+                    types.is_empty()
+                        || types.iter().any(|t| match *t {
+                            "visible" => w.visible,
+                            "urgent" => w.urgent,
+                            "focused" => w.focused,
+                            _ => false,
+                        })
+                }
             };
             let pass_output = match output {
                 None => true,
