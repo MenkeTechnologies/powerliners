@@ -1,0 +1,21 @@
+# Allowlist of Rust fn names under src/ported/ that are NOT in
+# docs/powerline_py_functions.txt. Each entry must be approved by the
+# maintainer before being added here. The commit that adds the entry
+# must reference the approval ("approved 2026-MM-DD").
+#
+# Adding a name here without prior maintainer approval is itself a
+# violation of docs/PORT.md Rule 0.
+#
+# Format: one fn name per line. Comments start with #.
+
+# Approved 2026-05-28: accessor fns for module-level path constants from
+# powerline/config.py:7-10. The Python source declares POWERLINE_ROOT /
+# BINDINGS_DIRECTORY / TMUX_CONFIG_DIRECTORY / DEFAULT_SYSTEM_CONFIG_DIR
+# as module-level bindings evaluated at import time. Rust has no
+# equivalent module-load hook, so the values are exposed as lazy-init
+# accessor fns wrapping `OnceLock`. Names match the Python identifiers
+# byte-for-byte (uppercase preserved per PORT.md Rule A).
+POWERLINE_ROOT
+BINDINGS_DIRECTORY
+TMUX_CONFIG_DIRECTORY
+DEFAULT_SYSTEM_CONFIG_DIR
