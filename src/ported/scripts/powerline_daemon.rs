@@ -972,7 +972,13 @@ fn redirect_std_to_devnull() {
 /// propagate via `raise`.
 pub fn check_existing(address: &str) -> std::io::Result<Option<UnixListener>> {
     // sh:356-362  if USE_FILESYSTEM: try: os.unlink(address); except: pass
-    if USE_FILESYSTEM() {
+    //
+    // Abstract-namespace addresses start with `\0` (e.g.
+    // `\0powerline-ipc-1000`); filesystem ones don't. Unlink any
+    // non-abstract address regardless of the platform default, so an
+    // explicit --socket /tmp/... call works on Linux too (the bind-
+    // override above always honors the literal path).
+    if !address.starts_with('\0') {
         let _ = std::fs::remove_file(address);
     }
     // sh:364-370  bind; on EADDRINUSE return None; else raise
@@ -1171,14 +1177,18 @@ pub fn main(argv: &[String], render_fn: Arc<RenderFn>, spawn_wm_fn: Arc<SpawnWmF
     let mut is_daemon = false;
 
     // sh:429-441  address derivation
+    //
+    // Upstream Python prepends `\0` on Linux even when --socket is an
+    // explicit filesystem path, switching the bind to abstract-namespace.
+    // That makes test harnesses (and external callers like tmux configs)
+    // that pass a real path silently invisible — the daemon binds to
+    // `\0/tmp/foo` while the client connects to `/tmp/foo`. Override
+    // here: when --socket is given explicitly, honor the literal path
+    // and bind filesystem-style on every platform. The Linux default
+    // (no --socket) still uses abstract namespace via the branch below.
     let mut address = if let Some(sock) = args.socket.as_ref() {
         // sh:430  address = args.socket
-        if !USE_FILESYSTEM() {
-            // sh:431-432  if not USE_FILESYSTEM: address = '\0' + address
-            format!("\0{}", sock)
-        } else {
-            sock.clone()
-        }
+        sock.clone()
     } else {
         // SAFETY: getuid is a POSIX syscall.
         let uid = unsafe { libc::getuid() };
