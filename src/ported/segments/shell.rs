@@ -254,31 +254,23 @@ pub fn continuation(
 
     // py:144-149  alignment + final highlight_groups override
     if right_align {
-        if let Some(first) = ret.first_mut() {
-            if let Value::Object(map) = first {
-                map.insert("width".into(), Value::String("auto".into()));
-                map.insert("align".into(), Value::String("r".into()));
-            }
+        if let Some(Value::Object(map)) = ret.first_mut() {
+            map.insert("width".into(), Value::String("auto".into()));
+            map.insert("align".into(), Value::String("r".into()));
         }
-        if let Some(last) = ret.last_mut() {
-            if let Value::Object(map) = last {
-                map.insert(
-                    "highlight_groups".into(),
-                    json!(["continuation:current", "continuation"]),
-                );
-            }
+        if let Some(Value::Object(map)) = ret.last_mut() {
+            map.insert(
+                "highlight_groups".into(),
+                json!(["continuation:current", "continuation"]),
+            );
         }
-    } else {
-        if let Some(last) = ret.last_mut() {
-            if let Value::Object(map) = last {
-                map.insert("width".into(), Value::String("auto".into()));
-                map.insert("align".into(), Value::String("l".into()));
-                map.insert(
-                    "highlight_groups".into(),
-                    json!(["continuation:current", "continuation"]),
-                );
-            }
-        }
+    } else if let Some(Value::Object(map)) = ret.last_mut() {
+        map.insert("width".into(), Value::String("auto".into()));
+        map.insert("align".into(), Value::String("l".into()));
+        map.insert(
+            "highlight_groups".into(),
+            json!(["continuation:current", "continuation"]),
+        );
     }
 
     ret
