@@ -223,14 +223,17 @@ mod tests {
     use std::io::Write;
 
     fn tmp_dir() -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
         let mut p = std::env::temp_dir();
         p.push(format!(
-            "powerliners-hg-{}-{}",
+            "powerliners-hg-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            COUNTER.fetch_add(1, Ordering::SeqCst)
         ));
         std::fs::create_dir_all(&p).unwrap();
         p

@@ -348,16 +348,37 @@ fn which_exists(name: &str) -> Option<std::path::PathBuf> {
 mod tests {
     use super::*;
     use std::io::Write;
+    use std::sync::Mutex;
+    use std::sync::OnceLock as TestOnceLock;
+
+    /// Serializes access to the process-global `$PATH` env var.
+    /// `repository_new_errors_when_git_not_on_path` mutates PATH;
+    /// every test that calls `Repository::new` (which internally calls
+    /// `which_exists("git")` reading PATH) must hold this guard.
+    /// Without this, cargo's parallel runner intermittently races a
+    /// PATH-mutating test against a PATH-reading test and the latter
+    /// panics on `.unwrap()` of `Err(NotFound)`.
+    fn path_lock() -> &'static Mutex<()> {
+        static L: TestOnceLock<Mutex<()>> = TestOnceLock::new();
+        L.get_or_init(|| Mutex::new(()))
+    }
 
     fn tmp_dir() -> std::path::PathBuf {
+        // pid + nanos isn't collision-free under cargo's parallel test
+        // runner (same process, same pid, two threads can hit the same
+        // nanosecond). Add an atomic counter so each call gets a
+        // guaranteed-unique suffix within the process.
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
         let mut p = std::env::temp_dir();
         p.push(format!(
-            "powerliners-git-{}-{}",
+            "powerliners-git-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            COUNTER.fetch_add(1, Ordering::SeqCst)
         ));
         std::fs::create_dir_all(&p).unwrap();
         p
@@ -488,9 +509,12 @@ mod tests {
 
     #[test]
     fn repository_new_errors_when_git_not_on_path() {
-        // Force PATH to a directory that definitely has no git binary.
+        // Serialize against other tests that read PATH (via Repository::new
+        // → which_exists("git")). Without the guard, those tests panic on
+        // `.unwrap()` of `Err(NotFound)` when this mutation races them.
+        let _g = path_lock().lock().unwrap_or_else(|e| e.into_inner());
         let saved = std::env::var_os("PATH");
-        // SAFETY: tests run single-threaded for env mutation; brief mutation
+        // SAFETY: path_lock guard ensures no concurrent reader; brief mutation
         // followed by restore.
         unsafe {
             std::env::set_var("PATH", "/nonexistent-empty-dir-for-test");
@@ -581,6 +605,9 @@ mod tests {
 
     #[test]
     fn do_status_stub_returns_none() {
+        // Hold path_lock across the read so the env-mutating test
+        // can't race us between the which_exists probe and Repository::new.
+        let _g = path_lock().lock().unwrap_or_else(|e| e.into_inner());
         // Skip if no git on path; test only the stub return.
         if which_exists("git").is_none() {
             return;
@@ -593,6 +620,7 @@ mod tests {
 
     #[test]
     fn stash_stub_returns_zero() {
+        let _g = path_lock().lock().unwrap_or_else(|e| e.into_inner());
         if which_exists("git").is_none() {
             return;
         }
