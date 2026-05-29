@@ -2192,6 +2192,58 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_stat_file_watcher_watch_unwatch_is_watching() {
+    if !python_available() {
+        return;
+    }
+    // 4-state membership sequence:
+    //   pre-watch:    is_watching → False
+    //   post-watch:   is_watching → True
+    //   post-unwatch: is_watching → False
+    let py_tmpfile = std::env::temp_dir().join(format!(
+        "powerliners_parity_watch_py_{}.txt",
+        std::process::id()
+    ));
+    let rs_tmpfile = std::env::temp_dir().join(format!(
+        "powerliners_parity_watch_rs_{}.txt",
+        std::process::id()
+    ));
+    std::fs::write(&py_tmpfile, "").expect("write py fixture");
+    std::fs::write(&rs_tmpfile, "").expect("write rs fixture");
+
+    let py_expr = format!(
+        "(lambda w, p: [w.is_watching(p), (w.watch(p), w.is_watching(p))[1], (w.unwatch(p), w.is_watching(p))[1]])(__import__('powerline.lib.watcher.stat', fromlist=['StatFileWatcher']).StatFileWatcher(), {:?})",
+        py_tmpfile.to_string_lossy()
+    );
+    let py = match py_eval(&py_expr) {
+        Some(v) => v,
+        None => {
+            let _ = std::fs::remove_file(&py_tmpfile);
+            let _ = std::fs::remove_file(&rs_tmpfile);
+            return;
+        }
+    };
+    let _ = std::fs::remove_file(&py_tmpfile);
+    assert_eq!(
+        py.trim(),
+        "[False, True, False]",
+        "Python watch/unwatch sequence drift"
+    );
+
+    let w = powerliners::lib::watcher::stat::StatFileWatcher::new();
+    let rs1 = w.is_watching(&rs_tmpfile);
+    w.watch(&rs_tmpfile);
+    let rs2 = w.is_watching(&rs_tmpfile);
+    w.unwatch(&rs_tmpfile);
+    let rs3 = w.is_watching(&rs_tmpfile);
+    let _ = std::fs::remove_file(&rs_tmpfile);
+
+    assert!(!rs1, "Rust pre-watch is_watching must be false");
+    assert!(rs2, "Rust post-watch is_watching must be true");
+    assert!(!rs3, "Rust post-unwatch is_watching must be false");
+}
+
+#[test]
 fn parity_stat_file_watcher_3_state_transitions() {
     if !python_available() {
         return;
