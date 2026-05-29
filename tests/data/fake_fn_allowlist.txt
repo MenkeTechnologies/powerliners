@@ -964,3 +964,34 @@ warned
 # uses OnceLock<Mutex<HashMap>> for the equivalent thread-safe
 # mutable global pattern.
 common_names
+
+# PowerlineStyleDict::lookup is the Rust analog of Python's
+# defaultdict __missing__ + __getitem__ at
+# renderers/ipython/since_5.py:35-37. Rust struct fields can't
+# trigger lazy initialisation via attribute syntax; the port
+# surfaces a lookup(key, missing_func) method so callers
+# supply the fallback explicitly. Python's dict[key] indexing
+# triggers __missing__ automatically.
+lookup
+
+# PowerlineStyleDict::insert wraps HashMap::insert so callers
+# don't need to access the inner field directly. Python uses
+# dict[key] = value syntax which doesn't translate to Rust;
+# the helper exists to preserve the encapsulation boundary.
+insert
+
+# powerline_prompt_style_invalidation_hash extracts the Python
+# `super().invalidation_hash() + 1` line at
+# renderers/ipython/since_5.py:79-80 into a pure function over
+# the base hash value. Python relies on dynamic super(); Rust
+# port takes the base hash as an argument since there's no
+# DynamicStyle base class to inherit from.
+powerline_prompt_style_invalidation_hash
+
+# parse_token_attrs extracts the get_attrs_for_token parsing
+# loop at renderers/ipython/since_5.py:55-65 into a pure
+# function. Python inlines the parse inside the method body
+# alongside the Attrs(...) constructor; Rust port separates
+# the parse so the synthetic-name decoder can be tested
+# without the pygments token-tree dispatch around it.
+parse_token_attrs
