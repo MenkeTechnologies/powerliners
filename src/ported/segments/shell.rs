@@ -131,7 +131,7 @@ pub fn last_pipe_status(
     };
     // py:61  if any(last_pipe_status):
     if !statuses.iter().any(|&s| s != 0) {
-        return None;                                  // py:78
+        return None; // py:78
     }
     // py:63-72  build segment list
     let segments: Vec<Value> = statuses
@@ -144,7 +144,11 @@ pub fn last_pipe_status(
             } else {
                 status.to_string()
             };
-            let highlight = if status != 0 { "exit_fail" } else { "exit_success" };
+            let highlight = if status != 0 {
+                "exit_fail"
+            } else {
+                "exit_success"
+            };
             json!({
                 "contents": contents,
                 "highlight_groups": [highlight],
@@ -385,7 +389,10 @@ mod tests {
             ..Default::default()
         };
         let override_table = Map::new();
-        assert_eq!(mode(&(), &info, &override_table, None), Some("NORMAL".into()));
+        assert_eq!(
+            mode(&(), &info, &override_table, None),
+            Some("NORMAL".into())
+        );
     }
 
     #[test]
@@ -396,7 +403,10 @@ mod tests {
         };
         let mut override_table = Map::new();
         override_table.insert("vicmd".into(), json!("COMMND"));
-        assert_eq!(mode(&(), &info, &override_table, None), Some("COMMND".into()));
+        assert_eq!(
+            mode(&(), &info, &override_table, None),
+            Some("COMMND".into())
+        );
     }
 
     #[test]
@@ -430,7 +440,10 @@ mod tests {
         // 3 states, last one gets the alignment + current highlight overlay
         assert_eq!(r.len(), 3);
         assert_eq!(r[0]["contents"], "if");
-        assert_eq!(r[2]["highlight_groups"], json!(["continuation:current", "continuation"]));
+        assert_eq!(
+            r[2]["highlight_groups"],
+            json!(["continuation:current", "continuation"])
+        );
     }
 
     #[test]

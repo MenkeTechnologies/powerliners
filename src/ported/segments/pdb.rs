@@ -129,7 +129,10 @@ mod tests {
 
     #[test]
     fn current_file_basename_false_returns_full_path() {
-        assert_eq!(current_file(&(), &sample(), false), "/home/user/work/main.py");
+        assert_eq!(
+            current_file(&(), &sample(), false),
+            "/home/user/work/main.py"
+        );
     }
 
     #[test]

@@ -30,14 +30,8 @@ pub fn tabpage_updated_segment_info(
     // py:14  segment_info = segment_info.copy()
     let mut info = segment_info.clone();
     // py:15-23  segment_info.update(tabpage=..., tabnr=..., window=..., winnr=..., ...)
-    info.insert(
-        "tabnr".to_string(),
-        Value::from(tabpage.number),
-    );
-    info.insert(
-        "winnr".to_string(),
-        Value::from(tabpage.window.number),
-    );
+    info.insert("tabnr".to_string(), Value::from(tabpage.number));
+    info.insert("winnr".to_string(), Value::from(tabpage.window.number));
     info.insert(
         "window_id".to_string(),
         Value::from(tabpage.window.window_id),
@@ -48,7 +42,7 @@ pub fn tabpage_updated_segment_info(
     );
     // (`tabpage`, `window`, `buffer` raw object refs are Python-only —
     //  not modelled in the JSON Value carrier)
-    info                                              // py:24  return segment_info
+    info // py:24  return segment_info
 }
 
 /// Port of `tablister()` from `powerline/listers/vim.py:28`.
@@ -96,14 +90,8 @@ pub fn tablister_for(
                 "divider_highlight_group".to_string(),
                 Value::String("tab:divider".to_string()),
             );
-            second.insert(
-                "priority_multiplier".to_string(),
-                json!(multiplier),
-            );
-            (
-                tabpage_updated_segment_info(segment_info, tabpage),
-                second,
-            )
+            second.insert("priority_multiplier".to_string(), json!(multiplier));
+            (tabpage_updated_segment_info(segment_info, tabpage), second)
         })
         .collect()
 }
@@ -126,7 +114,7 @@ pub fn buffer_updated_segment_info(
     info.insert("winnr".to_string(), Value::Null);
     info.insert("window_id".to_string(), Value::Null);
     info.insert("bufnr".to_string(), Value::from(buffer.number));
-    info                                              // py:73
+    info // py:73
 }
 
 /// Port of `bufferlister()` from `powerline/listers/vim.py:77`.
@@ -180,22 +168,13 @@ pub fn bufferlister_for(
             // py:96-98  priority_multiplier = 1 + 0.001 * abs(bufnr - cur_bufnr)
             let multiplier = 1.0_f64 + 0.001 * ((buffer.number - cur_bufnr).abs() as f64);
             let mut second = Map::new();
-            second.insert(
-                "highlight_group_prefix".to_string(),
-                Value::String(prefix),
-            );
+            second.insert("highlight_group_prefix".to_string(), Value::String(prefix));
             second.insert(
                 "divider_highlight_group".to_string(),
                 Value::String("tab:divider".to_string()),
             );
-            second.insert(
-                "priority_multiplier".to_string(),
-                json!(multiplier),
-            );
-            (
-                buffer_updated_segment_info(segment_info, buffer),
-                second,
-            )
+            second.insert("priority_multiplier".to_string(), json!(multiplier));
+            (buffer_updated_segment_info(segment_info, buffer), second)
         })
         .collect()
 }
@@ -243,9 +222,18 @@ mod tests {
         let tabs = vec![tab(1), tab(2), tab(3)];
         let result = tablister_for(&seg, &tabs, Some(&cur));
         assert_eq!(result.len(), 3);
-        assert_eq!(result[0].1.get("highlight_group_prefix"), Some(&json!("tab_nc")));
-        assert_eq!(result[1].1.get("highlight_group_prefix"), Some(&json!("tab")));
-        assert_eq!(result[2].1.get("highlight_group_prefix"), Some(&json!("tab_nc")));
+        assert_eq!(
+            result[0].1.get("highlight_group_prefix"),
+            Some(&json!("tab_nc"))
+        );
+        assert_eq!(
+            result[1].1.get("highlight_group_prefix"),
+            Some(&json!("tab"))
+        );
+        assert_eq!(
+            result[2].1.get("highlight_group_prefix"),
+            Some(&json!("tab_nc"))
+        );
     }
 
     #[test]
@@ -255,9 +243,24 @@ mod tests {
         let tabs = vec![tab(1), tab(5), tab(10)];
         let result = tablister_for(&seg, &tabs, Some(&cur));
         // Distance 4 → 1.004; distance 0 → 1.0; distance 5 → 1.005
-        let m0 = result[0].1.get("priority_multiplier").unwrap().as_f64().unwrap();
-        let m1 = result[1].1.get("priority_multiplier").unwrap().as_f64().unwrap();
-        let m2 = result[2].1.get("priority_multiplier").unwrap().as_f64().unwrap();
+        let m0 = result[0]
+            .1
+            .get("priority_multiplier")
+            .unwrap()
+            .as_f64()
+            .unwrap();
+        let m1 = result[1]
+            .1
+            .get("priority_multiplier")
+            .unwrap()
+            .as_f64()
+            .unwrap();
+        let m2 = result[2]
+            .1
+            .get("priority_multiplier")
+            .unwrap()
+            .as_f64()
+            .unwrap();
         assert!((m0 - 1.004).abs() < 1e-9);
         assert!((m1 - 1.0).abs() < 1e-9);
         assert!((m2 - 1.005).abs() < 1e-9);
@@ -287,14 +290,20 @@ mod tests {
         let cur = buf(1, false, true);
         let buffers = vec![
             buf(1, false, true),
-            buf(2, true, true),   // listed + modified, non-current
+            buf(2, true, true), // listed + modified, non-current
         ];
         let result = bufferlister_for(&seg, &buffers, Some(&cur), false);
         assert_eq!(result.len(), 2);
         // Current, not modified → "buf"
-        assert_eq!(result[0].1.get("highlight_group_prefix"), Some(&json!("buf")));
+        assert_eq!(
+            result[0].1.get("highlight_group_prefix"),
+            Some(&json!("buf"))
+        );
         // Non-current, modified → "buf_nc_mod"
-        assert_eq!(result[1].1.get("highlight_group_prefix"), Some(&json!("buf_nc_mod")));
+        assert_eq!(
+            result[1].1.get("highlight_group_prefix"),
+            Some(&json!("buf_nc_mod"))
+        );
     }
 
     #[test]
