@@ -46,30 +46,42 @@ fn tmux_setup(args: &[String]) -> Result<(), String> {
     //   2. `--config-path` / `-p` flags (argparser sh:25 / py:get_argparser)
     //   3. `get_config_paths()` defaults (XDG + ~/.config)
     //   4. bundled `vendor/powerline/powerline/config_files`
-    let mut search_paths: Vec<PathBuf> = Vec::new();
+    // Mirror upstream `ShellPowerline.get_config_paths`
+    // (shell.py:25-26): `args.config_path` (== --config-path /
+    // POWERLINE_CONFIG_PATHS combined) REPLACES the default
+    // cascade entirely when set; else use bundled + XDG.
+    let mut explicit: Vec<PathBuf> = Vec::new();
     if let Ok(pcp) = std::env::var("POWERLINE_CONFIG_PATHS") {
         for p in pcp.split(':').filter(|s| !s.is_empty()) {
-            search_paths.push(PathBuf::from(p));
+            explicit.push(PathBuf::from(p));
         }
     }
     let mut i = 0;
     while i < args.len() {
         if args[i] == "--config-path" || args[i] == "-p" {
             if let Some(p) = args.get(i + 1) {
-                search_paths.push(PathBuf::from(p));
+                explicit.push(PathBuf::from(p));
             }
             i += 2;
         } else {
             i += 1;
         }
     }
-    search_paths.extend(get_config_paths());
-    if let Some(manifest) = option_env!("CARGO_MANIFEST_DIR") {
-        let bundled = PathBuf::from(manifest).join("vendor/powerline/powerline/config_files");
-        if bundled.is_dir() {
-            search_paths.push(bundled);
+    let search_paths: Vec<PathBuf> = if !explicit.is_empty() {
+        explicit
+    } else {
+        let mut paths: Vec<PathBuf> = Vec::new();
+        // py:152  bundled `plugin_path` FIRST so user overrides win via
+        // mergedicts in the load_cascade closure below.
+        if let Some(manifest) = option_env!("CARGO_MANIFEST_DIR") {
+            let bundled = PathBuf::from(manifest).join("vendor/powerline/powerline/config_files");
+            if bundled.is_dir() {
+                paths.push(bundled);
+            }
         }
-    }
+        paths.extend(get_config_paths());
+        paths
+    };
 
     // load_one(name) → first hit's load_json_config object.
     let load_one = |name: &str| -> Option<serde_json::Map<String, serde_json::Value>> {
@@ -80,11 +92,14 @@ fn tmux_setup(args: &[String]) -> Result<(), String> {
     };
     let load_cascade =
         |levels: &[String]| -> Option<serde_json::Map<String, serde_json::Value>> {
+            // py:191-200  load_config: iterate ALL matches per level and
+            // mergedicts in order; later matches (user) override earlier
+            // (bundled) per the search_paths layout above.
             let mut out: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
             let mut loaded = 0u32;
             for level in levels {
                 if let Ok(matches) = _find_config_files(&search_paths, level) {
-                    if let Some(p) = matches.first() {
+                    for p in &matches {
                         if let Ok(v) = load_json_config(p) {
                             if let Some(o) = v.as_object().cloned() {
                                 mergedicts(&mut out, o, true);
