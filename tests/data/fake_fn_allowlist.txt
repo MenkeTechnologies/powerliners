@@ -915,3 +915,26 @@ hexdigits_set
 # The Scanner methods (fetch_stream_end / fetch_flow_collection_*)
 # are still ported separately as named impls.
 dispatch_fetch_for
+
+# CheckResult::ok / CheckResult::failed are Rust analogs of the
+# (proceed, hadproblem) tuple Python check_*/match methods return
+# at powerline/lint/spec.py:194/219/etc. Python builds the tuple
+# inline; Rust extracts to constructor methods so callers don't
+# have to repeat the boolean pattern.
+ok
+failed
+
+# Spec::type_check is the Rust analog of Spec.type at
+# powerline/lint/spec.py:379. The bare name `type` is a Rust
+# reserved keyword (used for type aliases), so the port renames
+# to `type_check` to preserve the chainable-builder semantics
+# while staying syntactically valid.
+type_check
+
+# Spec::regex is the Rust analog of Spec.re at
+# powerline/lint/spec.py:552. The bare name `re` collides with
+# the Rust `regex` crate's `Regex::re` import shape (and is
+# overloaded as a short word in Rust code); the port renames to
+# `regex` to disambiguate while preserving the chainable-builder
+# call site shape.
+regex
