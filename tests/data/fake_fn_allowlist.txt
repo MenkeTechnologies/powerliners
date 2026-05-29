@@ -375,3 +375,12 @@ token_id
 # itself doesn't exist in upstream — it materialises the indirection
 # Python gets for free from method-as-value semantics.
 dispatch_state
+
+# TmuxRenderer::color_spec is a helper extracting the repeated
+# fg/bg color-emission logic at py:47-52 (fg) and py:54-59 (bg) of
+# renderers/tmux.py. Python inlines both blocks; Rust deduplicates
+# them into one private fn that takes the channel name ("fg"/"bg")
+# and the ColorSpec, then emits the appropriate
+# "default" / "#rgb" / "colourN" form based on term_truecolor and
+# the truecolor option presence.
+color_spec
