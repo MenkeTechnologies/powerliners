@@ -2192,6 +2192,52 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_collection_start_event_init_state() {
+    if !python_available() {
+        return;
+    }
+    // CollectionStartEvent.__init__(implicit, ..., flow_style) —
+    // py:30-35:
+    //   self.tag = None
+    //   self.implicit = implicit
+    //   self.flow_style = flow_style
+    let cases: &[(bool, Option<bool>)] = &[(true, Some(true)), (false, Some(false)), (true, None)];
+    for (implicit, flow_style) in cases {
+        let fs_py = flow_style
+            .map(|b| if b { "True" } else { "False" })
+            .unwrap_or("None");
+        let py_expr = format!(
+            "(lambda e: __import__('json').dumps([e.tag, e.implicit, e.flow_style]))(__import__('powerline.lint.markedjson.events', fromlist=['CollectionStartEvent']).CollectionStartEvent({imp}, None, None, flow_style={fs}))",
+            imp = if *implicit { "True" } else { "False" },
+            fs = fs_py
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let py_arr = py_value.as_array().expect("py array");
+        assert!(py_arr[0].is_null(), "Python tag should be None");
+        assert_eq!(
+            py_arr[1].as_bool(),
+            Some(*implicit),
+            "Python implicit drift"
+        );
+        assert_eq!(py_arr[2].as_bool(), *flow_style, "Python flow_style drift");
+
+        let e = powerliners::lint::markedjson::events::CollectionStartEvent::new(
+            *implicit,
+            None,
+            None,
+            *flow_style,
+        );
+        assert!(e.tag.is_none(), "Rust tag must be None after init");
+        assert_eq!(e.implicit, *implicit, "Rust implicit mismatch");
+        assert_eq!(e.flow_style, *flow_style, "Rust flow_style mismatch");
+    }
+}
+
+#[test]
 fn parity_markedjson_scalar_event_init_sets_tag_none() {
     if !python_available() {
         return;
