@@ -915,7 +915,15 @@ fn ad_spotify(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
     #[cfg(not(target_os = "macos"))]
     let func_stats: Option<powerliners::ported::segments::common::players::PlayerStats> = None;
 
-    let chunks = player_segment_call(func_stats, format, &state_symbols())?;
+    // py:40  state_symbols=STATE_SYMBOLS — overridable via segment_data
+    // ["player"]["args"]["state_symbols"], which the segment_data cascade
+    // in gen_segment_getter merges into `args` for us. Falls back to
+    // upstream's hardcoded Python defaults (`>` / `~` / `X` / `''`).
+    let symbols = match args.get("state_symbols").and_then(|v| v.as_object()) {
+        Some(obj) => obj.clone(),
+        None => state_symbols(),
+    };
+    let chunks = player_segment_call(func_stats, format, &symbols)?;
     Some(Value::Array(chunks))
 }
 
@@ -1339,8 +1347,10 @@ fn ad_email_imap_alert(args: &Map<String, Value>, _info: &Map<String, Value>) ->
     })]))
 }
 
-fn ad_cmus(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
-    use powerliners::ported::segments::common::players::CmusPlayerSegment;
+fn ad_cmus(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::ported::segments::common::players::{
+        player_segment_call, state_symbols, CmusPlayerSegment,
+    };
     let out = std::process::Command::new("cmus-remote")
         .arg("-Q")
         .output()
@@ -1349,26 +1359,23 @@ fn ad_cmus(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Val
         return None;
     }
     let s = String::from_utf8(out.stdout).ok()?;
-    let segment = CmusPlayerSegment;
-    let stats = segment.get_player_status(&s)?;
-    let title = stats.title.as_deref().unwrap_or("");
-    if title.is_empty() {
-        return None;
-    }
-    let artist = stats.artist.as_deref().unwrap_or("");
-    let contents = if artist.is_empty() {
-        title.to_string()
-    } else {
-        format!("{} - {}", artist, title)
+    let stats = CmusPlayerSegment.get_player_status(&s);
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("{state_symbol} {artist} - {title} ({total})");
+    let symbols = match args.get("state_symbols").and_then(|v| v.as_object()) {
+        Some(obj) => obj.clone(),
+        None => state_symbols(),
     };
-    Some(Value::Array(vec![serde_json::json!({
-        "contents": contents,
-        "highlight_groups": ["now_playing"],
-    })]))
+    let chunks = player_segment_call(stats, format, &symbols)?;
+    Some(Value::Array(chunks))
 }
 
-fn ad_rhythmbox(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
-    use powerliners::ported::segments::common::players::RhythmboxPlayerSegment;
+fn ad_rhythmbox(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::ported::segments::common::players::{
+        player_segment_call, state_symbols, RhythmboxPlayerSegment,
+    };
     // py:458-473  rhythmbox-client probe
     let out = std::process::Command::new("rhythmbox-client")
         .args([
@@ -1382,59 +1389,77 @@ fn ad_rhythmbox(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Optio
         return None;
     }
     let s = String::from_utf8(out.stdout).ok()?;
-    let segment = RhythmboxPlayerSegment;
-    let stats = segment.get_player_status(&s)?;
-    let title = stats.title.as_deref().unwrap_or("");
-    if title.is_empty() {
-        return None;
-    }
-    let artist = stats.artist.as_deref().unwrap_or("");
-    let contents = if artist.is_empty() {
-        title.to_string()
-    } else {
-        format!("{} - {}", artist, title)
+    let stats = RhythmboxPlayerSegment.get_player_status(&s);
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("{state_symbol} {artist} - {title} ({total})");
+    let symbols = match args.get("state_symbols").and_then(|v| v.as_object()) {
+        Some(obj) => obj.clone(),
+        None => state_symbols(),
     };
-    Some(Value::Array(vec![serde_json::json!({
-        "contents": contents,
-        "highlight_groups": ["now_playing"],
-    })]))
+    let chunks = player_segment_call(stats, format, &symbols)?;
+    Some(Value::Array(chunks))
 }
 
-fn ad_itunes(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
-    // py:534-572  iTunes via AppleScript on darwin.
+fn ad_itunes(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::ported::segments::common::players::{
+        player_segment_call, state_symbols, ITunesPlayerSegment, APPLESCRIPT_STATUS_DELIMITER,
+    };
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("{state_symbol} {artist} - {title} ({total})");
+
     #[cfg(target_os = "macos")]
-    {
+    let stats = {
+        // py:534-554 — 6-field delimited AppleScript (title|artist|album|elapsed|duration|state)
+        let script = format!(
+            "tell application \"System Events\"\n\
+             set process_list to (name of every process)\n\
+             end tell\n\
+             if process_list contains \"iTunes\" then\n\
+             tell application \"iTunes\"\n\
+             if player state is playing then\n\
+             set t_title to name of current track\n\
+             set t_artist to artist of current track\n\
+             set t_album to album of current track\n\
+             set t_duration to duration of current track\n\
+             set t_elapsed to player position\n\
+             set t_state to player state\n\
+             return t_title & \"{0}\" & t_artist & \"{0}\" & t_album & \"{0}\" & t_elapsed & \"{0}\" & t_duration & \"{0}\" & t_state\n\
+             end if\n\
+             end tell\n\
+             end if",
+            APPLESCRIPT_STATUS_DELIMITER
+        );
         let out = std::process::Command::new("osascript")
-            .args([
-                "-e",
-                "if application \"iTunes\" is running then\n\
-                 tell application \"iTunes\"\n\
-                 if player state is playing then\n\
-                 return artist of current track & \" - \" & name of current track\n\
-                 end if\n\
-                 end tell\n\
-                 end if",
-            ])
+            .args(["-e", &script])
             .output()
             .ok()?;
         if !out.status.success() {
             return None;
         }
         let s = String::from_utf8(out.stdout).ok()?.trim().to_string();
-        if s.is_empty() {
-            return None;
-        }
-        Some(Value::Array(vec![serde_json::json!({
-            "contents": s,
-            "highlight_groups": ["now_playing"],
-        })]))
-    }
+        ITunesPlayerSegment.get_player_status(&s)
+    };
+
     #[cfg(not(target_os = "macos"))]
-    None
+    let stats: Option<powerliners::ported::segments::common::players::PlayerStats> = None;
+
+    let symbols = match args.get("state_symbols").and_then(|v| v.as_object()) {
+        Some(obj) => obj.clone(),
+        None => state_symbols(),
+    };
+    let chunks = player_segment_call(stats, format, &symbols)?;
+    Some(Value::Array(chunks))
 }
 
 fn ad_dbus_player(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
-    // py:384-449  generic MPRIS probe parameterized by player_name.
+    // py:241-312  generic MPRIS probe parameterized by player_name.
+    use powerliners::ported::segments::common::players::{
+        player_segment_call, state_symbols, PlayerStats,
+    };
     let player = args.get("player_name").and_then(|v| v.as_str())?;
     let service = format!("org.mpris.MediaPlayer2.{}", player);
     let metadata = std::process::Command::new("qdbus")
@@ -1451,30 +1476,45 @@ fn ad_dbus_player(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opti
     let text = String::from_utf8(metadata.stdout).ok()?;
     let mut artist = String::new();
     let mut title = String::new();
+    let mut album = String::new();
     for line in text.lines() {
         if let Some(rest) = line.strip_prefix("artist: ") {
             artist = rest.to_string();
         } else if let Some(rest) = line.strip_prefix("title: ") {
             title = rest.to_string();
+        } else if let Some(rest) = line.strip_prefix("album: ") {
+            album = rest.to_string();
         }
     }
     if title.is_empty() {
         return None;
     }
-    let contents = if artist.is_empty() {
-        title
-    } else {
-        format!("{} - {}", artist, title)
+    let stats = Some(PlayerStats {
+        state: Some("play".to_string()),
+        album: Some(album).filter(|s| !s.is_empty()),
+        artist: Some(artist).filter(|s| !s.is_empty()),
+        title: Some(title),
+        total: None,
+        elapsed: None,
+    });
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("{state_symbol} {artist} - {title} ({total})");
+    let symbols = match args.get("state_symbols").and_then(|v| v.as_object()) {
+        Some(obj) => obj.clone(),
+        None => state_symbols(),
     };
-    Some(Value::Array(vec![serde_json::json!({
-        "contents": contents,
-        "highlight_groups": ["now_playing"],
-    })]))
+    let chunks = player_segment_call(stats, format, &symbols)?;
+    Some(Value::Array(chunks))
 }
 
-fn ad_clementine(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
-    // py:431-449  Clementine via MPRIS dbus. `qdbus` shells the
+fn ad_clementine(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    // py:436-449  Clementine via MPRIS dbus. `qdbus` shells the
     // method calls; on systems without qdbus we silently skip.
+    use powerliners::ported::segments::common::players::{
+        player_segment_call, state_symbols, PlayerStats,
+    };
     let metadata = std::process::Command::new("qdbus")
         .args([
             "org.mpris.MediaPlayer2.clementine",
@@ -1490,84 +1530,107 @@ fn ad_clementine(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Opti
     // qdbus prints `key: value` lines for the dict. Extract artist + title.
     let mut artist = String::new();
     let mut title = String::new();
+    let mut album = String::new();
     for line in text.lines() {
         if let Some(rest) = line.strip_prefix("artist: ") {
             artist = rest.to_string();
         } else if let Some(rest) = line.strip_prefix("title: ") {
             title = rest.to_string();
+        } else if let Some(rest) = line.strip_prefix("album: ") {
+            album = rest.to_string();
         }
     }
     if title.is_empty() {
         return None;
     }
-    let contents = if artist.is_empty() {
-        title
-    } else {
-        format!("{} - {}", artist, title)
+    let stats = Some(PlayerStats {
+        state: Some("play".to_string()),
+        album: Some(album).filter(|s| !s.is_empty()),
+        artist: Some(artist).filter(|s| !s.is_empty()),
+        title: Some(title),
+        total: None,
+        elapsed: None,
+    });
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("{state_symbol} {artist} - {title} ({total})");
+    let symbols = match args.get("state_symbols").and_then(|v| v.as_object()) {
+        Some(obj) => obj.clone(),
+        None => state_symbols(),
     };
-    Some(Value::Array(vec![serde_json::json!({
-        "contents": contents,
-        "highlight_groups": ["now_playing"],
-    })]))
+    let chunks = player_segment_call(stats, format, &symbols)?;
+    Some(Value::Array(chunks))
 }
 
-fn ad_mocp(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
-    use powerliners::ported::segments::common::players::MocPlayerSegment;
+fn ad_mocp(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::ported::segments::common::players::{
+        player_segment_call, state_symbols, MocPlayerSegment,
+    };
     let out = std::process::Command::new("mocp").arg("-i").output().ok()?;
     if !out.status.success() {
         return None;
     }
     let s = String::from_utf8(out.stdout).ok()?;
-    let segment = MocPlayerSegment;
-    let stats = segment.get_player_status(&s)?;
-    let title = stats.title.as_deref().unwrap_or("");
-    if title.is_empty() {
-        return None;
-    }
-    let artist = stats.artist.as_deref().unwrap_or("");
-    let contents = if artist.is_empty() {
-        title.to_string()
-    } else {
-        format!("{} - {}", artist, title)
+    let stats = MocPlayerSegment.get_player_status(&s);
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("{state_symbol} {artist} - {title} ({total})");
+    let symbols = match args.get("state_symbols").and_then(|v| v.as_object()) {
+        Some(obj) => obj.clone(),
+        None => state_symbols(),
     };
-    Some(Value::Array(vec![serde_json::json!({
-        "contents": contents,
-        "highlight_groups": ["now_playing"],
-    })]))
+    let chunks = player_segment_call(stats, format, &symbols)?;
+    Some(Value::Array(chunks))
 }
 
 fn ad_mpd(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
-    // Probe `mpc current` and wrap as a player segment. Mirrors the
-    // upstream `MpdPlayerSegment.__call__` at
-    // `powerline/segments/common/players.py:173` shape — host/password/
-    // port args are honored via `-h HOST -p PORT` flags + `MPD_HOST=PASSWORD@HOST`
-    // env per `mpc(1)`.
+    // py:172-202  MpdPlayerSegment.get_player_status — CLI branch:
+    // probes `mpc` for the now-playing line + `mpc current -f %album%`
+    // for the album field. Routes through player_segment_call for the
+    // full {state_symbol}{artist}-{title}({total}) contract.
+    use powerliners::ported::segments::common::players::{
+        player_segment_call, state_symbols, MpdPlayerSegment,
+    };
     let host = args.get("host").and_then(|v| v.as_str());
     let port = args.get("port").and_then(|v| v.as_u64());
     let password = args.get("password").and_then(|v| v.as_str());
-    let mut cmd = std::process::Command::new("mpc");
-    if let (Some(pw), Some(h)) = (password, host) {
-        cmd.env("MPD_HOST", format!("{}@{}", pw, h));
-    } else if let Some(h) = host {
-        cmd.env("MPD_HOST", h);
-    }
-    if let Some(p) = port {
-        cmd.arg("-p").arg(p.to_string());
-    }
-    cmd.arg("current");
-    let out = cmd.output().ok()?;
-    if !out.status.success() {
+    let build_cmd = || {
+        let mut cmd = std::process::Command::new("mpc");
+        if let (Some(pw), Some(h)) = (password, host) {
+            cmd.env("MPD_HOST", format!("{}@{}", pw, h));
+        } else if let Some(h) = host {
+            cmd.env("MPD_HOST", h);
+        }
+        if let Some(p) = port {
+            cmd.arg("-p").arg(p.to_string());
+        }
+        cmd
+    };
+    let np_out = build_cmd().output().ok()?;
+    if !np_out.status.success() {
         return None;
     }
-    let s = String::from_utf8(out.stdout).ok()?.trim().to_string();
-    if s.is_empty() {
-        return None;
-    }
-    Some(Value::Array(vec![serde_json::json!({
-        "contents": s,
-        "highlight_groups": ["now_playing"],
-        "divider_highlight_group": Value::Null,
-    })]))
+    let np = String::from_utf8(np_out.stdout).ok()?;
+    let mut album_cmd = build_cmd();
+    album_cmd.args(["current", "-f", "%album%"]);
+    let album = album_cmd
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string());
+    let stats = MpdPlayerSegment.get_player_status(&np, album.as_deref());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("{state_symbol} {artist} - {title} ({total})");
+    let symbols = match args.get("state_symbols").and_then(|v| v.as_object()) {
+        Some(obj) => obj.clone(),
+        None => state_symbols(),
+    };
+    let chunks = player_segment_call(stats, format, &symbols)?;
+    Some(Value::Array(chunks))
 }
 
 fn ad_user(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value> {
