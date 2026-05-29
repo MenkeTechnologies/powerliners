@@ -47,6 +47,44 @@ pub fn monotonic() -> f64 {
     elapsed.as_secs_f64()
 }
 
+/// Port of the darwin-branch helper `mach_timebase_info()` from
+/// `powerline/lib/monotonic.py:56-59`.
+///
+/// Python wraps the macOS `mach_timebase_info` syscall to obtain the
+/// (numer, denom) rational that converts `mach_absolute_time()` ticks
+/// to nanoseconds: `ns = ticks * numer / denom`.
+///
+/// The Rust port calls `libc::mach_timebase_info` directly. Used as a
+/// support helper for the darwin-specific `monotonic()` body at
+/// py:64-65; the canonical `monotonic()` above uses
+/// `std::time::Instant` which internally calls the same syscall on
+/// macOS, so this helper is exposed for parity rather than to drive
+/// the runtime clock.
+#[cfg(target_os = "macos")]
+#[allow(deprecated)]
+pub fn mach_timebase_info() -> (u32, u32) {
+    // py:57  timebase = mach_timebase_info_data_t()
+    let mut info = libc::mach_timebase_info { numer: 0, denom: 0 };
+    // py:58  _mach_timebase_info(ctypes.byref(timebase))
+    unsafe {
+        libc::mach_timebase_info(&mut info);
+    }
+    // py:59  return (timebase.numer, timebase.denom)
+    (info.numer, info.denom)
+}
+
+/// Non-darwin fallback for `mach_timebase_info()` from
+/// `powerline/lib/monotonic.py:56`. Python only defines this on darwin
+/// (inside the `elif sys.platform == 'darwin':` branch at py:31); the
+/// Rust port surfaces a stub on other platforms that mirrors Python's
+/// "function not defined here" behaviour — calling it on Linux is a
+/// programming error and the panic is the equivalent of Python's
+/// `NameError`.
+#[cfg(not(target_os = "macos"))]
+pub fn mach_timebase_info() -> (u32, u32) {
+    panic!("mach_timebase_info is darwin-only (py:56-59 lives inside the elif sys.platform == 'darwin' branch)")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -71,5 +109,16 @@ mod tests {
             a,
             b
         );
+    }
+
+    /// `mach_timebase_info()` returns a positive (numer, denom) pair on
+    /// macOS — the rational scaling `mach_absolute_time` ticks to
+    /// nanoseconds. Both fields must be > 0 for the ratio to be defined.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn mach_timebase_info_returns_positive_rational() {
+        let (numer, denom) = mach_timebase_info();
+        assert!(numer > 0, "numer should be positive, got {numer}");
+        assert!(denom > 0, "denom should be positive, got {denom}");
     }
 }

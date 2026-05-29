@@ -87,7 +87,39 @@ impl memoize {
     ///
     /// `kwargs` is the per-call arg dict; `compute` is the underlying
     /// function (Python: `func(**kwargs)` at py:32/38).
+    ///
+    /// Equivalent to invoking the closure returned by Python's
+    /// `__call__`. Convenience alias retained for parity with
+    /// upstream's `__call__` → wrapped-fn idiom.
     pub fn get_or_compute<F>(&self, kwargs: &Map<String, Value>, compute: F) -> Value
+    where
+        F: FnOnce(&Map<String, Value>) -> Value,
+    {
+        self.decorated_function(kwargs, compute)
+    }
+
+    /// Port of the inner `decorated_function` closure from
+    /// `powerline/lib/memoize.py:23-41` — the wrapped function the
+    /// `@memoize(timeout)` decorator returns. Equivalent to invoking
+    /// the closure Python's `__call__` returns.
+    ///
+    /// Python:
+    /// ```python
+    /// def __call__(self, func):
+    ///     @wraps(func)
+    ///     def decorated_function(**kwargs):
+    ///         key = self.cache_key(**kwargs)
+    ///         cached = self.cache.get(key, None)
+    ///         if cached is None or not (cached['time'] < monotonic() <
+    ///                                   cached['time'] + self.timeout):
+    ///             cached = self.cache[key] = {
+    ///                 'result': func(**kwargs),
+    ///                 'time': monotonic(),
+    ///             }
+    ///         return cached['result']
+    ///     return decorated_function
+    /// ```
+    pub fn decorated_function<F>(&self, kwargs: &Map<String, Value>, compute: F) -> Value
     where
         F: FnOnce(&Map<String, Value>) -> Value,
     {
