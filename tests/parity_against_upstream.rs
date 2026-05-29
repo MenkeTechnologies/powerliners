@@ -824,6 +824,32 @@ fn parity_urllib_urlencode() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// renderers/pango_markup.py — escape
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_pango_markup_escape() {
+    if !python_available() {
+        return;
+    }
+    for s in ["plain", "<a & b>", "<>&", "&amp;"] {
+        let py = match py_eval(&format!(
+            "__import__('powerline.renderers.pango_markup', fromlist=['PangoMarkupRenderer']).PangoMarkupRenderer.escape({:?})",
+            s
+        )) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = powerliners::renderers::pango_markup::PangoMarkupRenderer::escape(s);
+        assert_eq!(
+            py, rs,
+            "PangoMarkupRenderer.escape({:?}) mismatch: py={:?}, rs={:?}",
+            s, py, rs
+        );
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // lint/inspect.py — formatconfigargspec
 // ─────────────────────────────────────────────────────────────────────
 

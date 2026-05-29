@@ -247,3 +247,9 @@ build_bar_command
 # SIGALRM/SIGTERM) — same observable mapping for all signals that
 # matter to a shell exit-code (status - 128) lookup.
 exit_codes
+
+# Approved 2026-05-29: encoding helper for the LemonbarPowerline class
+# from powerline/lemonbar.py:13. Python: `get_encoding = staticmethod(
+# lambda: 'utf-8')` — a class-level lambda returning the encoding name.
+# Rust exposes it as an associated fn with the same name byte-for-byte.
+get_encoding
