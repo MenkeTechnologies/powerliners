@@ -626,3 +626,30 @@ build_workspace_entry
 # which makes the instance the documented public API; Rust users
 # call the free function directly.
 cwd_segments
+
+# external_ip_render is the Rust analog of
+# ExternalIpSegment.render() at segments/common/net.py:51. Python
+# defines it as an instance method on the ThreadedSegment subclass;
+# Rust exposes it as a free function since the threading framework
+# is unported and the render logic is pure (ip → segment dict).
+external_ip_render
+
+# interface_starts() materialises the Python module-level
+# `_interface_starts = {...}` dict at segments/common/net.py:79-91
+# as a Rust accessor returning the ordered (prefix, priority) slice.
+# Python initialises the dict at module-load; Rust uses a static
+# array since the lookup needs preserve insertion order (Python's
+# dict iteration order matches insertion order).
+interface_starts
+
+# _interface_start_re() is the Rust accessor for the Python
+# module-level _interface_start_re = re.compile(...) at
+# segments/common/net.py:93. OnceLock for the same lazy-init
+# pattern used across all module-level regex ports.
+_interface_start_re
+
+# replace_num_pat() is the Rust accessor for the Python
+# NetworkLoadSegment.replace_num_pat class attribute at
+# segments/common/net.py:191. Class-attribute init becomes
+# module-level OnceLock since the segment class itself is stubbed.
+replace_num_pat
