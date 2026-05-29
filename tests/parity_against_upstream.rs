@@ -2192,6 +2192,33 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_spec_error_appends_single_check_no_type() {
+    if !python_available() {
+        return;
+    }
+    // Spec.error(msg) appends ONE check_func to self.checks. Does NOT
+    // touch allowed_types or specs.
+    let py = match py_eval(
+        "(lambda s: __import__('json').dumps([len(s.checks), len(s.specs), s.did_type]))(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().error('boom'))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    assert_eq!(
+        py_value,
+        serde_json::json!([1, 0, false]),
+        "Python Spec().error fixture drift"
+    );
+    use powerliners::lint::spec::Spec;
+    let s = Spec::default().error("boom");
+    assert_eq!(s.error_msg.as_deref(), Some("boom"));
+    assert_eq!(s.specs.len(), 0);
+    assert!(!s.did_type);
+    assert!(s.allowed_types.is_empty(), "error() must not add types");
+}
+
+#[test]
 fn parity_spec_tuple_emits_both_lower_and_upper_bounds() {
     if !python_available() {
         return;
