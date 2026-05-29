@@ -2155,6 +2155,41 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_urllib_urlencode_special_chars() {
+    if !python_available() {
+        return;
+    }
+    // Verify urllib_urlencode handles common special characters: space,
+    // plus, slash, percent, and UTF-8 multi-byte characters identically
+    // to Python's urllib.parse.urlencode.
+    let cases: &[(&str, &str)] = &[
+        ("space", "hello world"),
+        ("plus", "a+b"),
+        ("slash", "c/d"),
+        ("percent", "%special%"),
+        ("utf8", "héllo"),
+    ];
+    for &(k, v) in cases {
+        let py_expr = format!(
+            "__import__('powerline.lib.url', fromlist=['urllib_urlencode']).urllib_urlencode({{{:?}: {:?}}})",
+            k, v
+        );
+        let py = match py_eval(&py_expr) {
+            Some(out) => out,
+            None => return,
+        };
+        let mut map = std::collections::HashMap::new();
+        map.insert(k.to_string(), v.to_string());
+        let rs = powerliners::lib::url::urllib_urlencode(&map);
+        assert_eq!(
+            py, rs,
+            "urllib_urlencode({{{:?}: {:?}}}) mismatch: py={:?}, rs={:?}",
+            k, v, py, rs
+        );
+    }
+}
+
+#[test]
 fn parity_overrides_keyvaluesplit_parses_dotted_keys() {
     if !python_available() {
         return;
