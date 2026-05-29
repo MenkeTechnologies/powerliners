@@ -654,6 +654,145 @@ pub fn _vim_to_python(value: serde_json::Value) -> serde_json::Value {
     value
 }
 
+/// Port of `get_buffer()` from
+/// `powerline/bindings/vim/__init__.py:312-316`.
+///
+/// Python walks `vim.buffers` looking for the buffer matching
+/// `number`, raises `KeyError` on miss. Rust port takes the
+/// buffer list as a slice and returns `Some(buffer_id)` on
+/// success or `None` (KeyError-equivalent).
+pub fn get_buffer(number: i64, buffers: &[i64]) -> Option<i64> {
+    // py:312  def get_buffer(number):
+    // py:313  for buffer in vim.buffers:
+    // py:314  if buffer.number == number:
+    // py:315  return buffer
+    buffers.iter().copied().find(|b| *b == number)
+    // py:316  raise KeyError(number) → caller sees None
+}
+
+/// Port of `WindowVars.get()` and `VimEnviron.get()` from
+/// `powerline/bindings/vim/__init__.py:331-335` (and py:397-399).
+///
+/// Python tries `self[key]`, catches KeyError, returns default.
+/// Rust port wraps the supplied lookup closure.
+pub fn get<F>(key: &str, default: Option<&str>, lookup: F) -> Option<String>
+where
+    F: FnOnce(&str) -> Option<String>,
+{
+    // py:331-335  def get(self, key, default=None):
+    //                 try: return self[key]
+    //                 except KeyError: return default
+    lookup(key).or_else(|| default.map(String::from))
+}
+
+/// Port of `Window.buffer` property from
+/// `powerline/bindings/vim/__init__.py:345-347`.
+///
+/// Python: `return get_buffer(int(vim.eval('tabpagebuflist({0})[{1}]'.format(tabnr, number-1))))`.
+/// Rust port takes the resolved buffer number from the caller's
+/// vim-eval and dispatches through [`get_buffer`].
+pub fn buffer(buffer_number: i64, buffers: &[i64]) -> Option<i64> {
+    // py:345  @property
+    // py:346  def buffer(self):
+    // py:347  return get_buffer(int(vim.eval('tabpagebuflist({0})[{1}]'.format(...))))
+    get_buffer(buffer_number, buffers)
+}
+
+/// Port of `Tabpage.window` property from
+/// `powerline/bindings/vim/__init__.py:360-362`.
+///
+/// Python: `return Window(self.number, int(vim.eval('tabpagewinnr({0})'.format(self.number))))`.
+/// Rust port returns the resolved (tabnr, winnr) pair the caller
+/// uses to construct their Window equivalent.
+pub fn window(tabnr: i64, winnr: i64) -> (i64, i64) {
+    // py:360  @property
+    // py:361  def window(self):
+    // py:362  return Window(self.number, int(vim.eval('tabpagewinnr({0})'.format(...))))
+    (tabnr, winnr)
+}
+
+/// Port of `_last_tab_nr()` from
+/// `powerline/bindings/vim/__init__.py:364-365`.
+///
+/// Python: `return int(vim.eval('tabpagenr("$")'))`.
+/// Returns the highest tabpage number.
+pub fn _last_tab_nr<F>(eval: F) -> Result<i64, String>
+where
+    F: FnOnce(&str) -> Result<String, String>,
+{
+    // py:364  def _last_tab_nr():
+    // py:365  return int(vim.eval('tabpagenr("$")'))
+    let s = eval("tabpagenr(\"$\")")?;
+    s.parse::<i64>().map_err(|e| e.to_string())
+}
+
+/// Port of `register_buffer_cache()` from
+/// `powerline/bindings/vim/__init__.py:446-459`.
+///
+/// Python registers a cache dict, wires up the BufWipeout
+/// autocmd on first call. Rust port records the cache id in
+/// the buffer_caches accumulator and returns the dispatch list
+/// the caller uses to install the autocmd.
+///
+/// `cache_id` is a unique identifier for the cache (Python uses
+/// the dict instance via id()). Returns the (commands, did_autocmd)
+/// pair the caller dispatches via vim.command.
+pub fn register_buffer_cache(
+    cache_id: u64,
+    buffer_caches: &mut Vec<u64>,
+    did_autocmd: &mut bool,
+    pycmd: &str,
+) -> Vec<String> {
+    // py:446  def register_buffer_cache(cachedict):
+    // py:447-449  global did_autocmd, buffer_caches
+    let mut commands: Vec<String> = Vec::new();
+    // py:450  if not did_autocmd:
+    if !*did_autocmd {
+        // py:451-452  __main__.powerline_on_bwipe = on_bwipe
+        // py:453  vim.command('augroup Powerline')
+        commands.push("augroup Powerline".to_string());
+        // py:454-455  vim.command('	autocmd! BufWipeout * :{pycmd} powerline_on_bwipe()')
+        commands.push(format!(
+            "\tautocmd! BufWipeout * :{} powerline_on_bwipe()",
+            pycmd
+        ));
+        // py:456  vim.command('augroup END')
+        commands.push("augroup END".to_string());
+        // py:457  did_autocmd = True
+        *did_autocmd = true;
+    }
+    // py:458  buffer_caches.append(cachedict)
+    buffer_caches.push(cache_id);
+    // py:459  return cachedict
+    commands
+}
+
+/// Port of `on_bwipe()` from
+/// `powerline/bindings/vim/__init__.py:462-466`.
+///
+/// Python: walks `buffer_caches` and removes the wiped buffer's
+/// entry from each. Rust port takes the buffer number to remove
+/// + a mutable list of caches; mutates each cache in place.
+///
+/// Returns the list of (cache_id, was_present) pairs for caller
+/// verification.
+pub fn on_bwipe(
+    bufnr: i64,
+    buffer_caches: &mut [std::collections::HashMap<i64, serde_json::Value>],
+) -> Vec<(usize, bool)> {
+    // py:462  def on_bwipe():
+    // py:463  global buffer_caches
+    // py:464  bufnr = int(vim.eval('expand("<abuf>")'))
+    let mut results = Vec::with_capacity(buffer_caches.len());
+    // py:465  for cachedict in buffer_caches:
+    for (idx, cache) in buffer_caches.iter_mut().enumerate() {
+        // py:466  cachedict.pop(bufnr, None)
+        let was_present = cache.remove(&bufnr).is_some();
+        results.push((idx, was_present));
+    }
+    results
+}
+
 /// Port of `list_tabpage_buffers_segment_info()` from
 /// `powerline/bindings/vim/__init__.py:347`.
 ///
