@@ -367,12 +367,14 @@ impl ConfigurableIPythonPowerline {
         theme_overrides: Map<String, Value>,
         config_paths: Vec<String>,
     ) -> &'static str {
-        // py:95-97  self.config_overrides = ...; self.theme_overrides = ...;
-        //           self.config_paths = ...
+        // py:98  def init(self, config_overrides=None, theme_overrides={}, config_paths=None):
+        // py:99  self.config_overrides = config_overrides
+        // py:100  self.theme_overrides = theme_overrides
+        // py:101  self.config_paths = config_paths
+        // py:102  super(ConfigurableIPythonPowerline, self).init(renderer_module='.pre_5')
         self.base.config_overrides = config_overrides;
         self.base.theme_overrides = theme_overrides;
         self.base.config_paths = config_paths;
-        // py:98-99  super().init(renderer_module='.pre_5')
         ".pre_5"
     }
 
@@ -401,16 +403,24 @@ impl ConfigurableIPythonPowerline {
         outputcache: &mut Map<String, Value>,
         shutdown_hook: &mut ShutdownHook,
     ) {
-        // py:108  last_in = {'nrspaces': 0}
-        // py:109-115  for (attr, prompt_class) in pairs: setattr(outputcache, attr, prompt)
+        // py:110  def do_setup(self, ip, shutdown_hook):
+        // py:111  last_in = {'nrspaces': 0}
+        // py:112  for attr, prompt_class in (
+        // py:113  ('prompt1', PowerlinePrompt1),
+        // py:114  ('prompt2', PowerlinePrompt2),
+        // py:115  ('prompt_out', PowerlinePromptOut)
+        // py:116  ):
+        // py:117  old_prompt = getattr(ip.IP.outputcache, attr)
+        // py:118  prompt = prompt_class(self, last_in, old_prompt)
+        // py:119  setattr(ip.IP.outputcache, attr, prompt)
         for attr in ["prompt1", "prompt2", "prompt_out"] {
             outputcache.insert(
                 attr.to_string(),
                 Value::String(format!("<PowerlinePrompt:{}>", attr)),
             );
         }
-        // py:116  ip.expose_magic('powerline', self.ipython_magic)
-        // py:117  shutdown_hook.powerline = ref(self)
+        // py:120  ip.expose_magic('powerline', self.ipython_magic)
+        // py:121  shutdown_hook.powerline = ref(self)
         shutdown_hook.set_powerline();
         self.setup_done = true;
     }
@@ -450,12 +460,15 @@ impl ShutdownHook {
     /// Port of `ShutdownHook.__call__()` from
     /// `powerline/bindings/ipython/pre_0_11.py:123`.
     pub fn call(&mut self) -> &'static str {
-        // py:124  from IPython.ipapi import TryNext
-        // py:125-127  if powerline is not None: shutdown()
+        // py:127  def __call__(self):
+        // py:128  from IPython.ipapi import TryNext
+        // py:129  powerline = self.powerline()
+        // py:130  if powerline is not None:
+        // py:131  powerline.shutdown()
         if self.powerline_live {
             self.call_count += 1;
         }
-        // py:128  raise TryNext()
+        // py:132  raise TryNext()
         "TryNext"
     }
 }
@@ -468,12 +481,17 @@ impl ShutdownHook {
 /// `late_startup_hook` + `shutdown_hook.add` calls since the live
 /// IPython runtime isn't reachable from Rust.
 pub fn setup() -> (ConfigurableIPythonPowerline, ShutdownHook) {
-    // py:132  ip = get_ipython()
-    // py:134-135  powerline = ConfigurableIPythonPowerline(**kwargs); shutdown_hook = ShutdownHook()
+    // py:135  def setup(**kwargs):
+    // py:136  ip = get_ipython()
+    // py:138  powerline = ConfigurableIPythonPowerline(**kwargs)
+    // py:139  shutdown_hook = ShutdownHook()
     let powerline = ConfigurableIPythonPowerline::new();
     let shutdown_hook = ShutdownHook::new();
-    // py:137-139  late_startup_hook closure + ip.IP.hooks.late_startup_hook.add(...)
-    // py:141  ip.IP.hooks.shutdown_hook.add(shutdown_hook)
+    // py:141  def late_startup_hook():
+    // py:142  powerline.setup(ip, shutdown_hook)
+    // py:143  raise TryNext()
+    // py:145  ip.IP.hooks.late_startup_hook.add(late_startup_hook)
+    // py:146  ip.IP.hooks.shutdown_hook.add(shutdown_hook)
     (powerline, shutdown_hook)
 }
 

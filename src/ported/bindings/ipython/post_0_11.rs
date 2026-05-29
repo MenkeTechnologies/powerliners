@@ -80,7 +80,12 @@ impl PowerlineMagics {
     /// `line == 'reload'` triggers `self._powerline.reload()`;
     /// any other input raises ValueError.
     pub fn powerline(&mut self, line: &str) -> Result<(), String> {
-        // py:28-31  if line == 'reload': reload(); else raise
+        // py:27  @line_magic
+        // py:28  def powerline(self, line):
+        // py:29  if line == 'reload':
+        // py:30  self._powerline.reload()
+        // py:31  else:
+        // py:32  raise ValueError('Expected `reload`, but got {0}'.format(line))
         if line == "reload" {
             self.last_reload_call = true;
             Ok(())
@@ -187,15 +192,27 @@ impl PowerlinePromptManager {
     where
         R: FnMut(bool, &str, bool, bool, &str) -> (String, String, usize),
     {
-        // py:59-66  res = self.powerline.render(is_prompt=..., ...)
+        // py:58  def render(self, name, color=True, *args, **kwargs):
+        // py:59  res = self.powerline.render(
+        // py:60  is_prompt=name.startswith('in'),
+        // py:61  side='left',
+        // py:62  output_width=True,
+        // py:63  output_raw=not color,
+        // py:64  matcher_info=name,
+        // py:65  segment_info=self.powerline_segment_info,
+        // py:66  )
         let is_prompt = name.starts_with("in");
         let res = render(is_prompt, "left", true, !color, name);
-        // py:67-72  self.txtwidth = res[-1]; self.width = res[-1]
+        // py:67  self.txtwidth = res[-1]
+        // py:68  self.width = res[-1]
         self.txtwidth = res.2;
         self.width = res.2;
-        // py:69-70  ret = res[0] if color else res[1]
+        // py:69  ret = res[0] if color else res[1]
         let ret = if color { res.0 } else { res.1 };
-        // py:71-74  if name == 'rewrite': return RewriteResult(ret); else ret
+        // py:70  if name == 'rewrite':
+        // py:71  return RewriteResult(ret)
+        // py:72  else:
+        // py:73  return ret
         if name == "rewrite" {
             PromptManagerResult::Rewrite(RewriteResult::new(ret))
         } else {
@@ -251,19 +268,23 @@ impl ConfigurableIPythonPowerline {
         powerline_config: &Map<String, Value>,
         has_prompt_manager: bool,
     ) -> &'static str {
-        // py:78-81  read config_overrides / theme_overrides / config_paths
+        // py:76  def init(self, ip):
+        // py:77  config = ip.config.Powerline
+        // py:78  self.config_overrides = config.get('config_overrides')
         if let Some(overrides) = powerline_config
             .get("config_overrides")
             .and_then(|v| v.as_object())
         {
             self.base.config_overrides = Some(overrides.clone());
         }
+        // py:79  self.theme_overrides = config.get('theme_overrides', {})
         if let Some(themes) = powerline_config
             .get("theme_overrides")
             .and_then(|v| v.as_object())
         {
             self.base.theme_overrides = themes.clone();
         }
+        // py:80  self.config_paths = config.get('config_paths')
         if let Some(paths) = powerline_config
             .get("config_paths")
             .and_then(|v| v.as_array())
@@ -273,7 +294,12 @@ impl ConfigurableIPythonPowerline {
                 .filter_map(|v| v.as_str().map(String::from))
                 .collect();
         }
-        // py:82-86  renderer_module = '.pre_5' if has_prompt_manager else '.since_7'
+        // py:81  if has_prompt_manager:
+        // py:82  renderer_module = '.pre_5'
+        // py:83  else:
+        // py:84  renderer_module = '.since_7'
+        // py:85  super(ConfigurableIPythonPowerline, self).init(
+        // py:86  renderer_module=renderer_module)
         if has_prompt_manager {
             ".pre_5"
         } else {
@@ -289,7 +315,10 @@ impl ConfigurableIPythonPowerline {
     /// in its place, registers `PowerlineMagics`, and stores a
     /// weakref into `shutdown_hook.powerline`.
     pub fn do_setup(&mut self, ip: &mut Map<String, Value>, shutdown_hook: &mut ShutdownHook) {
-        // py:90-92  if old_prompt_manager is None: old_prompt_manager = ip.prompt_manager
+        // py:88  def do_setup(self, ip, shutdown_hook):
+        // py:89  global old_prompt_manager
+        // py:91  if old_prompt_manager is None:
+        // py:92  old_prompt_manager = ip.prompt_manager
         let mut slot = old_prompt_manager()
             .lock()
             .unwrap_or_else(|e| e.into_inner());
@@ -299,12 +328,18 @@ impl ConfigurableIPythonPowerline {
                 .cloned()
                 .or(Some(Value::String("<unset>".into())));
         }
-        // py:93-95  ip.prompt_manager = PowerlinePromptManager(...)
+        // py:93  prompt_manager = PowerlinePromptManager(
+        // py:94  powerline=self,
+        // py:95  shell=ip.prompt_manager.shell,
+        // py:96  )
+        // py:97  ip.prompt_manager = prompt_manager
         ip.insert(
             "prompt_manager".to_string(),
             Value::String("<PowerlinePromptManager>".into()),
         );
-        // py:96-98  register_magics + shutdown_hook.powerline = ref(self)
+        // py:99  magics = PowerlineMagics(ip, self)
+        // py:100  shutdown_hook.powerline = ref(self)
+        // py:101  ip.register_magics(magics)
         shutdown_hook.set_powerline();
         self.setup_done = true;
     }

@@ -28,7 +28,13 @@ pub fn branch_name_from_config_file(
     _directory: &std::path::Path,
     config_file: &std::path::Path,
 ) -> String {
-    // py:14-19  open + read + decode + strip
+    // py:13  def branch_name_from_config_file(directory, config_file):
+    // py:14  try:
+    // py:15  with open(config_file, 'rb') as f:
+    // py:16  raw = f.read()
+    // py:17  return raw.decode(get_preferred_file_contents_encoding(), 'replace').strip()
+    // py:18  except Exception:
+    // py:19  return 'default'
     match std::fs::read(config_file) {
         Ok(bytes) => String::from_utf8_lossy(&bytes).trim().to_string(),
         Err(_) => "default".to_string(),
@@ -137,7 +143,18 @@ impl Repository {
     /// is stubbed; returns `None` (clean) without watcher / dirstate
     /// integration.
     pub fn status(&self, _path: Option<&str>) -> Option<String> {
-        // py:54-63  delegated to do_status which needs hglib
+        // py:41  def status(self, path=None):
+        // py:42-53  docstring
+        // py:54  if path:
+        // py:55  return get_file_status(
+        // py:56  directory=self.directory,
+        // py:57  dirstate_file=join(self.directory, '.hg', 'dirstate'),
+        // py:58  file_path=path,
+        // py:59  ignore_file_name='.hgignore',
+        // py:60  get_func=self.do_status,
+        // py:61  create_watcher=self.create_watcher,
+        // py:62  )
+        // py:63  return self.do_status(self.directory, path)
         None
     }
 
@@ -148,7 +165,21 @@ impl Repository {
     /// `hglib.open(directory)`; adding a Rust hg client is out of
     /// scope. Always returns `None` (clean).
     pub fn do_status(&self, _directory: &std::path::Path, _path: Option<&str>) -> Option<String> {
-        // py:66-83 stub
+        // py:65  def do_status(self, directory, path):
+        // py:66  with self._repo(directory) as repo:
+        // py:67  if path:
+        // py:68  path = os.path.join(directory, path)
+        // py:69  statuses = repo.status(include=path, all=True)
+        // py:70  for status, paths in statuses:
+        // py:71  if paths:
+        // py:72  return self.statuses[status][0]
+        // py:73  return None
+        // py:74  else:
+        // py:75  resulting_status = 0
+        // py:76  for status, paths in repo.status(all=True):
+        // py:77  if paths:
+        // py:78  resulting_status |= self.statuses[status][1]
+        // py:79  return self.repo_statuses_str[resulting_status]
         None
     }
 
@@ -159,7 +190,14 @@ impl Repository {
     /// helper also wires up a watcher; we delegate to the file-read
     /// path since the watcher module isn't ported.
     pub fn branch(&self) -> String {
-        // py:86-91  config_file = join(directory, '.hg', 'branch'); read
+        // py:81  def branch(self):
+        // py:82  config_file = join(self.directory, '.hg', 'branch')
+        // py:83  return get_branch_name(
+        // py:84  directory=self.directory,
+        // py:85  config_file=config_file,
+        // py:86  get_func=branch_name_from_config_file,
+        // py:87  create_watcher=self.create_watcher,
+        // py:88  )
         let config_file = self.directory.join(".hg").join("branch");
         branch_name_from_config_file(&self.directory, &config_file)
     }

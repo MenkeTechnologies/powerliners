@@ -23,33 +23,47 @@ use crate::ported::colorscheme::{ATTR_BOLD, ATTR_ITALIC, ATTR_UNDERLINE};
 /// Rust represents it via `None`.) Otherwise, emits one of the
 /// matching/no-matching pair per attribute bit.
 pub fn attrs_to_tmux_attrs(attrs: Option<u32>) -> Vec<String> {
-    // py:9-10  attrs is False → all-off sentinel
+    // py:8  def attrs_to_tmux_attrs(attrs):
+    // py:9  if attrs is False:
     let Some(a) = attrs else {
+        // py:10  return ['nobold', 'noitalics', 'nounderscore']
         return vec![
             "nobold".to_string(),
             "noitalics".to_string(),
             "nounderscore".to_string(),
         ];
     };
+    // py:11  else:
+    // py:12  ret = []
     let mut ret: Vec<String> = Vec::with_capacity(3);
-    // py:13-16  ATTR_BOLD
+    // py:13  if attrs & ATTR_BOLD:
     if a & ATTR_BOLD != 0 {
+        // py:14  ret += ['bold']
         ret.push("bold".to_string());
     } else {
+        // py:15  else:
+        // py:16  ret += ['nobold']
         ret.push("nobold".to_string());
     }
-    // py:17-20  ATTR_ITALIC
+    // py:17  if attrs & ATTR_ITALIC:
     if a & ATTR_ITALIC != 0 {
+        // py:18  ret += ['italics']
         ret.push("italics".to_string());
     } else {
+        // py:19  else:
+        // py:20  ret += ['noitalics']
         ret.push("noitalics".to_string());
     }
-    // py:21-24  ATTR_UNDERLINE
+    // py:21  if attrs & ATTR_UNDERLINE:
     if a & ATTR_UNDERLINE != 0 {
+        // py:22  ret += ['underscore']
         ret.push("underscore".to_string());
     } else {
+        // py:23  else:
+        // py:24  ret += ['nounderscore']
         ret.push("nounderscore".to_string());
     }
+    // py:25  return ret
     ret
 }
 
@@ -103,24 +117,44 @@ impl TmuxRenderer {
         bg: Option<ColorSpec>,
         attrs: Option<u32>,
     ) -> String {
-        // py:43-44  no attrs/bg/fg → no-op
+        // py:41  def hlstyle(self, fg=None, bg=None, attrs=None, **kwargs):
+        // py:42  '''Highlight a segment.'''
+        // py:43  # We don't need to explicitly reset attributes, so skip those calls
+        // py:44  if not attrs and not bg and not fg:
         if attrs.is_none() && bg.is_none() && fg.is_none() {
+            // py:45  return ''
             return String::new();
         }
+        // py:46  tmux_attrs = []
         let mut tmux_attrs: Vec<String> = Vec::new();
-        // py:46-52  fg
+        // py:47  if fg is not None:
+        // py:48  if fg is False or fg[0] is False:
+        // py:49  tmux_attrs += ['fg=default']
+        // py:50  else:
+        // py:51  if self.term_truecolor and fg[1]:
+        // py:52  tmux_attrs += ['fg=#{0:06x}'.format(int(fg[1]))]
+        // py:53  else:
+        // py:54  tmux_attrs += ['fg=colour' + str(fg[0])]
         if let Some(f) = fg {
             tmux_attrs.push(self.color_spec("fg", Some(f)));
         }
-        // py:53-59  bg
+        // py:55  if bg is not None:
+        // py:56  if bg is False or bg[0] is False:
+        // py:57  tmux_attrs += ['bg=default']
+        // py:58  else:
+        // py:59  if self.term_truecolor and bg[1]:
+        // py:60  tmux_attrs += ['bg=#{0:06x}'.format(int(bg[1]))]
+        // py:61  else:
+        // py:62  tmux_attrs += ['bg=colour' + str(bg[0])]
         if let Some(b) = bg {
             tmux_attrs.push(self.color_spec("bg", Some(b)));
         }
-        // py:60-61  attrs
+        // py:63  if attrs is not None:
+        // py:64  tmux_attrs += attrs_to_tmux_attrs(attrs)
         if let Some(a) = attrs {
             tmux_attrs.extend(attrs_to_tmux_attrs(Some(a)));
         }
-        // py:62  '#[' + ','.join(tmux_attrs) + ']'
+        // py:65  return '#[' + ','.join(tmux_attrs) + ']'
         format!("#[{}]", tmux_attrs.join(","))
     }
 
@@ -128,17 +162,14 @@ impl TmuxRenderer {
     /// appropriate tmux directive. The `false` / `(False, _)` Python
     /// sentinel maps to `None` (use channel default).
     fn color_spec(&self, channel: &str, color: Option<ColorSpec>) -> String {
-        // py:47-50 / 54-57  False / (False, _) → "{channel}=default"
         let Some(c) = color else {
             return format!("{}=default", channel);
         };
-        // py:51 / 58  truecolor branch
         if self.term_truecolor {
             if let Some(rgb) = c.truecolor {
                 return format!("{}=#{:06x}", channel, rgb);
             }
         }
-        // py:52 / 59  cterm fallback
         format!("{}=colour{}", channel, c.cterm)
     }
 }

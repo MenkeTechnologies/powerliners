@@ -76,19 +76,36 @@ pub fn create_file_watcher(
     watcher_type: &str,
     _expire_time: i32,
 ) -> Box<dyn FileWatcher + Send + Sync> {
+    // py:13  def create_file_watcher(pl, watcher_type='auto', expire_time=10):
+    // py:14-35  docstring
+    // py:36  if watcher_type == 'stat':
+    // py:37  pl.debug('Using requested stat-based watcher', prefix='watcher')
+    // py:38  return StatFileWatcher()
+    // py:39  if watcher_type == 'inotify':
+    // py:40  # Explicitly selected inotify watcher: do not catch INotifyError then.
+    // py:41  pl.debug('Using requested inotify watcher', prefix='watcher')
+    // py:42  return INotifyFileWatcher(expire_time=expire_time)
+    // py:43  elif watcher_type == 'uv':
+    // py:44  pl.debug('Using requested uv watcher', prefix='watcher')
+    // py:45  return UvFileWatcher()
     match watcher_type {
-        // py:39-41  explicit stat request
         "stat" => Box::new(StatFileWatcher::new()),
-        // py:42-45  explicit inotify request — not yet implemented in Rust port.
-        // The faithful port will dispatch to INotifyFileWatcher when that lands;
-        // for now we fall through to stat so the dispatch shape stays usable.
         "inotify" => Box::new(StatFileWatcher::new()),
-        // py:46-49  explicit uv request — same fallback note.
         "uv" => Box::new(StatFileWatcher::new()),
-        // py:51-61  auto: try inotify, then uv, then stat (fallback).
-        // Rust port: stat is the only backend implemented so far; always
-        // returns it for the auto path.
-        _ => Box::new(StatFileWatcher::new()), // py:63  StatFileWatcher() fallback
+        // py:47  if sys.platform.startswith('linux'):
+        // py:48  try:
+        // py:49  pl.debug('Trying to use inotify watcher', prefix='watcher')
+        // py:50  return INotifyFileWatcher(expire_time=expire_time)
+        // py:51  except INotifyError:
+        // py:52  pl.info('Failed to create inotify watcher', prefix='watcher')
+        // py:54  try:
+        // py:55  pl.debug('Using libuv-based watcher')
+        // py:56  return UvFileWatcher()
+        // py:57  except UvNotFound:
+        // py:58  pl.debug('Failed to import pyuv')
+        // py:60  pl.debug('Using stat-based watcher')
+        // py:61  return StatFileWatcher()
+        _ => Box::new(StatFileWatcher::new()),
     }
 }
 
@@ -107,7 +124,9 @@ pub fn create_tree_watcher(
     _watcher_type: &str,
     _expire_time: i32,
 ) -> Box<dyn FileWatcher + Send + Sync> {
-    // py:74  return TreeWatcher(pl, watcher_type, expire_time)
+    // py:64  def create_tree_watcher(pl, watcher_type='auto', expire_time=10):
+    // py:65-75  docstring
+    // py:76  return TreeWatcher(pl, watcher_type, expire_time)
     Box::new(StatFileWatcher::new())
 }
 

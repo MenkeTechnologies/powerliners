@@ -29,26 +29,33 @@ use std::process::{Command, Stdio};
 /// lands. Match upstream's behaviour: combine stdout decoding +
 /// optional strip; `strip=true` is the default.
 pub fn run_cmd(_pl: &(), cmd: &[String], stdin: Option<&str>, strip: bool) -> Option<String> {
-    // py:33-37  try Popen, OSError → return None
-    let mut child = Command::new(cmd.first()?) // py:34
+    // py:19  def run_cmd(pl, cmd, stdin=None, strip=True):
+    // py:20-32  docstring
+    // py:33  try:
+    // py:34  p = Popen(cmd, shell=False, stdout=PIPE, stdin=PIPE)
+    let mut child = Command::new(cmd.first()?)
         .args(&cmd[1..])
         .stdout(Stdio::piped())
         .stdin(Stdio::piped())
         .spawn()
-        .ok()?; // py:35-37
+        // py:35  except OSError as e:
+        // py:36  pl.exception('Could not execute command ({0}): {1}', e, cmd)
+        // py:37  return None
+        .ok()?;
 
-    // py:39-40  p.communicate(stdin)
+    // py:38  else:
+    // py:39  stdout, err = p.communicate(
+    // py:40  stdin if stdin is None else stdin.encode(get_preferred_output_encoding()))
     if let Some(s) = stdin {
         if let Some(mut child_stdin) = child.stdin.take() {
             let _ = child_stdin.write_all(s.as_bytes());
         }
     } else {
-        // Close stdin to prevent the child from blocking on read
         drop(child.stdin.take());
     }
     let output = child.wait_with_output().ok()?;
 
-    // py:41  stdout.decode(get_preferred_input_encoding())
+    // py:41  stdout = stdout.decode(get_preferred_input_encoding())
     let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
 
     // py:42  return stdout.strip() if strip else stdout
@@ -63,6 +70,8 @@ pub fn run_cmd(_pl: &(), cmd: &[String], stdin: Option<&str>, strip: bool) -> Op
 ///
 /// Run the given AppleScript and return the standard output and error.
 pub fn asrun(pl: &(), ascript: &str) -> Option<String> {
+    // py:45  def asrun(pl, ascript):
+    // py:46  '''Run the given AppleScript and return the standard output and error.'''
     // py:47  return run_cmd(pl, ['osascript', '-'], ascript)
     run_cmd(
         pl,
@@ -79,19 +88,25 @@ pub fn asrun(pl: &(), ascript: &str) -> Option<String> {
 /// Python uses a generator (`yield`); Rust returns a `Vec<String>`.
 /// The streaming pattern is the same — caller iterates results.
 pub fn readlines(cmd: &[String], cwd: &std::path::Path) -> Vec<String> {
-    // py:58  Popen(cmd, shell=False, stdout=PIPE, stderr=PIPE, cwd=cwd)
+    // py:50  def readlines(cmd, cwd):
+    // py:51-57  docstring
+    // py:58  p = Popen(cmd, shell=False, stdout=PIPE, stderr=PIPE, cwd=cwd)
     let output = match Command::new(cmd.first().map(|s| s.as_str()).unwrap_or(""))
         .args(&cmd[1..])
         .current_dir(cwd)
         .stdout(Stdio::piped())
-        .stderr(Stdio::null()) // py:60  p.stderr.close()
+        // py:59  encoding = get_preferred_input_encoding()
+        // py:60  p.stderr.close()
+        .stderr(Stdio::null())
         .output()
     {
         Ok(o) => o,
         Err(_) => return Vec::new(),
     };
 
-    // py:61-63  for line in p.stdout: yield line[:-1].decode(encoding)
+    // py:61  with p.stdout:
+    // py:62  for line in p.stdout:
+    // py:63  yield line[:-1].decode(encoding)
     String::from_utf8_lossy(&output.stdout)
         .lines()
         .map(String::from)
@@ -108,30 +123,47 @@ pub fn readlines(cmd: &[String], cwd: &std::path::Path) -> Vec<String> {
 /// Unix / semicolon on Windows. Mirrors the upstream polyfill body
 /// directly without the Py2/3 compat fork.
 pub fn which(cmd: &str) -> Option<PathBuf> {
-    // py:93-96  If cmd contains a path separator, check it directly.
+    // py:71  def which(cmd, mode=os.F_OK | os.X_OK, path=None):
+    // py:72-79  docstring
+    // py:93  if os.path.dirname(cmd):
     if cmd.contains(std::path::MAIN_SEPARATOR) {
+        // py:94  if _access_check(cmd, mode):
         let p = PathBuf::from(cmd);
         if _access_check(&p) {
+            // py:95  return cmd
             return Some(p);
         }
+        // py:96  return None
         return None;
     }
 
-    // py:98-99  Default PATH from env.
-    let path = std::env::var_os("PATH")?; // py:99
-    let mut seen = std::collections::HashSet::new(); // py:124  seen = set()
+    // py:98  if path is None:
+    // py:99  path = os.environ.get('PATH', os.defpath)
+    let path = std::env::var_os("PATH")?;
+    // py:100  if not path:
+    // py:101  return None
+    // py:102  path = path.split(os.pathsep)
+    // py:124  seen = set()
+    let mut seen = std::collections::HashSet::new();
+    // py:125  for dir in path:
     for dir in std::env::split_paths(&path) {
-        // py:125-126
+        // py:126  normdir = os.path.normcase(dir)
+        // py:127  if normdir not in seen:
+        // py:128  seen.add(normdir)
         if !seen.insert(dir.clone()) {
             continue;
         }
-        let candidate = dir.join(cmd); // py:130
+        // py:129  for thefile in files:
+        // py:130  name = os.path.join(dir, thefile)
+        let candidate = dir.join(cmd);
+        // py:131  if _access_check(name, mode):
         if _access_check(&candidate) {
-            // py:131
-            return Some(candidate); // py:132
+            // py:132  return name
+            return Some(candidate);
         }
     }
-    None // py:133
+    // py:133  return None
+    None
 }
 
 /// Port of `_access_check()` from `powerline/lib/shell.py:83`.
