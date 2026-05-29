@@ -2155,6 +2155,79 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_wthr_weather_conditions_codes_table_size() {
+    if !python_available() {
+        return;
+    }
+    // Verify the OWM condition-code → icon-name table has the same
+    // 55 entries on both sides AND specific entries match.
+    let py_size = match py_eval(
+        "len(__import__('powerline.segments.common.wthr', fromlist=['weather_conditions_codes']).weather_conditions_codes)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_n: usize = py_size.parse().expect("Python returned non-int");
+    let rs_n = powerliners::segments::common::wthr::weather_conditions_codes().len();
+    assert_eq!(
+        py_n, rs_n,
+        "weather_conditions_codes table size mismatch: py={}, rs={}",
+        py_n, rs_n
+    );
+    // Spot-check 5 representative entries.
+    let cases: &[(u16, &str)] = &[
+        (200, "stormy"),
+        (500, "rainy"),
+        (600, "snowy"),
+        (701, "foggy"),
+        (800, "sunny"),
+    ];
+    let rs_table = powerliners::segments::common::wthr::weather_conditions_codes();
+    for &(code, expected) in cases {
+        let expr = format!(
+            "__import__('powerline.segments.common.wthr', fromlist=['weather_conditions_codes']).weather_conditions_codes[{}][0]",
+            code
+        );
+        let py = match py_eval(&expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(py, expected, "Python code {} mapping changed", code);
+        let rs_val = rs_table
+            .get(&code)
+            .and_then(|v| v.first())
+            .copied()
+            .unwrap_or("?");
+        assert_eq!(
+            py, rs_val,
+            "wthr code 0x{:X} mapping mismatch: py={:?}, rs={:?}",
+            code, py, rs_val
+        );
+    }
+}
+
+#[test]
+fn parity_wthr_weather_conditions_icons_table_size() {
+    if !python_available() {
+        return;
+    }
+    // Verify icons dict has the same 12 entries.
+    let py_size = match py_eval(
+        "len(__import__('powerline.segments.common.wthr', fromlist=['weather_conditions_icons']).weather_conditions_icons)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_n: usize = py_size.parse().expect("Python returned non-int");
+    let rs_n = powerliners::segments::common::wthr::weather_conditions_icons().len();
+    assert_eq!(
+        py_n, rs_n,
+        "weather_conditions_icons table size mismatch: py={}, rs={}",
+        py_n, rs_n
+    );
+}
+
+#[test]
 fn parity_lint_checks_type_keys_keyset() {
     if !python_available() {
         return;
