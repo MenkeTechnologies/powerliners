@@ -34,15 +34,24 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Build
-        run: cargo build --release --locked --target ${{ matrix.target }} --bin powerliners
+      - name: Build all binaries
+        run: |
+          cargo build --release --locked --target ${{ matrix.target }} \
+            --bin powerline \
+            --bin powerline-daemon \
+            --bin powerline-config \
+            --bin powerline-render \
+            --bin powerline-lint
 
       - name: Package
         shell: bash
         run: |
           cd target/${{ matrix.target }}/release
-          strip powerliners 2>/dev/null || true
-          tar czf ../../../powerliners-${{ github.ref_name }}-${{ matrix.target }}.tar.gz powerliners
+          for b in powerline powerline-daemon powerline-config powerline-render powerline-lint; do
+            strip "$b" 2>/dev/null || true
+          done
+          tar czf ../../../powerliners-${{ github.ref_name }}-${{ matrix.target }}.tar.gz \
+            powerline powerline-daemon powerline-config powerline-render powerline-lint
           cd ../../..
 
       - uses: actions/upload-artifact@v4
@@ -102,22 +111,21 @@ jobs:
         shell: bash
         env:
           VERSION: ${{ github.ref_name }}
+          SHA_ARM_MACOS: ${{ steps.sha.outputs.aarch64_apple_darwin }}
+          SHA_X86_LINUX: ${{ steps.sha.outputs.x86_64_unknown_linux_gnu }}
         run: |
           VERSION="${VERSION#v}"
-          cd tap
-          cat > Formula/powerliners.rb <<'FORMULA_HEAD'
+          cat > tap/Formula/powerliners.rb <<FORMULA
           class Powerliners < Formula
-            desc "1:1 Rust port of powerline-status — single static binary, sub-millisecond render"
+            desc "1:1 Rust port of powerline-status — daemon + client + config + render + lint"
             homepage "https://github.com/MenkeTechnologies/powerliners"
             license "MIT"
-          FORMULA_HEAD
-          cat >> Formula/powerliners.rb <<EOF
             version "${VERSION}"
 
             on_macos do
             on_arm do
               url "https://github.com/MenkeTechnologies/powerliners/releases/download/v${VERSION}/powerliners-v${VERSION}-aarch64-apple-darwin.tar.gz"
-              sha256 "${{ steps.sha.outputs.aarch64_apple_darwin }}"
+              sha256 "${SHA_ARM_MACOS}"
             end
             # x86_64 macOS not supported — see release.yml matrix.
             end
@@ -125,19 +133,23 @@ jobs:
             on_linux do
             on_intel do
               url "https://github.com/MenkeTechnologies/powerliners/releases/download/v${VERSION}/powerliners-v${VERSION}-x86_64-unknown-linux-gnu.tar.gz"
-              sha256 "${{ steps.sha.outputs.x86_64_unknown_linux_gnu }}"
+              sha256 "${SHA_X86_LINUX}"
             end
             end
 
             def install
-            bin.install "powerliners"
+              bin.install "powerline"
+              bin.install "powerline-daemon"
+              bin.install "powerline-config"
+              bin.install "powerline-render"
+              bin.install "powerline-lint"
             end
 
             test do
-              assert_match version.to_s, shell_output("#{bin}/powerliners --version 2>&1", 0..2)
+              assert_match "ext is required", shell_output("#{bin}/powerline-render 2>&1", 2)
             end
           end
-          EOF
+          FORMULA
 
       - name: Push formula update
         run: |
