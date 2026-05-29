@@ -251,6 +251,17 @@ impl RichMark {
     }
 
     /// Port of `Mark.to_string()` from
+    /// `powerline/lint/markedjson/error.py:109`. Faithful-name
+    /// alias of [`to_string_marked`](Self::to_string_marked);
+    /// renamed primary fn to avoid colliding with the
+    /// [`ToString`] auto-impl from [`std::fmt::Display`].
+    #[allow(clippy::wrong_self_convention, clippy::inherent_to_string_shadow_display)]
+    pub fn to_string(&self, indent: usize, head_text: &str, add_snippet: bool) -> String {
+        // py:109  def to_string(self, indent=0, head_text='in ', add_snippet=True):
+        self.to_string_marked(indent, head_text, add_snippet)
+    }
+
+    /// Port of `Mark.to_string()` from
     /// `powerline/lint/markedjson/error.py:105`.
     pub fn to_string_marked(&self, indent: usize, head_text: &str, add_snippet: bool) -> String {
         // py:109  def to_string(self, indent=0, head_text='in ', add_snippet=True):

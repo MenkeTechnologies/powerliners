@@ -219,21 +219,39 @@ pub fn generate_json_config_loader(
     lhadproblem: std::sync::Arc<std::sync::Mutex<bool>>,
 ) -> Box<dyn Fn(&std::path::Path) -> Option<Value>> {
     // py:34  def generate_json_config_loader(lhadproblem):
+    // py:41  return load_json_config
+    let inner = lhadproblem.clone();
+    Box::new(move |config_file_path: &std::path::Path| -> Option<Value> {
+        load_json_config(config_file_path, inner.clone())
+    })
+}
+
+/// Port of the inner `load_json_config()` closure from
+/// `powerline/lint/__init__.py:35-40` (inside
+/// `generate_json_config_loader`).
+///
+/// Python: `def load_json_config(config_file_path, load=load,
+/// open_file=open_file)`. The closure captures `lhadproblem` from
+/// `generate_json_config_loader`'s scope; the Rust port takes it
+/// as an explicit `Arc<Mutex<bool>>` parameter so callers can
+/// invoke this directly without first building the wrapper
+/// closure.
+pub fn load_json_config(
+    config_file_path: &std::path::Path,
+    lhadproblem: std::sync::Arc<std::sync::Mutex<bool>>,
+) -> Option<Value> {
     // py:35  def load_json_config(config_file_path, load=load, open_file=open_file):
     // py:36  with open_file(config_file_path) as config_file_fp:
     // py:37  r, hadproblem = load(config_file_fp)
+    let (r, hadproblem) = load(config_file_path);
     // py:38  if hadproblem:
     // py:39  lhadproblem[0] = True
+    if hadproblem {
+        let mut flag = lhadproblem.lock().unwrap_or_else(|e| e.into_inner());
+        *flag = true;
+    }
     // py:40  return r
-    // py:41  return load_json_config
-    Box::new(move |config_file_path: &std::path::Path| -> Option<Value> {
-        let (r, hadproblem) = load(config_file_path);
-        if hadproblem {
-            let mut flag = lhadproblem.lock().unwrap_or_else(|e| e.into_inner());
-            *flag = true;
-        }
-        r
-    })
+    r
 }
 
 /// Discovered config file entry produced by
