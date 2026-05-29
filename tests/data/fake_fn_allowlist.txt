@@ -384,3 +384,31 @@ dispatch_state
 # "default" / "#rgb" / "colourN" form based on term_truecolor and
 # the truecolor option presence.
 color_spec
+
+# VimRenderer::mode_translations builds the Python module-level
+# `mode_translations` dict from renderers/vim.py:20-23 as a Rust
+# accessor fn. Python initialises the dict at import time;
+# Rust needs an explicit constructor since module-level mutable
+# globals don't carry the same semantics.
+mode_translations
+
+# HlGroup::vim_command builds the ":hi <name> ctermfg=... guifg=..."
+# command string that Python issues via `vim.command(...)` at
+# renderers/vim.py:174. Python inlines that string-format call
+# inside hlstyle(); Rust extracts it onto HlGroup so the caller can
+# queue the command for batch dispatch (Python's vim.command isn't
+# reachable from Rust without a vim binding).
+vim_command
+
+# VimRenderer::build_group_name materialises the synthetic
+# Pl_<ctermfg>_<guifg>_<ctermbg>_<guibg>_<attrs> name (py:165-172).
+# Python inlines this in hlstyle; Rust extracts to keep the method
+# body legible (the field assembly + str() coercion would obscure
+# the cache check around it otherwise).
+build_group_name
+
+# VimRenderer::attrs_to_hi_attrs builds the vim-format attrs name
+# list from a powerline ATTR_* bitfield (py:157-163). Python
+# inlines the if-attrs branch inside hlstyle; Rust extracts to a
+# helper so tests can pin the bit→name mapping in isolation.
+attrs_to_hi_attrs
