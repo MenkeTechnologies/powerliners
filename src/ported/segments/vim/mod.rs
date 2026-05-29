@@ -1023,9 +1023,9 @@ pub fn read_csv(line: &str, dialect: char) -> Vec<String> {
 /// `powerline/segments/vim/__init__.py:706-757`.
 ///
 /// Walks the lines of a CSV buffer, returns the column name +
-/// header info for the cursor's position. Python uses csv.Sniffer
-/// + csv.reader; Rust port takes the pre-parsed (header, current
-/// column index) pair.
+/// header info for the cursor's position. Python uses
+/// `csv.Sniffer` + `csv.reader`; Rust port takes the pre-parsed
+/// `(header, current column index)` pair.
 pub fn process_csv_buffer(
     cursor_col: usize,
     header: &[String],

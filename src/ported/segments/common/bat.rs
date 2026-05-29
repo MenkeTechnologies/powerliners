@@ -441,8 +441,6 @@ pub fn _flatten_battery(_pl: &(), devices: &[(f64, f64, bool)]) -> (f64, bool) {
 /// loop; the Rust port takes it as an explicit argument.
 pub fn _get_battery_perc(_pl: &(), batt: &str) -> Option<(u8, Option<bool>)> {
     // py:121  def _get_battery_perc(pl):
-    // py:122  state = True
-    let state: Option<bool>;
     // py:123  with open('/sys/class/power_supply/{0}/capacity', 'r') as f:
     let capacity_path = format!("/sys/class/power_supply/{}/capacity", batt);
     let capacity_text = std::fs::read_to_string(capacity_path).ok()?;
@@ -451,17 +449,18 @@ pub fn _get_battery_perc(_pl: &(), batt: &str) -> Option<(u8, Option<bool>)> {
     // py:125  try:
     // py:126  with open(linux_status_fmt.format(batt), 'r') as f:
     let status_path = format!("/sys/class/power_supply/{}/status", batt);
-    match std::fs::read_to_string(status_path) {
+    // py:122  state = True
+    let state: Option<bool> = match std::fs::read_to_string(status_path) {
         Ok(status_text) => {
             // py:127  state &= (f.readline().strip() != 'Discharging')
-            state = Some(parse_linux_status(&status_text));
+            Some(parse_linux_status(&status_text))
         }
         Err(_) => {
             // py:128  except IOError:
             // py:129  state = None
-            state = None;
+            None
         }
-    }
+    };
     // py:130  return perc, state
     Some((perc, state))
 }

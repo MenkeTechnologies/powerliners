@@ -1402,7 +1402,7 @@ pub fn check(paths: Option<&[String]>, debug: bool, require_ext: Option<&str>) -
     // scan above flags filesystem-level issues; deeper validation is
     // tracked by the per-Spec ports in `lint::spec`.
     let _ = paths; // silence unused after refactor
-    return hadproblem;
+    hadproblem
 }
 
 // Legacy body trace from `lint::check()` kept here so the upstream

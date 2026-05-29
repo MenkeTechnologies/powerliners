@@ -235,7 +235,7 @@ pub fn sort_ws(
     let working: Vec<String> = if sort_workspaces {
         // py:125-128  ws = sorted(ws, key=natural_key)
         let mut v: Vec<String> = ws.to_vec();
-        v.sort_by(|a, b| natural_key(a).cmp(&natural_key(b)));
+        v.sort_by_key(|a| natural_key(a));
         v
     } else {
         ws.to_vec()

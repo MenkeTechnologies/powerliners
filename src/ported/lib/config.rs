@@ -486,10 +486,7 @@ impl ConfigLoader {
                 // py:170  modified = self.watcher(path)
                 // py:171  except OSError as e:
                 // py:172  modified = True
-                let modified = match watcher(path) {
-                    Ok(m) => m,
-                    Err(_) => true,
-                };
+                let modified = watcher(path).unwrap_or(true);
                 // py:174  else:
                 // py:175  if modified:
                 // py:176  toload.append(path)
