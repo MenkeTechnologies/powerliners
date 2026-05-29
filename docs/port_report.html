@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">591</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3376</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">57.5%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">594</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3382</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">57.8%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -215,8 +215,8 @@ columns:
   <!-- SYM py_file=powerline/ipython.py rs_file=src/ported/ipython.rs rs_exists=True py_fn_total=11 ported_count=7 missing_count=4 rs_extra_count=26 coverage=0.6364 -->
   <!-- END-GROUP py_file=powerline/ipython.py -->
   <!-- BEGIN-GROUP py_file=powerline/renderers/vim.py -->
-  <tr class="partial"><td><code>renderers/vim.py</code></td><td>✔ <code>renderers/vim.rs</code></td><td>11</td><td><code>shutdown</code>, <code>add_local_theme</code>, <code>get_matched_theme</code>, <code>get_theme</code>, <code>get_segment_info</code>, <code>reset_highlight</code>, <code>hlstyle</code></td><td><code>__init__</code>, <code>strwidth</code>, <code>strwidth</code>, <code>render</code></td><td><code>mode_translations</code>, <code>vim_command</code>, <code>default</code>, <code>new</code>, <code>get_matched_theme_cached</code>, <code>character_translations</code>, <code>build_group_name</code>, <code>attrs_to_hi_attrs</code>, <code>mode_translations_contains_ctrl_v_and_ctrl_s</code>, <code>character_translations_doubles_percent</code>, <code>attrs_to_hi_attrs_zero_is_empty</code>, <code>attrs_to_hi_attrs_bold</code>, <code>attrs_to_hi_attrs_all_three</code>, <code>reset_highlight_clears_cache</code>, <code>hlstyle_no_args_returns_empty</code>, <code>hlstyle_emits_group_reference</code>, <code>hlstyle_consecutive_identical_returns_empty</code>, <code>hlstyle_caches_repeated_group_after_other_style</code>, <code>hl_group_vim_command_format</code>, <code>hl_group_vim_command_none_attrs_emits_none</code>, <code>hlstyle_attrs_only_emits_cterm_attrs</code>, <code>shutdown_records_main_theme_first</code>, <code>shutdown_walks_local_themes_with_theme_key</code>, <code>add_local_theme_inserts_into_dict</code>, <code>add_local_theme_rejects_duplicate_matcher</code>, <code>get_matched_theme_returns_existing_theme</code>, <code>get_matched_theme_constructs_from_config_when_missing</code>, <code>get_matched_theme_cached_back_inserts_theme_key</code>, <code>get_theme_none_matcher_uses_empty_key_local_theme</code>, <code>get_theme_walks_matchers_and_returns_first_match</code>, <code>get_theme_no_matcher_match_falls_back_to_self_theme</code>, <code>get_segment_info_returns_supplied_when_present</code>, <code>get_segment_info_falls_back_to_self_when_none</code>, <code>get_segment_info_falls_back_to_self_when_supplied_empty</code></td><td class="coverage">64%</td></tr>
-  <!-- SYM py_file=powerline/renderers/vim.py rs_file=src/ported/renderers/vim.rs rs_exists=True py_fn_total=11 ported_count=7 missing_count=4 rs_extra_count=34 coverage=0.6364 -->
+  <tr class="partial"><td><code>renderers/vim.py</code></td><td>✔ <code>renderers/vim.rs</code></td><td>11</td><td><code>shutdown</code>, <code>add_local_theme</code>, <code>get_matched_theme</code>, <code>get_theme</code>, <code>strwidth</code>, <code>strwidth</code>, <code>get_segment_info</code>, <code>render</code>, <code>reset_highlight</code>, <code>hlstyle</code></td><td><code>__init__</code></td><td><code>mode_translations</code>, <code>vim_command</code>, <code>default</code>, <code>new</code>, <code>get_matched_theme_cached</code>, <code>character_translations</code>, <code>build_group_name</code>, <code>attrs_to_hi_attrs</code>, <code>mode_translations_contains_ctrl_v_and_ctrl_s</code>, <code>character_translations_doubles_percent</code>, <code>attrs_to_hi_attrs_zero_is_empty</code>, <code>attrs_to_hi_attrs_bold</code>, <code>attrs_to_hi_attrs_all_three</code>, <code>reset_highlight_clears_cache</code>, <code>hlstyle_no_args_returns_empty</code>, <code>hlstyle_emits_group_reference</code>, <code>hlstyle_consecutive_identical_returns_empty</code>, <code>hlstyle_caches_repeated_group_after_other_style</code>, <code>hl_group_vim_command_format</code>, <code>hl_group_vim_command_none_attrs_emits_none</code>, <code>hlstyle_attrs_only_emits_cterm_attrs</code>, <code>shutdown_records_main_theme_first</code>, <code>shutdown_walks_local_themes_with_theme_key</code>, <code>add_local_theme_inserts_into_dict</code>, <code>add_local_theme_rejects_duplicate_matcher</code>, <code>get_matched_theme_returns_existing_theme</code>, <code>get_matched_theme_constructs_from_config_when_missing</code>, <code>get_matched_theme_cached_back_inserts_theme_key</code>, <code>get_theme_none_matcher_uses_empty_key_local_theme</code>, <code>get_theme_walks_matchers_and_returns_first_match</code>, <code>get_theme_no_matcher_match_falls_back_to_self_theme</code>, <code>get_segment_info_returns_supplied_when_present</code>, <code>get_segment_info_falls_back_to_self_when_none</code>, <code>get_segment_info_falls_back_to_self_when_supplied_empty</code>, <code>strwidth_counts_ascii_chars</code>, <code>render_returns_nc_mode_when_not_current_window</code>, <code>render_uses_supplied_mode_for_current_window</code>, <code>render_injects_window_id_and_winnr_keys</code></td><td class="coverage">91%</td></tr>
+  <!-- SYM py_file=powerline/renderers/vim.py rs_file=src/ported/renderers/vim.rs rs_exists=True py_fn_total=11 ported_count=10 missing_count=1 rs_extra_count=38 coverage=0.9091 -->
   <!-- END-GROUP py_file=powerline/renderers/vim.py -->
   <!-- BEGIN-GROUP py_file=powerline/bindings/ipython/post_0_11.py -->
   <tr class="partial"><td><code>bindings/ipython/post_0_11.py</code></td><td>✔ <code>bindings/ipython/post_0_11.rs</code></td><td>10</td><td><code>powerline</code>, <code>render</code>, <code>init</code>, <code>do_setup</code>, <code>load_ipython_extension</code>, <code>unload_ipython_extension</code></td><td><code>__init__</code>, <code>__init__</code>, <code>__call__</code>, <code>__init__</code></td><td><code>old_prompt_manager</code>, <code>default</code>, <code>new</code>, <code>default</code>, <code>new</code>, <code>set_powerline</code>, <code>call</code>, <code>new</code>, <code>default</code>, <code>new</code>, <code>reset_old_prompt_manager</code>, <code>powerline_magics_reload_succeeds</code>, <code>powerline_magics_other_arg_errors</code>, <code>shutdown_hook_initial_state_no_call_count</code>, <code>shutdown_hook_set_powerline_marks_live</code>, <code>shutdown_hook_call_returns_try_next</code>, <code>shutdown_hook_call_skips_shutdown_when_target_dead</code>, <code>powerline_prompt_manager_render_returns_plain_for_non_rewrite</code>, <code>powerline_prompt_manager_render_returns_rewrite_for_rewrite_name</code>, <code>powerline_prompt_manager_render_returns_raw_when_color_false</code>, <code>powerline_prompt_manager_render_passes_is_prompt_true_for_in_names</code>, <code>powerline_prompt_manager_render_passes_is_prompt_false_for_other_names</code>, <code>configurable_init_returns_pre_5_when_has_prompt_manager</code>, <code>configurable_init_returns_since_7_without_prompt_manager</code>, <code>configurable_init_reads_overrides</code>, <code>configurable_do_setup_swaps_prompt_manager_and_wires_hook</code>, <code>configurable_do_setup_does_not_overwrite_existing_snapshot</code>, <code>load_ipython_extension_with_prompt_manager_returns_prompt_manager</code>, <code>load_ipython_extension_without_prompt_manager_returns_deprecated</code>, <code>unload_ipython_extension_restores_snapshot</code>, <code>unload_ipython_extension_noop_when_no_snapshot</code></td><td class="coverage">60%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3376,
-    "ported_fns": 591,
-    "coverage": 0.5749027237354085
+    "rs_fns_in_ported": 3382,
+    "ported_fns": 594,
+    "coverage": 0.5778210116731517
   },
   "rows": [
     {
@@ -2592,15 +2592,15 @@ columns:
         "add_local_theme",
         "get_matched_theme",
         "get_theme",
+        "strwidth",
+        "strwidth",
         "get_segment_info",
+        "render",
         "reset_highlight",
         "hlstyle"
       ],
       "missing_fns": [
-        "__init__",
-        "strwidth",
-        "strwidth",
-        "render"
+        "__init__"
       ],
       "rs_extra_fns": [
         "mode_translations",
@@ -2636,9 +2636,13 @@ columns:
         "get_theme_no_matcher_match_falls_back_to_self_theme",
         "get_segment_info_returns_supplied_when_present",
         "get_segment_info_falls_back_to_self_when_none",
-        "get_segment_info_falls_back_to_self_when_supplied_empty"
+        "get_segment_info_falls_back_to_self_when_supplied_empty",
+        "strwidth_counts_ascii_chars",
+        "render_returns_nc_mode_when_not_current_window",
+        "render_uses_supplied_mode_for_current_window",
+        "render_injects_window_id_and_winnr_keys"
       ],
-      "coverage": 0.6363636363636364
+      "coverage": 0.9090909090909091
     },
     {
       "py_file": "powerline/bindings/ipython/post_0_11.py",
