@@ -1067,3 +1067,37 @@ function_name_re
 # extracts to a pure helper so the strip-or-passthrough behaviour
 # can be tested in isolation.
 strip_json_suffix
+
+# vim_modes() is the Rust accessor for Python's module-level
+# `vim_modes = {...}` dict at segments/vim/__init__.py:43. Python
+# initialises the dict at import time; Rust uses OnceLock<HashMap>
+# for the equivalent lazy single-init pattern.
+vim_modes
+
+# mode_translation is the Rust analog of the @window_cached
+# mode(pl, segment_info, override=None) segment fn at
+# segments/vim/__init__.py:92. Python's `mode` collides with the
+# Rust reserved-keyword adjacent identifier; the port renames to
+# mode_translation to describe the result (a name lookup with
+# fallback chain).
+mode_translation
+
+# position_value / line_percent_value / visual_range_text /
+# file_size_text extract the pure value-computation cores from
+# the position / line_percent / visual_range / file_size segment
+# fns at segments/vim/__init__.py:415-442, py:394-413, py:120-170,
+# py:314. The segment fns themselves call vim.current.buffer +
+# vim_funcs['line'] which aren't reachable from Rust; the pure
+# helpers extract the math/formatting branches so callers can
+# unit-test the data-flow without the vim runtime.
+position_value
+line_percent_value
+visual_range_text
+file_size_text
+
+# default_position_strings() returns the Python keyword-default
+# `position_strings={'top': 'Top', 'bottom': 'Bot', 'all': 'All'}`
+# from segments/vim/__init__.py:415. Python embeds the default in
+# the fn signature; Rust extracts to a free helper since Rust
+# doesn't support mutable HashMap default-arg semantics.
+default_position_strings
