@@ -1833,6 +1833,76 @@ fn parity_spec_unsigned_chains_type_int_and_cmp_ge_zero() {
 }
 
 #[test]
+fn parity_spec_func_check_appended() {
+    if !python_available() {
+        return;
+    }
+    // Spec().func(callable) registers a check_func entry on Python.
+    // Rust's func(name) takes a registered function name (since
+    // closures don't survive the builder boundary) and stores it as
+    // error_msg.
+    let py = match py_eval(
+        "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().func(lambda x: True).checks)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_len: usize = py.parse().expect("Python returned non-int len");
+    assert_eq!(
+        py_len, 1,
+        "Python Spec.func() should append 1 check entry (check_func)"
+    );
+    use powerliners::lint::spec::Spec;
+    let s = Spec::new().func("my_check");
+    // The Rust port's func() reuses error_msg as the registered-function
+    // name (since closures can't be stored without callback wiring).
+    assert_eq!(
+        s.error_msg.as_deref(),
+        Some("my_check"),
+        "Rust Spec.func() should store function name in error_msg"
+    );
+}
+
+#[test]
+fn parity_spec_unknown_spec_pushes_key_and_value_specs() {
+    if !python_available() {
+        return;
+    }
+    // Spec().unknown_spec(key_spec, value_spec) pushes BOTH specs into
+    // self.specs but does NOT append to checks. Verifies the spec count
+    // grows by exactly 2 on both sides.
+    let py = match py_eval(
+        "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().unknown_spec(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().ident(), __import__('powerline.lint.spec', fromlist=['Spec']).Spec().type(str)).specs)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_len: usize = py.parse().expect("Python returned non-int len");
+    assert_eq!(
+        py_len, 2,
+        "Python Spec.unknown_spec() should push 2 specs (key+value)"
+    );
+    let py_checks_count = match py_eval(
+        "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().unknown_spec(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().ident(), __import__('powerline.lint.spec', fromlist=['Spec']).Spec().type(str)).checks)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_checks: usize = py_checks_count.parse().expect("Python returned non-int");
+    assert_eq!(
+        py_checks, 0,
+        "Python Spec.unknown_spec() should NOT append to checks (it goes through uspecs)"
+    );
+    use powerliners::lint::spec::Spec;
+    let s = Spec::new().unknown_spec(Spec::new().ident(), Spec::new());
+    assert_eq!(
+        s.specs.len(),
+        2,
+        "Rust unknown_spec() should push 2 specs (key+value)"
+    );
+}
+
+#[test]
 fn parity_spec_either_pushes_variant_specs() {
     if !python_available() {
         return;
