@@ -1057,3 +1057,85 @@ fn parity_log_keys_set() {
     );
     assert_eq!(py, rs_repr, "LOG_KEYS set contents mismatch");
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// renderers/shell/*.py — escape_hl_start / escape_hl_end class attrs
+//
+// These verify the 3 NEAR-tier-ceiling files (readline, zsh) plus the
+// graduated ksh/tcsh shell renderers carry exactly the same readline
+// non-display markers / shell prompt-protection escapes as upstream.
+// ─────────────────────────────────────────────────────────────────────
+
+fn parity_renderer_escape_pair(
+    py_module: &str,
+    py_class: &str,
+    rs_start: &str,
+    rs_end: &str,
+    label: &str,
+) {
+    if !python_available() {
+        return;
+    }
+    let start_expr = format!(
+        "__import__('{}', fromlist=['{}']).{}.escape_hl_start",
+        py_module, py_class, py_class
+    );
+    let end_expr = format!(
+        "__import__('{}', fromlist=['{}']).{}.escape_hl_end",
+        py_module, py_class, py_class
+    );
+    let py_start = match py_eval(&start_expr) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_end = match py_eval(&end_expr) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py_start, rs_start, "{} escape_hl_start mismatch", label);
+    assert_eq!(py_end, rs_end, "{} escape_hl_end mismatch", label);
+}
+
+#[test]
+fn parity_readline_renderer_escape_markers() {
+    parity_renderer_escape_pair(
+        "powerline.renderers.shell.readline",
+        "ReadlineRenderer",
+        powerliners::renderers::shell::readline::ReadlineRenderer::escape_hl_start,
+        powerliners::renderers::shell::readline::ReadlineRenderer::escape_hl_end,
+        "ReadlineRenderer",
+    );
+}
+
+#[test]
+fn parity_zsh_renderer_escape_markers() {
+    parity_renderer_escape_pair(
+        "powerline.renderers.shell.zsh",
+        "ZshPromptRenderer",
+        powerliners::renderers::shell::zsh::ZshPromptRenderer::escape_hl_start,
+        powerliners::renderers::shell::zsh::ZshPromptRenderer::escape_hl_end,
+        "ZshPromptRenderer",
+    );
+}
+
+#[test]
+fn parity_ksh_renderer_escape_markers() {
+    parity_renderer_escape_pair(
+        "powerline.renderers.shell.ksh",
+        "KshPromptRenderer",
+        powerliners::renderers::shell::ksh::KshPromptRenderer::escape_hl_start,
+        powerliners::renderers::shell::ksh::KshPromptRenderer::escape_hl_end,
+        "KshPromptRenderer",
+    );
+}
+
+#[test]
+fn parity_bash_renderer_escape_markers() {
+    parity_renderer_escape_pair(
+        "powerline.renderers.shell.bash",
+        "BashPromptRenderer",
+        powerliners::renderers::shell::bash::BashPromptRenderer::escape_hl_start,
+        powerliners::renderers::shell::bash::BashPromptRenderer::escape_hl_end,
+        "BashPromptRenderer",
+    );
+}
