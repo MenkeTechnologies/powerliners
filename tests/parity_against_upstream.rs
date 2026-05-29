@@ -2192,6 +2192,58 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_strtrans_escapes_and_replaces_tab() {
+    if !python_available() {
+        return;
+    }
+    // markedjson/error.py:42-43 — strtrans():
+    //   s.replace('\t', '>---')  then
+    //   NON_PRINTABLE_RE.sub(repl, ...)  where repl='<xHHHH>'
+    //
+    // Verify byte-for-byte across:
+    //   'hello'    no escapes (printable)
+    //   'a\nb'     LF stays as-is (printable-after-translate set)
+    //               Wait: per the NON_PRINTABLE_RE fix, \n IS now
+    //               non-printable and gets escaped.
+    //   'a\tb'     tab specifically becomes '>---'
+    //   'a\x00b'   NUL → '<x0000>'
+    //   'é'        UTF-8 char (U+00E9) is printable, untouched
+    //   ''         empty
+    let cases: &[(&str, &str)] = &[
+        ("hello", "hello"),
+        ("a\nb", "a<x000a>b"),
+        ("a\tb", "a>---b"),
+        ("a\x00b", "a<x0000>b"),
+        ("é", "é"),
+        ("", ""),
+    ];
+    for (input, expected) in cases {
+        let py_expr = format!(
+            "__import__('powerline.lint.markedjson.error', fromlist=['strtrans']).strtrans({:?})",
+            input
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        // Python's NON_PRINTABLE_RE (NOT the spec.py-translated variant)
+        // is what strtrans uses. It does NOT include \n as non-printable.
+        // So Python output for 'a\nb' is 'a\nb' verbatim.
+        //
+        // The Rust port at src/ported/lint/markedjson/error.rs uses the
+        // same lib/markedjson NON_PRINTABLE_RE, NOT the spec.py one. Let
+        // me capture whatever Python says is correct.
+        let py_payload = py.as_str();
+        let rs = powerliners::lint::markedjson::error::strtrans(input);
+        assert_eq!(
+            py_payload, &rs,
+            "strtrans({:?}) parity mismatch: py={:?}, rs={:?}, expected_static={:?}",
+            input, py_payload, rs, expected
+        );
+    }
+}
+
+#[test]
 fn parity_colorscheme_get_highlighting_resolves_full_record() {
     if !python_available() {
         return;
