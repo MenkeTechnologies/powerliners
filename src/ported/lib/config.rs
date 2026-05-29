@@ -156,10 +156,187 @@ impl DeferredWatcher {
     }
 }
 
-// `ConfigLoader` (py:52-218) ports alongside the watcher dispatch
-// + Powerline orchestrator. The class extends MultiRunnedThread
-// (ported) but its main loop depends on the segment registry and
-// log substrate that aren't ported.
+/// Port of `class ConfigLoader(MultiRunnedThread)` from
+/// `powerline/lib/config.py:52`.
+///
+/// Coordinates the registered config-file watchers + the in-memory
+/// `loaded` cache. The full `update()` / `run()` orchestration loop
+/// (py:164-213) depends on the file-watcher runtime + log
+/// dispatcher and ports separately; this struct surfaces the
+/// register / load / unregister / set_interval / set_pl plumbing
+/// that downstream `Powerline.load_config` calls into.
+pub struct ConfigLoader {
+    /// Python: `self.watcher_type` (py:58/64/66).
+    pub watcher_type: String,
+    /// Python: `self.pl` (py:69).
+    pub pl: Option<()>,
+    /// Python: `self.interval` (py:70).
+    pub interval: Option<u64>,
+    /// Python: `self.watched = defaultdict(set)` (py:74).
+    /// Maps path → set of function-id markers (Rust can't carry
+    /// arbitrary fn ptrs since they aren't Hash; callers pass an id).
+    pub watched: std::collections::HashMap<std::path::PathBuf, std::collections::HashSet<u64>>,
+    /// Python: `self.missing = defaultdict(set)` (py:75).
+    pub missing: std::collections::HashMap<String, std::collections::HashSet<(u64, u64)>>,
+    /// Python: `self.loaded = {}` (py:76).
+    pub loaded: std::collections::HashMap<std::path::PathBuf, Value>,
+    /// Process-wide lock guarding the state mutations (py:72).
+    pub lock: Mutex<()>,
+}
+
+impl Default for ConfigLoader {
+    fn default() -> Self {
+        Self::new(false)
+    }
+}
+
+impl ConfigLoader {
+    /// Port of `ConfigLoader.__init__()` from
+    /// `powerline/lib/config.py:53`.
+    ///
+    /// `run_once=true` selects the DummyWatcher per py:56-58; false
+    /// uses the DeferredWatcher per py:60. The actual watcher
+    /// dispatch is queued through the existing struct ports above.
+    pub fn new(run_once: bool) -> Self {
+        // py:56-58 / py:60-66
+        let watcher_type = if run_once {
+            "dummy".to_string()
+        } else {
+            "deferred".to_string()
+        };
+        Self {
+            watcher_type,
+            pl: None,
+            interval: None,
+            watched: std::collections::HashMap::new(),
+            missing: std::collections::HashMap::new(),
+            loaded: std::collections::HashMap::new(),
+            lock: Mutex::new(()),
+        }
+    }
+
+    /// Port of `ConfigLoader.set_pl()` from
+    /// `powerline/lib/config.py:88-89`.
+    pub fn set_pl(&mut self, _pl: ()) {
+        // py:89  self.pl = pl
+        self.pl = Some(());
+    }
+
+    /// Port of `ConfigLoader.set_interval()` from
+    /// `powerline/lib/config.py:91-92`.
+    pub fn set_interval(&mut self, interval: u64) {
+        // py:92  self.interval = interval
+        self.interval = Some(interval);
+    }
+
+    /// Port of `ConfigLoader.register()` from
+    /// `powerline/lib/config.py:94-104`.
+    ///
+    /// `function_id` is a caller-supplied marker since Rust fn
+    /// pointers don't implement Hash. The actual watcher.watch(path)
+    /// dispatch at py:104 is the caller's responsibility (it lives
+    /// outside the lock-protected state mutation).
+    pub fn register<P: AsRef<Path>>(&mut self, function_id: u64, path: P) {
+        // py:102-104  with self.lock: watched[path].add(function); watcher.watch(path)
+        let _g = self.lock.lock().unwrap_or_else(|e| e.into_inner());
+        self.watched
+            .entry(path.as_ref().to_path_buf())
+            .or_default()
+            .insert(function_id);
+    }
+
+    /// Port of `ConfigLoader.register_missing()` from
+    /// `powerline/lib/config.py:106-126`.
+    pub fn register_missing(
+        &mut self,
+        condition_function_id: u64,
+        function_id: u64,
+        key: impl Into<String>,
+    ) {
+        // py:125-126  missing[key].add((condition_function, function))
+        let _g = self.lock.lock().unwrap_or_else(|e| e.into_inner());
+        self.missing
+            .entry(key.into())
+            .or_default()
+            .insert((condition_function_id, function_id));
+    }
+
+    /// Port of `ConfigLoader.unregister_functions()` from
+    /// `powerline/lib/config.py:128-139`.
+    ///
+    /// Removes each `removed_functions` entry from every watched
+    /// path's function set; drops the path entirely + clears its
+    /// loaded entry per py:138-139 when the set becomes empty.
+    pub fn unregister_functions(&mut self, removed_functions: &std::collections::HashSet<u64>) {
+        // py:134-139
+        let _g = self.lock.lock().unwrap_or_else(|e| e.into_inner());
+        let paths: Vec<std::path::PathBuf> = self.watched.keys().cloned().collect();
+        for path in paths {
+            if let Some(functions) = self.watched.get_mut(&path) {
+                // py:136  functions -= removed_functions
+                for id in removed_functions {
+                    functions.remove(id);
+                }
+                // py:137  if not functions
+                if functions.is_empty() {
+                    // py:138-139  pop path + clear loaded entry
+                    self.watched.remove(&path);
+                    self.loaded.remove(&path);
+                }
+            }
+        }
+    }
+
+    /// Port of `ConfigLoader.unregister_missing()` from
+    /// `powerline/lib/config.py:141-153`.
+    pub fn unregister_missing(
+        &mut self,
+        removed_functions: &std::collections::HashSet<(u64, u64)>,
+    ) {
+        // py:149-153
+        let _g = self.lock.lock().unwrap_or_else(|e| e.into_inner());
+        let keys: Vec<String> = self.missing.keys().cloned().collect();
+        for key in keys {
+            if let Some(functions) = self.missing.get_mut(&key) {
+                // py:151  functions -= removed_functions
+                for pair in removed_functions {
+                    functions.remove(pair);
+                }
+                // py:152-153  if not functions: pop key
+                if functions.is_empty() {
+                    self.missing.remove(&key);
+                }
+            }
+        }
+    }
+
+    /// Port of `ConfigLoader.load()` from
+    /// `powerline/lib/config.py:155-162`.
+    ///
+    /// Returns the cached config when present; otherwise runs the
+    /// caller-supplied `load_fn` and caches the result. Python uses
+    /// `deepcopy` per py:158/161; serde_json::Value's Clone is the
+    /// deepcopy equivalent.
+    pub fn load<P, F>(&mut self, path: P, load_fn: F) -> Result<Value, String>
+    where
+        P: AsRef<Path>,
+        F: FnOnce(&Path) -> Result<Value, String>,
+    {
+        let path = path.as_ref().to_path_buf();
+        // py:156-158  try: return deepcopy(self.loaded[path])
+        if let Some(cached) = self.loaded.get(&path) {
+            return Ok(cached.clone());
+        }
+        // py:159-162  except KeyError: r = self._load(path); loaded[path] = deepcopy(r)
+        let r = load_fn(&path)?;
+        self.loaded.insert(path, r.clone());
+        Ok(r)
+    }
+}
+
+// `ConfigLoader.update()` (py:164-208), `set_watcher` (py:78-86),
+// `run()` (py:209-213), and `exception` (py:214-218) port alongside
+// the live watcher dispatch + log substrate.
 
 #[cfg(test)]
 mod tests {
@@ -227,5 +404,147 @@ mod tests {
         // After transfer, queue is drained
         let calls2 = w.transfer_calls();
         assert!(calls2.is_empty());
+    }
+
+    #[test]
+    fn config_loader_run_once_uses_dummy_watcher_type() {
+        // py:56-58
+        let cl = ConfigLoader::new(true);
+        assert_eq!(cl.watcher_type, "dummy");
+    }
+
+    #[test]
+    fn config_loader_default_uses_deferred_watcher_type() {
+        // py:60-66
+        let cl = ConfigLoader::new(false);
+        assert_eq!(cl.watcher_type, "deferred");
+    }
+
+    #[test]
+    fn config_loader_set_pl_records_value() {
+        // py:88-89
+        let mut cl = ConfigLoader::new(false);
+        cl.set_pl(());
+        assert!(cl.pl.is_some());
+    }
+
+    #[test]
+    fn config_loader_set_interval_records_value() {
+        // py:91-92
+        let mut cl = ConfigLoader::new(false);
+        cl.set_interval(5);
+        assert_eq!(cl.interval, Some(5));
+    }
+
+    #[test]
+    fn config_loader_register_adds_function_to_watched_path() {
+        // py:102-103
+        let mut cl = ConfigLoader::new(false);
+        cl.register(42, "/etc/powerline/config.json");
+        assert!(cl
+            .watched
+            .contains_key(std::path::Path::new("/etc/powerline/config.json")));
+        assert!(cl.watched[std::path::Path::new("/etc/powerline/config.json")].contains(&42));
+    }
+
+    #[test]
+    fn config_loader_register_dedupes_function_id() {
+        let mut cl = ConfigLoader::new(false);
+        cl.register(42, "/x");
+        cl.register(42, "/x");
+        assert_eq!(cl.watched[std::path::Path::new("/x")].len(), 1);
+    }
+
+    #[test]
+    fn config_loader_register_missing_adds_pair_to_key() {
+        // py:125-126
+        let mut cl = ConfigLoader::new(false);
+        cl.register_missing(100, 200, "key1");
+        assert!(cl.missing.contains_key("key1"));
+        assert!(cl.missing["key1"].contains(&(100, 200)));
+    }
+
+    #[test]
+    fn config_loader_unregister_functions_drops_path_when_empty() {
+        // py:137-139
+        let mut cl = ConfigLoader::new(false);
+        cl.register(42, "/x");
+        let mut removed = std::collections::HashSet::new();
+        removed.insert(42);
+        cl.unregister_functions(&removed);
+        assert!(!cl.watched.contains_key(std::path::Path::new("/x")));
+    }
+
+    #[test]
+    fn config_loader_unregister_functions_keeps_path_with_remaining_functions() {
+        let mut cl = ConfigLoader::new(false);
+        cl.register(42, "/x");
+        cl.register(99, "/x");
+        let mut removed = std::collections::HashSet::new();
+        removed.insert(42);
+        cl.unregister_functions(&removed);
+        assert!(cl.watched.contains_key(std::path::Path::new("/x")));
+        assert_eq!(cl.watched[std::path::Path::new("/x")].len(), 1);
+    }
+
+    #[test]
+    fn config_loader_unregister_functions_clears_loaded_entry() {
+        // py:139  loaded.pop(path, None)
+        let mut cl = ConfigLoader::new(false);
+        cl.register(42, "/x");
+        cl.loaded
+            .insert(std::path::PathBuf::from("/x"), serde_json::json!({"a": 1}));
+        let mut removed = std::collections::HashSet::new();
+        removed.insert(42);
+        cl.unregister_functions(&removed);
+        assert!(!cl.loaded.contains_key(std::path::Path::new("/x")));
+    }
+
+    #[test]
+    fn config_loader_unregister_missing_drops_key_when_empty() {
+        // py:152-153
+        let mut cl = ConfigLoader::new(false);
+        cl.register_missing(100, 200, "key1");
+        let mut removed = std::collections::HashSet::new();
+        removed.insert((100, 200));
+        cl.unregister_missing(&removed);
+        assert!(!cl.missing.contains_key("key1"));
+    }
+
+    #[test]
+    fn config_loader_load_calls_load_fn_on_cache_miss() {
+        // py:159-162
+        let mut cl = ConfigLoader::new(false);
+        let p = std::path::PathBuf::from("/test/config.json");
+        let r = cl
+            .load(&p, |_| Ok(serde_json::json!({"loaded": true})))
+            .unwrap();
+        assert_eq!(r["loaded"], true);
+        assert!(cl.loaded.contains_key(&p));
+    }
+
+    #[test]
+    fn config_loader_load_returns_cached_value_on_hit() {
+        // py:156-158
+        let mut cl = ConfigLoader::new(false);
+        let p = std::path::PathBuf::from("/test/config.json");
+        cl.loaded
+            .insert(p.clone(), serde_json::json!({"cached": true}));
+        let r = cl
+            .load(&p, |_| {
+                panic!("load_fn should not be called on cache hit");
+            })
+            .unwrap();
+        assert_eq!(r["cached"], true);
+    }
+
+    #[test]
+    fn config_loader_load_propagates_load_fn_errors() {
+        let mut cl = ConfigLoader::new(false);
+        let p = std::path::PathBuf::from("/test/missing.json");
+        let r = cl.load(&p, |_| Err("read fail".to_string()));
+        assert!(r.is_err());
+        // Failed load should NOT populate the cache.
+        assert!(!cl.loaded.contains_key(&p));
     }
 }
