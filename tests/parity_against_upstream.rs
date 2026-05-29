@@ -2192,6 +2192,50 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_spec_either_appends_all_variants_and_one_check() {
+    if !python_available() {
+        return;
+    }
+    // Spec.either(*specs) — py:631-642:
+    //   start = len(self.specs)
+    //   self.specs.extend(specs)
+    //   self.checks.append(('check_either', start, len(self.specs)))
+    // Verify both observables:
+    //   Python: checks ↑ by 1; specs grows by len(specs).
+    //   Rust:  specs vec grows by len(specs); allowed_types untouched.
+    let py2 = match py_eval(
+        "(lambda S: __import__('json').dumps([len(S().either(S(), S()).checks), len(S().either(S(), S()).specs)]))(__import__('powerline.lint.spec', fromlist=['Spec']).Spec)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py2).expect("py JSON malformed");
+    assert_eq!(
+        py_value,
+        serde_json::json!([1, 2]),
+        "Python either(Spec, Spec) drift"
+    );
+
+    let py3 = py_eval(
+        "(lambda S: __import__('json').dumps([len(S().either(S(), S(), S()).checks), len(S().either(S(), S(), S()).specs)]))(__import__('powerline.lint.spec', fromlist=['Spec']).Spec)",
+    ).expect("py_eval failed");
+    let py3_value: serde_json::Value = serde_json::from_str(&py3).expect("py JSON malformed");
+    assert_eq!(
+        py3_value,
+        serde_json::json!([1, 3]),
+        "Python either(Spec, Spec, Spec) drift"
+    );
+
+    use powerliners::lint::spec::Spec;
+    let s2 = Spec::default().either(vec![Spec::default(), Spec::default()]);
+    assert_eq!(s2.specs.len(), 2);
+    assert!(s2.allowed_types.is_empty(), "either() must not add types");
+
+    let s3 = Spec::default().either(vec![Spec::default(), Spec::default(), Spec::default()]);
+    assert_eq!(s3.specs.len(), 3);
+}
+
+#[test]
 fn parity_spec_error_appends_single_check_no_type() {
     if !python_available() {
         return;
