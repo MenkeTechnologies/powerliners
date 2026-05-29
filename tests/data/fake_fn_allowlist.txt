@@ -253,3 +253,12 @@ exit_codes
 # lambda: 'utf-8')` — a class-level lambda returning the encoding name.
 # Rust exposes it as an associated fn with the same name byte-for-byte.
 get_encoding
+
+# Approved 2026-05-29: Rust-only helpers for the inline regex usage in
+# powerline/segments/common/mail.py:45-46. Python inlines the regex
+# compilation + extraction directly in compute_state's body; Rust
+# splits into unseen_re() (lazy-init OnceLock<Regex>) and
+# parse_unseen_count() (testable group-extraction) so the parsing
+# logic can be unit-tested without spawning an IMAP connection.
+unseen_re
+parse_unseen_count
