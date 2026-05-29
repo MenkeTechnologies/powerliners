@@ -2192,6 +2192,63 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_lint_find_all_ext_config_files_top_level_json() {
+    if !python_available() {
+        return;
+    }
+    // When <root>/<subdir> contains a *.json file directly (no ext
+    // subdir intermediary), the entry's type is 'top_<subdir>' and
+    // ext is None per py:358-364.
+    //
+    // Fixture:
+    //   tmp/themes/default.json    → type='top_themes', name='default', ext=None
+    //   tmp/themes/powerline.json  → type='top_themes', name='powerline', ext=None
+    let tmp = std::env::temp_dir().join(format!(
+        "powerliners_parity_findext_top_{}",
+        std::process::id()
+    ));
+    let themes_dir = tmp.join("themes");
+    std::fs::create_dir_all(&themes_dir).expect("mkdir");
+    std::fs::write(themes_dir.join("default.json"), "{}").expect("write default");
+    std::fs::write(themes_dir.join("powerline.json"), "{}").expect("write powerline");
+
+    let py_expr = format!(
+        "__import__('json').dumps(sorted([(r['type'], r['name'], r['ext']) for r in __import__('powerline.lint').lint.find_all_ext_config_files([{:?}], 'themes')]))",
+        tmp.to_string_lossy()
+    );
+    let py = match py_eval(&py_expr) {
+        Some(v) => v,
+        None => {
+            let _ = std::fs::remove_dir_all(&tmp);
+            return;
+        }
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let py_arr = py_value.as_array().expect("py array");
+    assert_eq!(py_arr.len(), 2, "Python should yield 2 entries");
+    for entry in py_arr {
+        let arr = entry.as_array().unwrap();
+        assert_eq!(arr[0].as_str(), Some("top_themes"), "Python type drift");
+        assert!(arr[2].is_null(), "Python ext should be None for top-level");
+    }
+
+    let rs = powerliners::lint::find_all_ext_config_files(&[tmp.clone()], "themes");
+    let _ = std::fs::remove_dir_all(&tmp);
+    assert_eq!(rs.len(), 2, "Rust should yield 2 entries");
+    for entry in &rs {
+        assert_eq!(
+            entry.kind.as_deref(),
+            Some("top_themes"),
+            "Rust kind (= Python type) drift"
+        );
+        assert!(
+            entry.ext.is_none(),
+            "Rust ext should be None for top-level entry"
+        );
+    }
+}
+
+#[test]
 fn parity_lint_find_all_ext_config_files_reports_non_dir_error() {
     if !python_available() {
         return;
