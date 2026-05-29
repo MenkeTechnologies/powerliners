@@ -1385,3 +1385,101 @@ fn parity_default_system_config_dir_is_none() {
         "Rust DEFAULT_SYSTEM_CONFIG_DIR() returned Some, expected None"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// segments/common/players.py — STATE_SYMBOLS + _convert_state
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_players_state_symbols() {
+    if !python_available() {
+        return;
+    }
+    // Test each key/value pair separately to avoid Python dict ordering issues.
+    let keys = ["fallback", "play", "pause", "stop"];
+    let rs_map = powerliners::segments::common::players::state_symbols();
+    for key in &keys {
+        let expr = format!(
+            "__import__('powerline.segments.common.players', fromlist=['STATE_SYMBOLS']).STATE_SYMBOLS[{:?}]",
+            key
+        );
+        let py = match py_eval(&expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs_val = rs_map
+            .get(*key)
+            .and_then(|v| v.as_str())
+            .unwrap_or("<missing>");
+        assert_eq!(
+            py, rs_val,
+            "STATE_SYMBOLS[{:?}] mismatch: py={:?}, rs={:?}",
+            key, py, rs_val
+        );
+    }
+}
+
+#[test]
+fn parity_players_convert_state() {
+    if !python_available() {
+        return;
+    }
+    let cases = [
+        "Play",
+        "PLAYING",
+        "Paused",
+        "stopped",
+        "STOP",
+        "unknown",
+        "",
+        "fallback",
+        // Edge: 'play' substring takes precedence over later checks
+        "displaying",
+        // Edge: 'pause' substring
+        "paused for x",
+    ];
+    for input in &cases {
+        let expr = format!(
+            "__import__('powerline.segments.common.players', fromlist=['_convert_state'])._convert_state({:?})",
+            input
+        );
+        let py = match py_eval(&expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = powerliners::segments::common::players::_convert_state(input);
+        assert_eq!(
+            py, rs,
+            "_convert_state({:?}) mismatch: py={:?}, rs={:?}",
+            input, py, rs
+        );
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// segments/common/players.py — _convert_seconds
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_players_convert_seconds() {
+    if !python_available() {
+        return;
+    }
+    let cases: &[f64] = &[0.0, 1.0, 59.0, 60.0, 61.0, 125.0, 3600.0, 3661.0];
+    for &s in cases {
+        let expr = format!(
+            "__import__('powerline.segments.common.players', fromlist=['_convert_seconds'])._convert_seconds({})",
+            s
+        );
+        let py = match py_eval(&expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = powerliners::segments::common::players::_convert_seconds(s);
+        assert_eq!(
+            py, rs,
+            "_convert_seconds({}) mismatch: py={:?}, rs={:?}",
+            s, py, rs
+        );
+    }
+}
