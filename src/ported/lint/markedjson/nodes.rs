@@ -40,6 +40,12 @@ impl Node {
         start_mark: Option<Mark>,
         end_mark: Option<Mark>,
     ) -> Self {
+        // py:5  class Node(object):
+        // py:6  def __init__(self, tag, value, start_mark, end_mark):
+        // py:7  self.tag = tag
+        // py:8  self.value = value
+        // py:9  self.start_mark = start_mark
+        // py:10  self.end_mark = end_mark
         Self {
             tag: tag.into(),
             value,
@@ -55,6 +61,10 @@ impl std::fmt::Display for Node {
     ///
     /// Python: `'%s(tag=%r, value=%s)' % (cls_name, tag, repr(value))`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // py:12  def __repr__(self):
+        // py:13  value = self.value
+        // py:26  value = repr(value)
+        // py:27  return '%s(tag=%r, value=%s)' % (self.__class__.__name__, self.tag, value)
         write!(f, "Node(tag={:?}, value={:?})", self.tag, self.value)
     }
 }
@@ -84,6 +94,14 @@ impl ScalarNode {
         end_mark: Option<Mark>,
         style: Option<char>,
     ) -> Self {
+        // py:30  class ScalarNode(Node):
+        // py:31  id = 'scalar'
+        // py:33  def __init__(self, tag, value, start_mark=None, end_mark=None, style=None):
+        // py:34  self.tag = tag
+        // py:35  self.value = value
+        // py:36  self.start_mark = start_mark
+        // py:37  self.end_mark = end_mark
+        // py:38  self.style = style
         Self {
             node: Node::new(tag, value, start_mark, end_mark),
             style,
@@ -113,6 +131,13 @@ impl CollectionNode {
         end_mark: Option<Mark>,
         flow_style: Option<bool>,
     ) -> Self {
+        // py:41  class CollectionNode(Node):
+        // py:42  def __init__(self, tag, value, start_mark=None, end_mark=None, flow_style=None):
+        // py:43  self.tag = tag
+        // py:44  self.value = value
+        // py:45  self.start_mark = start_mark
+        // py:46  self.end_mark = end_mark
+        // py:47  self.flow_style = flow_style
         Self {
             node: Node::new(tag, value, start_mark, end_mark),
             flow_style,
@@ -130,6 +155,8 @@ pub struct SequenceNode {
 }
 
 impl SequenceNode {
+    // py:50  class SequenceNode(CollectionNode):
+    // py:51  id = 'sequence'
     pub const ID: &'static str = "sequence";
 
     pub fn new(
@@ -155,6 +182,8 @@ pub struct MappingNode {
 }
 
 impl MappingNode {
+    // py:54  class MappingNode(CollectionNode):
+    // py:55  id = 'mapping'
     pub const ID: &'static str = "mapping";
 
     pub fn new(
