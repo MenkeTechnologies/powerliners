@@ -2192,6 +2192,44 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_node_class_ids_match_python() {
+    if !python_available() {
+        return;
+    }
+    // Node subclasses have class-level `id` attribute used by the
+    // YAML constructor dispatch. Pin all 3 IDs match between ports.
+    let cases: &[(&str, &str, &str)] = &[
+        (
+            "ScalarNode",
+            "scalar",
+            powerliners::lint::markedjson::nodes::ScalarNode::ID,
+        ),
+        (
+            "SequenceNode",
+            "sequence",
+            powerliners::lint::markedjson::nodes::SequenceNode::ID,
+        ),
+        (
+            "MappingNode",
+            "mapping",
+            powerliners::lint::markedjson::nodes::MappingNode::ID,
+        ),
+    ];
+    for (name, expected, rs_id) in cases {
+        let py_expr = format!(
+            "__import__('powerline.lint.markedjson.nodes', fromlist=[{name:?}]).{name}.id",
+            name = name
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(py.as_str(), *expected, "Python {}.id fixture drift", name);
+        assert_eq!(*rs_id, *expected, "Rust {}::ID mismatch", name);
+    }
+}
+
+#[test]
 fn parity_markedjson_document_start_event_init_state() {
     if !python_available() {
         return;
