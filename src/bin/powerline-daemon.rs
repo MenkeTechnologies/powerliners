@@ -861,40 +861,62 @@ fn ad_network_load(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opt
 // alongside the `#[cfg(not(target_os = "macos"))] None` tail without
 // restructuring around the cfg gate.
 #[allow(clippy::needless_return)]
-fn ad_spotify(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
-    // Darwin-only AppleScript probe.
+fn ad_spotify(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    // Faithful port path: defer to SpotifyAppleScriptPlayerSegment
+    // (Darwin) / spotify_dbus (Linux), then PlayerSegment.__call__
+    // formatting, which emits highlight_groups
+    // ['player_<state>', 'player'] — upstream players.py:56.
+    use powerliners::ported::segments::common::players::{
+        player_segment_call, state_symbols, SpotifyAppleScriptPlayerSegment,
+        APPLESCRIPT_STATUS_DELIMITER,
+    };
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("{state_symbol} {artist} - {title} ({total})");
+
     #[cfg(target_os = "macos")]
-    {
+    let func_stats = {
+        // py:374-396 — the full 6-field delimited AppleScript.
+        // Status order: state | album | artist | title | track_length | player_position
+        let script = format!(
+            "tell application \"System Events\"\n\
+             set process_list to (name of every process)\n\
+             end tell\n\
+             if process_list contains \"Spotify\" then\n\
+             tell application \"Spotify\"\n\
+             if player state is playing or player state is paused then\n\
+             set track_name to name of current track\n\
+             set artist_name to artist of current track\n\
+             set album_name to album of current track\n\
+             set track_length to duration of current track\n\
+             set now_playing to \"\" & player state & \"{0}\" & album_name & \"{0}\" & artist_name & \"{0}\" & track_name & \"{0}\" & track_length & \"{0}\" & player position\n\
+             return now_playing\n\
+             else\n\
+             return player state\n\
+             end if\n\
+             end tell\n\
+             else\n\
+             return \"stopped\"\n\
+             end if",
+            APPLESCRIPT_STATUS_DELIMITER
+        );
         let out = std::process::Command::new("osascript")
-            .args([
-                "-e",
-                "if application \"Spotify\" is running then\n\
-                 tell application \"Spotify\"\n\
-                 if player state is playing then\n\
-                 return artist of current track & \" - \" & name of current track\n\
-                 end if\n\
-                 end tell\n\
-                 end if",
-            ])
+            .args(["-e", &script])
             .output()
             .ok()?;
         if !out.status.success() {
             return None;
         }
         let s = String::from_utf8(out.stdout).ok()?.trim().to_string();
-        if s.is_empty() {
-            return None;
-        }
-        return Some(Value::Array(vec![serde_json::json!({
-            "contents": s,
-            "highlight_groups": ["now_playing"],
-            "divider_highlight_group": Value::Null,
-        })]));
-    }
+        SpotifyAppleScriptPlayerSegment.get_player_status(&s)
+    };
+
     #[cfg(not(target_os = "macos"))]
-    {
-        None
-    }
+    let func_stats: Option<powerliners::ported::segments::common::players::PlayerStats> = None;
+
+    let chunks = player_segment_call(func_stats, format, &state_symbols())?;
+    Some(Value::Array(chunks))
 }
 
 fn ad_branch(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value> {
