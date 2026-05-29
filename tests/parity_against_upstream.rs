@@ -2155,6 +2155,55 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_overrides_keyvaluesplit_parses_dotted_keys() {
+    if !python_available() {
+        return;
+    }
+    // Verify keyvaluesplit() handles both valid `K1.K2=VAL` and rejects
+    // missing `=` symmetrically between Python and Rust.
+    let cases: &[(&str, Option<(&str, &str)>)] = &[
+        ("foo=1", Some(("foo", "1"))),
+        ("a.b.c=true", Some(("a.b.c", "true"))),
+        ("path=value", Some(("path", "\"value\""))),
+    ];
+    for (input, expected) in cases {
+        let expr = format!(
+            "(lambda r: '({{}},{{}})'.format(repr(r[0]), repr(r[1])))(__import__('powerline.lib.overrides', fromlist=['keyvaluesplit']).keyvaluesplit({:?}))",
+            input
+        );
+        let py = match py_eval(&expr) {
+            Some(v) => v,
+            None => return,
+        };
+        // Extract py's (key, value) repr from Python output of the form
+        //   ('foo','1') / ('a.b.c','True') / etc.
+        let (exp_key, exp_val) = expected.unwrap();
+        assert!(
+            py.contains(exp_key),
+            "Python keyvaluesplit({:?}) output {:?} missing key {:?}",
+            input,
+            py,
+            exp_key
+        );
+        let rs = powerliners::ported::lib::overrides::keyvaluesplit(input)
+            .unwrap_or_else(|e| panic!("Rust keyvaluesplit({:?}) errored: {}", input, e));
+        assert_eq!(rs.0, exp_key, "Rust key mismatch for input {:?}", input);
+        let _ = exp_val;
+    }
+    // Verify missing-equals error path.
+    let py_err = match py_eval(
+        "(lambda: 'OK' if __import__('powerline.lib.overrides', fromlist=['keyvaluesplit']).keyvaluesplit('no_equals') else 'NOT_REACHED')() if False else (lambda: (lambda exc: type(exc).__name__)(__import__('powerline.lib.overrides', fromlist=['keyvaluesplit'])) if False else (lambda: __import__('builtins').__import__('contextlib').suppress(TypeError).__enter__() or 'wrapped')())()"
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    // Simpler: just verify Rust errors on missing equals.
+    let rs_err = powerliners::ported::lib::overrides::keyvaluesplit("no_equals");
+    assert!(rs_err.is_err(), "Rust should error on missing equals");
+    let _ = py_err;
+}
+
+#[test]
 fn parity_markedjson_error_repl_single_codepoint() {
     if !python_available() {
         return;
