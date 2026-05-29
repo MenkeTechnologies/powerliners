@@ -2192,6 +2192,51 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_mark_advance_string_increments_pointer_and_column() {
+    if !python_available() {
+        return;
+    }
+    // Mark.advance_string(diff) returns a NEW mark with column and
+    // pointer bumped by diff; line unchanged. Verify both ports.
+    let cases: &[(u64, u64)] = &[(0, 0), (3, 3), (1, 1), (100, 100)];
+    for (diff, expected_delta) in cases {
+        let py_expr = format!(
+            "(lambda m: __import__('json').dumps([m.line, m.column, m.pointer]))(__import__('powerline.lint.markedjson.error', fromlist=['Mark']).Mark('cfg.json', 5, 10, 'abcdefghij', 0).advance_string({}))",
+            diff
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let py_arr = py_value.as_array().expect("py array");
+        assert_eq!(py_arr[0].as_u64(), Some(5), "py line drift");
+        assert_eq!(
+            py_arr[1].as_u64(),
+            Some(10 + expected_delta),
+            "py column delta"
+        );
+        assert_eq!(
+            py_arr[2].as_u64(),
+            Some(*expected_delta),
+            "py pointer delta"
+        );
+
+        let m = powerliners::lint::markedjson::error::RichMark::new(
+            "cfg.json",
+            5,
+            10,
+            Some("abcdefghij".chars().collect()),
+            0,
+        );
+        let m2 = m.advance_string(*diff as usize);
+        assert_eq!(m2.line, 5, "Rust line should be unchanged");
+        assert_eq!(m2.column, 10 + *diff as usize, "Rust column delta");
+        assert_eq!(m2.pointer, *diff as usize, "Rust pointer delta");
+    }
+}
+
+#[test]
 fn parity_markedjson_strtrans_escapes_and_replaces_tab() {
     if !python_available() {
         return;
