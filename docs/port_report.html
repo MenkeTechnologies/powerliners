@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">572</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3331</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">55.6%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">574</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3337</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">55.8%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -203,8 +203,8 @@ columns:
   <!-- SYM py_file=powerline/renderers/ipython/since_5.py rs_file=src/ported/renderers/ipython/since_5.rs rs_exists=True py_fn_total=12 ported_count=8 missing_count=4 rs_extra_count=42 coverage=0.6667 -->
   <!-- END-GROUP py_file=powerline/renderers/ipython/since_5.py -->
   <!-- BEGIN-GROUP py_file=powerline/segments/i3wm.py -->
-  <tr class="partial"><td><code>segments/i3wm.py</code></td><td>✔ <code>segments/i3wm.rs</code></td><td>12</td><td><code>workspace_groups</code>, <code>format_name</code>, <code>is_empty_workspace</code>, <code>get_icon</code>, <code>workspaces</code>, <code>natural_key</code>, <code>scratchpad_groups</code>, <code>active_window</code></td><td><code>sort_ws</code>, <code>workspace</code>, <code>mode</code>, <code>scratchpad</code></td><td><code>WORKSPACE_REGEX</code>, <code>ws_icons</code>, <code>mode_segment</code>, <code>scratchpad_icons</code>, <code>active_window_contents</code>, <code>priority_sort_workspaces</code>, <code>workspace_default_format</code>, <code>scratchpad_entry</code>, <code>build_workspace_entry</code>, <code>workspace_regex_strips_leading_number_and_optional_space</code>, <code>workspace_groups_focused_only</code>, <code>workspace_groups_urgent_only</code>, <code>workspace_groups_visible_only</code>, <code>workspace_groups_none_returns_just_workspace</code>, <code>workspace_groups_all_flags_set_returns_all_classes</code>, <code>format_name_strip_true_removes_leading_number</code>, <code>format_name_strip_false_passes_through</code>, <code>is_empty_workspace_focused_returns_false</code>, <code>is_empty_workspace_visible_returns_false</code>, <code>is_empty_workspace_with_leaves_returns_false</code>, <code>is_empty_workspace_unfocused_invisible_no_leaves_returns_true</code>, <code>ws_icons_contains_multiple_entry</code>, <code>get_icon_no_windows_returns_empty</code>, <code>get_icon_matches_window_class_substring</code>, <code>get_icon_collapses_multiple_to_multi_icon_when_not_show_all</code>, <code>get_icon_skips_scratchpad_windows</code>, <code>mode_segment_default_hidden_returns_none</code>, <code>mode_segment_named_returns_translation</code>, <code>mode_segment_unknown_passes_through</code>, <code>scratchpad_groups_urgent_focused_visible</code>, <code>scratchpad_groups_on_scratch_workspace_omits_visible</code>, <code>scratchpad_icons_contains_fresh_and_changed</code>, <code>active_window_returns_title_when_short</code>, <code>active_window_returns_class_when_title_too_long</code>, <code>build_workspace_entry_substitutes_name</code>, <code>build_workspace_entry_substitutes_stripped_name</code>, <code>build_workspace_entry_substitutes_number</code>, <code>build_workspace_entry_strip_skips_leading_chars</code>, <code>natural_key_orders_digits_numerically</code>, <code>natural_key_handles_pure_digits</code>, <code>natural_key_handles_no_digits</code>, <code>natural_key_alternating_chunks</code>, <code>priority_sort_workspaces_puts_priority_names_first</code>, <code>priority_sort_workspaces_empty_priority_preserves_order</code>, <code>priority_sort_workspaces_priority_not_in_list_is_skipped</code>, <code>workspace_default_format_strip_returns_stripped_name</code>, <code>workspace_default_format_no_strip_returns_name</code>, <code>scratchpad_entry_none_state_returns_none</code>, <code>scratchpad_entry_known_state_uses_matching_icon</code>, <code>scratchpad_entry_unknown_state_falls_back_to_changed_icon</code>, <code>scratchpad_entry_emits_highlight_groups_from_flags</code>, <code>active_window_returns_title_under_cutoff</code>, <code>active_window_returns_class_when_title_exceeds_cutoff</code></td><td class="coverage">67%</td></tr>
-  <!-- SYM py_file=powerline/segments/i3wm.py rs_file=src/ported/segments/i3wm.rs rs_exists=True py_fn_total=12 ported_count=8 missing_count=4 rs_extra_count=53 coverage=0.6667 -->
+  <tr class="partial"><td><code>segments/i3wm.py</code></td><td>✔ <code>segments/i3wm.rs</code></td><td>12</td><td><code>workspace_groups</code>, <code>format_name</code>, <code>is_empty_workspace</code>, <code>get_icon</code>, <code>workspaces</code>, <code>sort_ws</code>, <code>natural_key</code>, <code>mode</code>, <code>scratchpad_groups</code>, <code>active_window</code></td><td><code>workspace</code>, <code>scratchpad</code></td><td><code>WORKSPACE_REGEX</code>, <code>ws_icons</code>, <code>mode_segment</code>, <code>scratchpad_icons</code>, <code>active_window_contents</code>, <code>priority_sort_workspaces</code>, <code>workspace_default_format</code>, <code>scratchpad_entry</code>, <code>build_workspace_entry</code>, <code>workspace_regex_strips_leading_number_and_optional_space</code>, <code>workspace_groups_focused_only</code>, <code>workspace_groups_urgent_only</code>, <code>workspace_groups_visible_only</code>, <code>workspace_groups_none_returns_just_workspace</code>, <code>workspace_groups_all_flags_set_returns_all_classes</code>, <code>format_name_strip_true_removes_leading_number</code>, <code>format_name_strip_false_passes_through</code>, <code>is_empty_workspace_focused_returns_false</code>, <code>is_empty_workspace_visible_returns_false</code>, <code>is_empty_workspace_with_leaves_returns_false</code>, <code>is_empty_workspace_unfocused_invisible_no_leaves_returns_true</code>, <code>ws_icons_contains_multiple_entry</code>, <code>get_icon_no_windows_returns_empty</code>, <code>get_icon_matches_window_class_substring</code>, <code>get_icon_collapses_multiple_to_multi_icon_when_not_show_all</code>, <code>get_icon_skips_scratchpad_windows</code>, <code>mode_segment_default_hidden_returns_none</code>, <code>mode_segment_named_returns_translation</code>, <code>mode_segment_unknown_passes_through</code>, <code>scratchpad_groups_urgent_focused_visible</code>, <code>scratchpad_groups_on_scratch_workspace_omits_visible</code>, <code>scratchpad_icons_contains_fresh_and_changed</code>, <code>active_window_returns_title_when_short</code>, <code>active_window_returns_class_when_title_too_long</code>, <code>build_workspace_entry_substitutes_name</code>, <code>build_workspace_entry_substitutes_stripped_name</code>, <code>build_workspace_entry_substitutes_number</code>, <code>build_workspace_entry_strip_skips_leading_chars</code>, <code>natural_key_orders_digits_numerically</code>, <code>natural_key_handles_pure_digits</code>, <code>natural_key_handles_no_digits</code>, <code>natural_key_alternating_chunks</code>, <code>priority_sort_workspaces_puts_priority_names_first</code>, <code>priority_sort_workspaces_empty_priority_preserves_order</code>, <code>priority_sort_workspaces_priority_not_in_list_is_skipped</code>, <code>sort_ws_sort_workspaces_true_applies_natural_key_order</code>, <code>sort_ws_sort_workspaces_false_preserves_input_order</code>, <code>sort_ws_priority_workspaces_pin_to_front</code>, <code>mode_alias_dispatches_to_mode_segment</code>, <code>workspace_default_format_strip_returns_stripped_name</code>, <code>workspace_default_format_no_strip_returns_name</code>, <code>scratchpad_entry_none_state_returns_none</code>, <code>scratchpad_entry_known_state_uses_matching_icon</code>, <code>scratchpad_entry_unknown_state_falls_back_to_changed_icon</code>, <code>scratchpad_entry_emits_highlight_groups_from_flags</code>, <code>active_window_returns_title_under_cutoff</code>, <code>active_window_returns_class_when_title_exceeds_cutoff</code></td><td class="coverage">83%</td></tr>
+  <!-- SYM py_file=powerline/segments/i3wm.py rs_file=src/ported/segments/i3wm.rs rs_exists=True py_fn_total=12 ported_count=10 missing_count=2 rs_extra_count=57 coverage=0.8333 -->
   <!-- END-GROUP py_file=powerline/segments/i3wm.py -->
   <!-- BEGIN-GROUP py_file=powerline/theme.py -->
   <tr class="partial"><td><code>theme.py</code></td><td>✔ <code>theme.rs</code></td><td>12</td><td><code>requires_segment_info</code>, <code>requires_filesystem_watcher</code>, <code>new_empty_segment_line</code>, <code>add_spaces_left</code>, <code>add_spaces_right</code>, <code>add_spaces_center</code>, <code>shutdown</code>, <code>get_divider</code>, <code>get_spaces</code>, <code>get_line_number</code>, <code>get_segments</code></td><td><code>__init__</code></td><td><code>expand_functions</code>, <code>new</code>, <code>apply_cursor_space</code>, <code>default</code>, <code>seg</code>, <code>new_empty_segment_line_has_left_and_right</code>, <code>add_spaces_left_pads_on_left</code>, <code>add_spaces_right_pads_on_right</code>, <code>add_spaces_center_pads_evenly_extra_left_when_odd</code>, <code>expand_functions_returns_correct_fn_for_each_align</code>, <code>requires_decorators_are_identity</code>, <code>alignment_idiom_matches_documented_inverse_mapping</code>, <code>theme_new_initialises_empty_segment_with_python_shape</code>, <code>theme_new_defaults_outer_padding_to_1</code>, <code>theme_apply_cursor_space_computes_multiplier</code>, <code>theme_apply_cursor_space_none_leaves_multiplier_unset</code>, <code>theme_get_divider_resolves_nested_lookup</code>, <code>theme_get_divider_returns_none_for_missing_side_or_type</code>, <code>theme_get_spaces_returns_field_value</code>, <code>theme_get_line_number_returns_segments_len</code>, <code>theme_shutdown_records_segments_with_shutdown_callable</code>, <code>theme_shutdown_skips_segments_with_null_shutdown</code>, <code>theme_shutdown_walks_both_sides</code></td><td class="coverage">92%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3331,
-    "ported_fns": 572,
-    "coverage": 0.556420233463035
+    "rs_fns_in_ported": 3337,
+    "ported_fns": 574,
+    "coverage": 0.5583657587548638
   },
   "rows": [
     {
@@ -2399,14 +2399,14 @@ columns:
         "is_empty_workspace",
         "get_icon",
         "workspaces",
+        "sort_ws",
         "natural_key",
+        "mode",
         "scratchpad_groups",
         "active_window"
       ],
       "missing_fns": [
-        "sort_ws",
         "workspace",
-        "mode",
         "scratchpad"
       ],
       "rs_extra_fns": [
@@ -2455,6 +2455,10 @@ columns:
         "priority_sort_workspaces_puts_priority_names_first",
         "priority_sort_workspaces_empty_priority_preserves_order",
         "priority_sort_workspaces_priority_not_in_list_is_skipped",
+        "sort_ws_sort_workspaces_true_applies_natural_key_order",
+        "sort_ws_sort_workspaces_false_preserves_input_order",
+        "sort_ws_priority_workspaces_pin_to_front",
+        "mode_alias_dispatches_to_mode_segment",
         "workspace_default_format_strip_returns_stripped_name",
         "workspace_default_format_no_strip_returns_name",
         "scratchpad_entry_none_state_returns_none",
@@ -2464,7 +2468,7 @@ columns:
         "active_window_returns_title_under_cutoff",
         "active_window_returns_class_when_title_exceeds_cutoff"
       ],
-      "coverage": 0.6666666666666666
+      "coverage": 0.8333333333333334
     },
     {
       "py_file": "powerline/theme.py",

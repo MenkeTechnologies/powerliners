@@ -203,6 +203,50 @@ pub fn get_icon(
 /// Port of `mode()` segment from
 /// `powerline/segments/i3wm.py:243`.
 ///
+/// Alias for [`mode_segment`] preserving the upstream Python name
+/// byte-for-byte. The disambiguated `_segment` suffix exists to
+/// avoid collisions with other `mode` identifiers across the
+/// codebase; this fn surfaces the bare-name shape callers expect.
+pub fn mode(current_mode: &str, names: &Map<String, Value>) -> Option<String> {
+    mode_segment(current_mode, names)
+}
+
+/// Port of the inner `sort_ws()` closure from
+/// `powerline/segments/i3wm.py:123-132`.
+///
+/// Sorts a workspace name list according to:
+///   - py:124-128  `natural_key` ordering (digit runs as integers,
+///     alpha runs as strings) when `sort_workspaces=true`.
+///   - py:130-132  priority entries pinned to the front in the
+///     order specified by `priority_workspaces`.
+///
+/// Returns the resorted name list. Python's `sort_ws` captures
+/// `sort_workspaces` and `priority_workspaces` from the outer
+/// `workspaces()` scope; the Rust port takes them as explicit
+/// arguments since closure capture across module boundaries isn't
+/// available.
+pub fn sort_ws(
+    ws: &[String],
+    sort_workspaces: bool,
+    priority_workspaces: &[String],
+) -> Vec<String> {
+    // py:123  def sort_ws(ws):
+    // py:124  if sort_workspaces:
+    let working: Vec<String> = if sort_workspaces {
+        // py:125-128  ws = sorted(ws, key=natural_key)
+        let mut v: Vec<String> = ws.to_vec();
+        v.sort_by(|a, b| natural_key(a).cmp(&natural_key(b)));
+        v
+    } else {
+        ws.to_vec()
+    };
+    // py:130-132  priority pin + tail
+    priority_sort_workspaces(&working, priority_workspaces)
+}
+
+/// Port of `mode()` segment from
+/// `powerline/segments/i3wm.py:243`.
+///
 /// Returns the translated mode name or None when mapped to null.
 /// `names` defaults to `{"default": null}` per py:243.
 pub fn mode_segment(current_mode: &str, names: &Map<String, Value>) -> Option<String> {
@@ -889,6 +933,39 @@ mod tests {
         let priority = vec!["missing".to_string()];
         let r = priority_sort_workspaces(&ws, &priority);
         assert_eq!(r, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn sort_ws_sort_workspaces_true_applies_natural_key_order() {
+        // py:124-128
+        let ws = vec!["10".to_string(), "2".to_string(), "1".to_string()];
+        let r = sort_ws(&ws, true, &[]);
+        assert_eq!(r, vec!["1", "2", "10"]);
+    }
+
+    #[test]
+    fn sort_ws_sort_workspaces_false_preserves_input_order() {
+        // py:124  if not sort_workspaces → keep order
+        let ws = vec!["10".to_string(), "2".to_string(), "1".to_string()];
+        let r = sort_ws(&ws, false, &[]);
+        assert_eq!(r, vec!["10", "2", "1"]);
+    }
+
+    #[test]
+    fn sort_ws_priority_workspaces_pin_to_front() {
+        // py:130-132 combined with natural sort
+        let ws = vec!["c".to_string(), "a".to_string(), "b".to_string()];
+        let priority = vec!["b".to_string()];
+        let r = sort_ws(&ws, true, &priority);
+        assert_eq!(r, vec!["b", "a", "c"]);
+    }
+
+    #[test]
+    fn mode_alias_dispatches_to_mode_segment() {
+        let mut names = Map::new();
+        names.insert("v".to_string(), Value::String("VIS".to_string()));
+        assert_eq!(mode("v", &names), Some("VIS".to_string()));
+        assert_eq!(mode("unmapped", &names), Some("unmapped".to_string()));
     }
 
     #[test]
