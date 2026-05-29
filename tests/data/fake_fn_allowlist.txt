@@ -1668,3 +1668,15 @@ do_pyeval_command
 # message for the per-window-id case; this fn handles the
 # Option<u64> shape including the None fallback to 0.
 statusline_no_window_message
+
+# lib/threaded.rs::ThreadedSegment::omitted_args_table — extracts
+# the static `_omitted_args` class attribute dict at
+# powerline/lib/threaded.py:161-164 into a fn-as-accessor. Python
+# stores the table as a class attribute and reads via
+# `self._omitted_args.get(name, ())`; Rust returns the per-name
+# slice directly so callers don't materialise the full dict.
+# Same const-as-fn pattern as TMUX_ACTIONS, SHELL_ACTIONS,
+# interface_starts. The leading underscore on `_omitted_args`
+# doesn't survive the Rust fn-name rules; the `_table` suffix
+# disambiguates from the omitted_args method that wraps it.
+omitted_args_table

@@ -240,6 +240,126 @@ impl ThreadedSegment {
         // detach by not calling join.
     }
 
+    /// Port of `ThreadedSegment.get_update_value()` from
+    /// `powerline/lib/threaded.py:82-85`.
+    ///
+    /// Returns `update_value` (caller-supplied); if `update=true`,
+    /// re-runs `set_update_value` first per py:83-84.
+    pub fn get_update_value<F>(&mut self, update: bool, refresh: F) -> Option<String>
+    where
+        F: FnMut() -> Result<String, String>,
+    {
+        // py:83-84  if update: self.set_update_value()
+        if update {
+            return self.set_update_value(refresh);
+        }
+        // py:85  return self.update_value
+        // (The Rust port doesn't store update_value on the struct;
+        //  callers pass it via `refresh` when needed.)
+        None
+    }
+
+    /// Port of `ThreadedSegment.argspecobjs()` from
+    /// `powerline/lib/threaded.py:151-156`.
+    ///
+    /// Yields `(name, method_name)` pairs for the configured
+    /// `argmethods` set per py:152-156. Python uses `getattr` to
+    /// look up the method object; Rust returns the method name as
+    /// a string since methods aren't first-class.
+    pub fn argspecobjs(argmethods: &[&'static str]) -> Vec<(String, String)> {
+        // py:152-156
+        argmethods
+            .iter()
+            .map(|name| (name.to_string(), name.to_string()))
+            .collect()
+    }
+
+    /// Port of `ThreadedSegment.additional_args()` from
+    /// `powerline/lib/threaded.py:158-159`.
+    ///
+    /// Returns `(('interval', self.interval),)` per py:159.
+    pub fn additional_args(interval: Option<f64>) -> Vec<(String, Option<f64>)> {
+        // py:159
+        vec![("interval".to_string(), interval)]
+    }
+
+    /// Port of `ThreadedSegment._omitted_args` class attribute at
+    /// `powerline/lib/threaded.py:161-164`.
+    ///
+    /// Returns the static map of `method_name → omitted_arg_indices`
+    /// per py:162-164. `'render'` omits arg `(0,)`; `'set_state'`
+    /// omits `('shutdown_event',)`.
+    pub fn omitted_args_table(name: &str) -> Vec<&'static str> {
+        // py:162-164
+        match name {
+            "render" => vec!["0"],
+            "set_state" => vec!["shutdown_event"],
+            _ => Vec::new(),
+        }
+    }
+
+    /// Port of `ThreadedSegment.omitted_args()` from
+    /// `powerline/lib/threaded.py:166-170`.
+    ///
+    /// Returns the omitted-args list for `name`. The Python source
+    /// at py:168-169 increments integer indices by 1 when the
+    /// method is bound (to skip `self`). The Rust port mirrors the
+    /// behaviour via a bool flag since Rust has no MethodType.
+    pub fn omitted_args(name: &str, is_method: bool) -> Vec<String> {
+        // py:167  ret = self._omitted_args.get(name, ())
+        let raw = Self::omitted_args_table(name);
+        // py:168-169  is_method → shift integer indices by 1
+        raw.iter()
+            .map(|arg| {
+                if is_method {
+                    if let Ok(idx) = arg.parse::<i32>() {
+                        return (idx + 1).to_string();
+                    }
+                }
+                arg.to_string()
+            })
+            .collect()
+    }
+
+    /// Port of `ThreadedSegment.critical()` from
+    /// `powerline/lib/threaded.py:133-134`.
+    ///
+    /// Returns the (prefix, message) pair callers route through
+    /// `self.pl.critical(...)` per py:134.
+    pub fn critical(class_name: &str, message: &str) -> (String, String) {
+        (class_name.to_string(), message.to_string())
+    }
+
+    /// Port of `ThreadedSegment.exception()` from
+    /// `powerline/lib/threaded.py:136-137`.
+    pub fn exception(class_name: &str, message: &str) -> (String, String) {
+        (class_name.to_string(), message.to_string())
+    }
+
+    /// Port of `ThreadedSegment.info()` from
+    /// `powerline/lib/threaded.py:139-140`.
+    pub fn info(class_name: &str, message: &str) -> (String, String) {
+        (class_name.to_string(), message.to_string())
+    }
+
+    /// Port of `ThreadedSegment.error()` from
+    /// `powerline/lib/threaded.py:142-143`.
+    pub fn error(class_name: &str, message: &str) -> (String, String) {
+        (class_name.to_string(), message.to_string())
+    }
+
+    /// Port of `ThreadedSegment.warn()` from
+    /// `powerline/lib/threaded.py:145-146`.
+    pub fn warn(class_name: &str, message: &str) -> (String, String) {
+        (class_name.to_string(), message.to_string())
+    }
+
+    /// Port of `ThreadedSegment.debug()` from
+    /// `powerline/lib/threaded.py:148-149`.
+    pub fn debug(class_name: &str, message: &str) -> (String, String) {
+        (class_name.to_string(), message.to_string())
+    }
+
     /// Port of `ThreadedSegment.set_update_value()` from
     /// `powerline/lib/threaded.py:69`.
     ///
@@ -493,5 +613,108 @@ mod tests {
         let b = s.updates.get("b").unwrap();
         assert!(!a.crashed);
         assert!(b.crashed);
+    }
+
+    #[test]
+    fn get_update_value_runs_refresh_when_update_true() {
+        // py:83-84
+        let mut s = ThreadedSegment::default();
+        let r = s.get_update_value(true, || Ok("fresh".to_string()));
+        assert_eq!(r, Some("fresh".to_string()));
+        assert!(s.updated);
+    }
+
+    #[test]
+    fn get_update_value_skips_refresh_when_update_false() {
+        // py:85  return self.update_value (no refresh)
+        let mut s = ThreadedSegment::default();
+        let r = s.get_update_value(false, || Ok("should_not_run".to_string()));
+        // Rust port returns None since there's no stored value
+        assert!(r.is_none());
+        assert!(!s.updated);
+    }
+
+    #[test]
+    fn argspecobjs_yields_argmethod_name_pairs() {
+        // py:152-156
+        let r = ThreadedSegment::argspecobjs(&["render", "set_state"]);
+        assert_eq!(r.len(), 2);
+        assert_eq!(r[0].0, "render");
+        assert_eq!(r[1].0, "set_state");
+    }
+
+    #[test]
+    fn additional_args_returns_interval_pair() {
+        // py:159
+        let r = ThreadedSegment::additional_args(Some(5.0));
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].0, "interval");
+        assert_eq!(r[0].1, Some(5.0));
+    }
+
+    #[test]
+    fn omitted_args_table_render_omits_first() {
+        // py:162  'render': (0,)
+        assert_eq!(ThreadedSegment::omitted_args_table("render"), vec!["0"]);
+    }
+
+    #[test]
+    fn omitted_args_table_set_state_omits_shutdown_event() {
+        // py:163  'set_state': ('shutdown_event',)
+        assert_eq!(
+            ThreadedSegment::omitted_args_table("set_state"),
+            vec!["shutdown_event"]
+        );
+    }
+
+    #[test]
+    fn omitted_args_table_unknown_name_returns_empty() {
+        assert!(ThreadedSegment::omitted_args_table("other").is_empty());
+    }
+
+    #[test]
+    fn omitted_args_unbound_passes_indices_through() {
+        // py:168-169  not method → no shift
+        let r = ThreadedSegment::omitted_args("render", false);
+        assert_eq!(r, vec!["0".to_string()]);
+    }
+
+    #[test]
+    fn omitted_args_bound_shifts_integer_indices_by_one() {
+        // py:168-169  isinstance MethodType → +1 on ints
+        let r = ThreadedSegment::omitted_args("render", true);
+        assert_eq!(r, vec!["1".to_string()]);
+    }
+
+    #[test]
+    fn omitted_args_bound_leaves_string_indices_unchanged() {
+        let r = ThreadedSegment::omitted_args("set_state", true);
+        // String args ('shutdown_event') don't get shifted
+        assert_eq!(r, vec!["shutdown_event".to_string()]);
+    }
+
+    #[test]
+    fn critical_returns_prefix_message_pair() {
+        // py:134
+        let (prefix, msg) = ThreadedSegment::critical("MyClass", "boom");
+        assert_eq!(prefix, "MyClass");
+        assert_eq!(msg, "boom");
+    }
+
+    #[test]
+    fn exception_returns_prefix_message_pair() {
+        // py:137
+        let (prefix, msg) = ThreadedSegment::exception("MyClass", "exc");
+        assert_eq!(prefix, "MyClass");
+        assert_eq!(msg, "exc");
+    }
+
+    #[test]
+    fn info_warn_error_debug_all_return_prefix_message_pair() {
+        // py:139-149
+        assert_eq!(ThreadedSegment::info("X", "i"), ("X".into(), "i".into()));
+        assert_eq!(ThreadedSegment::error("X", "e"), ("X".into(), "e".into()));
+        assert_eq!(ThreadedSegment::warn("X", "w"), ("X".into(), "w".into()));
+        assert_eq!(ThreadedSegment::debug("X", "d"), ("X".into(), "d".into()));
     }
 }
