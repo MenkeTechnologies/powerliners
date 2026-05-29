@@ -2155,6 +2155,38 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_wthr_temp_conversions_exact_math() {
+    if !python_available() {
+        return;
+    }
+    // Verify temp_conversions[C](K), [F](K), [K](K) produce
+    // bit-exact same floats on both sides across 4 Kelvin inputs.
+    let kelvins: &[f64] = &[0.0, 273.15, 300.0, 373.15];
+    for unit in &["C", "F", "K"] {
+        for &k in kelvins {
+            let expr = format!(
+                "__import__('powerline.segments.common.wthr', fromlist=['temp_conversions']).temp_conversions[{:?}]({})",
+                unit, k
+            );
+            let py = match py_eval(&expr) {
+                Some(v) => v,
+                None => return,
+            };
+            let py_f: f64 = py.parse().expect("Python returned non-float");
+            let rs = powerliners::segments::common::wthr::temp_conversions(unit, k);
+            assert!(
+                (py_f - rs).abs() < 1e-9,
+                "temp_conversions[{}]({}K) mismatch: py={}, rs={}",
+                unit,
+                k,
+                py_f,
+                rs
+            );
+        }
+    }
+}
+
+#[test]
 fn parity_colorscheme_cterm_to_hex_size_and_boundaries() {
     if !python_available() {
         return;
