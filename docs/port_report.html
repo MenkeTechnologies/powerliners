@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">559</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3298</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">54.4%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">568</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3319</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">55.3%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -187,8 +187,8 @@ columns:
   <!-- SYM py_file=powerline/segments/common/net.py rs_file=src/ported/segments/common/net.rs rs_exists=True py_fn_total=15 ported_count=13 missing_count=2 rs_extra_count=59 coverage=0.8667 -->
   <!-- END-GROUP py_file=powerline/segments/common/net.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/unicode.py -->
-  <tr class="partial"><td><code>lib/unicode.py</code></td><td>✔ <code>lib/unicode.rs</code></td><td>14</td><td><code>u</code>, <code>tointiter</code>, <code>tointiter</code>, <code>powerline_decode_error</code>, <code>register_strwidth_error</code>, <code>safe_unicode</code>, <code>surrogate_pair_to_character</code>, <code>strwidth_ucs_4</code>, <code>strwidth_ucs_2</code></td><td><code>unichr</code>, <code>powerline_encode_strwidth_error</code>, <code>out_u</code>, <code>string</code>, <code>string</code></td><td><code>out_u_str</code>, <code>out_u_bytes</code>, <code>safe_unicode_str</code>, <code>safe_unicode_bytes</code>, <code>new</code>, <code>as_str</code>, <code>into_string</code>, <code>fmt</code>, <code>from</code>, <code>from</code>, <code>string_from_str</code>, <code>string_from_bytes</code>, <code>u_passes_through_str</code>, <code>u_handles_utf8</code>, <code>tointiter_yields_byte_ints</code>, <code>tointiter_handles_empty</code>, <code>powerline_decode_error_formats_hex</code>, <code>powerline_decode_error_handles_empty_range</code>, <code>register_strwidth_error_generates_unique_name</code>, <code>register_strwidth_error_handler_emits_question_marks</code>, <code>register_strwidth_error_handler_respects_width</code>, <code>out_u_str_passes_through</code>, <code>out_u_bytes_decodes_valid_utf8</code>, <code>out_u_bytes_lossy_on_invalid</code>, <code>safe_unicode_str_round_trips</code>, <code>safe_unicode_bytes_handles_valid_utf8</code>, <code>safe_unicode_bytes_lossy_on_invalid</code>, <code>safe_unicode_display_works_on_int</code>, <code>string_from_str_identity</code>, <code>string_from_bytes_decodes_utf8</code>, <code>string_from_bytes_lossy_on_invalid</code>, <code>surrogate_pair_to_character_round_trips_emoji_range</code>, <code>surrogate_pair_to_character_low_surrogate_boundary</code>, <code>failed_unicode_display_returns_inner_string</code>, <code>failed_unicode_eq_compares_by_value</code>, <code>failed_unicode_into_string_yields_inner</code>, <code>strwidth_ucs_4_sums_with_default_table</code>, <code>strwidth_ucs_4_uses_table_value</code>, <code>strwidth_ucs_4_empty_table_falls_back_to_one</code>, <code>strwidth_ucs_2_matches_ucs_4_for_basic_strs</code></td><td class="coverage">64%</td></tr>
-  <!-- SYM py_file=powerline/lib/unicode.py rs_file=src/ported/lib/unicode.rs rs_exists=True py_fn_total=14 ported_count=9 missing_count=5 rs_extra_count=40 coverage=0.6429 -->
+  <tr class="full"><td><code>lib/unicode.py</code></td><td>✔ <code>lib/unicode.rs</code></td><td>14</td><td><code>unichr</code>, <code>u</code>, <code>tointiter</code>, <code>tointiter</code>, <code>powerline_decode_error</code>, <code>register_strwidth_error</code>, <code>powerline_encode_strwidth_error</code>, <code>out_u</code>, <code>safe_unicode</code>, <code>string</code>, <code>string</code>, <code>surrogate_pair_to_character</code>, <code>strwidth_ucs_4</code>, <code>strwidth_ucs_2</code></td><td>—</td><td><code>out_u_str</code>, <code>out_u_bytes</code>, <code>safe_unicode_str</code>, <code>safe_unicode_bytes</code>, <code>new</code>, <code>as_str</code>, <code>into_string</code>, <code>fmt</code>, <code>from</code>, <code>from</code>, <code>string_from_str</code>, <code>string_from_bytes</code>, <code>u_passes_through_str</code>, <code>u_handles_utf8</code>, <code>tointiter_yields_byte_ints</code>, <code>tointiter_handles_empty</code>, <code>powerline_decode_error_formats_hex</code>, <code>powerline_decode_error_handles_empty_range</code>, <code>register_strwidth_error_generates_unique_name</code>, <code>register_strwidth_error_handler_emits_question_marks</code>, <code>register_strwidth_error_handler_respects_width</code>, <code>out_u_str_passes_through</code>, <code>out_u_bytes_decodes_valid_utf8</code>, <code>out_u_bytes_lossy_on_invalid</code>, <code>safe_unicode_str_round_trips</code>, <code>safe_unicode_bytes_handles_valid_utf8</code>, <code>safe_unicode_bytes_lossy_on_invalid</code>, <code>safe_unicode_display_works_on_int</code>, <code>string_from_str_identity</code>, <code>string_from_bytes_decodes_utf8</code>, <code>string_from_bytes_lossy_on_invalid</code>, <code>surrogate_pair_to_character_round_trips_emoji_range</code>, <code>surrogate_pair_to_character_low_surrogate_boundary</code>, <code>failed_unicode_display_returns_inner_string</code>, <code>failed_unicode_eq_compares_by_value</code>, <code>failed_unicode_into_string_yields_inner</code>, <code>strwidth_ucs_4_sums_with_default_table</code>, <code>strwidth_ucs_4_uses_table_value</code>, <code>strwidth_ucs_4_empty_table_falls_back_to_one</code>, <code>strwidth_ucs_2_matches_ucs_4_for_basic_strs</code>, <code>unichr_returns_basic_ascii</code>, <code>unichr_returns_high_codepoint_as_single_char</code>, <code>unichr_returns_none_for_surrogate_codepoint</code>, <code>powerline_encode_strwidth_error_replaces_with_question_marks</code>, <code>out_u_dispatches_str_to_str_branch</code>, <code>out_u_dispatches_bytes_to_bytes_branch</code>, <code>string_dispatches_str_to_identity</code>, <code>string_dispatches_bytes_to_utf8_decode</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/lib/unicode.py rs_file=src/ported/lib/unicode.rs rs_exists=True py_fn_total=14 ported_count=14 missing_count=0 rs_extra_count=48 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/lib/unicode.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/vcs/git.py -->
   <tr class="partial"><td><code>lib/vcs/git.py</code></td><td>✔ <code>lib/vcs/git.rs</code></td><td>13</td><td><code>branch_name_from_config_file</code>, <code>git_directory</code>, <code>status</code>, <code>branch</code>, <code>ignore_event</code>, <code>stash</code>, <code>do_status</code>, <code>ignore_event</code>, <code>_gitcmd</code>, <code>stash</code>, <code>do_status</code></td><td><code>__init__</code>, <code>__init__</code></td><td><code>_ref_pat</code>, <code>new</code>, <code>new</code>, <code>aggregate_porcelain_status</code>, <code>which_exists</code>, <code>tmp_dir</code>, <code>ref_pat_matches_symbolic_head</code>, <code>ref_pat_matches_with_extra_whitespace</code>, <code>ref_pat_does_not_match_sha</code>, <code>branch_name_from_symbolic_head</code>, <code>branch_name_from_detached_head_returns_short_sha</code>, <code>branch_name_missing_file_returns_basename</code>, <code>git_directory_returns_dot_git_when_it_is_a_directory</code>, <code>git_directory_follows_gitfile_pointer</code>, <code>git_directory_errors_on_invalid_gitfile</code>, <code>git_directory_errors_on_empty_gitfile_pointer</code>, <code>git_repository_new_canonicalizes</code>, <code>git_repository_branch_reads_head</code>, <code>repository_new_errors_when_git_not_on_path</code>, <code>ignore_event_index_lock_is_ignored</code>, <code>ignore_event_other_files_not_ignored</code>, <code>aggregate_porcelain_status_empty_returns_none</code>, <code>aggregate_porcelain_status_modified_workingtree_returns_d</code>, <code>aggregate_porcelain_status_modified_index_returns_i</code>, <code>aggregate_porcelain_status_untracked_returns_u</code>, <code>aggregate_porcelain_status_ignored_line_does_not_change_state</code>, <code>aggregate_porcelain_status_combined_index_wt_untracked</code>, <code>aggregate_porcelain_status_all_spaces_returns_none</code>, <code>do_status_stub_returns_none</code>, <code>stash_stub_returns_zero</code></td><td class="coverage">85%</td></tr>
@@ -223,8 +223,8 @@ columns:
   <!-- SYM py_file=powerline/bindings/ipython/post_0_11.py rs_file=src/ported/bindings/ipython/post_0_11.rs rs_exists=True py_fn_total=10 ported_count=6 missing_count=4 rs_extra_count=31 coverage=0.6000 -->
   <!-- END-GROUP py_file=powerline/bindings/ipython/post_0_11.py -->
   <!-- BEGIN-GROUP py_file=powerline/segments/common/bat.py -->
-  <tr class="partial"><td><code>segments/common/bat.py</code></td><td>✔ <code>segments/common/bat.rs</code></td><td>10</td><td><code>_get_battery_status</code>, <code>_get_battery_status</code>, <code>_get_battery_status</code>, <code>_get_battery_status</code>, <code>_get_battery_status</code>, <code>battery</code></td><td><code>_fetch_battery_info</code>, <code>_flatten_battery</code>, <code>_get_battery_perc</code>, <code>_failing_get_status</code></td><td><code>BATTERY_PERCENT_RE</code>, <code>parse_pmset_output</code>, <code>parse_linux_status</code>, <code>flatten_battery</code>, <code>build_device_table</code>, <code>battery_percent_re_matches_pmset_output</code>, <code>battery_percent_re_matches_zero</code>, <code>parse_pmset_output_extracts_percent_and_no_ac</code>, <code>parse_pmset_output_detects_ac_charging</code>, <code>parse_pmset_output_no_percent_returns_none</code>, <code>parse_linux_status_discharging_returns_false</code>, <code>parse_linux_status_charging_returns_true</code>, <code>flatten_battery_single_device</code>, <code>flatten_battery_multi_device_averages_percent</code>, <code>flatten_battery_zero_full_returns_zero</code>, <code>flatten_battery_state_is_and_fold</code>, <code>battery_none_status_returns_none</code>, <code>battery_percent_format_emits_single_segment</code>, <code>battery_percent_format_emits_correct_gradient_level</code>, <code>battery_gamify_emits_three_segments</code>, <code>battery_gamify_ac_state_uses_online_group_when_charging</code>, <code>battery_gamify_ac_state_uses_offline_group_when_not_charging</code>, <code>battery_gamify_emits_correct_full_and_empty_counts</code>, <code>battery_gamify_zero_percent_emits_only_empty</code>, <code>battery_gamify_full_percent_emits_only_full</code>, <code>battery_gamify_full_segment_gradient_zero</code>, <code>battery_gamify_empty_segment_gradient_100</code>, <code>battery_gamify_draw_inner_divider_all_false</code>, <code>battery_percent_uses_online_when_ac_powered</code>, <code>build_device_table_zips_parallel_slices</code>, <code>battery_percent_format_emits_battery_gradient_groups</code>, <code>get_battery_status_delegates_to_fetcher</code>, <code>get_battery_status_propagates_none</code></td><td class="coverage">60%</td></tr>
-  <!-- SYM py_file=powerline/segments/common/bat.py rs_file=src/ported/segments/common/bat.rs rs_exists=True py_fn_total=10 ported_count=6 missing_count=4 rs_extra_count=33 coverage=0.6000 -->
+  <tr class="full"><td><code>segments/common/bat.py</code></td><td>✔ <code>segments/common/bat.rs</code></td><td>10</td><td><code>_fetch_battery_info</code>, <code>_flatten_battery</code>, <code>_get_battery_status</code>, <code>_get_battery_perc</code>, <code>_get_battery_status</code>, <code>_get_battery_status</code>, <code>_get_battery_status</code>, <code>_get_battery_status</code>, <code>_failing_get_status</code>, <code>battery</code></td><td>—</td><td><code>BATTERY_PERCENT_RE</code>, <code>parse_pmset_output</code>, <code>parse_linux_status</code>, <code>flatten_battery</code>, <code>build_device_table</code>, <code>battery_percent_re_matches_pmset_output</code>, <code>battery_percent_re_matches_zero</code>, <code>parse_pmset_output_extracts_percent_and_no_ac</code>, <code>parse_pmset_output_detects_ac_charging</code>, <code>parse_pmset_output_no_percent_returns_none</code>, <code>parse_linux_status_discharging_returns_false</code>, <code>parse_linux_status_charging_returns_true</code>, <code>flatten_battery_single_device</code>, <code>flatten_battery_multi_device_averages_percent</code>, <code>flatten_battery_zero_full_returns_zero</code>, <code>flatten_battery_state_is_and_fold</code>, <code>battery_none_status_returns_none</code>, <code>battery_percent_format_emits_single_segment</code>, <code>battery_percent_format_emits_correct_gradient_level</code>, <code>battery_gamify_emits_three_segments</code>, <code>battery_gamify_ac_state_uses_online_group_when_charging</code>, <code>battery_gamify_ac_state_uses_offline_group_when_not_charging</code>, <code>battery_gamify_emits_correct_full_and_empty_counts</code>, <code>battery_gamify_zero_percent_emits_only_empty</code>, <code>battery_gamify_full_percent_emits_only_full</code>, <code>battery_gamify_full_segment_gradient_zero</code>, <code>battery_gamify_empty_segment_gradient_100</code>, <code>battery_gamify_draw_inner_divider_all_false</code>, <code>battery_percent_uses_online_when_ac_powered</code>, <code>build_device_table_zips_parallel_slices</code>, <code>battery_percent_format_emits_battery_gradient_groups</code>, <code>get_battery_status_delegates_to_fetcher</code>, <code>get_battery_status_propagates_none</code>, <code>failing_get_status_returns_none</code>, <code>fetch_battery_info_returns_first_successful_backend</code>, <code>fetch_battery_info_none_when_all_backends_fail</code>, <code>flatten_battery_closure_delegates_to_flatten_battery</code>, <code>get_battery_perc_missing_files_returns_none</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/segments/common/bat.py rs_file=src/ported/segments/common/bat.rs rs_exists=True py_fn_total=10 ported_count=10 missing_count=0 rs_extra_count=38 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/segments/common/bat.py -->
   <!-- BEGIN-GROUP py_file=powerline/segments/common/env.py -->
   <tr class="partial"><td><code>segments/common/env.py</code></td><td>✔ <code>segments/common/env.rs</code></td><td>10</td><td><code>environment</code>, <code>virtualenv</code>, <code>argspecobjs</code>, <code>omitted_args</code>, <code>get_shortened_path</code>, <code>_get_user</code>, <code>_get_user</code>, <code>_get_user</code>, <code>user</code></td><td><code>__call__</code></td><td><code>cwd_segments</code>, <code>_geteuid</code>, <code>env_with</code>, <code>environment_returns_value_when_set</code>, <code>environment_returns_none_when_unset</code>, <code>virtualenv_returns_last_path_component_from_virtual_env</code>, <code>virtualenv_skips_ignored_names_and_walks_to_parent</code>, <code>virtualenv_falls_back_to_conda_when_no_virtualenv</code>, <code>virtualenv_ignore_venv_skips_virtual_env</code>, <code>virtualenv_no_env_returns_none</code>, <code>get_shortened_path_not_found_returns_sentinel</code>, <code>get_shortened_path_shortens_home_prefix</code>, <code>get_shortened_path_no_home_returns_full_path</code>, <code>get_shortened_path_shorten_home_false_passes_through</code>, <code>cwd_segments_root_path</code>, <code>cwd_segments_multi_component</code>, <code>cwd_segments_dir_shorten_len_truncates_non_leaf</code>, <code>cwd_segments_dir_limit_depth_adds_ellipsis</code>, <code>cwd_segments_use_path_separator_appends_to_non_last_and_strips_last</code>, <code>cwd_segments_divider_group_set_on_all</code>, <code>cwd_segments_draw_inner_divider_inverse_of_use_path_separator</code>, <code>cwd_segments_empty_string_yields_root_segment</code>, <code>user_test_uuid_returns_user_verbatim</code>, <code>user_returns_username_with_user_highlight_for_non_root</code>, <code>user_root_gets_superuser_highlight</code>, <code>user_hidden_returns_none</code>, <code>user_hide_domain_strips_at_suffix</code>, <code>user_hide_domain_no_at_passes_through</code>, <code>get_user_reads_environ_user_variable</code>, <code>powerline_test_user_uuid_matches_upstream</code>, <code>cwd_segment_argspecobjs_yields_get_shortened_path</code>, <code>cwd_segment_omitted_args_for_get_shortened_path_is_empty</code>, <code>cwd_segment_omitted_args_for_unknown_method_is_empty</code>, <code>geteuid_returns_non_negative</code></td><td class="coverage">90%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3298,
-    "ported_fns": 559,
-    "coverage": 0.5437743190661478
+    "rs_fns_in_ported": 3319,
+    "ported_fns": 568,
+    "coverage": 0.5525291828793775
   },
   "rows": [
     {
@@ -2151,23 +2151,22 @@ columns:
       "rs_exists": true,
       "py_fn_total": 14,
       "ported_fns": [
+        "unichr",
         "u",
         "tointiter",
         "tointiter",
         "powerline_decode_error",
         "register_strwidth_error",
+        "powerline_encode_strwidth_error",
+        "out_u",
         "safe_unicode",
+        "string",
+        "string",
         "surrogate_pair_to_character",
         "strwidth_ucs_4",
         "strwidth_ucs_2"
       ],
-      "missing_fns": [
-        "unichr",
-        "powerline_encode_strwidth_error",
-        "out_u",
-        "string",
-        "string"
-      ],
+      "missing_fns": [],
       "rs_extra_fns": [
         "out_u_str",
         "out_u_bytes",
@@ -2208,9 +2207,17 @@ columns:
         "strwidth_ucs_4_sums_with_default_table",
         "strwidth_ucs_4_uses_table_value",
         "strwidth_ucs_4_empty_table_falls_back_to_one",
-        "strwidth_ucs_2_matches_ucs_4_for_basic_strs"
+        "strwidth_ucs_2_matches_ucs_4_for_basic_strs",
+        "unichr_returns_basic_ascii",
+        "unichr_returns_high_codepoint_as_single_char",
+        "unichr_returns_none_for_surrogate_codepoint",
+        "powerline_encode_strwidth_error_replaces_with_question_marks",
+        "out_u_dispatches_str_to_str_branch",
+        "out_u_dispatches_bytes_to_bytes_branch",
+        "string_dispatches_str_to_identity",
+        "string_dispatches_bytes_to_utf8_decode"
       ],
-      "coverage": 0.6428571428571429
+      "coverage": 1.0
     },
     {
       "py_file": "powerline/lib/vcs/git.py",
@@ -2667,19 +2674,18 @@ columns:
       "rs_exists": true,
       "py_fn_total": 10,
       "ported_fns": [
-        "_get_battery_status",
-        "_get_battery_status",
-        "_get_battery_status",
-        "_get_battery_status",
-        "_get_battery_status",
-        "battery"
-      ],
-      "missing_fns": [
         "_fetch_battery_info",
         "_flatten_battery",
+        "_get_battery_status",
         "_get_battery_perc",
-        "_failing_get_status"
+        "_get_battery_status",
+        "_get_battery_status",
+        "_get_battery_status",
+        "_get_battery_status",
+        "_failing_get_status",
+        "battery"
       ],
+      "missing_fns": [],
       "rs_extra_fns": [
         "BATTERY_PERCENT_RE",
         "parse_pmset_output",
@@ -2713,9 +2719,14 @@ columns:
         "build_device_table_zips_parallel_slices",
         "battery_percent_format_emits_battery_gradient_groups",
         "get_battery_status_delegates_to_fetcher",
-        "get_battery_status_propagates_none"
+        "get_battery_status_propagates_none",
+        "failing_get_status_returns_none",
+        "fetch_battery_info_returns_first_successful_backend",
+        "fetch_battery_info_none_when_all_backends_fail",
+        "flatten_battery_closure_delegates_to_flatten_battery",
+        "get_battery_perc_missing_files_returns_none"
       ],
-      "coverage": 0.6
+      "coverage": 1.0
     },
     {
       "py_file": "powerline/segments/common/env.py",

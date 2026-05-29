@@ -118,7 +118,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/segments/vim/plugin/commandt.py` ↔ `src/ported/segments/vim/plugin/commandt.rs` | 77 | 3 | 0 | 0 | 71 | 4 | 63 |
 | [x] | `powerline/segments/common/mail.py` ↔ `src/ported/segments/common/mail.rs` | 80 | 0 | 1 | 3 | 209 | 6 | 50 |
 | [x] | `powerline/lib/shell.py` ↔ `src/ported/lib/shell.rs` | 92 | 3 | 0 | 0 | 135 | 5 | 51 |
-| [x] | `powerline/segments/common/bat.py` ↔ `src/ported/segments/common/bat.rs` | 265 | 3 | 0 | 0 | 337 | 3 | 230 |
+| [x] | `powerline/segments/common/bat.py` ↔ `src/ported/segments/common/bat.rs` | 265 | 3 | 0 | 0 | 403 | 7 | 247 |
 | [x] | `powerline/lint/markedjson/nodes.py` ↔ `src/ported/lint/markedjson/nodes.rs` | 30 | 0 | 5 | 4 | 157 | 9 | 30 |
 | [x] | `powerline/renderers/lemonbar.py` ↔ `src/ported/renderers/lemonbar.rs` | 43 | 0 | 1 | 4 | 107 | 7 | 39 |
 | [x] | `powerline/bindings/wm/awesome.py` ↔ `src/ported/bindings/wm/awesome.rs` | 44 | 2 | 1 | 2 | 80 | 5 | 39 |
@@ -154,7 +154,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/lint/markedjson/events.py` ↔ `src/ported/lint/markedjson/events.rs` | 65 | 0 | 14 | 8 | 267 | 17 | 67 |
 | [x] | `powerline/renderers/ipython/since_7.py` ↔ `src/ported/renderers/ipython/since_7.rs` | 71 | 0 | 2 | 8 | 345 | 12 | 43 |
 | [x] | `powerline/renderers/shell/__init__.py` ↔ `src/ported/renderers/shell/mod.rs` | 157 | 1 | 2 | 7 | 509 | 10 | 95 |
-| [x] | `powerline/lib/unicode.py` ↔ `src/ported/lib/unicode.rs` | 221 | 8 | 1 | 0 | 246 | 11 | 125 |
+| [x] | `powerline/lib/unicode.py` ↔ `src/ported/lib/unicode.rs` | 221 | 8 | 1 | 0 | 327 | 15 | 138 |
 | [x] | `powerline/segments/common/net.py` ↔ `src/ported/segments/common/net.rs` | 254 | 2 | 2 | 6 | 698 | 19 | 136 |
 | [x] | `powerline/lint/__init__.py` ↔ `src/ported/lint/mod.rs` | 573 | 8 | 0 | 0 | 1430 | 54 | 430 |
 | [x] | `powerline/lint/markedjson/composer.py` ↔ `src/ported/lint/markedjson/composer.rs` | 80 | 0 | 2 | 9 | 450 | 15 | 52 |

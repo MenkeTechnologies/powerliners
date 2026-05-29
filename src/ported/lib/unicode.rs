@@ -158,6 +158,102 @@ where
     (ename, handler)
 }
 
+/// Port of `unichr()` from `powerline/lib/unicode.py:21-32`.
+///
+/// Convert a Unicode codepoint to a String. Python defines this as a
+/// compat shim for the Py2/Py3 split (Py2 had `unichr`, Py3 has
+/// `chr`); the UCS-2 build at py:27-32 emits a surrogate pair for
+/// codepoints above U+FFFF.
+///
+/// Rust's `char` is a full Unicode scalar value (any valid codepoint
+/// except surrogates), so the UCS-2 surrogate-pair fallback never
+/// fires here — codepoints above U+FFFF map directly to a single
+/// `char` via `char::from_u32`.
+///
+/// Returns `None` for surrogate codepoints (D800-DFFF) which Rust
+/// can't represent as a `char`. Python's UCS-4 branch (py:21) also
+/// errors on surrogates via `chr`, matching the Rust behaviour.
+pub fn unichr(ch: u32) -> Option<String> {
+    // py:21  unichr = chr  (UCS-4 path)
+    // py:27-32  UCS-2 surrogate-pair encoding — unreachable in Rust
+    //           since `char` is a 32-bit scalar value.
+    char::from_u32(ch).map(|c| c.to_string())
+}
+
+/// Port of the inner `powerline_encode_strwidth_error()` closure from
+/// `powerline/lib/unicode.py:96-99`.
+///
+/// codecs error handler that replaces unencodable codepoints with
+/// `'?'` repeated by the codepoint's display width. The Rust port
+/// surfaces it as a free fn taking the strwidth callable + the raw
+/// substring + its (start, end) byte range so callers route through
+/// any codec they like.
+pub fn powerline_encode_strwidth_error<F>(
+    strwidth: F,
+    object: &str,
+    start: usize,
+    end: usize,
+) -> (String, usize)
+where
+    F: Fn(&str) -> usize,
+{
+    // py:96  def powerline_encode_strwidth_error(e):
+    // py:97  if not isinstance(e, UnicodeEncodeError):
+    // py:98  raise NotImplementedError
+    // py:99  return ('?' * strwidth(e.object[e.start:e.end]), e.end)
+    let slice = &object[start..end];
+    let width = strwidth(slice);
+    ("?".repeat(width), end)
+}
+
+/// Input dispatch for [`out_u`] — Python's `out_u(s)` accepts either a
+/// `unicode` (str) or `bytes`. Rust models the type-dispatch as a sum
+/// type since runtime overloading isn't available.
+pub enum OutUInput<'a> {
+    /// Already-decoded unicode string (py:113-114 fast path).
+    Str(&'a str),
+    /// Bytes that need decoding (py:115-116 lossy fallback).
+    Bytes(&'a [u8]),
+}
+
+/// Port of `out_u()` from `powerline/lib/unicode.py:106-118`.
+///
+/// Unified dispatcher that mirrors Python's runtime
+/// `isinstance(s, unicode|bytes)` branch at py:113-118. Calls
+/// [`out_u_str`] / [`out_u_bytes`] based on the input variant.
+///
+/// The `else` branch at py:117-118 raises `TypeError`; Rust returns
+/// `Err` instead since the sum type encodes the valid inputs.
+pub fn out_u(input: OutUInput<'_>) -> String {
+    match input {
+        OutUInput::Str(s) => out_u_str(s),
+        OutUInput::Bytes(b) => out_u_bytes(b),
+    }
+}
+
+/// Input dispatch for [`string`] — Python's `string(s)` is defined
+/// twice (Py2 at py:163-167, Py3 at py:169-173). The Rust port
+/// dispatches on the input variant.
+pub enum StringInput<'a> {
+    /// Py3 str input (`type(s) is str` at py:170 → identity).
+    Str(&'a str),
+    /// Bytes input → decode UTF-8 (py:171).
+    Bytes(&'a [u8]),
+}
+
+/// Port of `string()` from `powerline/lib/unicode.py:163-167` (Py2)
+/// or `py:169-173` (Py3).
+///
+/// The Py3 branch returns `s` for str input and `s.decode('utf-8')`
+/// for non-str input. The Rust port mirrors the Py3 dispatch since
+/// Python 2 is end-of-life.
+pub fn string(input: StringInput<'_>) -> String {
+    match input {
+        StringInput::Str(s) => string_from_str(s),
+        StringInput::Bytes(b) => string_from_bytes(b),
+    }
+}
+
 /// Port of `out_u()` from `powerline/lib/unicode.py:106-118`.
 ///
 /// Return unicode string suitable for displaying. Python decodes
@@ -563,5 +659,67 @@ mod tests {
             strwidth_ucs_2(&width_data, "hello"),
             strwidth_ucs_4(&width_data, "hello")
         );
+    }
+
+    #[test]
+    fn unichr_returns_basic_ascii() {
+        // py:21  unichr = chr
+        assert_eq!(unichr(b'A' as u32), Some("A".to_string()));
+        assert_eq!(unichr(0x20), Some(" ".to_string()));
+    }
+
+    #[test]
+    fn unichr_returns_high_codepoint_as_single_char() {
+        // py:32  UCS-2 surrogate-pair encoding — Rust char covers
+        // the codepoint directly, no surrogates emitted.
+        let r = unichr(0x1F600).unwrap();
+        assert_eq!(r.chars().count(), 1);
+        assert_eq!(r, "\u{1F600}");
+    }
+
+    #[test]
+    fn unichr_returns_none_for_surrogate_codepoint() {
+        // Surrogates (D800-DFFF) are not valid Rust chars.
+        assert_eq!(unichr(0xD800), None);
+        assert_eq!(unichr(0xDFFF), None);
+    }
+
+    #[test]
+    fn powerline_encode_strwidth_error_replaces_with_question_marks() {
+        // py:99  '?' * strwidth(object[start:end])
+        let object = "abc";
+        let strwidth = |s: &str| s.chars().count();
+        let (replacement, new_end) =
+            powerline_encode_strwidth_error(strwidth, object, 0, 3);
+        assert_eq!(replacement, "???");
+        assert_eq!(new_end, 3);
+    }
+
+    #[test]
+    fn out_u_dispatches_str_to_str_branch() {
+        // py:113-114
+        let r = out_u(OutUInput::Str("hello"));
+        assert_eq!(r, "hello");
+    }
+
+    #[test]
+    fn out_u_dispatches_bytes_to_bytes_branch() {
+        // py:115-116
+        let r = out_u(OutUInput::Bytes(b"world"));
+        assert_eq!(r, "world");
+    }
+
+    #[test]
+    fn string_dispatches_str_to_identity() {
+        // py:170  type(s) is str → return s
+        let r = string(StringInput::Str("hello"));
+        assert_eq!(r, "hello");
+    }
+
+    #[test]
+    fn string_dispatches_bytes_to_utf8_decode() {
+        // py:171  s.decode('utf-8')
+        let r = string(StringInput::Bytes(b"hello"));
+        assert_eq!(r, "hello");
     }
 }
