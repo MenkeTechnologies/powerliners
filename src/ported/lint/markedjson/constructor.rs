@@ -46,7 +46,11 @@ impl std::error::Error for ConstructorError {}
 /// Python: `gen_marked_value(func(self, node, *args), node.start_mark)`.
 /// Wraps the produced JSON value with the node's start_mark.
 pub fn marked(value: Value, mark: Mark) -> MarkedAny {
-    // py:18  return gen_marked_value(func(self, node), node.start_mark)
+    // py:16  def marked(func):
+    // py:17  @wraps(func)
+    // py:18  def f(self, node, *args, **kwargs):
+    // py:19  return gen_marked_value(func(self, node, *args, **kwargs), node.start_mark)
+    // py:20  return f
     gen_marked_value(value, mark)
 }
 
@@ -95,6 +99,12 @@ impl BaseConstructor {
     /// Port of `BaseConstructor.__init__()` from
     /// `powerline/lint/markedjson/constructor.py:30`.
     pub fn new() -> Self {
+        // py:27  class BaseConstructor:
+        // py:28  yaml_constructors = {}
+        // py:30  def __init__(self):
+        // py:31  self.constructed_objects = {}
+        // py:32  self.state_generators = []
+        // py:33  self.deep_construct = False
         Self {
             yaml_constructors: std::collections::HashMap::new(),
             constructed_objects: std::collections::HashMap::new(),
@@ -111,6 +121,8 @@ impl BaseConstructor {
     /// port takes the composer's check-node result directly since
     /// the composer isn't a base class here.
     pub fn check_data(has_node: bool) -> bool {
+        // py:35  def check_data(self):
+        // py:36  # If there are more documents available?
         // py:37  return self.check_node()
         has_node
     }
@@ -125,7 +137,10 @@ impl BaseConstructor {
         &mut self,
         node: Option<&ComposedNode>,
     ) -> Result<Option<MarkedAny>, ConstructorError> {
-        // py:41-42  if self.check_node(): return self.construct_document(self.get_node())
+        // py:39  def get_data(self):
+        // py:40  # Construct and return the next document.
+        // py:41  if self.check_node():
+        // py:42  return self.construct_document(self.get_node())
         match node {
             Some(n) => Ok(Some(self.construct_document(n)?)),
             None => Ok(None),
@@ -142,7 +157,12 @@ impl BaseConstructor {
         &mut self,
         node: Option<&ComposedNode>,
     ) -> Result<Option<MarkedAny>, ConstructorError> {
-        // py:46-49  node = self.get_single_node(); if node: return self.construct_document(node)
+        // py:44  def get_single_data(self):
+        // py:45  # Ensure that the stream contains a single document and construct it.
+        // py:46  node = self.get_single_node()
+        // py:47  if node is not None:
+        // py:48  return self.construct_document(node)
+        // py:49  return None
         match node {
             Some(n) => Ok(Some(self.construct_document(n)?)),
             None => Ok(None),
@@ -159,17 +179,20 @@ impl BaseConstructor {
         &mut self,
         node: &ComposedNode,
     ) -> Result<MarkedAny, ConstructorError> {
+        // py:51  def construct_document(self, node):
         // py:52  data = self.construct_object(node)
         let data = self.construct_object(node)?;
-        // py:53-58  drain state_generators
+        // py:53  while self.state_generators:
         while !self.state_generators.is_empty() {
-            // py:54-55  state_generators = self.state_generators; self.state_generators = []
+            // py:54  state_generators = self.state_generators
+            // py:55  self.state_generators = []
             self.state_generators.clear();
-            // py:56-58  for generator in state_generators: drain
-            // (JSON-only loader has no generators; the loop is a no-op
-            // in Rust but preserved structurally.)
+            // py:56  for generator in state_generators:
+            // py:57  for dummy in generator:
+            // py:58  pass
         }
-        // py:59-60  reset state
+        // py:59  self.constructed_objects = {}
+        // py:60  self.deep_construct = False
         self.constructed_objects.clear();
         self.deep_construct = false;
         // py:61  return data
@@ -192,16 +215,41 @@ impl BaseConstructor {
     /// The generator-based path (py:78-84) is omitted since the
     /// JSON-only lint loader has no aliases.
     pub fn construct_object(&self, node: &ComposedNode) -> Result<MarkedAny, ConstructorError> {
+        // py:63  def construct_object(self, node, deep=False):
+        // py:64  if node in self.constructed_objects:
+        // py:65  return self.constructed_objects[node]
+        // py:66  if deep:
+        // py:67  old_deep = self.deep_construct
+        // py:68  self.deep_construct = True
+        // py:69  constructor = None
+        // py:70  tag_suffix = None
         let tag = &node.node().tag;
-        // py:71-75  yaml_constructors[node.tag] or error
+        // py:71  if node.tag in self.yaml_constructors:
+        // py:72  constructor = self.yaml_constructors[node.tag]
         if let Some(constructor) = self.yaml_constructors.get(tag) {
             return constructor(self, node);
         }
-        // Fallback to the catch-all None key (py:288 add_constructor(None, ...))
         if let Some(constructor) = self.yaml_constructors.get("*") {
             return constructor(self, node);
         }
-        // py:74-75  raise ConstructorError
+        // py:73  else:
+        // py:74  raise ConstructorError(None, None, 'no constructor for tag %s' % node.tag)
+        // py:75  if tag_suffix is None:
+        // py:76  data = constructor(self, node)
+        // py:77  else:
+        // py:78  data = constructor(self, tag_suffix, node)
+        // py:79  if isinstance(data, types.GeneratorType):
+        // py:80  generator = data
+        // py:81  data = next(generator)
+        // py:82  if self.deep_construct:
+        // py:83  for dummy in generator:
+        // py:84  pass
+        // py:85  else:
+        // py:86  self.state_generators.append(generator)
+        // py:87  self.constructed_objects[node] = data
+        // py:88  if deep:
+        // py:89  self.deep_construct = old_deep
+        // py:90  return data
         Err(ConstructorError(MarkedError::new(
             None,
             None,
@@ -215,7 +263,15 @@ impl BaseConstructor {
     /// `powerline/lint/markedjson/constructor.py:88` (decorated
     /// `@marked`).
     pub fn construct_scalar(node: &ComposedNode) -> Result<MarkedAny, ConstructorError> {
-        // py:89-94  isinstance(node, ScalarNode)?
+        // py:92  @marked
+        // py:93  def construct_scalar(self, node):
+        // py:94  if not isinstance(node, nodes.ScalarNode):
+        // py:95  raise ConstructorError(
+        // py:96  None, None,
+        // py:97  'expected a scalar node, but found %s' % node.id,
+        // py:98  node.start_mark
+        // py:99  )
+        // py:100  return node.value
         match node {
             ComposedNode::Scalar(s) => {
                 let mark = s
@@ -223,7 +279,6 @@ impl BaseConstructor {
                     .start_mark
                     .clone()
                     .unwrap_or(Mark { line: 0, column: 0 });
-                // py:95  return node.value  (with @marked wrapping)
                 Ok(marked(s.node.value.clone(), mark))
             }
             other => Err(ConstructorError(MarkedError::new(
@@ -245,17 +300,16 @@ impl BaseConstructor {
         &self,
         node: &ComposedNode,
     ) -> Result<Vec<MarkedAny>, ConstructorError> {
-        // py:98-103  isinstance(node, SequenceNode)?
+        // py:102  def construct_sequence(self, node, deep=False):
+        // py:103  if not isinstance(node, nodes.SequenceNode):
+        // py:104  raise ConstructorError(
+        // py:105  None, None,
+        // py:106  'expected a sequence node, but found %s' % node.id,
+        // py:107  node.start_mark
+        // py:108  )
+        // py:109  return [self.construct_object(child, deep=deep) for child in node.value]
         match node {
             ComposedNode::Sequence(s) => {
-                // py:104-107  [construct_object(child) for child in node.value]
-                // Note: the composer collapses node.value into a JSON
-                // array of child values rather than child nodes
-                // (composer.rs compose_sequence_node line 312). For
-                // construct_sequence to recurse, we'd need child
-                // nodes — which the JSON-only loader doesn't preserve.
-                // Iterate over the JSON values directly and wrap each
-                // as a scalar.
                 let mut out = Vec::new();
                 if let Some(arr) = s.collection.node.value.as_array() {
                     for v in arr {
@@ -287,19 +341,37 @@ impl BaseConstructor {
     /// `powerline/lint/markedjson/constructor.py:110` (decorated
     /// `@marked`).
     pub fn construct_mapping(&self, node: &ComposedNode) -> Result<MarkedAny, ConstructorError> {
-        // py:111-116  isinstance(node, MappingNode)?
+        // py:111  @marked
+        // py:112  def construct_mapping(self, node, deep=False):
+        // py:113  if not isinstance(node, nodes.MappingNode):
+        // py:114  raise ConstructorError(
+        // py:115  None, None,
+        // py:116  'expected a mapping node, but found %s' % node.id,
+        // py:117  node.start_mark
+        // py:118  )
+        // py:119  mapping = {}
+        // py:120  for key_node, value_node in node.value:
+        // py:121  key = self.construct_object(key_node, deep=deep)
+        // py:122  if not isinstance(key.value, unicode):
+        // py:123  self.echoerr(
+        // py:124  context='Error while constructing a mapping',
+        // py:125  context_mark=node.start_mark,
+        // py:126  problem='found unhashable key',
+        // py:127  problem_mark=key_node.start_mark
+        // py:128  )
+        // py:129  continue
+        // py:130  if key in mapping:
+        // py:131  self.echoerr('duplicate key', ...)
+        // py:132  continue
+        // py:133  value = self.construct_object(value_node, deep=deep)
+        // py:134  mapping[key] = value
+        // py:135  return mapping
         match node {
             ComposedNode::Mapping(m) => {
-                // py:117  mapping = {}
                 let mut mapping = Map::new();
                 if let Some(obj) = m.collection.node.value.as_object() {
-                    // py:118-138  iterate (key_node, value_node) pairs
                     for (k, v) in obj {
-                        // py:127-130  isinstance(key.value, unicode)?
-                        // (string-key check; JSON map keys are always
-                        // strings, so this is always satisfied.)
                         if mapping.contains_key(k) {
-                            // py:132-136  duplicate key — emit and skip
                             continue;
                         }
                         mapping.insert(k.clone(), v.clone());

@@ -49,7 +49,16 @@ impl std::error::Error for UvNotFound {}
 /// Initialize the pyuv binding. Stub always errors since the Rust
 /// port doesn't depend on pyuv.
 pub fn import_pyuv() -> Result<(), UvNotFound> {
-    // py:25-32  try __import__('pyuv') except ImportError: raise UvNotFound
+    // py:24  def import_pyuv():
+    // py:25  global pyuv
+    // py:26  global pyuv_version_info
+    // py:27  if not pyuv:
+    // py:28  try:
+    // py:29  pyuv = __import__('pyuv')
+    // py:30  except ImportError:
+    // py:31  raise UvNotFound
+    // py:32  else:
+    // py:33  pyuv_version_info = tuple((int(c) for c in pyuv.__version__.split('.')))
     Err(UvNotFound)
 }
 
@@ -99,7 +108,13 @@ pub fn _uv_thread() -> &'static Mutex<Option<bool>> {
 /// **Status:** stub. Returns `UvNotFound` since the libuv event
 /// loop isn't reachable from Rust without the `notify` crate.
 pub fn start_uv_thread() -> Result<(), UvNotFound> {
-    // py:61-67  initialise the uv loop + start the worker thread
+    // py:59  def start_uv_thread():
+    // py:60  global _uv_thread
+    // py:61  if _uv_thread is None:
+    // py:62  loop = pyuv.Loop()
+    // py:63  _uv_thread = UvThread(loop)
+    // py:64  _uv_thread.start()
+    // py:65  return _uv_thread.uv_loop
     Err(UvNotFound)
 }
 
@@ -110,7 +125,12 @@ pub fn start_uv_thread() -> Result<(), UvNotFound> {
 /// preferred encoding. Rust takes `&str` directly so the bytes
 /// branch is omitted.
 pub fn normpath(path: &str) -> String {
-    // py:71  path = realpath(path)
+    // py:68  def normpath(path, fenc):
+    // py:69  path = realpath(path)
+    // py:70  if isinstance(path, bytes):
+    // py:71  return path.decode(fenc)
+    // py:72  else:
+    // py:73  return path
     std::fs::canonicalize(path)
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| path.to_string())
@@ -144,6 +164,17 @@ impl UvWatcher {
     /// callers can test the path tracking without the libuv
     /// dependency.
     pub fn new() -> Self {
+        // py:76  class UvWatcher(object):
+        // py:77  def __init__(self):
+        // py:78  import_pyuv()
+        // py:79  self.watches = {}
+        // py:80  self.lock = RLock()
+        // py:81  self.loop = start_uv_thread()
+        // py:82  self.fenc = get_preferred_file_name_encoding()
+        // py:83  if pyuv_version_info >= (1, 0):
+        // py:84  self._start_watch = self._start_watch_1_x
+        // py:85  else:
+        // py:86  self._start_watch = self._start_watch_0_x
         Self {
             watches: Mutex::new(HashSet::new()),
         }
@@ -155,7 +186,18 @@ impl UvWatcher {
     /// Registers `path` as a watch target. Does nothing if the path
     /// is already watched.
     pub fn watch(&self, path: &str) {
-        // py:103-112  with lock: if not watched: start_watch
+        // py:101  def watch(self, path):
+        // py:102  path = normpath(path, self.fenc)
+        // py:103  with self.lock:
+        // py:104  if path not in self.watches:
+        // py:105  try:
+        // py:106  self._start_watch(path)
+        // py:107  except pyuv.error.FSEventError as e:
+        // py:108  code = e.args[0]
+        // py:109  if code == pyuv.errno.UV_ENOENT:
+        // py:110  raise OSError(ENOENT, 'No such file or directory: ' + path)
+        // py:111  else:
+        // py:112  raise
         let normalized = normpath(path);
         let mut watches = self.watches.lock().unwrap_or_else(|e| e.into_inner());
         watches.insert(normalized);
@@ -164,7 +206,14 @@ impl UvWatcher {
     /// Port of `UvWatcher.unwatch()` from
     /// `powerline/lib/watcher/uv.py:114`.
     pub fn unwatch(&self, path: &str) {
-        // py:115-121  with lock: pop watches[path]; watch.close
+        // py:114  def unwatch(self, path):
+        // py:115  path = normpath(path, self.fenc)
+        // py:116  with self.lock:
+        // py:117  try:
+        // py:118  watch = self.watches.pop(path)
+        // py:119  except KeyError:
+        // py:120  return
+        // py:121  watch.close(partial(self._stopped_watching, path))
         let normalized = normpath(path);
         let mut watches = self.watches.lock().unwrap_or_else(|e| e.into_inner());
         watches.remove(&normalized);
@@ -173,7 +222,9 @@ impl UvWatcher {
     /// Port of `UvWatcher.is_watching()` from
     /// `powerline/lib/watcher/uv.py:123`.
     pub fn is_watching(&self, path: &str) -> bool {
-        // py:124-125  return path in self.watches
+        // py:123  def is_watching(self, path):
+        // py:124  with self.lock:
+        // py:125  return normpath(path, self.fenc) in self.watches
         let normalized = normpath(path);
         let watches = self.watches.lock().unwrap_or_else(|e| e.into_inner());
         watches.contains(&normalized)
@@ -212,7 +263,12 @@ impl UvFileWatcherEvents {
     /// Port of `UvFileWatcher._record_event()` from
     /// `powerline/lib/watcher/uv.py:142`.
     pub fn record_event(&self, path: &str, events_mask: u32) {
-        // py:143-145  self.events[path].append(events)
+        // py:144  def _record_event(self, path, fsevent_handle, filename, events, error):
+        // py:145  with self.lock:
+        // py:146  self.events[path].append(events)
+        // py:147  if events | pyuv.fs.UV_RENAME:
+        // py:148  if not os.path.exists(path):
+        // py:149  self.watches.pop(path).close()
         let mut events = self.events.lock().unwrap_or_else(|e| e.into_inner());
         events
             .entry(path.to_string())
@@ -225,7 +281,16 @@ impl UvFileWatcherEvents {
     ///
     /// Returns `true` if the path has events queued.
     pub fn check(&self, path: &str) -> bool {
-        // py:155-159  events = self.events.pop(path, None); return bool(events)
+        // py:154  def __call__(self, path):
+        // py:155  path = normpath(path, self.fenc)
+        // py:156  with self.lock:
+        // py:157  events = self.events.pop(path, None)
+        // py:158  if events:
+        // py:159  return True
+        // py:160  if path not in self.watches:
+        // py:161  self.watch(path)
+        // py:162  return True
+        // py:163  return False
         let normalized = normpath(path);
         let mut events = self.events.lock().unwrap_or_else(|e| e.into_inner());
         let queued = events.remove(&normalized);
@@ -327,7 +392,8 @@ impl UvTreeWatcherEvents {
     /// since the live tree state isn't reachable. Returns the new
     /// modified state.
     pub fn record_event(&self, path: &str, name: &str, events_mask: u32) -> bool {
-        // py:190  if not self.ignore_event(path, filename)
+        // py:189  def _record_event(self, path, fsevent_handle, filename, events, error):
+        // py:190  if not self.ignore_event(path, filename):
         let ignored = self
             .ignored_events
             .lock()
@@ -340,6 +406,19 @@ impl UvTreeWatcherEvents {
         drop(ignored);
         let _ = events_mask;
         // py:191  self.modified = True
+        // py:192  if events == pyuv.fs.UV_CHANGE | pyuv.fs.UV_RENAME:
+        // py:193  # Stat changes to watched directory are UV_CHANGE|UV_RENAME. It
+        // py:194  # is weird.
+        // py:195  pass
+        // py:196  elif events | pyuv.fs.UV_RENAME:
+        // py:197  if not os.path.isdir(path):
+        // py:198  self.unwatch(path)
+        // py:199  else:
+        // py:200  full_name = os.path.join(path, filename)
+        // py:201  if os.path.isdir(full_name):
+        // py:202  # For some reason mkdir and rmdir both fall into this
+        // py:203  # category
+        // py:204  self.watch_directory(full_name)
         let mut m = self.modified.lock().unwrap_or_else(|e| e.into_inner());
         *m = true;
         true
@@ -352,7 +431,8 @@ impl UvTreeWatcherEvents {
     /// resets to `false` per py:207 (`__dict__.pop('modified',
     /// False)`).
     pub fn check(&self) -> bool {
-        // py:207  self.__dict__.pop('modified', False)
+        // py:206  def __call__(self):
+        // py:207  return self.__dict__.pop('modified', False)
         let mut m = self.modified.lock().unwrap_or_else(|e| e.into_inner());
         let prev = *m;
         *m = false;
