@@ -258,10 +258,14 @@ impl Spec {
     /// `powerline/lint/spec.py:374`.
     pub fn printable(mut self) -> Self {
         // py:374  def printable(self, *args):
-        // py:375  '''Describe value as being printable
-        // py:376  ...
-        // py:377  self.checks.append(self.check_printable)
+        // py:375  self.type(unicode)
+        //   Pin the type to unicode/str AND set printable_flag so the
+        //   check-dispatch sees both constraints. Mirrors Python's
+        //   self.type(unicode) chain before appending check_printable.
+        self.allowed_types.push(SpecType::Unicode);
+        // py:376  self.checks.append(('check_printable', args))
         self.printable_flag = true;
+        // py:377  return self
         self
     }
 
@@ -269,11 +273,20 @@ impl Spec {
     /// `powerline/lint/spec.py:471`.
     pub fn unsigned(mut self) -> Self {
         // py:471  def unsigned(self, msg_func=None):
-        // py:472  '''Describe value as unsigned number
-        // py:473  ...
-        // py:485  self.type(int).cmp('>=', 0)
-        // py:486  return self
+        // py:478  self.type(int)
+        //   Pin type to numeric (SpecType::Float covers Python int+float).
+        self.allowed_types.push(SpecType::Float);
+        // py:479-483  self.checks.append((
+        //   'check_func',
+        //   (lambda value, *args: (True, True, value < 0)),
+        //   (lambda value: '{0} must be greater then zero'.format(value))
+        // ))
+        //   Pin the cmp constraint to >= 0 so callers can enforce the
+        //   "value < 0" rejection AND mark via unsigned_flag for any
+        //   message-emitting dispatch.
+        self.cmp_constraint = Some((Cmp::Ge, 0.0));
         self.unsigned_flag = true;
+        // py:486  return self
         self
     }
 
