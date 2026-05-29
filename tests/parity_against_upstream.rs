@@ -1483,3 +1483,99 @@ fn parity_players_convert_seconds() {
         );
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/dict.py — mergedicts_copy + updated
+// (mergedicts + mergedefaults + mergeargs already covered earlier)
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_mergedicts_copy_does_not_mutate_inputs() {
+    if !python_available() {
+        return;
+    }
+    // Pick a case where d2 wins on a collision AND a nested dict gets
+    // recursively merged.
+    let expr = "\
+        import json; \
+        mod = __import__('powerline.lib.dict', fromlist=['mergedicts_copy']); \
+        d1 = {'a': 1, 'nested': {'x': 1, 'y': 2}}; \
+        d2 = {'b': 2, 'nested': {'y': 99, 'z': 3}}; \
+        r = mod.mergedicts_copy(d1, d2); \
+        print(json.dumps(r, sort_keys=True), end='')";
+    let py = match py_eval(expr) {
+        Some(v) => v,
+        None => return,
+    };
+
+    use serde_json::json;
+    let d1 = serde_json::json!({"a": 1, "nested": {"x": 1, "y": 2}})
+        .as_object()
+        .unwrap()
+        .clone();
+    let d2 = json!({"b": 2, "nested": {"y": 99, "z": 3}})
+        .as_object()
+        .unwrap()
+        .clone();
+    let r = powerliners::lib::dict::mergedicts_copy(&d1, d2);
+    // Sort the Rust output the same way Python's sort_keys=True does for stable comparison.
+    let rs = serde_json::to_string(&{
+        let mut sorted = std::collections::BTreeMap::new();
+        for (k, v) in &r {
+            sorted.insert(k.clone(), v.clone());
+        }
+        sorted
+    })
+    .unwrap();
+    // Python's json.dumps adds spaces after commas and colons by default;
+    // serde_json::to_string is compact. Normalize both to compact form.
+    let py_compact = py.replace(", ", ",").replace(": ", ":");
+    assert_eq!(
+        rs, py_compact,
+        "mergedicts_copy mismatch:\n  py: {}\n  rs: {}",
+        py_compact, rs
+    );
+}
+
+#[test]
+fn parity_updated_merges_and_copies() {
+    if !python_available() {
+        return;
+    }
+    // Verify updated(d, kwargs) returns the merged copy with d2 keys
+    // winning and d itself untouched.
+    let expr = "\
+        import json; \
+        mod = __import__('powerline.lib.dict', fromlist=['updated']); \
+        d = {'a': 1, 'b': 2}; \
+        r = mod.updated(d, c=3, b=99); \
+        print(json.dumps(r, sort_keys=True), end='')";
+    let py = match py_eval(expr) {
+        Some(v) => v,
+        None => return,
+    };
+
+    let d = serde_json::json!({"a": 1, "b": 2})
+        .as_object()
+        .unwrap()
+        .clone();
+    let updates: Vec<(String, serde_json::Value)> = vec![
+        ("c".to_string(), serde_json::Value::from(3)),
+        ("b".to_string(), serde_json::Value::from(99)),
+    ];
+    let r = powerliners::lib::dict::updated(&d, updates);
+    let rs = serde_json::to_string(&{
+        let mut sorted = std::collections::BTreeMap::new();
+        for (k, v) in &r {
+            sorted.insert(k.clone(), v.clone());
+        }
+        sorted
+    })
+    .unwrap();
+    let py_compact = py.replace(", ", ",").replace(": ", ":");
+    assert_eq!(
+        rs, py_compact,
+        "updated mismatch:\n  py: {}\n  rs: {}",
+        py_compact, rs
+    );
+}
