@@ -1537,6 +1537,92 @@ fn parity_mergedicts_copy_does_not_mutate_inputs() {
     );
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// lib/unicode.py — surrogate_pair_to_character
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_surrogate_pair_to_character() {
+    if !python_available() {
+        return;
+    }
+    // Surrogate pairs encoding codepoints from the supplementary planes.
+    // Each tuple: (high, low) → expected unicode codepoint.
+    // E.g. 0xD83D 0xDE00 → 0x1F600 (😀 grinning face)
+    //      0xD83D 0xDCA9 → 0x1F4A9 (💩 pile of poo)
+    //      0xD834 0xDD1E → 0x1D11E (𝄞 musical symbol G clef)
+    let cases: &[(u32, u32)] = &[
+        (0xD83D, 0xDE00),
+        (0xD83D, 0xDCA9),
+        (0xD834, 0xDD1E),
+        (0xD800, 0xDC00), // boundary: lowest surrogate pair → 0x10000
+        (0xDBFF, 0xDFFF), // boundary: highest surrogate pair → 0x10FFFF
+    ];
+    for &(high, low) in cases {
+        let expr = format!(
+            "__import__('powerline.lib.unicode', fromlist=['surrogate_pair_to_character']).surrogate_pair_to_character({}, {})",
+            high, low
+        );
+        let py = match py_eval(&expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_cp: u32 = py.parse().expect("Python returned non-int codepoint");
+        let rs = powerliners::lib::unicode::surrogate_pair_to_character(high, low);
+        assert_eq!(
+            py_cp, rs,
+            "surrogate_pair_to_character(0x{:04X}, 0x{:04X}) mismatch: py=0x{:X}, rs=0x{:X}",
+            high, low, py_cp, rs
+        );
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// bindings/tmux/__init__.py — NON_DIGITS / DIGITS / NON_LETTERS regex patterns
+// (verify pattern strings match upstream regex sources)
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_tmux_regex_pattern_strings() {
+    if !python_available() {
+        return;
+    }
+    let cases = [
+        ("NON_DIGITS", "[^0-9]+"),
+        ("DIGITS", "[0-9]+"),
+        ("NON_LETTERS", "[^a-z]+"),
+    ];
+    for (name, expected) in cases {
+        let expr = format!(
+            "__import__('powerline.bindings.tmux', fromlist=['{}']).{}.pattern",
+            name, name
+        );
+        let py = match py_eval(&expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(
+            py, expected,
+            "tmux {}.pattern mismatch: py={:?}, expected={:?}",
+            name, py, expected
+        );
+    }
+    // Cross-check Rust regex compilation accepts identical inputs by
+    // exercising them against known strings.
+    let non_digits = powerliners::ported::bindings::tmux::NON_DIGITS();
+    let digits = powerliners::ported::bindings::tmux::DIGITS();
+    assert_eq!(
+        non_digits.replace_all("2.3a", "").into_owned(),
+        "23",
+        "Rust NON_DIGITS stripped output mismatch"
+    );
+    assert_eq!(
+        digits.replace_all("2.3a", "").into_owned(),
+        ".a",
+        "Rust DIGITS stripped output mismatch"
+    );
+}
+
 #[test]
 fn parity_updated_merges_and_copies() {
     if !python_available() {
