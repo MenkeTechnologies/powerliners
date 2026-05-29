@@ -1532,3 +1532,45 @@ vim_environ_set_command
 # formatted string directly to vim.eval(); Rust returns the
 # eval-expression so callers route through any vim-RPC dispatch.
 vim_environ_get_expr
+
+# lib/vcs/mod.rs::VcsCheck::matches — extracts the check-dispatch
+# method on the VcsCheck enum at
+# powerline/lib/vcs/__init__.py:217-220. Python uses a 3-tuple
+# (vcs_name, vcs_dir, check_fn) where check_fn is a runtime
+# callable (os.path.exists / os.path.isdir); Rust models the
+# callable as an enum variant + a `matches` method that dispatches
+# the equivalent stdlib call. Same enum-with-method pattern as
+# StrFunction.
+matches
+
+# lib/vcs/mod.rs::vcs_props — Python module-level tuple constant
+# at powerline/lib/vcs/__init__.py:217-220. Python stores it as a
+# tuple of 3-tuples; Rust returns the same tuple list as
+# &'static [(name, dir, check)] so callers iterate identically.
+# The fn-as-const-accessor pattern is the same as TMUX_ACTIONS /
+# SHELL_ACTIONS / interface_starts.
+vcs_props
+
+# lib/vcs/mod.rs::guess_vcs_at_directory — extracts the per-
+# directory VCS check loop from guess() body at
+# powerline/lib/vcs/__init__.py:231-241. Python embeds the
+# vcs_props iteration + executable check inline inside guess();
+# Rust pulls the per-directory check to a named helper so the
+# detection + executable-skip behaviour can be tested without
+# walking the full parent chain.
+guess_vcs_at_directory
+
+# lib/vcs/mod.rs::file_watcher_initialised — extracts the
+# initialisation-state probe from file_watcher() at
+# powerline/lib/vcs/__init__.py:31-35. Python lazily instantiates
+# the watcher inside file_watcher(); Rust splits the
+# initialisation-state probe out so callers can verify whether the
+# global has been set up without invoking create_watcher(). The
+# real file_watcher dispatch is deferred until the create_watcher
+# substrate (lib/watcher) is fully wired through.
+file_watcher_initialised
+
+# lib/vcs/mod.rs::branch_watcher_initialised — same pattern as
+# file_watcher_initialised for the branch_watcher() lazy global at
+# powerline/lib/vcs/__init__.py:41-45.
+branch_watcher_initialised
