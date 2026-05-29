@@ -2192,6 +2192,60 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_marked_error_message_is_format_error_output() {
+    if !python_available() {
+        return;
+    }
+    // MarkedError.__init__ — py:189-190:
+    //   Exception.__init__(self, format_error(context, ctx_mark, problem, prob_mark, note))
+    // str(err) → that formatted output.
+    //
+    // Verify Rust's MarkedError.message matches str(err) byte-for-byte.
+    let buffer = "hello";
+    let py_expr = format!(
+        "str(__import__('powerline.lint.markedjson.error', fromlist=['MarkedError']).MarkedError('Context!', __import__('powerline.lint.markedjson.error', fromlist=['Mark']).Mark('cfg', 5, 10, {buf:?}, 0), 'Problem!', __import__('powerline.lint.markedjson.error', fromlist=['Mark']).Mark('cfg', 5, 10, {buf:?}, 0)))",
+        buf = buffer
+    );
+    let py = match py_eval(&py_expr) {
+        Some(v) => v,
+        None => return,
+    };
+
+    let m = powerliners::lint::markedjson::error::RichMark::new(
+        "cfg",
+        5,
+        10,
+        Some(buffer.chars().collect()),
+        0,
+    );
+    let m2 = powerliners::lint::markedjson::error::RichMark::new(
+        "cfg",
+        5,
+        10,
+        Some(buffer.chars().collect()),
+        0,
+    );
+    let err = powerliners::lint::markedjson::error::MarkedError::new(
+        Some("Context!"),
+        Some(&m),
+        Some("Problem!"),
+        Some(&m2),
+        None,
+    );
+    assert_eq!(
+        py.as_str(),
+        &err.message,
+        "MarkedError.message parity mismatch"
+    );
+    // Verify Display impl matches message.
+    assert_eq!(
+        format!("{}", err),
+        err.message,
+        "Rust MarkedError Display must equal stored message"
+    );
+}
+
+#[test]
 fn parity_delayed_echoerr_echo_all_full_dispatch_sequence() {
     if !python_available() {
         return;
