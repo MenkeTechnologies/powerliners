@@ -2192,6 +2192,59 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_marked_error_subclasses_inherit_format() {
+    if !python_available() {
+        return;
+    }
+    // ParserError / ComposerError / ScannerError all inherit from
+    // MarkedError. Their str() output is the format_error string —
+    // verify all 3 subclasses produce identical message for the same
+    // (context, problem) args. Rust ports wrap MarkedError as the
+    // single field.
+    let cases: &[&str] = &["ParserError", "ComposerError", "ScannerError"];
+    for cls in cases {
+        let module = match *cls {
+            "ParserError" => "powerline.lint.markedjson.parser",
+            "ComposerError" => "powerline.lint.markedjson.composer",
+            "ScannerError" => "powerline.lint.markedjson.scanner",
+            _ => unreachable!(),
+        };
+        let py_expr = format!(
+            "str(__import__({mod:?}, fromlist=[{cls:?}]).{cls}('Outer context', None, 'inner problem', None))",
+            mod = module, cls = cls
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(
+            py.as_str(),
+            "Outer context\ninner problem",
+            "Python {} str() drift",
+            cls
+        );
+    }
+
+    // Rust side — each error wraps a MarkedError that uses the same
+    // format_error path. Verify just the Parser variant since they
+    // all share the inner shape.
+    let me = powerliners::lint::markedjson::error::MarkedError::new(
+        Some("Outer context"),
+        None,
+        Some("inner problem"),
+        None,
+        None,
+    );
+    assert_eq!(me.message, "Outer context\ninner problem");
+    let pe = powerliners::lint::markedjson::parser::ParserError(me);
+    assert_eq!(
+        format!("{}", pe),
+        "Outer context\ninner problem",
+        "Rust ParserError Display must equal format_error string"
+    );
+}
+
+#[test]
 fn parity_markedjson_collection_node_flow_style_3_variants() {
     if !python_available() {
         return;
