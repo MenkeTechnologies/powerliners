@@ -23,6 +23,9 @@ impl I3barRenderer {
     ///
     /// We don't need to explicitly reset attributes, so skip those calls.
     pub fn hlstyle() -> &'static str {
+        // py:15  @staticmethod
+        // py:16  def hlstyle(*args, **kwargs):
+        // py:17  # We don't need to explicitly reset attributes, so skip those calls
         // py:18  return ''
         ""
     }
@@ -35,21 +38,30 @@ impl I3barRenderer {
     /// py:33 — the trailing comma is part of i3bar's array-of-objects
     /// streaming format.
     pub fn hl(contents: &str, fg: Option<(i32, i64)>, bg: Option<(i32, i64)>) -> String {
-        // py:21-25  segment = {full_text, separator: False, separator_block_width: 0}
+        // py:20  def hl(self, contents, fg=None, bg=None, attrs=None, **kwargs):
+        // py:21  segment = {
+        // py:22  'full_text': contents,
+        // py:23  'separator': False,
+        // py:24  'separator_block_width': 0,  # no separators
+        // py:25  }
         let mut segment = Map::new();
         segment.insert("full_text".to_string(), Value::String(contents.to_string()));
         segment.insert("separator".to_string(), Value::Bool(false));
         segment.insert("separator_block_width".to_string(), Value::from(0));
 
-        // py:27-29  fg dispatch
+        // py:27  if fg is not None:
         if let Some((_, hex)) = fg {
+            // py:28  if fg is not False and fg[1] is not False:
             if hex >= 0 {
+                // py:29  segment['color'] = '#{0:06x}'.format(fg[1])
                 segment.insert("color".to_string(), Value::String(format!("#{:06x}", hex)));
             }
         }
-        // py:30-32  bg dispatch
+        // py:30  if bg is not None:
         if let Some((_, hex)) = bg {
+            // py:31  if bg is not False and bg[1] is not False:
             if hex >= 0 {
+                // py:32  segment['background'] = '#{0:06x}'.format(bg[1])
                 segment.insert(
                     "background".to_string(),
                     Value::String(format!("#{:06x}", hex)),
