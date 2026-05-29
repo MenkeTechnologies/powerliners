@@ -2192,6 +2192,54 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_scalar_node_state_preserved() {
+    if !python_available() {
+        return;
+    }
+    // ScalarNode(tag, value, start_mark=None, end_mark=None, style=None)
+    // py:33-38: stores all 5 ctor args.
+    let cases: &[(&str, &str, Option<char>)] = &[
+        ("!str", "hello", None),
+        ("tag:yaml.org,2002:int", "42", None),
+        ("!str", "literal", Some('|')),
+        ("tag:yaml.org,2002:str", "folded", Some('>')),
+    ];
+    for (tag, value, style) in cases {
+        let style_py = style
+            .map(|c| format!("{:?}", c.to_string()))
+            .unwrap_or_else(|| "None".to_string());
+        let py_expr = format!(
+            "(lambda n: __import__('json').dumps([n.tag, n.value, n.style, n.id]))(__import__('powerline.lint.markedjson.nodes', fromlist=['ScalarNode']).ScalarNode({tag:?}, {val:?}, None, None, {sty}))",
+            tag = tag, val = value, sty = style_py
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let py_arr = py_value.as_array().expect("py array");
+        assert_eq!(py_arr[0].as_str(), Some(*tag), "Python tag drift");
+        assert_eq!(py_arr[1].as_str(), Some(*value), "Python value drift");
+        assert_eq!(py_arr[3].as_str(), Some("scalar"), "Python id drift");
+
+        let n = powerliners::lint::markedjson::nodes::ScalarNode::new(
+            *tag,
+            serde_json::Value::from(*value),
+            None,
+            None,
+            *style,
+        );
+        assert_eq!(n.node.tag, *tag);
+        assert_eq!(n.node.value.as_str(), Some(*value));
+        assert_eq!(n.style, *style);
+        assert_eq!(
+            powerliners::lint::markedjson::nodes::ScalarNode::ID,
+            "scalar"
+        );
+    }
+}
+
+#[test]
 fn parity_markedjson_node_class_ids_match_python() {
     if !python_available() {
         return;
