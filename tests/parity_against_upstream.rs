@@ -2192,6 +2192,50 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_spec_unsigned_chains_type_and_nonnegative_check() {
+    if !python_available() {
+        return;
+    }
+    // Spec.unsigned() — py:471-486:
+    //   self.type(int)
+    //   self.checks.append(('check_func', value<0, msg_func))
+    // Python observable: len(checks) == 2 (type + nonnegative).
+    // Rust observable:
+    //   allowed_types contains numeric SpecType::Float
+    //   cmp_constraint == Some((Ge, 0.0)) — encodes 'value >= 0'
+    //   unsigned_flag = true (Rust-specific marker)
+    let py = match py_eval(
+        "(lambda s: __import__('json').dumps([len(s.checks), s.did_type]))(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().unsigned())",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    assert_eq!(
+        py_value,
+        serde_json::json!([2, false]),
+        "Python Spec().unsigned fixture drift"
+    );
+
+    use powerliners::lint::spec::{Cmp, Spec, SpecType};
+    let s = Spec::default().unsigned();
+    assert!(
+        s.allowed_types.contains(&SpecType::Float),
+        "Rust unsigned() must add numeric type"
+    );
+    assert!(s.unsigned_flag, "Rust unsigned_flag must be set");
+    let (op, value) = s
+        .cmp_constraint
+        .expect("Rust unsigned() must set cmp_constraint to Ge(0)");
+    assert_eq!(op, Cmp::Ge);
+    assert!(
+        (value - 0.0).abs() < 1e-9,
+        "cmp_constraint value must be 0.0"
+    );
+    assert!(!s.did_type, "unsigned() does not set did_type");
+}
+
+#[test]
 fn parity_safe_unicode_str_passthrough() {
     if !python_available() {
         return;
