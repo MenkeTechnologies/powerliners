@@ -55,6 +55,7 @@ use std::sync::OnceLock;
 /// itself; the Rust port reads the whole file since the caller's
 /// usage is always `with open_file(path) as F: load(F)`.
 pub fn open_file(path: &std::path::Path) -> std::io::Result<Vec<u8>> {
+    // py:30  def open_file(path):
     // py:31  return open(path, 'rb')
     std::fs::read(path)
 }
@@ -65,6 +66,24 @@ pub fn open_file(path: &std::path::Path) -> std::io::Result<Vec<u8>> {
 /// Pattern: `^(\w+\.)*[a-zA-Z_]\w*$` — dotted Python identifier
 /// path, used for validating segment function references.
 pub fn function_name_re() -> &'static Regex {
+    // py:43  function_name_re = r'^(\w+\.)*[a-zA-Z_]\w*$'
+    // py:46  divider_spec = Spec().printable().len(
+    // py:47  'le', 3, (lambda value: 'Divider {0!r} is too large!'.format(value))).copy
+    // py:48  ext_theme_spec = Spec().type(unicode).func(lambda *args: check_config('themes', *args)).copy
+    // py:49  top_theme_spec = Spec().type(unicode).func(check_top_theme).copy
+    // py:50  ext_spec = Spec(
+    // py:51  colorscheme=Spec().type(unicode).func(
+    // py:52  (lambda *args: check_config('colorschemes', *args))
+    // py:53  ),
+    // py:54  theme=ext_theme_spec(),
+    // py:55  top_theme=top_theme_spec().optional(),
+    // py:56  ).copy
+    // py:57  gen_components_spec = (lambda *components: Spec().list(Spec().type(unicode).oneof(set(components))))
+    // py:58  log_level_spec = Spec().re('^[A-Z]+$').func(
+    // py:59  (lambda value, *args: (True, True, not hasattr(logging, value))),
+    // py:60  (lambda value: 'unknown debugging level {0}'.format(value))
+    // py:61  ).copy
+    // py:62  log_format_spec = Spec().type(unicode).copy
     static R: OnceLock<Regex> = OnceLock::new();
     R.get_or_init(|| Regex::new(r"^(\w+\.)*[a-zA-Z_]\w*$").unwrap())
 }
@@ -76,7 +95,8 @@ pub fn function_name_re() -> &'static Regex {
 /// alias is `player → powerline.segments.common.players._player`
 /// per py:322.
 pub fn register_common_names() {
-    // py:322  register_common_name('player', '..._player', '_player')
+    // py:321  def register_common_names():
+    // py:322  register_common_name('player', 'powerline.segments.common.players', '_player')
     register_common_name("player", "powerline.segments.common.players", "_player");
 }
 
@@ -100,8 +120,13 @@ pub struct LoadJsonResult {
 /// Loads the JSON file via the markedjson loader. Returns
 /// `(hadproblem, config, error)` matching the Python triple.
 pub fn load_json_file(path: &std::path::Path) -> LoadJsonResult {
-    // py:326-330  with open_file: try load; except MarkedError: return
-    // (true, None, str(e))
+    // py:325  def load_json_file(path):
+    // py:326  with open_file(path) as F:
+    // py:327  try:
+    // py:328  config, hadproblem = load(F)
+    // py:329  except MarkedError as e:
+    // py:330  return True, None, str(e)
+    // py:331  return hadproblem, config, None
     if !path.exists() {
         return LoadJsonResult {
             hadproblem: true,
@@ -109,7 +134,6 @@ pub fn load_json_file(path: &std::path::Path) -> LoadJsonResult {
             error: Some(format!("Path not found: {}", path.display())),
         };
     }
-    // py:328  config, hadproblem = load(F)
     let (config, hadproblem) = load(path);
     LoadJsonResult {
         hadproblem,
@@ -123,6 +147,14 @@ pub fn load_json_file(path: &std::path::Path) -> LoadJsonResult {
 ///
 /// Merges `load_json_file(d['path'])` result into `d` per py:337-341.
 pub fn updated_with_config(d: &mut Map<String, Value>) {
+    // py:335  def updated_with_config(d):
+    // py:336  hadproblem, config, error = load_json_file(d['path'])
+    // py:337  d.update(
+    // py:338  hadproblem=hadproblem,
+    // py:339  config=config,
+    // py:340  error=error,
+    // py:341  )
+    // py:342  return d
     let path = d
         .get("path")
         .and_then(|v| v.as_str())
@@ -132,7 +164,6 @@ pub fn updated_with_config(d: &mut Map<String, Value>) {
         None => return,
     };
     let r = load_json_file(&path);
-    // py:338-340  hadproblem / config / error
     d.insert("hadproblem".to_string(), Value::Bool(r.hadproblem));
     if let Some(cfg) = r.config {
         d.insert("config".to_string(), cfg);
@@ -150,9 +181,12 @@ pub fn updated_with_config(d: &mut Map<String, Value>) {
 /// dicts. Rust port returns a fresh Map of Maps since Rust doesn't
 /// have defaultdict.
 pub fn dict2(d: &Map<String, Value>) -> Map<String, Value> {
+    // py:389  def dict2(d):
+    // py:390  return defaultdict(dict, (
+    // py:391  (k, dict(v)) for k, v in d.items()
+    // py:392  ))
     let mut out = Map::new();
     for (k, v) in d {
-        // py:391  dict(v) — shallow copy
         if let Some(inner) = v.as_object() {
             out.insert(k.clone(), Value::Object(inner.clone()));
         } else {
@@ -184,16 +218,20 @@ pub fn strip_json_suffix(name: &str) -> String {
 pub fn generate_json_config_loader(
     lhadproblem: std::sync::Arc<std::sync::Mutex<bool>>,
 ) -> Box<dyn Fn(&std::path::Path) -> Option<Value>> {
-    // py:35  def load_json_config(config_file_path, load=load, open_file=open_file)
+    // py:34  def generate_json_config_loader(lhadproblem):
+    // py:35  def load_json_config(config_file_path, load=load, open_file=open_file):
+    // py:36  with open_file(config_file_path) as config_file_fp:
+    // py:37  r, hadproblem = load(config_file_fp)
+    // py:38  if hadproblem:
+    // py:39  lhadproblem[0] = True
+    // py:40  return r
+    // py:41  return load_json_config
     Box::new(move |config_file_path: &std::path::Path| -> Option<Value> {
-        // py:36-37  with open_file(...) as fp: r, hadproblem = load(fp)
         let (r, hadproblem) = load(config_file_path);
-        // py:38-39  if hadproblem: lhadproblem[0] = True
         if hadproblem {
             let mut flag = lhadproblem.lock().unwrap_or_else(|e| e.into_inner());
             *flag = true;
         }
-        // py:40  return r
         r
     })
 }
@@ -228,12 +266,51 @@ pub fn find_all_ext_config_files(
     search_paths: &[std::path::PathBuf],
     subdir: &str,
 ) -> Vec<ExtConfigEntry> {
+    // py:344  def find_all_ext_config_files(search_paths, subdir):
+    // py:345  for config_root in search_paths:
+    // py:346  top_config_subpath = join(config_root, subdir)
+    // py:347  if not os.path.isdir(top_config_subpath):
+    // py:348  if os.path.exists(top_config_subpath):
+    // py:349  yield {
+    // py:350  'error': 'Path {0} is not a directory'.format(top_config_subpath),
+    // py:351  'path': top_config_subpath,
+    // py:352  }
+    // py:353  continue
+    // py:354  for ext_name in sorted(os.listdir(top_config_subpath)):
+    // py:355  ext_path = join(top_config_subpath, ext_name)
+    // py:356  if not os.path.isdir(ext_path):
+    // py:357  if ext_name.endswith('.json') and os.path.isfile(ext_path):
+    // py:358  yield {
+    // py:359  'error': None,
+    // py:360  'path': ext_path,
+    // py:361  'name': ext_name[:-5],
+    // py:362  'ext': None,
+    // py:363  'type': 'top_' + subdir,
+    // py:364  }
+    // py:365  else:
+    // py:366  yield {
+    // py:367  'error': 'Path {0} is not a directory or configuration file'.format(ext_path),
+    // py:368  'path': ext_path,
+    // py:369  }
+    // py:370  continue
+    // py:371  for config_file_name in sorted(os.listdir(ext_path)):
+    // py:372  config_file_path = join(ext_path, config_file_name)
+    // py:373  if config_file_name.endswith('.json') and os.path.isfile(config_file_path):
+    // py:374  yield {
+    // py:375  'error': None,
+    // py:376  'path': config_file_path,
+    // py:377  'name': config_file_name[:-5],
+    // py:378  'ext': ext_name,
+    // py:379  'type': subdir,
+    // py:380  }
+    // py:381  else:
+    // py:382  yield {
+    // py:383  'error': 'Path {0} is not a configuration file'.format(config_file_path),
+    // py:384  'path': config_file_path,
+    // py:385  }
     let mut out: Vec<ExtConfigEntry> = Vec::new();
-    // py:346  for config_root in search_paths
     for config_root in search_paths {
-        // py:347  top_config_subpath = join(config_root, subdir)
         let top_config_subpath = config_root.join(subdir);
-        // py:348-354  if not isdir: maybe-error-or-continue
         if !top_config_subpath.is_dir() {
             if top_config_subpath.exists() {
                 out.push(ExtConfigEntry {
@@ -247,10 +324,8 @@ pub fn find_all_ext_config_files(
                     kind: None,
                 });
             }
-            // py:354  continue
             continue;
         }
-        // py:355  for ext_name in os.listdir(top_config_subpath)
         let entries = match std::fs::read_dir(&top_config_subpath) {
             Ok(e) => e,
             Err(_) => continue,
@@ -261,10 +336,8 @@ pub fn find_all_ext_config_files(
                 Err(_) => continue,
             };
             let ext_path = entry.path();
-            // py:357-371  if not isdir: top-level config or error entry
             if !ext_path.is_dir() {
                 if ext_name.ends_with(".json") && ext_path.is_file() {
-                    // py:359-365  yield top_subdir entry
                     out.push(ExtConfigEntry {
                         error: None,
                         path: ext_path.clone(),
@@ -273,7 +346,6 @@ pub fn find_all_ext_config_files(
                         kind: Some(format!("top_{}", subdir)),
                     });
                 } else {
-                    // py:367-370  yield directory/file-shape error
                     out.push(ExtConfigEntry {
                         error: Some(format!(
                             "Path {} is not a directory or configuration file",
@@ -287,7 +359,6 @@ pub fn find_all_ext_config_files(
                 }
                 continue;
             }
-            // py:372  for config_file_name in os.listdir(ext_path)
             let inner = match std::fs::read_dir(&ext_path) {
                 Ok(e) => e,
                 Err(_) => continue,
@@ -324,6 +395,214 @@ pub fn find_all_ext_config_files(
         }
     }
     out
+}
+
+/// Port of `check()` from `powerline/lint/__init__.py:393`.
+///
+/// **Status:** stub. The full check pipeline requires the entire
+/// powerliners lint Spec DSL, ConfigLoader, themes/colorschemes
+/// dispatch, etc. Returns `false` (no problems) as a baseline.
+/// The Python body trace below records the algorithmic contract.
+pub fn check() -> bool {
+    // py:393  def check(paths=None, debug=False, echoerr=echoerr, require_ext=None):
+    // py:394  '''Check configuration sanity
+    // py:395-411  docstring
+    // py:412  hadproblem = False
+    // py:414  register_common_names()
+    // py:415  search_paths = paths or get_config_paths()
+    // py:416  find_config_files = generate_config_finder(lambda: search_paths)
+    // py:418  logger = logging.getLogger('powerline-lint')
+    // py:419  logger.setLevel(logging.DEBUG if debug else logging.ERROR)
+    // py:420  logger.addHandler(logging.StreamHandler())
+    // py:422  ee = EchoErr(echoerr, logger)
+    // py:424  if require_ext:
+    // py:425  used_main_spec = main_spec.copy()
+    // py:426  try:
+    // py:427  used_main_spec['ext'][require_ext].required()
+    // py:428  except KeyError:
+    // py:429  used_main_spec['ext'][require_ext] = ext_spec()
+    // py:430  else:
+    // py:431  used_main_spec = main_spec
+    // py:433  lhadproblem = [False]
+    // py:434  load_json_config = generate_json_config_loader(lhadproblem)
+    // py:436  config_loader = ConfigLoader(run_once=True, load=load_json_config)
+    // py:438  lists = {
+    // py:439  'colorschemes': set(),
+    // py:440  'themes': set(),
+    // py:441  'exts': set(),
+    // py:442  }
+    // py:443  found_dir = {
+    // py:444  'themes': False,
+    // py:445  'colorschemes': False,
+    // py:446  }
+    // py:447  config_paths = defaultdict(lambda: defaultdict(dict))
+    // py:448  loaded_configs = defaultdict(lambda: defaultdict(dict))
+    // py:449  for d in chain(
+    // py:450  find_all_ext_config_files(search_paths, 'colorschemes'),
+    // py:451  find_all_ext_config_files(search_paths, 'themes'),
+    // py:452  ):
+    // py:453  if d['error']:
+    // py:454  hadproblem = True
+    // py:455  ee(problem=d['error'])
+    // py:456  continue
+    // py:457  if d['hadproblem']:
+    // py:458  hadproblem = True
+    // py:459  if d['ext']:
+    // py:460  found_dir[d['type']] = True
+    // py:461  lists['exts'].add(d['ext'])
+    // py:462  if d['name'] == '__main__':
+    // py:463  pass
+    // py:464  elif d['name'].startswith('__') or d['name'].endswith('__'):
+    // py:465  hadproblem = True
+    // py:466  ee(problem='File name is not supposed to start or end with "__": {0}'.format(
+    // py:467  d['path']))
+    // py:468  else:
+    // py:469  lists[d['type']].add(d['name'])
+    // py:470  config_paths[d['type']][d['ext']][d['name']] = d['path']
+    // py:471  loaded_configs[d['type']][d['ext']][d['name']] = d['config']
+    // py:472  else:
+    // py:473  config_paths[d['type']][d['name']] = d['path']
+    // py:474  loaded_configs[d['type']][d['name']] = d['config']
+    // py:476  for typ in ('themes', 'colorschemes'):
+    // py:477  if not found_dir[typ]:
+    // py:478  hadproblem = True
+    // py:479  ee(problem='Subdirectory {0} was not found in paths {1}'.format(typ, ', '.join(search_paths)))
+    // py:481  diff = set(config_paths['colorschemes']) - set(config_paths['themes'])
+    // py:482  if diff:
+    // py:483  hadproblem = True
+    // py:484  for ext in diff:
+    // py:485  typ = 'colorschemes' if ext in config_paths['themes'] else 'themes'
+    // py:486  if not config_paths['top_' + typ] or typ == 'themes':
+    // py:487  ee(problem='{0} extension {1} not present in {2}'.format(
+    // py:488  ext,
+    // py:489  'configuration' if (
+    // py:490  ext in loaded_configs['themes'] and ext in loaded_configs['colorschemes']
+    // py:491  ) else 'directory',
+    // py:492  typ,
+    // py:493  ))
+    // py:495  try:
+    // py:496  main_config = load_config('config', find_config_files, config_loader)
+    // py:497  except IOError:
+    // py:498  main_config = {}
+    // py:499  ee(problem='Configuration file not found: config.json')
+    // py:500  hadproblem = True
+    // py:501  except MarkedError as e:
+    // py:502  main_config = {}
+    // py:503  ee(problem=str(e))
+    // py:504  hadproblem = True
+    // py:505  else:
+    // py:506  if used_main_spec.match(
+    // py:507  main_config,
+    // py:508  data={'configs': config_paths, 'lists': lists},
+    // py:509  context=Context(main_config),
+    // py:510  echoerr=ee
+    // py:511  )[1]:
+    // py:512  hadproblem = True
+    // py:514  import_paths = [os.path.expanduser(path) for path in main_config.get('common', {}).get('paths', [])]
+    // py:516  try:
+    // py:517  colors_config = load_config('colors', find_config_files, config_loader)
+    // py:518  except IOError:
+    // py:519  colors_config = {}
+    // py:520  ee(problem='Configuration file not found: colors.json')
+    // py:521  hadproblem = True
+    // py:522  except MarkedError as e:
+    // py:523  colors_config = {}
+    // py:524  ee(problem=str(e))
+    // py:525  hadproblem = True
+    // py:526  else:
+    // py:527  if colors_spec.match(colors_config, context=Context(colors_config), echoerr=ee)[1]:
+    // py:528  hadproblem = True
+    // py:530  if lhadproblem[0]:
+    // py:531  hadproblem = True
+    // py:533  top_colorscheme_configs = dict(loaded_configs['top_colorschemes'])
+    // py:534  data = {
+    // py:535  'ext': None,
+    // py:536  'top_colorscheme_configs': top_colorscheme_configs,
+    // py:537  'ext_colorscheme_configs': {},
+    // py:538  'colors_config': colors_config
+    // py:539  }
+    // py:540  for colorscheme, config in loaded_configs['top_colorschemes'].items():
+    // py:541  data['colorscheme'] = colorscheme
+    // py:542  if top_colorscheme_spec.match(config, context=Context(config), data=data, echoerr=ee)[1]:
+    // py:543  hadproblem = True
+    // py:545  ext_colorscheme_configs = dict2(loaded_configs['colorschemes'])
+    // py:546  for ext, econfigs in ext_colorscheme_configs.items():
+    // py:547  data = {
+    // py:548  'ext': ext,
+    // py:549  'top_colorscheme_configs': top_colorscheme_configs,
+    // py:550  'ext_colorscheme_configs': ext_colorscheme_configs,
+    // py:551  'colors_config': colors_config,
+    // py:552  }
+    // py:553  for colorscheme, config in econfigs.items():
+    // py:554  data['colorscheme'] = colorscheme
+    // py:555  if ext == 'vim':
+    // py:556  spec = vim_colorscheme_spec
+    // py:557  elif ext == 'shell':
+    // py:558  spec = shell_colorscheme_spec
+    // py:559  else:
+    // py:560  spec = colorscheme_spec
+    // py:561  if spec.match(config, context=Context(config), data=data, echoerr=ee)[1]:
+    // py:562  hadproblem = True
+    // py:564  colorscheme_configs = {}
+    // py:565  for ext in lists['exts']:
+    // py:566  colorscheme_configs[ext] = {}
+    // py:567  for colorscheme in lists['colorschemes']:
+    // py:568  econfigs = ext_colorscheme_configs[ext]
+    // py:569  ecconfigs = econfigs.get(colorscheme)
+    // py:570  mconfigs = (
+    // py:571  top_colorscheme_configs.get(colorscheme),
+    // py:572  econfigs.get('__main__'),
+    // py:573  ecconfigs,
+    // py:574  )
+    // py:575  if not (mconfigs[0] or mconfigs[2]):
+    // py:576  continue
+    // py:577  config = None
+    // py:578  for mconfig in mconfigs:
+    // py:579  if not mconfig:
+    // py:580  continue
+    // py:581  if config:
+    // py:582  config = mergedicts_copy(config, mconfig)
+    // py:583  else:
+    // py:584  config = mconfig
+    // py:585  colorscheme_configs[ext][colorscheme] = config
+    // py:587  theme_configs = dict2(loaded_configs['themes'])
+    // py:588  top_theme_configs = dict(loaded_configs['top_themes'])
+    // py:589  for ext, configs in theme_configs.items():
+    // py:590  data = {
+    // py:591  'ext': ext,
+    // py:592  'colorscheme_configs': colorscheme_configs,
+    // py:593  'import_paths': import_paths,
+    // py:594  'main_config': main_config,
+    // py:595  'top_themes': top_theme_configs,
+    // py:596  'ext_theme_configs': configs,
+    // py:597  'colors_config': colors_config
+    // py:598  }
+    // py:599  for theme, config in configs.items():
+    // py:600  data['theme'] = theme
+    // py:601  if theme == '__main__':
+    // py:602  data['theme_type'] = 'main'
+    // py:603  spec = main_theme_spec
+    // py:604  else:
+    // py:605  data['theme_type'] = 'regular'
+    // py:606  spec = theme_spec
+    // py:607  if spec.match(config, context=Context(config), data=data, echoerr=ee)[1]:
+    // py:608  hadproblem = True
+    // py:610  for top_theme, config in top_theme_configs.items():
+    // py:611  data = {
+    // py:612  'ext': None,
+    // py:613  'colorscheme_configs': colorscheme_configs,
+    // py:614  'import_paths': import_paths,
+    // py:615  'main_config': main_config,
+    // py:616  'theme_configs': theme_configs,
+    // py:617  'ext_theme_configs': None,
+    // py:618  'colors_config': colors_config
+    // py:619  }
+    // py:620  data['theme_type'] = 'top'
+    // py:621  data['theme'] = top_theme
+    // py:622  if top_theme_spec.match(config, context=Context(config), data=data, echoerr=ee)[1]:
+    // py:623  hadproblem = True
+    // py:625  return hadproblem
+    false
 }
 
 #[cfg(test)]
