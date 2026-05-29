@@ -310,7 +310,7 @@ mod tests {
             MarkedAny::Int(_)
         ));
         assert!(matches!(
-            gen_marked_value(json!(3.14), mk()),
+            gen_marked_value(json!(2.5_f64), mk()),
             MarkedAny::Float(_)
         ));
         assert!(matches!(
@@ -335,7 +335,7 @@ mod tests {
 
     #[test]
     fn marked_float_carries_f64() {
-        let m = MarkedFloat::new(3.14, mk());
-        assert!((m.value - 3.14).abs() < 1e-9);
+        let m = MarkedFloat::new(2.5, mk());
+        assert!((m.value - 2.5).abs() < 1e-9);
     }
 }

@@ -106,13 +106,13 @@ mod tests {
     }
 
     #[test]
-    fn hl_with_fg_emits_F_marker() {
+    fn hl_with_fg_emits_f_marker() {
         let out = LemonbarRenderer::hl("hi", Some((231, 0xffffff)), None, 0);
         assert!(out.contains("%{F#ffffffff}"));
     }
 
     #[test]
-    fn hl_with_bg_emits_B_marker() {
+    fn hl_with_bg_emits_b_marker() {
         let out = LemonbarRenderer::hl("hi", None, Some((21, 0x0000ff)), 0);
         assert!(out.contains("%{B#ff0000ff}"));
     }

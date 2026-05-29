@@ -289,3 +289,12 @@ NON_PRINTABLE_RE
 # testable helper since calling libc::strftime requires 4 unsafe steps
 # (zeroed tm, localtime_r, CString conversion, strftime buffer).
 format_strftime
+
+# RichMark::to_string_marked is the Rust analog of Python's
+# Mark.to_string() (py:105) in lint/markedjson/error.py. The bare name
+# `to_string` collides with Rust's std::string::ToString::to_string
+# trait method, so the port appends `_marked` to disambiguate while
+# keeping a 1:1 mapping to the Python method. The Display impl
+# delegates to to_string_marked(0, "in ", true) so callers still get
+# Python-equivalent `format!("{}", mark)`.
+to_string_marked
