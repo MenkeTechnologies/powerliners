@@ -1,0 +1,15 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 1,
+	"segments": {
+		"right": [
+			{ "type": "string", "name": "p10",  "contents": "P10",  "highlight_groups": ["sg_p10"],  "priority": 10 },
+			{ "type": "string", "name": "p50",  "contents": "P50",  "highlight_groups": ["sg_p50"],  "priority": 50 },
+			{ "type": "string", "name": "p100", "contents": "P100", "highlight_groups": ["sg_p100"], "priority": 100 },
+			{ "type": "string", "name": "pno",  "contents": "PNO",  "highlight_groups": ["sg_pnone"] }
+		]
+	}
+}

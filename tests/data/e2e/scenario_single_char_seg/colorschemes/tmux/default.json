@@ -1,0 +1,8 @@
+{
+	"name": "Single Char Seg",
+	"groups": {
+		"sg_x": { "fg": "white", "bg": "red", "attrs": ["bold"] },
+		"background": { "fg": "white", "bg": "gray0", "attrs": [] },
+		"background:divider": { "fg": "gray2", "bg": "gray0", "attrs": [] }
+	}
+}

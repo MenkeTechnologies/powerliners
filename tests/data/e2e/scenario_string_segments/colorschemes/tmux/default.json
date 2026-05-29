@@ -1,0 +1,10 @@
+{
+	"name": "String Default",
+	"groups": {
+		"sg_alpha": { "fg": "white", "bg": "red", "attrs": ["bold"] },
+		"sg_beta":  { "fg": "black", "bg": "green", "attrs": [] },
+		"sg_gamma": { "fg": "yellow", "bg": "blue", "attrs": ["bold"] },
+		"background": { "fg": "white", "bg": "gray0", "attrs": [] },
+		"background:divider": { "fg": "gray2", "bg": "gray0", "attrs": [] }
+	}
+}

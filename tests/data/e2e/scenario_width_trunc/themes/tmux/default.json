@@ -1,0 +1,14 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 1,
+	"segments": {
+		"right": [
+			{ "type": "string", "name": "a", "contents": "AAAAA", "highlight_groups": ["sg_a"], "priority": 50 },
+			{ "type": "string", "name": "b", "contents": "BBBBB", "highlight_groups": ["sg_b"], "priority": 30 },
+			{ "type": "string", "name": "c", "contents": "CCCCC", "highlight_groups": ["sg_c"], "priority": 10 }
+		]
+	}
+}

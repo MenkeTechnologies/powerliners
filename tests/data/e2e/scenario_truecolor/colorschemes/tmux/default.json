@@ -1,0 +1,9 @@
+{
+	"name": "Truecolor",
+	"groups": {
+		"sg_one": { "fg": "white", "bg": "royal_red", "attrs": ["bold"] },
+		"sg_two": { "fg": "black", "bg": "forest_green", "attrs": [] },
+		"background": { "fg": "white", "bg": "gray0", "attrs": [] },
+		"background:divider": { "fg": "gray2", "bg": "gray0", "attrs": [] }
+	}
+}

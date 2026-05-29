@@ -1,0 +1,23 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 1,
+	"segments": {
+		"right": [
+			{
+				"type": "string",
+				"name": "via_alias",
+				"contents": "ALIASED",
+				"highlight_groups": ["chain_a"]
+			},
+			{
+				"type": "string",
+				"name": "direct",
+				"contents": "DIRECT",
+				"highlight_groups": ["direct_group"]
+			}
+		]
+	}
+}

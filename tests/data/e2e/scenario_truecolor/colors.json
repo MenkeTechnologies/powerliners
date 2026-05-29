@@ -1,0 +1,11 @@
+{
+	"colors": {
+		"black": [16, "0x000000"],
+		"white": [231, "0xffffff"],
+		"royal_red": [1, "0xc41e3a"],
+		"forest_green": [2, "0x228b22"],
+		"gray0": [233, "0x121212"],
+		"gray2": [235, "0x262626"]
+	},
+	"gradients": {}
+}

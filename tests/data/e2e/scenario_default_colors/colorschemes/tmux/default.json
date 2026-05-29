@@ -1,0 +1,10 @@
+{
+	"name": "Default Colors",
+	"groups": {
+		"sg_default_bg":  { "fg": "white", "bg": false, "attrs": [] },
+		"sg_default_fg":  { "fg": false,   "bg": "gray2", "attrs": [] },
+		"sg_both_default":{ "fg": false,   "bg": false, "attrs": ["bold"] },
+		"background": { "fg": "white", "bg": "gray0", "attrs": [] },
+		"background:divider": { "fg": "gray2", "bg": "gray0", "attrs": [] }
+	}
+}

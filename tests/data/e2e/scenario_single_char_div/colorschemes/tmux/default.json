@@ -1,0 +1,9 @@
+{
+	"name": "Single Char Divider",
+	"groups": {
+		"sg_a": { "fg": "white", "bg": "red", "attrs": [] },
+		"sg_b": { "fg": "black", "bg": "green", "attrs": [] },
+		"background": { "fg": "white", "bg": "gray0", "attrs": [] },
+		"background:divider": { "fg": "gray2", "bg": "gray0", "attrs": [] }
+	}
+}

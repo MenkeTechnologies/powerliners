@@ -88,6 +88,7 @@ fn load_cascade(levels: &[String], paths: &[PathBuf]) -> Option<Map<String, Valu
 struct Configs {
     colorscheme: Arc<Colorscheme>,
     theme: Arc<Theme>,
+    tmux: Arc<TmuxRenderer>,
 }
 
 fn build_configs(ext: &str) -> Result<Configs, String> {
@@ -205,9 +206,18 @@ fn build_configs(ext: &str) -> Result<Configs, String> {
         shutdown_called: std::sync::Mutex::new(Vec::new()),
     };
 
+    // Read common.term_truecolor from main config to drive
+    // TmuxRenderer.hlstyle's `fg=#RRGGBB` vs `fg=colourN` branch.
+    let term_truecolor = main
+        .get("common")
+        .and_then(|c| c.get("term_truecolor"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
     Ok(Configs {
         colorscheme: Arc::new(colorscheme),
         theme: Arc::new(theme),
+        tmux: Arc::new(TmuxRenderer::new(term_truecolor)),
     })
 }
 
@@ -895,20 +905,127 @@ const ADAPTERS: &[(&str, AdapterFn)] = &[
     ("powerline.segments.common.players.spotify", ad_spotify),
 ];
 
-/// Map a `Value`-encoded fg/bg (Python tuple `[cterm, hex]` OR `False`
-/// sentinel) into the `ColorSpec` TmuxRenderer wants.
-fn color_to_spec(v: &Value) -> Option<ColorSpec> {
-    if let Some(b) = v.as_bool() {
-        if !b {
-            return None;
+/// Python-faithful color encoding for the hlstyle directive builder.
+/// Python passes `fg`/`bg` as one of:
+///   - `None` → don't emit the channel directive at all
+///   - `False` or `(False, ...)` → emit `<channel>=default`
+///   - `(cterm_int, hex_int_or_None)` → emit `<channel>=colourN` (or `=#hex` truecolor)
+enum ColorChoice {
+    /// Python `None` — no directive.
+    None,
+    /// Python `False` (or `[False, …]`) — `<channel>=default`.
+    Default,
+    /// Python `[cterm, hex]` tuple.
+    Spec(ColorSpec),
+}
+
+fn classify_color(v: &Value) -> ColorChoice {
+    match v {
+        Value::Null => ColorChoice::None,
+        Value::Bool(false) => ColorChoice::Default,
+        Value::Bool(true) => ColorChoice::Default,
+        Value::Array(arr) => {
+            // Python `[False, …]` is the array form of the default sentinel.
+            if matches!(arr.first(), Some(Value::Bool(false))) {
+                return ColorChoice::Default;
+            }
+            let cterm = arr.first().and_then(|x| x.as_u64()).unwrap_or(0) as u16;
+            let truecolor = arr.get(1).and_then(|x| x.as_u64()).map(|n| n as u32);
+            ColorChoice::Spec(ColorSpec { cterm, truecolor })
+        }
+        _ => ColorChoice::None,
+    }
+}
+
+/// Classify a `Value`-encoded `attrs` field.
+/// - `Value::Null` → no `attrs` directive (Python `attrs is None`)
+/// - `Value::Bool(_)` → Python `False` sentinel: emit all "no-" resets
+/// - integer → standard bit field
+enum AttrsChoice {
+    /// Python `None` — no attrs directive at all.
+    None,
+    /// Python `False` — all-off ("nobold,noitalics,nounderscore").
+    AllOff,
+    /// Standard bit field (matches `get_attrs_flag` output).
+    Flag(u32),
+}
+
+fn classify_attrs(v: &Value) -> AttrsChoice {
+    match v {
+        Value::Null => AttrsChoice::None,
+        Value::Bool(_) => AttrsChoice::AllOff,
+        _ => match v.as_u64() {
+            Some(n) => AttrsChoice::Flag(n as u32),
+            None => AttrsChoice::None,
+        },
+    }
+}
+
+/// Build the Python-faithful `#[…]` tag for the given fg/bg/attrs.
+/// Mirrors `TmuxRenderer.hlstyle` at `powerline/renderers/tmux.py:40`
+/// exactly, including the early-exit "if not attrs and not bg and not
+/// fg: return ''" check and the three-state fg/bg semantics. Used by
+/// both the `hl_fn` and `hlstyle_fn` closures so the bin shim emits
+/// byte-for-byte parity with upstream Python.
+fn render_hlstyle(
+    tmux: &TmuxRenderer,
+    fg: &Value,
+    bg: &Value,
+    attrs: &Value,
+) -> String {
+    let fc = classify_color(fg);
+    let bc = classify_color(bg);
+    let ac = classify_attrs(attrs);
+
+    // py:44  if not attrs and not bg and not fg: return ''
+    let attrs_empty = matches!(ac, AttrsChoice::None);
+    let bg_empty = matches!(bc, ColorChoice::None);
+    let fg_empty = matches!(fc, ColorChoice::None);
+    if attrs_empty && bg_empty && fg_empty {
+        return String::new();
+    }
+
+    let mut parts: Vec<String> = Vec::new();
+    // py:47-54  fg branch — Python `if term_truecolor and fg[1]:`
+    // includes the implicit truthiness check on the hex value, so
+    // `hex == 0` (e.g. pure black 0x000000) falls back to cterm.
+    match fc {
+        ColorChoice::None => {}
+        ColorChoice::Default => parts.push("fg=default".into()),
+        ColorChoice::Spec(spec) => {
+            if tmux.term_truecolor && spec.truecolor.filter(|&n| n != 0).is_some() {
+                parts.push(format!("fg=#{:06x}", spec.truecolor.unwrap()));
+            } else {
+                parts.push(format!("fg=colour{}", spec.cterm));
+            }
         }
     }
-    if let Some(arr) = v.as_array() {
-        let cterm = arr.first().and_then(|x| x.as_u64()).unwrap_or(0) as u16;
-        let truecolor = arr.get(1).and_then(|x| x.as_u64()).map(|n| n as u32);
-        return Some(ColorSpec { cterm, truecolor });
+    // py:55-62  bg branch — same truthiness rule on bg[1].
+    match bc {
+        ColorChoice::None => {}
+        ColorChoice::Default => parts.push("bg=default".into()),
+        ColorChoice::Spec(spec) => {
+            if tmux.term_truecolor && spec.truecolor.filter(|&n| n != 0).is_some() {
+                parts.push(format!("bg=#{:06x}", spec.truecolor.unwrap()));
+            } else {
+                parts.push(format!("bg=colour{}", spec.cterm));
+            }
+        }
     }
-    None
+    // py:63-64  attrs branch
+    match ac {
+        AttrsChoice::None => {}
+        AttrsChoice::AllOff => parts.extend(
+            powerliners::ported::renderers::tmux::attrs_to_tmux_attrs(None)
+                .into_iter(),
+        ),
+        AttrsChoice::Flag(flag) => parts.extend(
+            powerliners::ported::renderers::tmux::attrs_to_tmux_attrs(Some(flag))
+                .into_iter(),
+        ),
+    }
+    // py:65  return '#[' + ','.join(tmux_attrs) + ']'
+    format!("#[{}]", parts.join(","))
 }
 
 fn main() {
@@ -918,12 +1035,21 @@ fn main() {
     // the configs themselves only depend on `ext`. Lazy-load on first
     // request, then reuse for the daemon's lifetime.
     let store: Arc<Mutex<HashMap<String, Configs>>> = Arc::new(Mutex::new(HashMap::new()));
-    let renderer = Arc::new(Renderer::new(Map::new(), Map::new(), 1));
-    let tmux = Arc::new(TmuxRenderer::new(false));
+    let mut renderer_inner = Renderer::new(Map::new(), Map::new(), 1);
+    // Wire TmuxRenderer.character_translations onto the base renderer
+    // so `Renderer::escape` performs the `#` → `##[]` substitution
+    // upstream Python `class TmuxRenderer(Renderer): character_translations
+    // = Renderer.character_translations.copy(); ct[ord('#')] = '##['`
+    // (powerline/renderers/tmux.py:30-31) installs at class-load time.
+    for (ch, replacement) in TmuxRenderer::character_translations() {
+        renderer_inner
+            .character_translations
+            .insert(ch, replacement.to_string());
+    }
+    let renderer = Arc::new(renderer_inner);
 
     let store_clone = store.clone();
     let renderer_clone = renderer.clone();
-    let tmux_clone = tmux.clone();
     let render_fn: Arc<RenderFn> = Arc::new(move |args, environ, cwd, _is_daemon| {
         let ext = args.ext.first().cloned().unwrap_or_default();
         let side = args.side.clone().unwrap_or_default();
@@ -958,29 +1084,25 @@ fn main() {
         );
         segment_info.insert("getcwd".to_string(), Value::String(cwd.to_string()));
 
-        let tmux_for_hl = tmux_clone.clone();
-        let tmux_for_hlstyle = tmux_clone.clone();
+        // Pick up the per-config TmuxRenderer so the truecolor flag
+        // from common.term_truecolor drives the hex-vs-cterm branch.
+        let tmux_for_hl = configs.tmux.clone();
+        let tmux_for_hlstyle = configs.tmux.clone();
         let hl_fn = move |contents: Option<&str>,
                           fg: &Value,
                           bg: &Value,
                           attrs: &Value,
                           _hl_args: &Map<String, Value>|
               -> String {
-            let style = tmux_for_hl.hlstyle(
-                color_to_spec(fg),
-                color_to_spec(bg),
-                attrs.as_u64().map(|n| n as u32),
-            );
+            // py:600-606  return self.hlstyle(fg, bg, attrs, **kwargs) + (contents or '')
+            let style = render_hlstyle(&tmux_for_hl, fg, bg, attrs);
             format!("{}{}", style, contents.unwrap_or(""))
         };
-        let hlstyle_fn =
-            move |fg: &Value, bg: &Value, attrs: &Value, _hl_args: &Map<String, Value>| -> String {
-                tmux_for_hlstyle.hlstyle(
-                    color_to_spec(fg),
-                    color_to_spec(bg),
-                    attrs.as_u64().map(|n| n as u32),
-                )
-            };
+        let hlstyle_fn = move |fg: &Value,
+                               bg: &Value,
+                               attrs: &Value,
+                               _hl_args: &Map<String, Value>|
+              -> String { render_hlstyle(&tmux_for_hlstyle, fg, bg, attrs) };
 
         let contents_func = |id: &str,
                              _pl: &(),

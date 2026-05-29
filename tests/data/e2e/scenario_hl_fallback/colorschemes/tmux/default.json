@@ -1,0 +1,8 @@
+{
+	"name": "HL Fallback",
+	"groups": {
+		"sg_present": { "fg": "yellow", "bg": "red", "attrs": ["bold"] },
+		"background": { "fg": "white", "bg": "gray0", "attrs": [] },
+		"background:divider": { "fg": "gray2", "bg": "gray0", "attrs": [] }
+	}
+}

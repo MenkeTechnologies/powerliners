@@ -1,0 +1,21 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 1,
+	"segments": {
+		"right": [
+			{ "type": "string", "name": "s1", "contents": "1", "highlight_groups": ["sg_x1"] },
+			{ "type": "string", "name": "s2", "contents": "22", "highlight_groups": ["sg_x2"] },
+			{ "type": "string", "name": "s3", "contents": "333", "highlight_groups": ["sg_x3"] },
+			{ "type": "string", "name": "s4", "contents": "4444", "highlight_groups": ["sg_x4"] },
+			{ "type": "string", "name": "s5", "contents": "55555", "highlight_groups": ["sg_x5"] },
+			{ "type": "string", "name": "s6", "contents": "666666", "highlight_groups": ["sg_x6"] },
+			{ "type": "string", "name": "s7", "contents": "7777777", "highlight_groups": ["sg_x7"] },
+			{ "type": "string", "name": "s8", "contents": "88888888", "highlight_groups": ["sg_x8"] },
+			{ "type": "string", "name": "s9", "contents": "999999999", "highlight_groups": ["sg_x9"] },
+			{ "type": "string", "name": "s10", "contents": "AAAAAAAAAA", "highlight_groups": ["sg_x10"] }
+		]
+	}
+}

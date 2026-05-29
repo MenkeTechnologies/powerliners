@@ -1,0 +1,14 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 1,
+	"segments": {
+		"right": [
+			{ "type": "string", "name": "dbg",  "contents": "DBG",  "highlight_groups": ["sg_default_bg"] },
+			{ "type": "string", "name": "dfg",  "contents": "DFG",  "highlight_groups": ["sg_default_fg"] },
+			{ "type": "string", "name": "both", "contents": "BOTH", "highlight_groups": ["sg_both_default"] }
+		]
+	}
+}

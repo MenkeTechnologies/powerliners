@@ -1,0 +1,18 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 1,
+	"segments": {
+		"right": [
+			{ "type": "string", "name": "r",   "contents": "R",   "highlight_groups": ["sg_r"] },
+			{ "type": "string", "name": "g",   "contents": "G",   "highlight_groups": ["sg_g"] },
+			{ "type": "string", "name": "y",   "contents": "Y",   "highlight_groups": ["sg_y"] },
+			{ "type": "string", "name": "bl",  "contents": "BL",  "highlight_groups": ["sg_bl"] },
+			{ "type": "string", "name": "m",   "contents": "M",   "highlight_groups": ["sg_m"] },
+			{ "type": "string", "name": "c",   "contents": "C",   "highlight_groups": ["sg_c"] },
+			{ "type": "string", "name": "brm", "contents": "BRM", "highlight_groups": ["sg_brm"] }
+		]
+	}
+}

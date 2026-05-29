@@ -1,0 +1,13 @@
+{
+	"colors": {
+		"black": 16,
+		"white": 231,
+		"red": 1,
+		"green": 2,
+		"yellow": 11,
+		"gray0": 233,
+		"gray2": 235,
+		"gray10": 252
+	},
+	"gradients": {}
+}

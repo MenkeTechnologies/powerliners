@@ -1,0 +1,23 @@
+{
+	"colors": {
+		"black":   0,
+		"red":     1,
+		"green":   2,
+		"yellow":  3,
+		"blue":    4,
+		"magenta": 5,
+		"cyan":    6,
+		"white":   7,
+		"brblack":   8,
+		"brred":     9,
+		"brgreen":   10,
+		"bryellow":  11,
+		"brblue":    12,
+		"brmagenta": 13,
+		"brcyan":    14,
+		"brwhite":   15,
+		"gray0": 233,
+		"gray2": 235
+	},
+	"gradients": {}
+}

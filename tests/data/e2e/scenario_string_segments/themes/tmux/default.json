@@ -1,0 +1,29 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 1,
+	"segments": {
+		"right": [
+			{
+				"type": "string",
+				"name": "alpha",
+				"contents": "ALPHA",
+				"highlight_groups": ["sg_alpha"]
+			},
+			{
+				"type": "string",
+				"name": "beta",
+				"contents": "BETA",
+				"highlight_groups": ["sg_beta"]
+			},
+			{
+				"type": "string",
+				"name": "gamma",
+				"contents": "GAMMA",
+				"highlight_groups": ["sg_gamma"]
+			}
+		]
+	}
+}

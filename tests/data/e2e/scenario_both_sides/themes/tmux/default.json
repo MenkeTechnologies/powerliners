@@ -1,0 +1,16 @@
+{
+	"dividers": {
+		"left": { "hard": "", "soft": "" },
+		"right": { "hard": "", "soft": "" }
+	},
+	"spaces": 1,
+	"segments": {
+		"left": [
+			{ "type": "string", "name": "l1", "contents": "LX", "highlight_groups": ["sg_l1"] },
+			{ "type": "string", "name": "l2", "contents": "LY", "highlight_groups": ["sg_l2"] }
+		],
+		"right": [
+			{ "type": "string", "name": "r1", "contents": "RX", "highlight_groups": ["sg_r1"] }
+		]
+	}
+}
