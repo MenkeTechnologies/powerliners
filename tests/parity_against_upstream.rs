@@ -2192,6 +2192,51 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_tointiter_byte_iteration_parity() {
+    if !python_available() {
+        return;
+    }
+    // tointiter(bytes) yields ints — the per-byte int value. Used by
+    // upstream for hex/escape logic. Verify identical sequences.
+    let cases: &[(&[u8], &[u8])] = &[
+        (b"abc", &[97, 98, 99]),
+        (b"", &[]),
+        (&[0x00, 0xFF, 0x42], &[0x00, 0xFF, 0x42]),
+        (b"hello world", b"hello world"),
+    ];
+    for (input, expected) in cases {
+        let py_expr = format!(
+            "__import__('json').dumps(list(__import__('powerline.lib.unicode', fromlist=['tointiter']).tointiter({})))",
+            python_bytes_literal(input)
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let py_ints: Vec<u8> = py_value
+            .as_array()
+            .expect("py array")
+            .iter()
+            .map(|v| v.as_u64().expect("py int") as u8)
+            .collect();
+        assert_eq!(
+            py_ints.as_slice(),
+            *expected,
+            "Python tointiter({:?}) fixture drift",
+            input
+        );
+        let rs_ints: Vec<u8> = powerliners::lib::unicode::tointiter(input).collect();
+        assert_eq!(
+            rs_ints.as_slice(),
+            *expected,
+            "Rust tointiter({:?}) mismatch",
+            input
+        );
+    }
+}
+
+#[test]
 fn parity_strwidth_ucs_2_ascii_only_matches() {
     if !python_available() {
         return;
