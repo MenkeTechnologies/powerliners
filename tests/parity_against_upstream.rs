@@ -2192,6 +2192,53 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_marked_list_value_and_mark_preserved() {
+    if !python_available() {
+        return;
+    }
+    // MarkedList wraps a list value with a source mark. Verify both
+    // ports preserve value + mark for typical list shapes.
+    let py = match py_eval(
+        "(lambda m: __import__('json').dumps([m.value, list(m.mark), len(m)]))(__import__('powerline.lint.markedjson.markedvalue', fromlist=['gen_marked_value']).gen_marked_value([1, 2, 3], ('cfg', 7, 14)))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let py_arr = py_value.as_array().expect("py array");
+    assert_eq!(
+        py_arr[0],
+        serde_json::json!([1, 2, 3]),
+        "Python MarkedList.value drift"
+    );
+    let py_mark = py_arr[1].as_array().expect("py mark");
+    assert_eq!(py_mark[0].as_str(), Some("cfg"));
+    assert_eq!(py_mark[1].as_i64(), Some(7));
+    assert_eq!(py_mark[2].as_i64(), Some(14));
+    assert_eq!(py_arr[2].as_i64(), Some(3), "Python len(MarkedList) drift");
+
+    use powerliners::lint::markedjson::markedvalue::MarkedList;
+    use powerliners::lint::markedjson::nodes::Mark;
+    let ml = MarkedList::new(
+        vec![
+            serde_json::Value::from(1),
+            serde_json::Value::from(2),
+            serde_json::Value::from(3),
+        ],
+        Mark {
+            line: 7,
+            column: 14,
+        },
+    );
+    assert_eq!(ml.value.len(), 3);
+    assert_eq!(ml.value[0].as_i64(), Some(1));
+    assert_eq!(ml.value[1].as_i64(), Some(2));
+    assert_eq!(ml.value[2].as_i64(), Some(3));
+    assert_eq!(ml.mark.line, 7);
+    assert_eq!(ml.mark.column, 14);
+}
+
+#[test]
 fn parity_markedjson_marked_dict_copy_preserves_mark_and_value() {
     if !python_available() {
         return;
