@@ -94,6 +94,19 @@ pub fn with_docstring<T>(instance: T, _doc: &str) -> T {
     instance
 }
 
+/// Port of `Segment.argspecobjs()` from
+/// `powerline/segments/__init__.py:25-30`.
+///
+/// Python defines it twice (Py < 3.4 / Py 3.4+). Both yield a
+/// single `('__call__', target)` pair. Rust port returns the
+/// (name, identifier) tuple list shape upstream's `getargspec`
+/// dispatch expects.
+pub fn argspecobjs() -> Vec<(&'static str, &'static str)> {
+    // py:25-27  (Py < 3.4)  yield '__call__', self.__call__
+    // py:28-30  (Py 3.4+)   yield '__call__', self
+    vec![("__call__", "__call__")]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
