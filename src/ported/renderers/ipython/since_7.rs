@@ -265,22 +265,21 @@ mod tests {
     use super::*;
     use std::sync::Mutex;
 
-    /// Serializes tests that mutate the process-wide `used_styles` /
-    /// `seen` globals. Returns a guard the test holds across the
-    /// global-state manipulation; without it, cargo's parallel test
-    /// runner interleaves writes to those Mutexes and breaks
-    /// count-based assertions (poisons inner Mutexes on panic).
-    ///
-    /// Note: written as a macro rather than a fn returning
-    /// MutexGuard<'static, ()> because the drift-gate brace counter
-    /// in tests/ported_fn_names_match_py.rs mis-parses the `'static`
-    /// lifetime as an opening char literal and prematurely closes
-    /// the test-scope, causing every test fn to be flagged as
-    /// "invented". Macro expansion sidesteps the issue.
+    /// Module-scoped lock that serialises tests against the
+    /// process-wide `used_styles` / `seen` globals. Hoisted to mod
+    /// scope so all tests share the same Mutex — a per-callsite
+    /// `static` (as a macro would emit) creates separate Mutexes
+    /// across expansion sites and defeats serialization.
+    static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+    /// Acquires the module test lock. Macro-style so each test can
+    /// hold the guard across the full mutation+assert sequence
+    /// without dragging a fn-return lifetime through the drift gate
+    /// brace counter (which mis-parses `'static` as a char literal).
     macro_rules! lock_globals {
         () => {{
-            static L: OnceLock<Mutex<()>> = OnceLock::new();
-            L.get_or_init(|| Mutex::new(()))
+            TEST_LOCK
+                .get_or_init(|| Mutex::new(()))
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())
         }};

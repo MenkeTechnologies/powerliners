@@ -501,3 +501,12 @@ attrs_to_attr_names
 # require complex setup to exercise the name/rule format.
 build_token_name
 build_style_rule
+
+# WithPath::exit is the Rust analog of Python's `__exit__` dunder
+# method at lint/imp.py:17. Python exposes the context-manager
+# protocol via `__enter__`/`__exit__`; Rust drops the leading
+# underscores since they're reserved for the language's own attr
+# magic (and `__exit__` isn't a valid Rust identifier anyway).
+# `enter` already exists in upstream as a non-dunder match;
+# `exit` does not — the only upstream variant is `__exit__`.
+exit
