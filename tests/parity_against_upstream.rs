@@ -2192,6 +2192,37 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_reader_forward_advances_pointer_column() {
+    if !python_available() {
+        return;
+    }
+    // Reader.forward(length=1) advances pointer + column by length.
+    // Pin canonical case on 'hello'.
+    let py = match py_eval(
+        "(lambda r: (r.forward(1), r.forward(3), __import__('json').dumps([r.pointer, r.column, r.peek()]))[2])(__import__('powerline.lint.markedjson.reader', fromlist=['Reader']).Reader(__import__('io').BytesIO(b'hello')))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let py_arr = py_value.as_array().expect("py array");
+    assert_eq!(
+        py_arr[0].as_i64(),
+        Some(4),
+        "Python pointer after 1+3 drift"
+    );
+    assert_eq!(py_arr[1].as_i64(), Some(4), "Python column after 1+3 drift");
+    assert_eq!(py_arr[2].as_str(), Some("o"), "Python peek() drift");
+
+    let mut r = powerliners::lint::markedjson::reader::Reader::new("hello", "<file>");
+    r.forward(1);
+    r.forward(3);
+    assert_eq!(r.pointer, 4, "Rust pointer after 1+3 mismatch");
+    assert_eq!(r.column, 4, "Rust column after 1+3 mismatch");
+    assert_eq!(r.peek(0), 'o', "Rust peek() mismatch");
+}
+
+#[test]
 fn parity_markedjson_reader_init_state() {
     if !python_available() {
         return;
