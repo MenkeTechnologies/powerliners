@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">647</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3498</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">62.9%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">648</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3501</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">63.0%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -331,8 +331,8 @@ columns:
   <!-- SYM py_file=powerline/segments/pdb.py rs_file=src/ported/segments/pdb.rs rs_exists=True py_fn_total=5 ported_count=5 missing_count=0 rs_extra_count=9 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/segments/pdb.py -->
   <!-- BEGIN-GROUP py_file=powerline/bindings/ipython/since_5.py -->
-  <tr class="partial"><td><code>bindings/ipython/since_5.py</code></td><td>✔ <code>bindings/ipython/since_5.rs</code></td><td>4</td><td><code>init</code>, <code>do_setup</code></td><td><code>_make_style_from_name</code>, <code>__init__</code></td><td><code>default</code>, <code>new</code>, <code>cache_key</code>, <code>matcher_info</code>, <code>default</code>, <code>new</code>, <code>prompt_tokens</code>, <code>in_prompt_tokens</code>, <code>continuation_prompt_tokens</code>, <code>rewrite_prompt_tokens</code>, <code>out_prompt_tokens</code>, <code>configurable_ipython_powerline_init_returns_renderer_module</code>, <code>init_reads_config_overrides_from_powerline_config</code>, <code>init_reads_theme_overrides_from_powerline_config</code>, <code>init_reads_config_paths_from_powerline_config</code>, <code>init_missing_config_keys_leaves_base_attrs_empty</code>, <code>do_setup_attaches_powerline_to_prompts_and_shutdown_hook</code>, <code>prompt_kind_cache_keys_match_upstream</code>, <code>prompt_kind_matcher_info_maps_continuation_to_in2</code>, <code>prompt_tokens_caches_within_same_execution_count</code>, <code>prompt_tokens_renders_again_when_execution_count_changes</code>, <code>prompt_tokens_appends_trailing_space_token</code>, <code>prompt_tokens_passes_side_left</code>, <code>prompt_tokens_passes_continuation_matcher_as_in2</code>, <code>prompt_tokens_distinct_keys_cache_separately</code>, <code>in_prompt_tokens_helper_works</code>, <code>continuation_prompt_tokens_helper_uses_in2_matcher</code>, <code>out_prompt_tokens_helper_uses_out_matcher</code>, <code>rewrite_prompt_tokens_helper_uses_rewrite_matcher</code>, <code>powerline_prompts_init_starts_with_empty_cache</code></td><td class="coverage">50%</td></tr>
-  <!-- SYM py_file=powerline/bindings/ipython/since_5.py rs_file=src/ported/bindings/ipython/since_5.rs rs_exists=True py_fn_total=4 ported_count=2 missing_count=2 rs_extra_count=30 coverage=0.5000 -->
+  <tr class="partial"><td><code>bindings/ipython/since_5.py</code></td><td>✔ <code>bindings/ipython/since_5.rs</code></td><td>4</td><td><code>init</code>, <code>do_setup</code>, <code>_make_style_from_name</code></td><td><code>__init__</code></td><td><code>default</code>, <code>new</code>, <code>cache_key</code>, <code>matcher_info</code>, <code>default</code>, <code>new</code>, <code>prompt_tokens</code>, <code>in_prompt_tokens</code>, <code>continuation_prompt_tokens</code>, <code>rewrite_prompt_tokens</code>, <code>out_prompt_tokens</code>, <code>configurable_ipython_powerline_init_returns_renderer_module</code>, <code>init_reads_config_overrides_from_powerline_config</code>, <code>init_reads_theme_overrides_from_powerline_config</code>, <code>init_reads_config_paths_from_powerline_config</code>, <code>init_missing_config_keys_leaves_base_attrs_empty</code>, <code>do_setup_attaches_powerline_to_prompts_and_shutdown_hook</code>, <code>prompt_kind_cache_keys_match_upstream</code>, <code>prompt_kind_matcher_info_maps_continuation_to_in2</code>, <code>prompt_tokens_caches_within_same_execution_count</code>, <code>prompt_tokens_renders_again_when_execution_count_changes</code>, <code>prompt_tokens_appends_trailing_space_token</code>, <code>prompt_tokens_passes_side_left</code>, <code>prompt_tokens_passes_continuation_matcher_as_in2</code>, <code>prompt_tokens_distinct_keys_cache_separately</code>, <code>in_prompt_tokens_helper_works</code>, <code>continuation_prompt_tokens_helper_uses_in2_matcher</code>, <code>out_prompt_tokens_helper_uses_out_matcher</code>, <code>rewrite_prompt_tokens_helper_uses_rewrite_matcher</code>, <code>powerline_prompts_init_starts_with_empty_cache</code>, <code>make_style_from_name_calls_saved_msfn</code>, <code>make_style_from_name_returns_powerline_prompt_style</code></td><td class="coverage">75%</td></tr>
+  <!-- SYM py_file=powerline/bindings/ipython/since_5.py rs_file=src/ported/bindings/ipython/since_5.rs rs_exists=True py_fn_total=4 ported_count=3 missing_count=1 rs_extra_count=32 coverage=0.7500 -->
   <!-- END-GROUP py_file=powerline/bindings/ipython/since_5.py -->
   <!-- BEGIN-GROUP py_file=powerline/bindings/ipython/since_7.py -->
   <tr class="partial"><td><code>bindings/ipython/since_7.py</code></td><td>✔ <code>bindings/ipython/since_7.rs</code></td><td>4</td><td><code>init</code>, <code>do_setup</code></td><td><code>_make_style_from_name</code>, <code>__init__</code></td><td><code>default</code>, <code>new</code>, <code>shutdown</code>, <code>default</code>, <code>new</code>, <code>prompt_tokens</code>, <code>in_prompt_tokens</code>, <code>continuation_prompt_tokens</code>, <code>rewrite_prompt_tokens</code>, <code>out_prompt_tokens</code>, <code>init_returns_since_7_renderer_module</code>, <code>init_reads_config_overrides_from_powerline_config</code>, <code>init_reads_theme_overrides_from_powerline_config</code>, <code>init_reads_config_paths_from_powerline_config</code>, <code>init_missing_keys_leaves_base_attrs_empty</code>, <code>do_setup_attaches_powerline_to_prompts</code>, <code>do_setup_marks_atexit_registered</code>, <code>shutdown_clears_atexit_flag</code>, <code>prompt_tokens_caches_within_same_execution_count</code>, <code>prompt_tokens_renders_again_when_execution_count_changes</code>, <code>prompt_tokens_appends_trailing_space_token</code>, <code>prompt_tokens_passes_side_left</code>, <code>prompt_tokens_continuation_uses_in2_matcher</code>, <code>prompt_tokens_distinct_keys_cache_separately</code>, <code>in_prompt_tokens_helper_works</code>, <code>out_prompt_tokens_helper_uses_out_matcher</code>, <code>rewrite_prompt_tokens_helper_uses_rewrite_matcher</code>, <code>powerline_prompts_init_has_empty_cache</code></td><td class="coverage">50%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3498,
-    "ported_fns": 647,
-    "coverage": 0.6293774319066148
+    "rs_fns_in_ported": 3501,
+    "ported_fns": 648,
+    "coverage": 0.6303501945525292
   },
   "rows": [
     {
@@ -3733,10 +3733,10 @@ columns:
       "py_fn_total": 4,
       "ported_fns": [
         "init",
-        "do_setup"
+        "do_setup",
+        "_make_style_from_name"
       ],
       "missing_fns": [
-        "_make_style_from_name",
         "__init__"
       ],
       "rs_extra_fns": [
@@ -3769,9 +3769,11 @@ columns:
         "continuation_prompt_tokens_helper_uses_in2_matcher",
         "out_prompt_tokens_helper_uses_out_matcher",
         "rewrite_prompt_tokens_helper_uses_rewrite_matcher",
-        "powerline_prompts_init_starts_with_empty_cache"
+        "powerline_prompts_init_starts_with_empty_cache",
+        "make_style_from_name_calls_saved_msfn",
+        "make_style_from_name_returns_powerline_prompt_style"
       ],
-      "coverage": 0.5
+      "coverage": 0.75
     },
     {
       "py_file": "powerline/bindings/ipython/since_7.py",

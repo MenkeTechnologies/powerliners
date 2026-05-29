@@ -114,7 +114,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/segments/__init__.py` ↔ `src/ported/segments/mod.rs` | 46 | 1 | 1 | 2 | 36 | 4 | 25 |
 | [x] | `powerline/bindings/wm/__init__.py` ↔ `src/ported/bindings/wm/mod.rs` | 47 | 3 | 0 | 0 | 110 | 6 | 31 |
 | [x] | `powerline/bindings/ipython/since_7.py` ↔ `src/ported/bindings/ipython/since_7.rs` | 60 | 0 | 2 | 3 | 304 | 7 | 48 |
-| [x] | `powerline/bindings/ipython/since_5.py` ↔ `src/ported/bindings/ipython/since_5.rs` | 62 | 0 | 2 | 3 | 341 | 6 | 53 |
+| [x] | `powerline/bindings/ipython/since_5.py` ↔ `src/ported/bindings/ipython/since_5.rs` | 62 | 0 | 2 | 3 | 367 | 7 | 59 |
 | [x] | `powerline/segments/vim/plugin/commandt.py` ↔ `src/ported/segments/vim/plugin/commandt.rs` | 77 | 3 | 0 | 0 | 71 | 4 | 63 |
 | [x] | `powerline/segments/common/mail.py` ↔ `src/ported/segments/common/mail.rs` | 80 | 0 | 1 | 3 | 209 | 6 | 50 |
 | [x] | `powerline/lib/shell.py` ↔ `src/ported/lib/shell.rs` | 92 | 3 | 0 | 0 | 135 | 5 | 51 |
