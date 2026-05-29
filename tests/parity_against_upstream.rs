@@ -2192,6 +2192,48 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_urllib_urlencode_matches_python_stdlib() {
+    if !python_available() {
+        return;
+    }
+    // urllib_urlencode is aliased directly from urllib.parse.urlencode
+    // upstream (py:7). Verify Rust port matches Python for:
+    //   - single key
+    //   - multi-key with spaces (' ' → '+')
+    //   - special chars needing %-escape ('=', '&', '/')
+    //   - empty input
+    let cases: &[(&[(&str, &str)], &str)] = &[
+        (&[("a", "1")], "a=1"),
+        (&[("a", "1"), ("b", "two words")], "a=1&b=two+words"),
+        (&[("q", "a=b"), ("z", "x&y")], "q=a%3Db&z=x%26y"),
+        (&[], ""),
+        (
+            &[("key", "has spaces and / chars")],
+            "key=has+spaces+and+%2F+chars",
+        ),
+    ];
+    for (input, expected) in cases {
+        // Build a Python list-of-tuples literal so dict ordering doesn't matter.
+        let py_pairs = input
+            .iter()
+            .map(|(k, v)| format!("({:?}, {:?})", k, v))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let py_expr = format!(
+            "__import__('powerline.lib.url', fromlist=['urllib_urlencode']).urllib_urlencode([{}])",
+            py_pairs
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(py.trim(), *expected, "Python fixture drift for {:?}", input);
+        let rs = powerliners::lib::url::urllib_urlencode(input.iter().map(|(k, v)| (*k, *v)));
+        assert_eq!(rs, *expected, "Rust urllib_urlencode({:?}) mismatch", input);
+    }
+}
+
+#[test]
 fn parity_encoding_preferred_helpers_all_return_utf8() {
     if !python_available() {
         return;
