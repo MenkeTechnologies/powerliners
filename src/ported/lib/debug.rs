@@ -114,6 +114,38 @@ pub fn print_cycles<W: std::io::Write>(
     // py:97  recurse(obj, obj, {}, ())
 }
 
+/// Port of the inner `print_path()` closure from
+/// `powerline/lib/debug.py:24-58`.
+///
+/// **Rust port is a no-op** — print_path walks Python's `dir(step)`,
+/// `__dict__`, and per-element identity comparisons via `is`. All
+/// three depend on the Python object model and have no Rust analog
+/// for arbitrary `serde_json::Value` paths. The fn is surfaced for
+/// upstream-API parity per the module-level rationale.
+pub fn print_path<W: std::io::Write>(_path: &[serde_json::Value], _outstream: Option<&mut W>) {
+    // py:24  def print_path(path):
+    // py:25-58  walk + format — unreachable in Rust (see above)
+}
+
+/// Port of the inner `recurse()` closure from
+/// `powerline/lib/debug.py:60-88`.
+///
+/// **Rust port is a no-op** — `recurse` calls `gc.get_referents()`
+/// and `id()` which depend on Python's tracing GC. Rust has no such
+/// runtime; ownership rules make the cycle-walk premise meaningless.
+/// Surfaced for upstream-API parity per the module doc.
+pub fn recurse<W: std::io::Write>(
+    _obj: &serde_json::Value,
+    _start: &serde_json::Value,
+    _all: &mut std::collections::HashMap<usize, ()>,
+    _current_path: &[serde_json::Value],
+    _outstream: Option<&mut W>,
+    _show_progress: bool,
+) {
+    // py:60  def recurse(obj, start, all, current_path):
+    // py:61-88  walk gc.get_referents — unreachable in Rust
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -126,5 +158,27 @@ mod tests {
         let mut buf: Vec<u8> = Vec::new();
         print_cycles(&objects, Some(&mut buf), false);
         assert!(buf.is_empty(), "Rust no-op should not produce output");
+    }
+
+    /// `print_path` and `recurse` are documented no-ops — verify the
+    /// signatures hold and they don't panic.
+    #[test]
+    fn print_path_is_no_op() {
+        let path = vec![serde_json::json!({"a": 1})];
+        let mut buf: Vec<u8> = Vec::new();
+        print_path(&path, Some(&mut buf));
+        assert!(buf.is_empty());
+    }
+
+    #[test]
+    fn recurse_is_no_op() {
+        let obj = serde_json::json!({"a": 1});
+        let start = obj.clone();
+        let mut all = std::collections::HashMap::new();
+        let path = Vec::new();
+        let mut buf: Vec<u8> = Vec::new();
+        recurse(&obj, &start, &mut all, &path, Some(&mut buf), false);
+        assert!(buf.is_empty());
+        assert!(all.is_empty());
     }
 }

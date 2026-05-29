@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">578</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3345</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">56.2%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">580</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3349</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">56.4%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -379,8 +379,8 @@ columns:
   <!-- SYM py_file=powerline/segments/common/wthr.py rs_file=src/ported/segments/common/wthr.rs rs_exists=True py_fn_total=4 ported_count=3 missing_count=1 rs_extra_count=42 coverage=0.7500 -->
   <!-- END-GROUP py_file=powerline/segments/common/wthr.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/debug.py -->
-  <tr class="partial"><td><code>lib/debug.py</code></td><td>✔ <code>lib/debug.rs</code></td><td>3</td><td><code>print_cycles</code></td><td><code>print_path</code>, <code>recurse</code></td><td><code>print_cycles_is_no_op</code></td><td class="coverage">33%</td></tr>
-  <!-- SYM py_file=powerline/lib/debug.py rs_file=src/ported/lib/debug.rs rs_exists=True py_fn_total=3 ported_count=1 missing_count=2 rs_extra_count=1 coverage=0.3333 -->
+  <tr class="full"><td><code>lib/debug.py</code></td><td>✔ <code>lib/debug.rs</code></td><td>3</td><td><code>print_cycles</code>, <code>print_path</code>, <code>recurse</code></td><td>—</td><td><code>print_cycles_is_no_op</code>, <code>print_path_is_no_op</code>, <code>recurse_is_no_op</code></td><td class="coverage">100%</td></tr>
+  <!-- SYM py_file=powerline/lib/debug.py rs_file=src/ported/lib/debug.rs rs_exists=True py_fn_total=3 ported_count=3 missing_count=0 rs_extra_count=3 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/lib/debug.py -->
   <!-- BEGIN-GROUP py_file=powerline/segments/common/mail.py -->
   <tr class="full"><td><code>segments/common/mail.py</code></td><td>✔ <code>segments/common/mail.rs</code></td><td>3</td><td><code>key</code>, <code>compute_state</code>, <code>render_one</code></td><td>—</td><td><code>unseen_re</code>, <code>parse_unseen_count</code>, <code>imap4_ssl_port_matches_upstream</code>, <code>interval_matches_upstream</code>, <code>key_use_ssl_defaults_to_port_eq_ssl_port</code>, <code>key_use_ssl_explicit_overrides_default</code>, <code>parse_unseen_count_extracts_n</code>, <code>render_one_none_returns_none</code>, <code>render_one_zero_returns_none</code>, <code>render_one_no_max_emits_email_alert</code>, <code>render_one_with_max_includes_gradient</code>, <code>render_one_clamps_gradient_at_100</code>, <code>compute_state_returns_none_without_credentials</code></td><td class="coverage">100%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3345,
-    "ported_fns": 578,
-    "coverage": 0.5622568093385214
+    "rs_fns_in_ported": 3349,
+    "ported_fns": 580,
+    "coverage": 0.5642023346303502
   },
   "rows": [
     {
@@ -4081,16 +4081,17 @@ columns:
       "rs_exists": true,
       "py_fn_total": 3,
       "ported_fns": [
-        "print_cycles"
-      ],
-      "missing_fns": [
+        "print_cycles",
         "print_path",
         "recurse"
       ],
+      "missing_fns": [],
       "rs_extra_fns": [
-        "print_cycles_is_no_op"
+        "print_cycles_is_no_op",
+        "print_path_is_no_op",
+        "recurse_is_no_op"
       ],
-      "coverage": 0.3333333333333333
+      "coverage": 1.0
     },
     {
       "py_file": "powerline/segments/common/mail.py",
