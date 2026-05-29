@@ -1963,8 +1963,8 @@ fn parity_spec_ident_chains_type_unicode_and_regex() {
     assert!(s.ident_flag, "Rust ident_flag should be set");
     assert_eq!(
         s.regex.as_deref(),
-        Some(r"^[a-zA-Z_]\w*$"),
-        "Rust ident() should set the ident regex"
+        Some(r"^\w+(?::\w+)?$"),
+        "Rust ident() should set the ident regex (matches Python py:588)"
     );
 }
 
@@ -2189,6 +2189,56 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
         serde_json::Value::Object(d1),
         "mergedefaults nested overlap mismatch"
     );
+}
+
+#[test]
+fn parity_spec_ident_regex_accepts_colon_form() {
+    if !python_available() {
+        return;
+    }
+    // Spec.ident() must validate BOTH bare identifiers ('foo') and
+    // colon-separated ones ('foo:bar') — powerline colorscheme keys
+    // (e.g. 'solarized:term') depend on the colon form.
+    //
+    // Python upstream regex: r'^\w+(?::\w+)?$' (py:588)
+    // Verify the compiled-regex match outcome agrees between ports.
+    let cases: &[(&str, bool)] = &[
+        ("foo", true),
+        ("foo_bar", true),
+        ("foo:bar", true),      // colon form must pass
+        ("foo:bar:baz", false), // only ONE colon segment
+        ("123abc", true),       // \w matches digits
+        ("with space", false),
+        ("", false),
+        ("foo-bar", false), // hyphen not in \w
+    ];
+    for (input, expected) in cases {
+        let py_expr = format!(
+            "bool(__import__('re').match(r'^\\w+(?::\\w+)?$', {:?}))",
+            input
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_val = py.trim() == "True";
+        assert_eq!(
+            py_val, *expected,
+            "Python ident-regex fixture drift for {:?}",
+            input
+        );
+        let s = powerliners::lint::spec::Spec::default().ident();
+        let pattern = s.regex.expect("ident() must set regex");
+        // Python re.match anchors at start, not end → emulate with
+        // Rust's regex crate by ensuring the pattern itself uses ^.
+        let re = regex::Regex::new(&pattern).expect("ident pattern must compile");
+        let rs_val = re.is_match(input);
+        assert_eq!(
+            rs_val, *expected,
+            "Rust ident-regex {:?} mismatch (pattern={:?})",
+            input, pattern
+        );
+    }
 }
 
 #[test]
