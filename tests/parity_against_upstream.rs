@@ -2192,6 +2192,63 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_lint_find_all_ext_config_files_walks_subdir() {
+    if !python_available() {
+        return;
+    }
+    // find_all_ext_config_files(search_paths, subdir) walks
+    //   <root>/<subdir>/<ext>/<name>.json
+    // Verify both ports discover the same set of config files in a
+    // fixture tree:
+    //   tmp/themes/shell/{default.json, compat.json}
+    let tmp =
+        std::env::temp_dir().join(format!("powerliners_parity_findext_{}", std::process::id()));
+    let shell_dir = tmp.join("themes").join("shell");
+    std::fs::create_dir_all(&shell_dir).expect("mkdir");
+    std::fs::write(shell_dir.join("default.json"), "{}").expect("write default");
+    std::fs::write(shell_dir.join("compat.json"), "{}").expect("write compat");
+
+    let py_expr = format!(
+        "__import__('json').dumps(sorted([__import__('os').path.basename(r['path']) for r in __import__('powerline.lint').lint.find_all_ext_config_files([{:?}], 'themes')]))",
+        tmp.to_string_lossy()
+    );
+    let py = match py_eval(&py_expr) {
+        Some(v) => v,
+        None => {
+            let _ = std::fs::remove_dir_all(&tmp);
+            return;
+        }
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let py_arr = py_value.as_array().expect("py array");
+    let py_names: Vec<&str> = py_arr.iter().filter_map(|v| v.as_str()).collect();
+    assert_eq!(
+        py_names,
+        vec!["compat.json", "default.json"],
+        "Python file-list drift"
+    );
+
+    let rs = powerliners::lint::find_all_ext_config_files(&[tmp.clone()], "themes");
+    let mut rs_names: Vec<String> = rs
+        .iter()
+        .map(|e| {
+            std::path::Path::new(&e.path)
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default()
+        })
+        .collect();
+    rs_names.sort();
+    assert_eq!(
+        rs_names,
+        vec!["compat.json", "default.json"],
+        "Rust file-list drift"
+    );
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[test]
 fn parity_lint_strip_json_suffix_matches_python_slice() {
     if !python_available() {
         return;
