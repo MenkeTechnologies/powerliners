@@ -2155,6 +2155,39 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_humanize_bytes_custom_suffix_and_extremes() {
+    if !python_available() {
+        return;
+    }
+    // Extends the existing parity_humanize_bytes test with lowercase
+    // suffix variant ('b'), terabyte-scale, and fractional input edge
+    // cases.
+    let cases: &[(f64, &str, bool)] = &[
+        (1024.0, "b", false),
+        (1024.0 * 1024.0, "b", false),
+        (1000.0, "b", true),
+        (2.0_f64.powi(40), "B", false), // 1 TiB
+        (0.5, "B", false),              // sub-byte → "0 B"
+    ];
+    for (n, suf, si) in cases {
+        let expr = format!(
+            "__import__('powerline.lib.humanize_bytes', fromlist=['humanize_bytes']).humanize_bytes({}, '{}', {})",
+            n, suf, if *si { "True" } else { "False" }
+        );
+        let py = match py_eval(&expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = powerliners::lib::humanize_bytes::humanize_bytes(*n, suf, *si);
+        assert_eq!(
+            py, rs,
+            "humanize_bytes({}, {:?}, {}) mismatch:\n  py: {:?}\n  rs: {:?}",
+            n, suf, si, py, rs
+        );
+    }
+}
+
+#[test]
 fn parity_overrides_parse_value_handles_json_and_strings() {
     if !python_available() {
         return;
