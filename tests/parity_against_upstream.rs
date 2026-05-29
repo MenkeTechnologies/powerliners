@@ -2192,6 +2192,42 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_spec_list_appends_type_and_item_spec() {
+    if !python_available() {
+        return;
+    }
+    // Spec.list(item_spec) when item_func is a Spec performs:
+    //   1. self.type(list)                                  (py:502)
+    //   2. self.specs.append(item_spec)                     (py:504)
+    //   3. self.checks.append(('check_list', idx, msg))     (py:506)
+    // Pin Python's observable counts AND Rust port's effects:
+    //   - len(checks) == 2  (type check + check_list)
+    //   - len(specs) == 1   (item spec recorded for dispatch)
+    //   - did_type == False (list() does NOT set did_type)
+    let py = match py_eval(
+        "(lambda S: (lambda s: __import__('json').dumps([len(s.checks), len(s.specs), s.did_type]))(S().list(S())))(__import__('powerline.lint.spec', fromlist=['Spec']).Spec)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    assert_eq!(
+        py_value,
+        serde_json::json!([2, 1, false]),
+        "Python Spec().list(Spec()) fixture drift"
+    );
+
+    use powerliners::lint::spec::{Spec, SpecType};
+    let s = Spec::default().list(Spec::default());
+    assert_eq!(s.specs.len(), 1, "Rust list() should record item spec");
+    assert!(
+        s.allowed_types.contains(&SpecType::List),
+        "Rust list() should add SpecType::List"
+    );
+    assert!(!s.did_type, "Rust list() should NOT set did_type");
+}
+
+#[test]
 fn parity_spec_context_message_recursively_propagates() {
     if !python_available() {
         return;
