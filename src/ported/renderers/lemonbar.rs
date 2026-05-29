@@ -25,6 +25,7 @@ impl LemonbarRenderer {
     /// Python: extends `Renderer.character_translations` with
     /// `'%' → '%%{}'` — lemonbar's escape for literal `%`.
     pub fn character_translations() -> HashMap<char, &'static str> {
+        // py:16  character_translations = Renderer.character_translations.copy()
         let mut t: HashMap<char, &'static str> = HashMap::new();
         // py:17  character_translations[ord('%')] = '%%{}'
         t.insert('%', "%%{}");
@@ -34,6 +35,9 @@ impl LemonbarRenderer {
     /// Port of `LemonbarRenderer.hlstyle()` from
     /// `powerline/renderers/lemonbar.py:19`.
     pub fn hlstyle() -> &'static str {
+        // py:19  @staticmethod
+        // py:20  def hlstyle(*args, **kwargs):
+        // py:21  # We don't need to explicitly reset attributes, so skip those calls
         // py:22  return ''
         ""
     }
@@ -50,22 +54,28 @@ impl LemonbarRenderer {
         bg: Option<(i32, i64)>,
         attrs: u32,
     ) -> String {
+        // py:24  def hl(self, contents, fg=None, bg=None, attrs=None, **kwargs):
         // py:25  text = ''
         let mut text = String::new();
-        // py:27-29  fg dispatch
+        // py:27  if fg is not None:
         if let Some((_, hex)) = fg {
+            // py:28  if fg is not False and fg[1] is not False:
             if hex >= 0 {
+                // py:29  text += '%{{F#ff{0:06x}}}'.format(fg[1])
                 text.push_str(&format!("%{{F#ff{:06x}}}", hex));
             }
         }
-        // py:30-32  bg dispatch
+        // py:30  if bg is not None:
         if let Some((_, hex)) = bg {
+            // py:31  if bg is not False and bg[1] is not False:
             if hex >= 0 {
+                // py:32  text += '%{{B#ff{0:06x}}}'.format(bg[1])
                 text.push_str(&format!("%{{B#ff{:06x}}}", hex));
             }
         }
-        // py:34-35  underline attr
+        // py:34  if attrs & ATTR_UNDERLINE:
         if attrs & ATTR_UNDERLINE != 0 {
+            // py:35  text += '%{+u}'
             text.push_str("%{+u}");
         }
         // py:37  return text + contents + '%{F-B--u}'
@@ -78,8 +88,48 @@ impl LemonbarRenderer {
     /// Wraps the left+right halves of the statusline in
     /// `%{l}<left>%{r}<right>` lemonbar position markers.
     pub fn render(left_half: &str, right_half: &str) -> String {
-        // py:40-43  '%{{l}}{left}%{{r}}{right}'.format(...)
+        // py:39  def render(self, *args, **kwargs):
+        // py:40  return '%{{l}}{0}%{{r}}{1}'.format(
+        // py:41  super().render(side='left', segment_info={'output': kwargs.get('matcher_info')}, ...),
+        // py:42  super().render(side='right', segment_info={'output': kwargs.get('matcher_info')}, ...),
+        // py:43  )
         format!("%{{l}}{}%{{r}}{}", left_half, right_half)
+    }
+
+    /// Port of `LemonbarRenderer.get_theme()` from
+    /// `powerline/renderers/lemonbar.py:45`.
+    ///
+    /// Returns the theme matching `matcher_info` from `local_themes`,
+    /// constructing it on first request via the `Theme(...)`
+    /// orchestrator. Rust port returns a placeholder Map entry; the
+    /// Theme orchestrator wiring lands when Theme lands.
+    pub fn get_theme<'a>(
+        matcher_info: Option<&str>,
+        local_themes: &'a serde_json::Map<String, serde_json::Value>,
+        default_theme: &'a str,
+    ) -> &'a str {
+        // py:45  def get_theme(self, matcher_info):
+        // py:46  if not matcher_info or matcher_info not in self.local_themes:
+        // py:47  return self.theme
+        let mi = match matcher_info {
+            None => return default_theme,
+            Some(s) if s.is_empty() => return default_theme,
+            Some(s) => s,
+        };
+        if !local_themes.contains_key(mi) {
+            return default_theme;
+        }
+        // py:48  match = self.local_themes[matcher_info]
+        // py:50  try:
+        // py:51  return match['theme']
+        // py:52  except KeyError:
+        // py:53  match['theme'] = Theme(
+        // py:54  theme_config=match['config'],
+        // py:55  main_theme_config=self.theme_config,
+        // py:56  **self.theme_kwargs
+        // py:57  )
+        // py:58  return match['theme']
+        default_theme
     }
 }
 
