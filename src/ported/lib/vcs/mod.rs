@@ -7,4 +7,3 @@
 pub mod bzr;
 pub mod git;
 pub mod mercurial;
-

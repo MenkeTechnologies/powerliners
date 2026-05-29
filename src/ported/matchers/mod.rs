@@ -17,4 +17,3 @@
 //! `src/extensions/plugin_host.rs` feature.
 
 pub mod vim;
-

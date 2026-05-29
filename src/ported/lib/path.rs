@@ -7,7 +7,7 @@
 
 // from __future__ import (unicode_literals, division, absolute_import, print_function)  // py:2
 
-use std::path::{Path, PathBuf};                  // py:4  import os
+use std::path::{Path, PathBuf}; // py:4  import os
 
 /// Port of `realpath()` from `powerline/lib/path.py:7`.
 ///
@@ -55,20 +55,21 @@ pub fn realpath<P: AsRef<Path>>(path: P) -> PathBuf {
 /// and a `bytes` path raises `TypeError`. Rust paths are byte-oriented
 /// on Unix (`OsStr` is `[u8]`-shaped); the unified port accepts any
 /// path-like input and joins them with platform separators.
-pub fn join<'a, I, P>(components: I) -> PathBuf
+pub fn join<I, P>(components: I) -> PathBuf
 where
     I: IntoIterator<Item = P>,
     P: AsRef<Path>,
 {
-    let mut iter = components.into_iter();         // py:11
+    let mut iter = components.into_iter(); // py:11
     let mut acc = match iter.next() {
         Some(first) => first.as_ref().to_path_buf(),
         None => return PathBuf::new(),
     };
-    for c in iter {                                // py:13-16  os.path.join over remaining components
+    for c in iter {
+        // py:13-16  os.path.join over remaining components
         acc.push(c.as_ref());
     }
-    acc                                            // py:13 / py:18
+    acc // py:13 / py:18
 }
 
 #[cfg(test)]
@@ -78,14 +79,21 @@ mod tests {
     #[test]
     fn realpath_of_cwd_is_absolute() {
         let p = realpath(".");
-        assert!(p.is_absolute(), "realpath('.') should be absolute, got {:?}", p);
+        assert!(
+            p.is_absolute(),
+            "realpath('.') should be absolute, got {:?}",
+            p
+        );
     }
 
     #[test]
     fn realpath_of_missing_path_is_absolute_join_with_cwd() {
         let p = realpath("does-not-exist-powerliners-test");
-        assert!(p.is_absolute(),
-            "realpath of missing path should still be absolute, got {:?}", p);
+        assert!(
+            p.is_absolute(),
+            "realpath of missing path should still be absolute, got {:?}",
+            p
+        );
     }
 
     /// `join(['a', 'b', 'c'])` == `'a/b/c'` on Unix.

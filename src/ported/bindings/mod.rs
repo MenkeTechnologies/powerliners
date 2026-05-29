@@ -13,4 +13,3 @@ pub mod tmux;
 pub mod vim;
 pub mod wm;
 pub mod zsh;
-

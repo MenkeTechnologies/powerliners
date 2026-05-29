@@ -9,7 +9,7 @@
 
 // from __future__ import (unicode_literals, division, absolute_import, print_function)  // py:2
 
-use std::path::PathBuf;                              // py:4  import os
+use std::path::PathBuf; // py:4  import os
 use std::sync::OnceLock;
 
 /// Storage backing `POWERLINE_ROOT` (`powerline/config.py:7`).
@@ -35,7 +35,8 @@ static DEFAULT_SYSTEM_CONFIG_DIR_CELL: OnceLock<Option<PathBuf>> = OnceLock::new
 /// Falls back to `.` if `current_exe` returns an error.
 #[allow(non_snake_case)]
 pub fn POWERLINE_ROOT() -> &'static PathBuf {
-    POWERLINE_ROOT_CELL.get_or_init(|| {           // py:7
+    POWERLINE_ROOT_CELL.get_or_init(|| {
+        // py:7
         std::env::current_exe()
             .ok()
             .and_then(|p| p.parent().and_then(|p| p.parent()).map(PathBuf::from))
@@ -48,7 +49,8 @@ pub fn POWERLINE_ROOT() -> &'static PathBuf {
 /// Python: `BINDINGS_DIRECTORY = os.path.join(POWERLINE_ROOT, 'powerline', 'bindings')`
 #[allow(non_snake_case)]
 pub fn BINDINGS_DIRECTORY() -> &'static PathBuf {
-    BINDINGS_DIRECTORY_CELL.get_or_init(|| {       // py:8
+    BINDINGS_DIRECTORY_CELL.get_or_init(|| {
+        // py:8
         POWERLINE_ROOT().join("powerline").join("bindings")
     })
 }
@@ -58,7 +60,8 @@ pub fn BINDINGS_DIRECTORY() -> &'static PathBuf {
 /// Python: `TMUX_CONFIG_DIRECTORY = os.path.join(BINDINGS_DIRECTORY, 'tmux')`
 #[allow(non_snake_case)]
 pub fn TMUX_CONFIG_DIRECTORY() -> &'static PathBuf {
-    TMUX_CONFIG_DIRECTORY_CELL.get_or_init(|| {    // py:9
+    TMUX_CONFIG_DIRECTORY_CELL.get_or_init(|| {
+        // py:9
         BINDINGS_DIRECTORY().join("tmux")
     })
 }

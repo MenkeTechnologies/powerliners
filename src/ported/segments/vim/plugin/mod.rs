@@ -12,4 +12,3 @@ pub mod commandt;
 pub mod nerdtree;
 pub mod syntastic;
 pub mod tagbar;
-

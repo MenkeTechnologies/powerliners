@@ -25,9 +25,28 @@ use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 const TRAIT_IMPL_EXEMPTIONS: &[&str] = &[
-    "new", "drop", "fmt", "clone", "default", "from", "into", "as_ref", "deref",
-    "eq", "hash", "partial_cmp", "cmp", "next", "poll", "serialize", "deserialize",
-    "borrow", "borrow_mut", "as_mut", "try_from", "try_into",
+    "new",
+    "drop",
+    "fmt",
+    "clone",
+    "default",
+    "from",
+    "into",
+    "as_ref",
+    "deref",
+    "eq",
+    "hash",
+    "partial_cmp",
+    "cmp",
+    "next",
+    "poll",
+    "serialize",
+    "deserialize",
+    "borrow",
+    "borrow_mut",
+    "as_mut",
+    "try_from",
+    "try_into",
 ];
 
 fn repo_root() -> PathBuf {
@@ -35,9 +54,8 @@ fn repo_root() -> PathBuf {
 }
 
 fn load_allowlist(path: &Path) -> HashSet<String> {
-    let raw = fs::read_to_string(path).unwrap_or_else(|e| {
-        panic!("failed to read {}: {}", path.display(), e)
-    });
+    let raw = fs::read_to_string(path)
+        .unwrap_or_else(|e| panic!("failed to read {}: {}", path.display(), e));
     raw.lines()
         .map(|l| l.trim())
         .filter(|l| !l.is_empty() && !l.starts_with('#'))
@@ -123,11 +141,15 @@ fn count_braces(line: &str) -> i32 {
             continue;
         }
         if in_string {
-            if c == '"' { in_string = false; }
+            if c == '"' {
+                in_string = false;
+            }
             continue;
         }
         if in_char {
-            if c == '\'' { in_char = false; }
+            if c == '\'' {
+                in_char = false;
+            }
             continue;
         }
         match c {
@@ -153,27 +175,29 @@ fn parse_fn_name(trimmed: &str) -> Option<String> {
     let prefixes = ["pub fn ", "pub(crate) fn ", "pub(super) fn ", "fn "];
     let mut rest: Option<&str> = None;
     for p in prefixes {
-        if trimmed.starts_with(p) {
-            rest = Some(&trimmed[p.len()..]);
+        if let Some(after) = trimmed.strip_prefix(p) {
+            rest = Some(after);
             break;
         }
         // Also handle `async fn` / `unsafe fn` / `const fn` / `extern "C" fn`.
         for kw in ["async ", "unsafe ", "const ", "extern \"C\" "] {
-            let with_kw = format!("{}{}", p, kw);
-            if trimmed.starts_with(&with_kw) {
-                rest = Some(&trimmed[with_kw.len()..]);
+            let with_kw = format!("{p}{kw}");
+            if let Some(after) = trimmed.strip_prefix(&with_kw) {
+                rest = Some(after);
                 break;
             }
         }
-        if rest.is_some() { break; }
+        if rest.is_some() {
+            break;
+        }
     }
     let rest = rest?;
     // Name ends at the first `(`, `<`, ` `, or `:`.
-    let end = rest
-        .find(|c: char| c == '(' || c == '<' || c == ' ' || c == ':')
-        .unwrap_or(rest.len());
+    let end = rest.find(['(', '<', ' ', ':']).unwrap_or(rest.len());
     let name = &rest[..end];
-    if name.is_empty() { return None; }
+    if name.is_empty() {
+        return None;
+    }
     Some(name.to_string())
 }
 
@@ -188,7 +212,10 @@ fn every_ported_fn_name_exists_in_python_allowlist() {
     let mut violations: Vec<String> = Vec::new();
     let mut total_fns = 0usize;
 
-    for entry in WalkDir::new(&ported_root).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(&ported_root)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
         let path = entry.path();
         if path.extension().and_then(|s| s.to_str()) != Some("rs") {
             continue;
@@ -228,9 +255,11 @@ fn every_ported_fn_name_exists_in_python_allowlist() {
     }
 
     // Sanity: at least the two exemplar ports must show up.
-    assert!(total_fns >= 2,
+    assert!(
+        total_fns >= 2,
         "test discovered only {} fns; expected at least 2 (get_version, humanize_bytes)",
-        total_fns);
+        total_fns
+    );
 }
 
 #[test]
@@ -245,7 +274,13 @@ fn allowlist_files_are_well_formed() {
 
     // No name should appear in both lists — fake_allow is the exemption list,
     // and entries that are already legal don't belong there.
-    let overlap: Vec<&String> = fake_allow.iter().filter(|n| py_allow.contains(*n)).collect();
-    assert!(overlap.is_empty(),
-        "names in BOTH py-allowlist and fake-allowlist (drop from fake): {:?}", overlap);
+    let overlap: Vec<&String> = fake_allow
+        .iter()
+        .filter(|n| py_allow.contains(*n))
+        .collect();
+    assert!(
+        overlap.is_empty(),
+        "names in BOTH py-allowlist and fake-allowlist (drop from fake): {:?}",
+        overlap
+    );
 }

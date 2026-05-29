@@ -7,14 +7,14 @@
 // from __future__ import (unicode_literals, division, absolute_import, print_function)  // py:2
 // (No Rust analogue — Python compatibility shim for 2/3.)
 
-use std::process::Command;                          // py:4  import subprocess
-// py:5  from traceback import print_exc — Python's traceback printer.
-// Rust does not have a 1:1 analogue; we route the equivalent diagnostic
-// through eprintln! at the catch site (see get_version below).
+use std::process::Command; // py:4  import subprocess
+                           // py:5  from traceback import print_exc — Python's traceback printer.
+                           // Rust does not have a 1:1 analogue; we route the equivalent diagnostic
+                           // through eprintln! at the catch site (see get_version below).
 
 /// Port of module constant `__version__` from `powerline/version.py:7`.
 #[allow(non_upper_case_globals)]
-pub const __version__: &str = "2.8.4";              // py:7
+pub const __version__: &str = "2.8.4"; // py:7
 
 /// Port of `get_version()` from `powerline/version.py:9`.
 ///
@@ -23,17 +23,17 @@ pub const __version__: &str = "2.8.4";              // py:7
 /// Falls back to `__version__` and prints a traceback if git is unavailable.
 pub fn get_version() -> String {
     // py:10  try:
-    match Command::new("git")                       // py:11  subprocess.check_output(['git', ...
+    match Command::new("git") // py:11  subprocess.check_output(['git', ...
         .args([
             "rev-list",
             "--count",
-            &format!("{}..HEAD", __version__),      // py:11  __version__ + '..HEAD'
+            &format!("{}..HEAD", __version__), // py:11  __version__ + '..HEAD'
         ])
         .output()
     {
         Ok(out) if out.status.success() => {
             let count = String::from_utf8_lossy(&out.stdout).trim().to_string(); // py:11  .strip().decode()
-            format!("{}b{}", __version__, count)    // py:11  __version__ + 'b' + ...
+            format!("{}b{}", __version__, count) // py:11  __version__ + 'b' + ...
         }
         Ok(out) => {
             // py:12-13  except Exception: print_exc()
@@ -44,12 +44,12 @@ pub fn get_version() -> String {
                 out.status,
                 String::from_utf8_lossy(&out.stderr).trim()
             );
-            __version__.to_string()                 // py:14  return __version__
+            __version__.to_string() // py:14  return __version__
         }
         Err(e) => {
             // py:12-13  except Exception: print_exc()
             eprintln!("powerline.version.get_version: {}", e);
-            __version__.to_string()                 // py:14  return __version__
+            __version__.to_string() // py:14  return __version__
         }
     }
 }

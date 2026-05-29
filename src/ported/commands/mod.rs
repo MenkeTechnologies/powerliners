@@ -10,4 +10,3 @@ pub mod daemon;
 pub mod lemonbar;
 pub mod lint;
 pub mod main;
-

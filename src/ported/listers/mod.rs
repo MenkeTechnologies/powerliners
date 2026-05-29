@@ -8,4 +8,3 @@
 pub mod i3wm;
 pub mod pdb;
 pub mod vim;
-
