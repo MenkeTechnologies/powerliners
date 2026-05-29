@@ -26,7 +26,7 @@ pub struct ArgParser {
 /// One argument specification (mirrors a single argparse `add_argument` call).
 #[derive(Debug, Clone)]
 pub struct Argument {
-    pub flags: Vec<String>,        // e.g. ["-p", "--config-path"]
+    pub flags: Vec<String>, // e.g. ["-p", "--config-path"]
     pub action: ArgAction,
     pub metavar: Option<String>,
     pub help: String,
@@ -48,9 +48,10 @@ pub enum ArgAction {
 /// Port of `get_argparser()` from `powerline/commands/lint.py:7`.
 ///
 /// Returns the argument parser for `powerline-lint`.
-pub fn get_argparser() -> ArgParser {                // py:7
+pub fn get_argparser() -> ArgParser {
+    // py:7
     ArgParser {
-        description: "Powerline configuration checker.".to_string(),  // py:8
+        description: "Powerline configuration checker.".to_string(), // py:8
         arguments: vec![
             // py:9-15  -p / --config-path
             Argument {
@@ -60,7 +61,8 @@ pub fn get_argparser() -> ArgParser {                // py:7
                 help: "Paths where configuration should be checked, in order. You must \
                        supply all paths necessary for powerline to work, \
                        checking partial (e.g. only user overrides) configuration \
-                       is not supported.".to_string(),
+                       is not supported."
+                    .to_string(),
             },
             // py:16-20  -d / --debug
             Argument {
@@ -68,7 +70,8 @@ pub fn get_argparser() -> ArgParser {                // py:7
                 action: ArgAction::StoreConstTrue,
                 metavar: None,
                 help: "Display additional information. Used for debugging \
-                       `powerline-lint' itself, not for debugging configuration.".to_string(),
+                       `powerline-lint' itself, not for debugging configuration."
+                    .to_string(),
             },
         ],
     }

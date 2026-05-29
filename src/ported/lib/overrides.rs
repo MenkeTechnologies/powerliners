@@ -32,7 +32,7 @@ use serde_json::Value;
 pub fn parse_value(s: &str) -> Value {
     // py:26  if not s:
     if s.is_empty() {
-        return REMOVE_THIS_KEY();                    // py:27  return REMOVE_THIS_KEY
+        return REMOVE_THIS_KEY(); // py:27  return REMOVE_THIS_KEY
     }
     // py:28  elif s[0] in '"{[0123456789-' or s in ('null', 'true', 'false'):
     let first = s.chars().next().unwrap();
@@ -60,13 +60,13 @@ pub fn keyvaluesplit(s: &str) -> Result<(String, Value), String> {
     }
     // py:39  if s[0] == '_':
     if s.starts_with('_') {
-        return Err("Option names must not start with `_'".to_string());  // py:40
+        return Err("Option names must not start with `_'".to_string()); // py:40
     }
     // py:41-43  idx, o, val = ...
     let idx = s.find('=').unwrap();
     let o = s[..idx].to_string();
     let val = parse_value(&s[idx + 1..]);
-    Ok((o, val))                                     // py:44
+    Ok((o, val)) // py:44
 }
 
 /// Port of `parsedotval()` from `powerline/lib/overrides.py:47`.
@@ -82,7 +82,7 @@ pub fn keyvaluesplit(s: &str) -> Result<(String, Value), String> {
 /// output shape.
 pub fn parsedotval_str(s: &str) -> Result<(String, Value), String> {
     // py:52  if type(s) is tuple: ... else: o, val = keyvaluesplit(s)
-    let (o, val) = keyvaluesplit(s)?;                // py:56
+    let (o, val) = keyvaluesplit(s)?; // py:56
     Ok(build_nested(&o, val))
 }
 
@@ -98,8 +98,9 @@ pub fn parsedotval_tuple(o: &str, val: &str) -> (String, Value) {
 /// Builds the nested-dict shape from a dotted key + already-parsed value.
 /// Inlined from `parsedotval` body at `powerline/lib/overrides.py:58-68`.
 fn build_nested(o: &str, val: Value) -> (String, Value) {
-    let keys: Vec<&str> = o.split('.').collect();    // py:58
-    if keys.len() > 1 {                              // py:59
+    let keys: Vec<&str> = o.split('.').collect(); // py:58
+    if keys.len() > 1 {
+        // py:59
         // py:60-65  Build nested {keys[0]: {keys[1]: ... : val}}
         let mut current = val;
         for k in keys[1..].iter().rev() {
@@ -108,8 +109,9 @@ fn build_nested(o: &str, val: Value) -> (String, Value) {
             current = Value::Object(m);
         }
         (keys[0].to_string(), current)
-    } else {                                         // py:67
-        (o.to_string(), val)                         // py:68
+    } else {
+        // py:67
+        (o.to_string(), val) // py:68
     }
 }
 

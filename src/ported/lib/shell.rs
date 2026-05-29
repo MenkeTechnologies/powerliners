@@ -28,19 +28,14 @@ use std::process::{Command, Stdio};
 /// logger is currently the unit type (`&()`) until the logger trait
 /// lands. Match upstream's behaviour: combine stdout decoding +
 /// optional strip; `strip=true` is the default.
-pub fn run_cmd(
-    _pl: &(),
-    cmd: &[String],
-    stdin: Option<&str>,
-    strip: bool,
-) -> Option<String> {
+pub fn run_cmd(_pl: &(), cmd: &[String], stdin: Option<&str>, strip: bool) -> Option<String> {
     // py:33-37  try Popen, OSError → return None
-    let mut child = Command::new(cmd.first()?)         // py:34
+    let mut child = Command::new(cmd.first()?) // py:34
         .args(&cmd[1..])
         .stdout(Stdio::piped())
         .stdin(Stdio::piped())
         .spawn()
-        .ok()?;                                        // py:35-37
+        .ok()?; // py:35-37
 
     // py:39-40  p.communicate(stdin)
     if let Some(s) = stdin {
@@ -69,7 +64,12 @@ pub fn run_cmd(
 /// Run the given AppleScript and return the standard output and error.
 pub fn asrun(pl: &(), ascript: &str) -> Option<String> {
     // py:47  return run_cmd(pl, ['osascript', '-'], ascript)
-    run_cmd(pl, &["osascript".to_string(), "-".to_string()], Some(ascript), true)
+    run_cmd(
+        pl,
+        &["osascript".to_string(), "-".to_string()],
+        Some(ascript),
+        true,
+    )
 }
 
 /// Port of `readlines()` from `powerline/lib/shell.py:50`.
@@ -84,7 +84,7 @@ pub fn readlines(cmd: &[String], cwd: &std::path::Path) -> Vec<String> {
         .args(&cmd[1..])
         .current_dir(cwd)
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())                          // py:60  p.stderr.close()
+        .stderr(Stdio::null()) // py:60  p.stderr.close()
         .output()
     {
         Ok(o) => o,
@@ -118,18 +118,20 @@ pub fn which(cmd: &str) -> Option<PathBuf> {
     }
 
     // py:98-99  Default PATH from env.
-    let path = std::env::var_os("PATH")?;             // py:99
-    let mut seen = std::collections::HashSet::new();   // py:124  seen = set()
-    for dir in std::env::split_paths(&path) {          // py:125-126
+    let path = std::env::var_os("PATH")?; // py:99
+    let mut seen = std::collections::HashSet::new(); // py:124  seen = set()
+    for dir in std::env::split_paths(&path) {
+        // py:125-126
         if !seen.insert(dir.clone()) {
             continue;
         }
-        let candidate = dir.join(cmd);                 // py:130
-        if _access_check(&candidate) {                  // py:131
-            return Some(candidate);                    // py:132
+        let candidate = dir.join(cmd); // py:130
+        if _access_check(&candidate) {
+            // py:131
+            return Some(candidate); // py:132
         }
     }
-    None                                               // py:133
+    None // py:133
 }
 
 /// Port of `_access_check()` from `powerline/lib/shell.py:83`.
@@ -205,6 +207,9 @@ mod tests {
             &["printf".to_string(), "a\nb\nc\n".to_string()],
             &PathBuf::from("/"),
         );
-        assert_eq!(lines, vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+        assert_eq!(
+            lines,
+            vec!["a".to_string(), "b".to_string(), "c".to_string()]
+        );
     }
 }

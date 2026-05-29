@@ -22,7 +22,8 @@ use std::time::SystemTime;
 /// Tracks mtimes of watched files; reports a file as changed when its
 /// stored mtime differs from the current one. First-time observations
 /// are reported as changed (matches Python's "no entry → assume new").
-pub struct StatFileWatcher {                          // py:11
+pub struct StatFileWatcher {
+    // py:11
     /// Python: `self.watches` (`dict[path → mtime]`) — py:13
     /// Bucket-2 per PORT_PLAN.md: shared across watcher invocations
     /// in different threads (VCS segments call from a Rayon pool).
@@ -41,9 +42,10 @@ impl Default for StatFileWatcher {
 impl StatFileWatcher {
     /// Port of `StatFileWatcher.__init__()` from
     /// `powerline/lib/watcher/stat.py:12`.
-    pub fn new() -> Self {                            // py:12
+    pub fn new() -> Self {
+        // py:12
         Self {
-            watches: Mutex::new(HashMap::new()),     // py:13
+            watches: Mutex::new(HashMap::new()), // py:13
         }
     }
 
@@ -52,26 +54,29 @@ impl StatFileWatcher {
     ///
     /// Begin watching `path` — records its current mtime.
     pub fn watch<P: AsRef<Path>>(&self, path: P) {
-        let path = realpath(path);                    // py:17
-        let mtime = path.metadata().and_then(|m| m.modified()).unwrap_or(SystemTime::UNIX_EPOCH);
+        let path = realpath(path); // py:17
+        let mtime = path
+            .metadata()
+            .and_then(|m| m.modified())
+            .unwrap_or(SystemTime::UNIX_EPOCH);
         let mut watches = self.watches.lock().unwrap(); // py:18  with self.lock
-        watches.insert(path, mtime);                  // py:19  self.watches[path] = ...
+        watches.insert(path, mtime); // py:19  self.watches[path] = ...
     }
 
     /// Port of `StatFileWatcher.unwatch()` from
     /// `powerline/lib/watcher/stat.py:21`.
     pub fn unwatch<P: AsRef<Path>>(&self, path: P) {
-        let path = realpath(path);                    // py:22
+        let path = realpath(path); // py:22
         let mut watches = self.watches.lock().unwrap(); // py:23
-        watches.remove(&path);                        // py:24  self.watches.pop(path, None)
+        watches.remove(&path); // py:24  self.watches.pop(path, None)
     }
 
     /// Port of `StatFileWatcher.is_watching()` from
     /// `powerline/lib/watcher/stat.py:26`.
     pub fn is_watching<P: AsRef<Path>>(&self, path: P) -> bool {
         let path = realpath(path);
-        let watches = self.watches.lock().unwrap();   // py:27
-        watches.contains_key(&path)                   // py:28
+        let watches = self.watches.lock().unwrap(); // py:27
+        watches.contains_key(&path) // py:28
     }
 
     /// Port of `StatFileWatcher.__call__()` from
@@ -82,7 +87,7 @@ impl StatFileWatcher {
     /// mtime on every call (so subsequent checks compare against the
     /// most recent observation, matching Python behaviour at py:38).
     pub fn check<P: AsRef<Path>>(&self, path: P) -> bool {
-        let path = realpath(path);                    // py:31
+        let path = realpath(path); // py:31
         let current_mtime = path
             .metadata()
             .and_then(|m| m.modified())
@@ -90,16 +95,19 @@ impl StatFileWatcher {
 
         let mut watches = self.watches.lock().unwrap(); // py:32
         match watches.get(&path).copied() {
-            None => {                                 // py:33  if path not in self.watches
-                watches.insert(path, current_mtime);  // py:34
-                true                                  // py:35  return True
+            None => {
+                // py:33  if path not in self.watches
+                watches.insert(path, current_mtime); // py:34
+                true // py:35  return True
             }
-            Some(stored) => {                         // py:36
-                if current_mtime != stored {          // py:37  if mtime != self.watches[path]
+            Some(stored) => {
+                // py:36
+                if current_mtime != stored {
+                    // py:37  if mtime != self.watches[path]
                     watches.insert(path, current_mtime); // py:38
-                    true                              // py:39  return True
+                    true // py:39  return True
                 } else {
-                    false                             // py:40  return False
+                    false // py:40  return False
                 }
             }
         }
@@ -109,7 +117,7 @@ impl StatFileWatcher {
     /// `powerline/lib/watcher/stat.py:42`.
     pub fn close(&self) {
         let mut watches = self.watches.lock().unwrap(); // py:43
-        watches.clear();                              // py:44
+        watches.clear(); // py:44
     }
 }
 

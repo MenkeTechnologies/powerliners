@@ -29,17 +29,17 @@ pub fn get_version() -> String {
             "--count",
             &format!("{}..HEAD", __version__), // py:11  __version__ + '..HEAD'
         ])
-        .stderr(std::process::Stdio::null())        // suppress git's noisy stderr — Python's
-                                                    // print_exc emits a Python traceback that
-                                                    // looks like a powerliners crash; equivalent
-                                                    // user-facing behaviour is "silent fall-through".
+        .stderr(std::process::Stdio::null()) // suppress git's noisy stderr — Python's
+        // print_exc emits a Python traceback that
+        // looks like a powerliners crash; equivalent
+        // user-facing behaviour is "silent fall-through".
         .output()
     {
         Ok(out) if out.status.success() => {
             let count = String::from_utf8_lossy(&out.stdout).trim().to_string(); // py:11  .strip().decode()
             format!("{}b{}", __version__, count) // py:11  __version__ + 'b' + ...
         }
-        _ => __version__.to_string()                 // py:12-14  except Exception: return __version__
+        _ => __version__.to_string(), // py:12-14  except Exception: return __version__
     }
 }
 

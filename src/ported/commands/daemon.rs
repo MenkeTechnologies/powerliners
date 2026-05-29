@@ -11,7 +11,8 @@ use crate::ported::commands::lint::{ArgAction, ArgParser, Argument};
 /// Port of `get_argparser()` from `powerline/commands/daemon.py:7`.
 ///
 /// Returns the argument parser for `powerline-daemon`.
-pub fn get_argparser() -> ArgParser {                // py:7
+pub fn get_argparser() -> ArgParser {
+    // py:7
     ArgParser {
         description: "Daemon that improves powerline performance.".to_string(), // py:8
         arguments: vec![
@@ -25,7 +26,8 @@ pub fn get_argparser() -> ArgParser {                // py:7
                        Will still exit with 1. \
                        With `--kill' and `--replace': do not show any messages. \
                        With `--foreground': ignored. \
-                       Does not silence exceptions in any case.".to_string(),
+                       Does not silence exceptions in any case."
+                    .to_string(),
             },
             // py:18  --socket / -s
             Argument {
@@ -80,7 +82,9 @@ mod tests {
     #[test]
     fn daemon_parser_flag_set() {
         let p = get_argparser();
-        let names: Vec<&str> = p.arguments.iter()
+        let names: Vec<&str> = p
+            .arguments
+            .iter()
             .flat_map(|a| a.flags.iter().map(|s| s.as_str()))
             .collect();
         assert!(names.contains(&"--quiet"));

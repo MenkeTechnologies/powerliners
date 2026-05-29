@@ -39,7 +39,8 @@ use serde_json::{Map, Value};
 /// The actual marker check is performed by inspecting the
 /// `Segment::requires_segment_info` associated const when the
 /// segment trait is added.
-pub fn requires_segment_info<F>(func: F) -> F {     // py:10
+pub fn requires_segment_info<F>(func: F) -> F {
+    // py:10
     // py:11  func.powerline_requires_segment_info = True
     // py:12  return func
     // (No runtime attribute attachment in Rust; the marker is carried
@@ -53,7 +54,8 @@ pub fn requires_segment_info<F>(func: F) -> F {     // py:10
 /// Marks a segment function as needing the filesystem watcher
 /// injected. Same Rust handling as `requires_segment_info` —
 /// identity passthrough at this layer.
-pub fn requires_filesystem_watcher<F>(func: F) -> F { // py:15
+pub fn requires_filesystem_watcher<F>(func: F) -> F {
+    // py:15
     // py:16  func.powerline_requires_filesystem_watcher = True
     // py:17  return func
     func
@@ -78,7 +80,10 @@ pub fn new_empty_segment_line() -> Map<String, Value> {
 /// Right-aligned expand: pad on the left.
 pub fn add_spaces_left(_pl: &(), amount: usize, segment: &Map<String, Value>) -> String {
     // py:28
-    let contents = segment.get("contents").and_then(|v| v.as_str()).unwrap_or("");
+    let contents = segment
+        .get("contents")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     format!("{}{}", " ".repeat(amount), contents)
 }
 
@@ -89,7 +94,10 @@ pub fn add_spaces_left(_pl: &(), amount: usize, segment: &Map<String, Value>) ->
 /// Left-aligned expand: pad on the right.
 pub fn add_spaces_right(_pl: &(), amount: usize, segment: &Map<String, Value>) -> String {
     // py:32
-    let contents = segment.get("contents").and_then(|v| v.as_str()).unwrap_or("");
+    let contents = segment
+        .get("contents")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     format!("{}{}", contents, " ".repeat(amount))
 }
 
@@ -106,8 +114,16 @@ pub fn add_spaces_center(_pl: &(), amount: usize, segment: &Map<String, Value>) 
     // py:36  amount, remainder = divmod(amount, 2)
     let (half, remainder) = (amount / 2, amount % 2);
     // py:37
-    let contents = segment.get("contents").and_then(|v| v.as_str()).unwrap_or("");
-    format!("{}{}{}", " ".repeat(half + remainder), contents, " ".repeat(half))
+    let contents = segment
+        .get("contents")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    format!(
+        "{}{}{}",
+        " ".repeat(half + remainder),
+        contents,
+        " ".repeat(half)
+    )
 }
 
 /// Port of module-level binding `expand_functions` from
@@ -118,10 +134,9 @@ pub fn add_spaces_center(_pl: &(), amount: usize, segment: &Map<String, Value>) 
 /// Note the inverse mapping: align `'l'` (left) needs `add_spaces_right`
 /// (because padding goes on the right to make text appear left-aligned),
 /// align `'r'` (right) needs `add_spaces_left`.
-pub fn expand_functions(
-    align: char,
-) -> Option<fn(&(), usize, &Map<String, Value>) -> String> {
-    match align {                                    // py:40-44
+pub fn expand_functions(align: char) -> Option<fn(&(), usize, &Map<String, Value>) -> String> {
+    match align {
+        // py:40-44
         'l' => Some(add_spaces_right),
         'r' => Some(add_spaces_left),
         'c' => Some(add_spaces_center),

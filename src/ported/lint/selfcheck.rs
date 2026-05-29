@@ -24,14 +24,16 @@ use serde_json::Value;
 /// ported, this fn is a structural walker that records the *paths*
 /// at which `mark` would need to be checked.
 pub fn havemarks(args: &[&Value], origin: &str) -> Result<(), String> {
-    for (i, v) in args.iter().enumerate() {         // py:9
+    for (i, v) in args.iter().enumerate() {
+        // py:9
         // py:10  if not hasattr(v, 'mark'):
         // (No mark tracking yet — the mark check is a no-op until
         // MarkedValue lands. See PORT_PLAN.md Phase 5 for the lint port.)
 
         // py:12  if isinstance(v, dict):
         if let Value::Object(d) = v {
-            for (key, val) in d {                   // py:13
+            for (key, val) in d {
+                // py:13
                 // py:14  havemarks(key, val, origin=(origin + '[' + unicode(i) + ']/' + unicode(key)))
                 let new_origin = format!("{}[{}]/{}", origin, i, key);
                 // Python passes `key` (a `str`) and `val` separately;

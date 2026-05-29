@@ -61,15 +61,19 @@ fn parity_version_constant() {
         eprintln!("parity_version_constant: skipped (python3 not available)");
         return;
     }
-    let py = match py_eval("__import__('powerline.version', fromlist=['__version__']).__version__") {
+    let py = match py_eval("__import__('powerline.version', fromlist=['__version__']).__version__")
+    {
         Some(v) => v,
         None => {
             eprintln!("parity_version_constant: skipped (vendor not present)");
             return;
         }
     };
-    assert_eq!(py, powerliners::version::__version__,
-        "Python __version__ != Rust __version__");
+    assert_eq!(
+        py,
+        powerliners::version::__version__,
+        "Python __version__ != Rust __version__"
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -78,7 +82,9 @@ fn parity_version_constant() {
 
 #[test]
 fn parity_humanize_bytes() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     let cases: &[(f64, &str, bool)] = &[
         (0.0, "B", false),
         (1024.0, "B", false),
@@ -102,9 +108,11 @@ fn parity_humanize_bytes() {
             }
         };
         let rs = powerliners::lib::humanize_bytes::humanize_bytes(*n, suf, *si);
-        assert_eq!(py, rs,
+        assert_eq!(
+            py, rs,
             "humanize_bytes({}, {:?}, {}) mismatch:\n  py: {:?}\n  rs: {:?}",
-            n, suf, si, py, rs);
+            n, suf, si, py, rs
+        );
     }
 }
 
@@ -114,7 +122,9 @@ fn parity_humanize_bytes() {
 
 #[test]
 fn parity_attr_constants() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     let attrs = ["ATTR_BOLD", "ATTR_ITALIC", "ATTR_UNDERLINE"];
     let rs_vals = [
         powerliners::colorscheme::ATTR_BOLD,
@@ -131,14 +141,19 @@ fn parity_attr_constants() {
             None => return,
         };
         let py_int: u32 = py.parse().expect(&format!("bad py int for {}", name));
-        assert_eq!(py_int, rs_vals[i],
-            "{} mismatch: py={}, rs={}", name, py_int, rs_vals[i]);
+        assert_eq!(
+            py_int, rs_vals[i],
+            "{} mismatch: py={}, rs={}",
+            name, py_int, rs_vals[i]
+        );
     }
 }
 
 #[test]
 fn parity_get_attrs_flag() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     let cases: &[&[&str]] = &[
         &[],
         &["bold"],
@@ -149,7 +164,8 @@ fn parity_get_attrs_flag() {
         &["unknown_attr"], // should be ignored
     ];
     for attrs in cases {
-        let py_list = attrs.iter()
+        let py_list = attrs
+            .iter()
             .map(|s| format!("'{}'", s))
             .collect::<Vec<_>>()
             .join(", ");
@@ -164,18 +180,24 @@ fn parity_get_attrs_flag() {
         let py_int: u32 = py.parse().expect("bad py int");
         let rust_attrs: Vec<String> = attrs.iter().map(|s| s.to_string()).collect();
         let rs = powerliners::colorscheme::get_attrs_flag(&rust_attrs);
-        assert_eq!(py_int, rs,
-            "get_attrs_flag({:?}) mismatch: py={}, rs={}", attrs, py_int, rs);
+        assert_eq!(
+            py_int, rs,
+            "get_attrs_flag({:?}) mismatch: py={}, rs={}",
+            attrs, py_int, rs
+        );
     }
 }
 
 #[test]
 fn parity_pick_gradient_value() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     let grad: Vec<u64> = (0..=10).map(|i| i * 10).collect();
     let levels = [0.0, 25.0, 50.0, 75.0, 100.0];
     for level in levels {
-        let py_grad = grad.iter()
+        let py_grad = grad
+            .iter()
             .map(|n| n.to_string())
             .collect::<Vec<_>>()
             .join(", ");
@@ -189,31 +211,50 @@ fn parity_pick_gradient_value() {
         };
         let py_int: u64 = py.parse().expect("bad py int");
         let rs = powerliners::colorscheme::pick_gradient_value(&grad, level);
-        assert_eq!(py_int, rs,
-            "pick_gradient_value(level={}) mismatch: py={}, rs={}", level, py_int, rs);
+        assert_eq!(
+            py_int, rs,
+            "pick_gradient_value(level={}) mismatch: py={}, rs={}",
+            level, py_int, rs
+        );
     }
 }
 
 #[test]
 fn parity_cterm_to_hex_table() {
-    if !python_available() { return; }
-    let py_expr = "list(__import__('powerline.colorscheme', fromlist=['cterm_to_hex']).cterm_to_hex)";
+    if !python_available() {
+        return;
+    }
+    let py_expr =
+        "list(__import__('powerline.colorscheme', fromlist=['cterm_to_hex']).cterm_to_hex)";
     let py = match py_eval(py_expr) {
         Some(v) => v,
         None => return,
     };
     // Parse Python list of ints
     let py_str = py.trim_start_matches('[').trim_end_matches(']');
-    let py_vals: Vec<u64> = py_str.split(',')
+    let py_vals: Vec<u64> = py_str
+        .split(',')
         .filter_map(|s| s.trim().parse().ok())
         .collect();
-    assert_eq!(py_vals.len(), 256, "Python cterm_to_hex should have 256 entries");
-    assert_eq!(py_vals.len(), powerliners::colorscheme::cterm_to_hex.len(),
-        "len mismatch");
+    assert_eq!(
+        py_vals.len(),
+        256,
+        "Python cterm_to_hex should have 256 entries"
+    );
+    assert_eq!(
+        py_vals.len(),
+        powerliners::colorscheme::cterm_to_hex.len(),
+        "len mismatch"
+    );
     for i in 0..256 {
-        assert_eq!(py_vals[i], powerliners::colorscheme::cterm_to_hex[i],
+        assert_eq!(
+            py_vals[i],
+            powerliners::colorscheme::cterm_to_hex[i],
             "cterm_to_hex[{}] mismatch: py=0x{:06x}, rs=0x{:06x}",
-            i, py_vals[i], powerliners::colorscheme::cterm_to_hex[i]);
+            i,
+            py_vals[i],
+            powerliners::colorscheme::cterm_to_hex[i]
+        );
     }
 }
 
@@ -223,7 +264,9 @@ fn parity_cterm_to_hex_table() {
 
 #[test]
 fn parity_get_tmux_executable_name_default() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     // Clear env on both sides
     std::env::remove_var("POWERLINE_TMUX_EXE");
     let py = match py_eval(
@@ -234,8 +277,11 @@ fn parity_get_tmux_executable_name_default() {
         None => return,
     };
     let rs = powerliners::bindings::tmux::get_tmux_executable_name();
-    assert_eq!(py, rs,
-        "get_tmux_executable_name() default mismatch: py={:?}, rs={:?}", py, rs);
+    assert_eq!(
+        py, rs,
+        "get_tmux_executable_name() default mismatch: py={:?}, rs={:?}",
+        py, rs
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -244,7 +290,9 @@ fn parity_get_tmux_executable_name_default() {
 
 #[test]
 fn parity_mergedicts_basic() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     // Python: import + merge, output result as JSON
     let py_script = r#"
 import json, sys, os
@@ -256,7 +304,9 @@ mergedicts(d1, d2)
 print(json.dumps(d1, sort_keys=True))
 "#;
     let vendor = repo_root().join("vendor").join("powerline");
-    if !vendor.exists() { return; }
+    if !vendor.exists() {
+        return;
+    }
     let out = Command::new("python3")
         .env("PL_VENDOR", vendor.to_string_lossy().as_ref())
         .arg("-c")
@@ -268,22 +318,31 @@ print(json.dumps(d1, sort_keys=True))
     };
 
     let mut d1 = serde_json::json!({"a": 1, "b": 2, "nested": {"x": 1, "y": 2}})
-        .as_object().unwrap().clone();
+        .as_object()
+        .unwrap()
+        .clone();
     let d2 = serde_json::json!({"b": 3, "c": 4, "nested": {"y": 20, "z": 30}})
-        .as_object().unwrap().clone();
+        .as_object()
+        .unwrap()
+        .clone();
     powerliners::lib::dict::mergedicts(&mut d1, d2, true);
 
     // Normalise both via serde_json::Value for ordering-independent compare
     let rs_json: serde_json::Value = serde_json::Value::Object(d1);
     let py_json: serde_json::Value = serde_json::from_str(&py_out).expect("py json parse");
 
-    assert_eq!(rs_json, py_json,
-        "mergedicts mismatch:\n  py: {}\n  rs: {}", py_out, rs_json);
+    assert_eq!(
+        rs_json, py_json,
+        "mergedicts mismatch:\n  py: {}\n  rs: {}",
+        py_out, rs_json
+    );
 }
 
 #[test]
 fn parity_mergedefaults() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     let py_script = r#"
 import json, sys, os
 sys.path.insert(0, os.environ['PL_VENDOR'])
@@ -294,22 +353,32 @@ mergedefaults(d1, d2)
 print(json.dumps(d1, sort_keys=True))
 "#;
     let vendor = repo_root().join("vendor").join("powerline");
-    if !vendor.exists() { return; }
+    if !vendor.exists() {
+        return;
+    }
     let out = Command::new("python3")
         .env("PL_VENDOR", vendor.to_string_lossy().as_ref())
-        .arg("-c").arg(py_script).output();
+        .arg("-c")
+        .arg(py_script)
+        .output();
     let py_out = match out {
         Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).trim_end().to_string(),
         _ => return,
     };
 
     let mut d1 = serde_json::json!({"a": 1}).as_object().unwrap().clone();
-    let d2 = serde_json::json!({"a": 2, "b": 3}).as_object().unwrap().clone();
+    let d2 = serde_json::json!({"a": 2, "b": 3})
+        .as_object()
+        .unwrap()
+        .clone();
     powerliners::lib::dict::mergedefaults(&mut d1, d2);
     let rs_json = serde_json::Value::Object(d1);
     let py_json: serde_json::Value = serde_json::from_str(&py_out).expect("py json parse");
-    assert_eq!(rs_json, py_json,
-        "mergedefaults mismatch:\n  py: {}\n  rs: {}", py_out, rs_json);
+    assert_eq!(
+        rs_json, py_json,
+        "mergedefaults mismatch:\n  py: {}\n  rs: {}",
+        py_out, rs_json
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -323,12 +392,20 @@ fn parity_config_layout_invariants() {
     let root = powerliners::config::POWERLINE_ROOT();
     let bindings = powerliners::config::BINDINGS_DIRECTORY();
     let tmux = powerliners::config::TMUX_CONFIG_DIRECTORY();
-    assert_eq!(bindings, &root.join("powerline").join("bindings"),
-        "BINDINGS_DIRECTORY = os.path.join(POWERLINE_ROOT, 'powerline', 'bindings')");
-    assert_eq!(tmux, &bindings.join("tmux"),
-        "TMUX_CONFIG_DIRECTORY = os.path.join(BINDINGS_DIRECTORY, 'tmux')");
-    assert!(powerliners::config::DEFAULT_SYSTEM_CONFIG_DIR().is_none(),
-        "DEFAULT_SYSTEM_CONFIG_DIR = None");
+    assert_eq!(
+        bindings,
+        &root.join("powerline").join("bindings"),
+        "BINDINGS_DIRECTORY = os.path.join(POWERLINE_ROOT, 'powerline', 'bindings')"
+    );
+    assert_eq!(
+        tmux,
+        &bindings.join("tmux"),
+        "TMUX_CONFIG_DIRECTORY = os.path.join(BINDINGS_DIRECTORY, 'tmux')"
+    );
+    assert!(
+        powerliners::config::DEFAULT_SYSTEM_CONFIG_DIR().is_none(),
+        "DEFAULT_SYSTEM_CONFIG_DIR = None"
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -337,7 +414,9 @@ fn parity_config_layout_invariants() {
 
 #[test]
 fn parity_path_join() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     let cases: &[&[&str]] = &[
         &["a", "b", "c"],
         &["/abs", "b", "c"],
@@ -345,7 +424,8 @@ fn parity_path_join() {
         &["a", "b", "/c"],
     ];
     for parts in cases {
-        let py_args = parts.iter()
+        let py_args = parts
+            .iter()
             .map(|s| format!("'{}'", s))
             .collect::<Vec<_>>()
             .join(", ");
@@ -358,8 +438,14 @@ fn parity_path_join() {
             None => return,
         };
         let rs = powerliners::lib::path::join(parts.iter().copied());
-        assert_eq!(py, rs.to_string_lossy(),
-            "path.join({:?}) mismatch: py={:?}, rs={:?}", parts, py, rs);
+        assert_eq!(
+            py,
+            rs.to_string_lossy(),
+            "path.join({:?}) mismatch: py={:?}, rs={:?}",
+            parts,
+            py,
+            rs
+        );
     }
 }
 
@@ -369,7 +455,9 @@ fn parity_path_join() {
 
 #[test]
 fn parity_theme_add_spaces_left() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     for amount in [0, 1, 2, 5, 10] {
         let expr = format!(
             "__import__('powerline.theme', fromlist=['add_spaces_left']).add_spaces_left(None, {}, {{'contents': 'hi'}})",
@@ -382,14 +470,19 @@ fn parity_theme_add_spaces_left() {
         let mut s = serde_json::Map::new();
         s.insert("contents".into(), serde_json::Value::String("hi".into()));
         let rs = powerliners::theme::add_spaces_left(&(), amount, &s);
-        assert_eq!(py, rs,
-            "add_spaces_left(amount={}) mismatch: py={:?}, rs={:?}", amount, py, rs);
+        assert_eq!(
+            py, rs,
+            "add_spaces_left(amount={}) mismatch: py={:?}, rs={:?}",
+            amount, py, rs
+        );
     }
 }
 
 #[test]
 fn parity_theme_add_spaces_right() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     for amount in [0, 1, 2, 5, 10] {
         let expr = format!(
             "__import__('powerline.theme', fromlist=['add_spaces_right']).add_spaces_right(None, {}, {{'contents': 'hi'}})",
@@ -402,14 +495,19 @@ fn parity_theme_add_spaces_right() {
         let mut s = serde_json::Map::new();
         s.insert("contents".into(), serde_json::Value::String("hi".into()));
         let rs = powerliners::theme::add_spaces_right(&(), amount, &s);
-        assert_eq!(py, rs,
-            "add_spaces_right(amount={}) mismatch: py={:?}, rs={:?}", amount, py, rs);
+        assert_eq!(
+            py, rs,
+            "add_spaces_right(amount={}) mismatch: py={:?}, rs={:?}",
+            amount, py, rs
+        );
     }
 }
 
 #[test]
 fn parity_theme_add_spaces_center() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     // Including odd amounts which trigger remainder-on-left
     for amount in [0, 1, 2, 3, 4, 5, 7, 10] {
         let expr = format!(
@@ -423,14 +521,19 @@ fn parity_theme_add_spaces_center() {
         let mut s = serde_json::Map::new();
         s.insert("contents".into(), serde_json::Value::String("hi".into()));
         let rs = powerliners::theme::add_spaces_center(&(), amount, &s);
-        assert_eq!(py, rs,
-            "add_spaces_center(amount={}) mismatch: py={:?}, rs={:?}", amount, py, rs);
+        assert_eq!(
+            py, rs,
+            "add_spaces_center(amount={}) mismatch: py={:?}, rs={:?}",
+            amount, py, rs
+        );
     }
 }
 
 #[test]
 fn parity_theme_new_empty_segment_line() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     let py = match py_eval(
         "__import__('json').dumps(__import__('powerline.theme', fromlist=['new_empty_segment_line']).new_empty_segment_line(), sort_keys=True)"
     ) {
@@ -440,8 +543,11 @@ fn parity_theme_new_empty_segment_line() {
     let py_json: serde_json::Value = serde_json::from_str(&py).expect("py json parse");
     let rs = powerliners::theme::new_empty_segment_line();
     let rs_json = serde_json::Value::Object(rs);
-    assert_eq!(py_json, rs_json,
-        "new_empty_segment_line mismatch: py={}, rs={}", py, rs_json);
+    assert_eq!(
+        py_json, rs_json,
+        "new_empty_segment_line mismatch: py={}, rs={}",
+        py, rs_json
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -450,10 +556,10 @@ fn parity_theme_new_empty_segment_line() {
 
 #[test]
 fn parity_which_finds_sh() {
-    if !python_available() { return; }
-    let py = match py_eval(
-        "__import__('powerline.lib.shell', fromlist=['which']).which('sh')"
-    ) {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval("__import__('powerline.lib.shell', fromlist=['which']).which('sh')") {
         Some(v) => v,
         None => return,
     };
@@ -461,15 +567,23 @@ fn parity_which_finds_sh() {
     if py == "None" {
         assert!(rs.is_none(), "py None but rs found: {:?}", rs);
     } else {
-        let rs_path = rs.expect("rs should have found sh").to_string_lossy().into_owned();
-        assert_eq!(py, rs_path,
-            "which('sh') mismatch: py={:?}, rs={:?}", py, rs_path);
+        let rs_path = rs
+            .expect("rs should have found sh")
+            .to_string_lossy()
+            .into_owned();
+        assert_eq!(
+            py, rs_path,
+            "which('sh') mismatch: py={:?}, rs={:?}",
+            py, rs_path
+        );
     }
 }
 
 #[test]
 fn parity_which_missing_returns_none() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     let py = match py_eval(
         "__import__('powerline.lib.shell', fromlist=['which']).which('powerliners-nonexistent-binary-xyz')"
     ) {
@@ -486,13 +600,18 @@ fn parity_which_missing_returns_none() {
 // ─────────────────────────────────────────────────────────────────────
 
 fn py_eval_json(expr: &str) -> Option<serde_json::Value> {
-    let raw = py_eval(&format!("__import__('json').dumps({}, sort_keys=True)", expr))?;
+    let raw = py_eval(&format!(
+        "__import__('json').dumps({}, sort_keys=True)",
+        expr
+    ))?;
     serde_json::from_str(&raw).ok()
 }
 
 #[test]
 fn parity_parse_value_numbers_and_specials() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     let cases = ["42", "-3", "3.14", "null", "true", "false", "hello", "TRUE"];
     for case in cases {
         let py = match py_eval_json(&format!(
@@ -505,14 +624,19 @@ fn parity_parse_value_numbers_and_specials() {
         let rs = powerliners::lib::overrides::parse_value(case);
         // Skip the empty-string case (returns REMOVE_THIS_KEY sentinel which
         // is `object()` in Python — opaque, won't json-serialise).
-        assert_eq!(py, rs,
-            "parse_value({:?}) mismatch:\n  py: {:?}\n  rs: {:?}", case, py, rs);
+        assert_eq!(
+            py, rs,
+            "parse_value({:?}) mismatch:\n  py: {:?}\n  rs: {:?}",
+            case, py, rs
+        );
     }
 }
 
 #[test]
 fn parity_parsedotval_str() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     let cases = ["foo=42", "a.b.c=true", "ext.tmux.theme=default"];
     for case in cases {
         let py_expr = format!(
@@ -526,14 +650,19 @@ fn parity_parsedotval_str() {
         let rs = powerliners::lib::overrides::parsedotval_str(case).unwrap();
         // Python returns (key, value) tuple; serialise as [key, value]
         let rs_arr = serde_json::json!([rs.0, rs.1]);
-        assert_eq!(py, rs_arr,
-            "parsedotval({:?}) mismatch:\n  py: {}\n  rs: {}", case, py, rs_arr);
+        assert_eq!(
+            py, rs_arr,
+            "parsedotval({:?}) mismatch:\n  py: {}\n  rs: {}",
+            case, py, rs_arr
+        );
     }
 }
 
 #[test]
 fn parity_parse_override_var() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     let cases = ["a=1;b=2;c.d=3", "ext.tmux.theme=default", ""];
     for case in cases {
         let py_expr = format!(
@@ -548,10 +677,13 @@ fn parity_parse_override_var() {
         let rs_arr = serde_json::Value::Array(
             rs.into_iter()
                 .map(|(k, v)| serde_json::json!([k, v]))
-                .collect()
+                .collect(),
         );
-        assert_eq!(py, rs_arr,
-            "parse_override_var({:?}) mismatch:\n  py: {}\n  rs: {}", case, py, rs_arr);
+        assert_eq!(
+            py, rs_arr,
+            "parse_override_var({:?}) mismatch:\n  py: {}\n  rs: {}",
+            case, py, rs_arr
+        );
     }
 }
 
@@ -604,7 +736,9 @@ fn parity_memoize_default_cache_key_equality_invariant() {
 
 #[test]
 fn parity_int_or_sig() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     let cases = ["42", "-1", "0", "sigINT", "sigTERM"];
     for case in cases {
         let py = match py_eval(&format!(
@@ -619,14 +753,19 @@ fn parity_int_or_sig() {
             powerliners::commands::main::IntOrSig::Sig(s) => s,
             powerliners::commands::main::IntOrSig::Int(n) => n.to_string(),
         };
-        assert_eq!(py, rs_str,
-            "int_or_sig({:?}) mismatch: py={:?}, rs={:?}", case, py, rs_str);
+        assert_eq!(
+            py, rs_str,
+            "int_or_sig({:?}) mismatch: py={:?}, rs={:?}",
+            case, py, rs_str
+        );
     }
 }
 
 #[test]
 fn parity_int_or_sig_rejects_garbage() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     // Python raises ValueError for "not-a-number"; subprocess will exit non-zero.
     let py = std::process::Command::new("python3")
         .arg("-c")
@@ -637,8 +776,10 @@ fn parity_int_or_sig_rejects_garbage() {
         Err(_) => return,
     };
     assert!(!py_ok, "Python should raise ValueError on bad int");
-    assert!(powerliners::commands::main::int_or_sig("not-a-number").is_err(),
-        "Rust should return Err on bad int");
+    assert!(
+        powerliners::commands::main::int_or_sig("not-a-number").is_err(),
+        "Rust should return Err on bad int"
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -647,7 +788,9 @@ fn parity_int_or_sig_rejects_garbage() {
 
 #[test]
 fn parity_urllib_urlencode() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     let cases: &[&[(&str, &str)]] = &[
         &[("a", "1"), ("b", "2")],
         &[("q", "hello world")],
@@ -656,7 +799,8 @@ fn parity_urllib_urlencode() {
     ];
     for case in cases {
         // Build a Python dict literal — order-preserving in Python 3.7+
-        let py_dict = case.iter()
+        let py_dict = case
+            .iter()
             .map(|(k, v)| format!("({:?}, {:?})", k, v))
             .collect::<Vec<_>>()
             .join(", ");
@@ -669,28 +813,40 @@ fn parity_urllib_urlencode() {
             None => return,
         };
         let rs = powerliners::lib::url::urllib_urlencode(case.iter().copied());
-        assert_eq!(py, rs,
-            "urllib_urlencode({:?}) mismatch:\n  py: {:?}\n  rs: {:?}", case, py, rs);
+        assert_eq!(
+            py, rs,
+            "urllib_urlencode({:?}) mismatch:\n  py: {:?}\n  rs: {:?}",
+            case, py, rs
+        );
     }
 }
 
 #[test]
 fn parity_version_get_version_falls_back_to_constant() {
-    if !python_available() { return; }
+    if !python_available() {
+        return;
+    }
     // Run in a directory that's not a git repo so both impls fall back
     // to the __version__ literal.
-    let py = match py_eval(
-        "__import__('powerline.version', fromlist=['get_version']).get_version()"
-    ) {
-        Some(v) => v,
-        None => return,
-    };
+    let py =
+        match py_eval("__import__('powerline.version', fromlist=['get_version']).get_version()") {
+            Some(v) => v,
+            None => return,
+        };
     let rs = powerliners::version::get_version();
     // Both should start with __version__; the suffix may differ if
     // one is in a git repo and the other isn't. The shared prefix
     // (version literal) MUST match.
-    assert!(py.starts_with(powerliners::version::__version__),
-        "py output {:?} should start with __version__ {}", py, powerliners::version::__version__);
-    assert!(rs.starts_with(powerliners::version::__version__),
-        "rs output {:?} should start with __version__ {}", rs, powerliners::version::__version__);
+    assert!(
+        py.starts_with(powerliners::version::__version__),
+        "py output {:?} should start with __version__ {}",
+        py,
+        powerliners::version::__version__
+    );
+    assert!(
+        rs.starts_with(powerliners::version::__version__),
+        "rs output {:?} should start with __version__ {}",
+        rs,
+        powerliners::version::__version__
+    );
 }

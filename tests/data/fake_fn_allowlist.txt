@@ -121,3 +121,16 @@ get_fallback_segment
 # which is what os.path.ismount does internally on Unix. Two cfg
 # variants (unix + non-unix) — both share the same name.
 is_mount
+
+# Approved 2026-05-28: accessor + methods for the version-matching
+# subsystem in powerline/bindings/config.py:22-32. Python declares
+# CONFIG_FILE_NAME as a module-level compiled regex, CONFIG_MATCHERS
+# as a dict of lambdas (None / 'plus' / 'minus'), and CONFIG_PRIORITY
+# as a parallel dict. Rust folds the dispatch into a `ConfigMatcher`
+# enum with `applies()` and `priority()` methods. `CONFIG_FILE_NAME`
+# matches the Python identifier byte-for-byte (lazy-init accessor fn).
+# `applies` and `priority` are method names on the enum that replace
+# the dict-of-lambdas indirection — same observable semantics.
+CONFIG_FILE_NAME
+applies
+priority

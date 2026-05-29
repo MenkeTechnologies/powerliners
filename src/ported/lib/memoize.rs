@@ -56,7 +56,8 @@ pub struct CacheEntry {
 /// callers pass the kwargs map + a closure that produces the value if
 /// the cache misses or expires.
 #[allow(non_camel_case_types)]
-pub struct memoize {                                  // py:13
+pub struct memoize {
+    // py:13
     /// Python: `self.timeout` (seconds) — py:16
     pub timeout: f64,
     /// Python: `self.cache_key` — opaque key fn. The Rust port stores
@@ -71,10 +72,11 @@ pub struct memoize {                                  // py:13
 
 impl memoize {
     /// Port of `memoize.__init__()` from `powerline/lib/memoize.py:15`.
-    pub fn new(timeout: f64) -> Self {                // py:15
+    pub fn new(timeout: f64) -> Self {
+        // py:15
         Self {
-            timeout,                                  // py:16
-            cache_key: default_cache_key,             // py:17
+            timeout,                                     // py:16
+            cache_key: default_cache_key,                // py:17
             cache: Arc::new(Mutex::new(HashMap::new())), // py:18
         }
     }
@@ -89,7 +91,7 @@ impl memoize {
     where
         F: FnOnce(&Map<String, Value>) -> Value,
     {
-        let key = (self.cache_key)(kwargs);            // py:28
+        let key = (self.cache_key)(kwargs); // py:28
         let now = monotonic();
 
         // py:30-36  check cache freshness
@@ -100,7 +102,7 @@ impl memoize {
             // based), so the lower-bound check is always true in practice;
             // we keep it for parity.
             if cached.time < now && now < cached.time + self.timeout {
-                return cached.result.clone();        // py:41  return cached['result']
+                return cached.result.clone(); // py:41  return cached['result']
             }
         }
 

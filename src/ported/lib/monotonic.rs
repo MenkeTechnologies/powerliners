@@ -65,6 +65,11 @@ mod tests {
         let a = monotonic();
         std::thread::sleep(std::time::Duration::from_millis(10));
         let b = monotonic();
-        assert!(b - a >= 0.005, "monotonic did not advance ≥5ms after sleep(10ms): {} -> {}", a, b);
+        assert!(
+            b - a >= 0.005,
+            "monotonic did not advance ≥5ms after sleep(10ms): {} -> {}",
+            a,
+            b
+        );
     }
 }

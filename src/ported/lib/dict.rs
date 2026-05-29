@@ -31,7 +31,8 @@ use serde_json::{Map, Value};
 /// does — and matches the upstream semantic of "I am the deletion
 /// marker, not a real value").
 #[allow(non_snake_case)]
-pub fn REMOVE_THIS_KEY() -> Value {              // py:5
+pub fn REMOVE_THIS_KEY() -> Value {
+    // py:5
     serde_json::json!({"__powerliners_remove_this_key__": true})
 }
 
@@ -57,15 +58,16 @@ where
 {
     let mut iter = argvalue.into_iter().peekable(); // py:9
     if iter.peek().is_none() {
-        return None;                                // py:10  if not argvalue: return None
+        return None; // py:10  if not argvalue: return None
     }
-    let mut r: Map<String, Value> = Map::new();    // py:11
-    for (k, v) in iter {                            // py:12-13
+    let mut r: Map<String, Value> = Map::new(); // py:11
+    for (k, v) in iter {
+        // py:12-13
         let mut single = Map::new();
         single.insert(k, v);
         mergedicts(&mut r, single, remove);
     }
-    Some(r)                                         // py:14
+    Some(r) // py:14
 }
 
 /// Port of `_clear_special_values()` from `powerline/lib/dict.py:17`.
@@ -75,23 +77,31 @@ where
 /// `l = [d]; while l: i = l.pop(); ...` shape).
 pub fn _clear_special_values(d: &mut Map<String, Value>) {
     let mut l: Vec<*mut Map<String, Value>> = vec![d as *mut _]; // py:20
-    // SAFETY: We only ever push pointers to live `Map`s reachable from
-    // `d`. Each `Map<String, Value>` is owned by either `d` or a nested
-    // `Value::Object` inside it; we hold no aliasing references during
-    // the inner loop, and we never visit the same map twice.
-    while let Some(p) = l.pop() {                   // py:21-22
+                                                                 // SAFETY: We only ever push pointers to live `Map`s reachable from
+                                                                 // `d`. Each `Map<String, Value>` is owned by either `d` or a nested
+                                                                 // `Value::Object` inside it; we hold no aliasing references during
+                                                                 // the inner loop, and we never visit the same map twice.
+    while let Some(p) = l.pop() {
+        // py:21-22
         let i = unsafe { &mut *p };
-        let mut pops: Vec<String> = Vec::new();     // py:23
-        for (k, v) in i.iter_mut() {                // py:24
+        let mut pops: Vec<String> = Vec::new(); // py:23
+        for (k, v) in i.iter_mut() {
+            // py:24
             // py:25  isinstance check + sentinel identity — see REMOVE_THIS_KEY at py:5
-if matches!(v.get("__powerliners_remove_this_key__"), Some(Value::Bool(true))) {                // py:25
-                pops.push(k.clone());               // py:26
-            } else if let Value::Object(child) = v {// py:27  isinstance(v, dict)
-                l.push(child as *mut _);            // py:28
+            if matches!(
+                v.get("__powerliners_remove_this_key__"),
+                Some(Value::Bool(true))
+            ) {
+                // py:25
+                pops.push(k.clone()); // py:26
+            } else if let Value::Object(child) = v {
+                // py:27  isinstance(v, dict)
+                l.push(child as *mut _); // py:28
             }
         }
-        for k in pops {                             // py:29
-            i.remove(&k);                     // py:30  i.pop(k)
+        for k in pops {
+            // py:29
+            i.remove(&k); // py:30  i.pop(k)
         }
     }
 }
@@ -105,26 +115,33 @@ if matches!(v.get("__powerliners_remove_this_key__"), Some(Value::Bool(true))) {
 /// - Otherwise → `d1[k] = d2[k]` (with REMOVE_THIS_KEY scrubbed from
 ///   nested dicts when `remove` is true).
 pub fn mergedicts(d1: &mut Map<String, Value>, d2: Map<String, Value>, remove: bool) {
-    _setmerged(d1, &d2);                            // py:38
-    for (k, v) in d2 {                              // py:39
+    _setmerged(d1, &d2); // py:38
+    for (k, v) in d2 {
+        // py:39
         let in_d1_as_dict = matches!(d1.get(&k), Some(Value::Object(_)));
         let v_is_dict = matches!(v, Value::Object(_));
-        if in_d1_as_dict && v_is_dict {             // py:40
-            if let (Some(Value::Object(inner1)), Value::Object(inner2)) =
-                (d1.get_mut(&k), v)
-            {
+        if in_d1_as_dict && v_is_dict {
+            // py:40
+            if let (Some(Value::Object(inner1)), Value::Object(inner2)) = (d1.get_mut(&k), v) {
                 mergedicts(inner1, inner2, remove); // py:41
             }
-        } else if remove && matches!(v.get("__powerliners_remove_this_key__"), Some(Value::Bool(true))) {  // py:42
-            d1.remove(&k);                    // py:43  d1.pop(k, None)
-        } else {                                    // py:44
+        } else if remove
+            && matches!(
+                v.get("__powerliners_remove_this_key__"),
+                Some(Value::Bool(true))
+            )
+        {
+            // py:42
+            d1.remove(&k); // py:43  d1.pop(k, None)
+        } else {
+            // py:44
             let mut owned = v;
             if remove {
                 if let Value::Object(ref mut inner) = owned {
-                    _clear_special_values(inner);   // py:45-46
+                    _clear_special_values(inner); // py:45-46
                 }
             }
-            d1.insert(k, owned);                    // py:47
+            d1.insert(k, owned); // py:47
         }
     }
 }
@@ -134,17 +151,18 @@ pub fn mergedicts(d1: &mut Map<String, Value>, d2: Map<String, Value>, remove: b
 /// Recursively merge `d2` into `d1`, keeping existing values in `d1`
 /// (`d1` wins on every key collision; `d2` is only used to fill gaps).
 pub fn mergedefaults(d1: &mut Map<String, Value>, d2: Map<String, Value>) {
-    for (k, v) in d2 {                              // py:55
+    for (k, v) in d2 {
+        // py:55
         let in_d1_as_dict = matches!(d1.get(&k), Some(Value::Object(_)));
         let v_is_dict = matches!(v, Value::Object(_));
-        if in_d1_as_dict && v_is_dict {             // py:56
-            if let (Some(Value::Object(inner1)), Value::Object(inner2)) =
-                (d1.get_mut(&k), v)
-            {
-                mergedefaults(inner1, inner2);      // py:57
+        if in_d1_as_dict && v_is_dict {
+            // py:56
+            if let (Some(Value::Object(inner1)), Value::Object(inner2)) = (d1.get_mut(&k), v) {
+                mergedefaults(inner1, inner2); // py:57
             }
-        } else {                                    // py:58
-            d1.entry(k).or_insert(v);               // py:59  d1.setdefault(k, d2[k])
+        } else {
+            // py:58
+            d1.entry(k).or_insert(v); // py:59  d1.setdefault(k, d2[k])
         }
     }
 }
@@ -172,22 +190,23 @@ pub fn _setmerged(_d1: &mut Map<String, Value>, _d2: &Map<String, Value>) {
 /// Recursively merge two dictionaries without mutating either input.
 /// `d2` wins on every collision.
 pub fn mergedicts_copy(d1: &Map<String, Value>, d2: Map<String, Value>) -> Map<String, Value> {
-    let mut ret = d1.clone();                       // py:73
-    _setmerged(&mut ret, &d2);                      // py:74
-    for (k, v) in d2 {                              // py:75
+    let mut ret = d1.clone(); // py:73
+    _setmerged(&mut ret, &d2); // py:74
+    for (k, v) in d2 {
+        // py:75
         let in_d1_as_dict = matches!(d1.get(&k), Some(Value::Object(_)));
         let v_is_dict = matches!(v, Value::Object(_));
-        if in_d1_as_dict && v_is_dict {             // py:76
-            if let (Some(Value::Object(inner1)), Value::Object(inner2)) =
-                (d1.get(&k), v)
-            {
+        if in_d1_as_dict && v_is_dict {
+            // py:76
+            if let (Some(Value::Object(inner1)), Value::Object(inner2)) = (d1.get(&k), v) {
                 ret.insert(k, Value::Object(mergedicts_copy(inner1, inner2))); // py:77
             }
-        } else {                                    // py:78
-            ret.insert(k, v);                       // py:79
+        } else {
+            // py:78
+            ret.insert(k, v); // py:79
         }
     }
-    ret                                             // py:80
+    ret // py:80
 }
 
 /// Port of `updated()` from `powerline/lib/dict.py:83`.
@@ -201,11 +220,12 @@ pub fn updated<I>(d: &Map<String, Value>, updates: I) -> Map<String, Value>
 where
     I: IntoIterator<Item = (String, Value)>,
 {
-    let mut d = d.clone();                          // py:86
-    for (k, v) in updates {                         // py:87  d.update(*args, **kwargs)
+    let mut d = d.clone(); // py:86
+    for (k, v) in updates {
+        // py:87  d.update(*args, **kwargs)
         d.insert(k, v);
     }
-    d                                               // py:88
+    d // py:88
 }
 
 #[cfg(test)]
@@ -233,8 +253,7 @@ mod tests {
         let mut d1 = obj(json!({"a": {"x": 1, "y": 2}}));
         let d2 = obj(json!({"a": {"y": 20, "z": 30}}));
         mergedicts(&mut d1, d2, true);
-        assert_eq!(Value::Object(d1),
-            json!({"a": {"x": 1, "y": 20, "z": 30}}));
+        assert_eq!(Value::Object(d1), json!({"a": {"x": 1, "y": 20, "z": 30}}));
     }
 
     #[test]
@@ -263,8 +282,10 @@ mod tests {
         assert_eq!(d1.get("a"), Some(&json!(1)));
         assert_eq!(d2.get("a"), Some(&json!(2)));
         // Merge result.
-        assert_eq!(Value::Object(merged),
-            json!({"a": 2, "nested": {"x": 1, "y": 2}}));
+        assert_eq!(
+            Value::Object(merged),
+            json!({"a": 2, "nested": {"x": 1, "y": 2}})
+        );
     }
 
     #[test]
@@ -276,12 +297,10 @@ mod tests {
     #[test]
     fn mergeargs_folds_pairs() {
         let r = mergeargs(
-            vec![
-                ("a".to_string(), json!(1)),
-                ("b".to_string(), json!(2)),
-            ],
+            vec![("a".to_string(), json!(1)), ("b".to_string(), json!(2))],
             false,
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(Value::Object(r), json!({"a": 1, "b": 2}));
     }
 

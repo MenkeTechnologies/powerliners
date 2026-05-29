@@ -34,7 +34,8 @@
 /// In Python the input could be `unicode` (Py2) / `str` (Py3) or
 /// `bytes`. Rust callers pass `&str` (already valid UTF-8) or
 /// `&[u8]` (byte slice). Both shapes are provided.
-pub fn u(s: &str) -> String {                       // py:35
+pub fn u(s: &str) -> String {
+    // py:35
     // py:37  type(s) is unicode → already unicode, return as-is
     // py:39  unicode(s, 'utf-8') → decode bytes as UTF-8
     // For &str input both paths collapse to "copy to owned String".
@@ -50,7 +51,8 @@ pub fn u(s: &str) -> String {                       // py:35
 /// well-defined `Display` or `Debug` impl, and `String::from_utf8_lossy`
 /// covers the byte-slice fallback. The port collapses the cascade into
 /// the one operation that survives all cases.
-pub fn safe_unicode_str(s: &str) -> String {        // py:121
+pub fn safe_unicode_str(s: &str) -> String {
+    // py:121
     // py:138-139  type(s) is bytes → 'ascii' decode fallback
     // py:140-141  not bytes → unicode(s) (already-unicode)
     // For &str the result is just the owned copy.
@@ -62,7 +64,8 @@ pub fn safe_unicode_str(s: &str) -> String {        // py:121
 /// Falls back to lossy UTF-8 decoding for non-ASCII bytes
 /// (Python tries UTF-8 then the preferred output encoding; Rust uses
 /// `from_utf8_lossy` which substitutes U+FFFD for invalid sequences).
-pub fn safe_unicode_bytes(s: &[u8]) -> String {     // py:121
+pub fn safe_unicode_bytes(s: &[u8]) -> String {
+    // py:121
     String::from_utf8_lossy(s).into_owned()
 }
 

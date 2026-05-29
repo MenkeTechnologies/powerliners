@@ -41,21 +41,24 @@ pub mod vim;
 /// linter is unported (Phase 5), so the Rust port carries the trait
 /// shape with default no-op implementations; class-based segments
 /// override as needed.
-pub trait Segment {                                  // py:13
+pub trait Segment {
+    // py:13
     /// Port of `Segment.omitted_args()` from
     /// `powerline/segments/__init__.py:40`.
     ///
     /// Returns a tuple with indexes of omitted arguments.
-    fn omitted_args(&self, _name: &str) -> Vec<usize> { // py:40
-        Vec::new()                                   // py:50  default `()`
+    fn omitted_args(&self, _name: &str) -> Vec<usize> {
+        // py:40
+        Vec::new() // py:50  default `()`
     }
 
     /// Port of `Segment.additional_args()` from
     /// `powerline/segments/__init__.py:53`.
     ///
     /// Returns a list of `(additional argument name[, default value])` tuples.
-    fn additional_args(&self) -> Vec<(String, Option<serde_json::Value>)> { // py:53
-        Vec::new()                                   // py:56
+    fn additional_args(&self) -> Vec<(String, Option<serde_json::Value>)> {
+        // py:53
+        Vec::new() // py:56
     }
 }
 

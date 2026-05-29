@@ -35,7 +35,8 @@ use std::collections::HashMap;
 ///
 /// The Rust port matches the Python 3 branch — every `&str` is already
 /// valid UTF-8 by construction.
-pub fn arg_to_unicode(s: &str) -> String {           // py:23
+pub fn arg_to_unicode(s: &str) -> String {
+    // py:23
     // py:24  return s
     u(s)
 }
@@ -61,10 +62,13 @@ pub enum IntOrSig {
     Int(i32),
 }
 
-pub fn int_or_sig(s: &str) -> Result<IntOrSig, String> { // py:75
-    if s.starts_with("sig") {                        // py:76
-        Ok(IntOrSig::Sig(u(s)))                      // py:77  return u(s)
-    } else {                                         // py:78
+pub fn int_or_sig(s: &str) -> Result<IntOrSig, String> {
+    // py:75
+    if s.starts_with("sig") {
+        // py:76
+        Ok(IntOrSig::Sig(u(s))) // py:77  return u(s)
+    } else {
+        // py:78
         // py:79  return int(s)
         s.parse::<i32>()
             .map(IntOrSig::Int)
@@ -201,14 +205,15 @@ pub fn finish_args(
 
     // py:65-71  ext / side validation
     let ext0 = args.ext.first().cloned().unwrap_or_default();
-    if ext0.starts_with("wm.") {                     // py:65
-        // py:66-69  WM bindings require daemon; wm_threads check deferred
-        // until bindings/wm/ ports.
-    } else if args.side.is_none() {                  // py:70
+    if ext0.starts_with("wm.") { // py:65
+         // py:66-69  WM bindings require daemon; wm_threads check deferred
+         // until bindings/wm/ ports.
+    } else if args.side.is_none() {
+        // py:70
         return Err("expected one argument".to_string()); // py:71
     }
 
-    Ok(())                                            // py:72
+    Ok(()) // py:72
 }
 
 #[cfg(test)]
@@ -231,8 +236,14 @@ mod tests {
 
     #[test]
     fn int_or_sig_parses_signal_name() {
-        assert_eq!(int_or_sig("sigINT").unwrap(), IntOrSig::Sig("sigINT".into()));
-        assert_eq!(int_or_sig("sigTERM").unwrap(), IntOrSig::Sig("sigTERM".into()));
+        assert_eq!(
+            int_or_sig("sigINT").unwrap(),
+            IntOrSig::Sig("sigINT".into())
+        );
+        assert_eq!(
+            int_or_sig("sigTERM").unwrap(),
+            IntOrSig::Sig("sigTERM".into())
+        );
     }
 
     #[test]
@@ -249,7 +260,10 @@ mod tests {
             ..Default::default()
         };
         let r = finish_args(&env, &mut args, false);
-        assert!(r.is_err(), "expected validation error when ext=shell + no side");
+        assert!(
+            r.is_err(),
+            "expected validation error when ext=shell + no side"
+        );
     }
 
     #[test]
@@ -274,15 +288,22 @@ mod tests {
             ..Default::default()
         };
         finish_args(&env, &mut args, false).unwrap();
-        let merged = args.config_override_merged.expect("config_override should be merged");
-        assert_eq!(merged.get("ext"),
-            Some(&json!({"shell": {"theme": "default"}})));
+        let merged = args
+            .config_override_merged
+            .expect("config_override should be merged");
+        assert_eq!(
+            merged.get("ext"),
+            Some(&json!({"shell": {"theme": "default"}}))
+        );
     }
 
     #[test]
     fn finish_args_combines_env_and_arg_config_path() {
         let mut env = HashMap::new();
-        env.insert("POWERLINE_CONFIG_PATHS".into(), "/etc/powerline:/opt/powerline".into());
+        env.insert(
+            "POWERLINE_CONFIG_PATHS".into(),
+            "/etc/powerline:/opt/powerline".into(),
+        );
         let mut args = Args {
             ext: vec!["shell".to_string()],
             side: Some("left".to_string()),
@@ -291,11 +312,14 @@ mod tests {
         };
         finish_args(&env, &mut args, false).unwrap();
         let paths = args.config_path.expect("config_path should be populated");
-        assert_eq!(paths, vec![
-            "/etc/powerline".to_string(),
-            "/opt/powerline".to_string(),
-            "/home/user/.config/powerline".to_string(),
-        ]);
+        assert_eq!(
+            paths,
+            vec![
+                "/etc/powerline".to_string(),
+                "/opt/powerline".to_string(),
+                "/home/user/.config/powerline".to_string(),
+            ]
+        );
     }
 
     #[test]
@@ -308,7 +332,9 @@ mod tests {
             ..Default::default()
         };
         finish_args(&env, &mut args, false).unwrap();
-        let merged = args.renderer_arg_merged.expect("renderer_arg should be merged");
+        let merged = args
+            .renderer_arg_merged
+            .expect("renderer_arg should be merged");
         // Python: int("42") = 42; lstrip(' %') strips both.
         assert_eq!(merged.get("pane_id"), Some(&json!(42)));
         assert_eq!(merged.get("client_id"), Some(&json!(42)));

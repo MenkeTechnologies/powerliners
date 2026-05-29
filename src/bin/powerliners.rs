@@ -36,8 +36,10 @@ fn main() {
             }
         }
         "tmux-version" => match pl::bindings::tmux::get_tmux_version(&()) {
-            Some(v) => println!("tmux {}.{}{}",
-                v.major, v.minor,
+            Some(v) => println!(
+                "tmux {}.{}{}",
+                v.major,
+                v.minor,
                 v.suffix.as_deref().unwrap_or("")
             ),
             None => {
@@ -46,7 +48,8 @@ fn main() {
             }
         },
         "humanize-bytes" => {
-            let n: f64 = args.get(1)
+            let n: f64 = args
+                .get(1)
                 .and_then(|s| s.parse().ok())
                 .unwrap_or_else(|| usage_exit("humanize-bytes <number>"));
             println!("{}", pl::lib::humanize_bytes::humanize_bytes(n, "B", false));

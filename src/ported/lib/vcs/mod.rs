@@ -39,12 +39,15 @@ use std::path::{Path, PathBuf};
 pub fn generate_directories<P: AsRef<Path>>(path: P) -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = Vec::new();
     let mut path = path.as_ref().to_path_buf();
-    if path.is_dir() {                               // py:16
-        out.push(path.clone());                      // py:17
+    if path.is_dir() {
+        // py:16
+        out.push(path.clone()); // py:17
     }
-    loop {                                           // py:18
-        if is_mount(&path) {                         // py:19
-            break;                                   // py:20
+    loop {
+        // py:18
+        if is_mount(&path) {
+            // py:19
+            break; // py:20
         }
         let old_path = path.clone();
         // py:22  path = os.path.dirname(path)
@@ -56,7 +59,7 @@ pub fn generate_directories<P: AsRef<Path>>(path: P) -> Vec<PathBuf> {
         if path == old_path || path.as_os_str().is_empty() {
             break;
         }
-        out.push(path.clone());                      // py:25  yield path
+        out.push(path.clone()); // py:25  yield path
     }
     out
 }
@@ -113,7 +116,9 @@ mod tests {
         for w in dirs.windows(2) {
             assert!(
                 w[0].starts_with(&w[1]) || w[1].as_os_str().is_empty(),
-                "expected {:?} to be a child of {:?}", w[0], w[1]
+                "expected {:?} to be a child of {:?}",
+                w[0],
+                w[1]
             );
         }
     }

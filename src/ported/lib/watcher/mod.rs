@@ -88,7 +88,7 @@ pub fn create_file_watcher(
         // py:51-61  auto: try inotify, then uv, then stat (fallback).
         // Rust port: stat is the only backend implemented so far; always
         // returns it for the auto path.
-        _ => Box::new(StatFileWatcher::new()),       // py:63  StatFileWatcher() fallback
+        _ => Box::new(StatFileWatcher::new()), // py:63  StatFileWatcher() fallback
     }
 }
 

@@ -23,7 +23,7 @@ pub fn attached_clients(pl: &(), minimum: i32) -> Option<String> {
     let session_output = get_tmux_output(pl, &["list-panes", "-F", "#{session_name}"])?;
     // py:15  if not session_output: return None
     if session_output.is_empty() {
-        return None;                                   // py:16
+        return None; // py:16
     }
     // py:17  session_name = session_output.rstrip().split('\n')[0]
     let session_name = session_output
@@ -33,8 +33,7 @@ pub fn attached_clients(pl: &(), minimum: i32) -> Option<String> {
         .map(String::from)?;
 
     // py:19  attached_clients_output = get_tmux_output(pl, 'list-clients', '-t', session_name)
-    let attached_clients_output =
-        get_tmux_output(pl, &["list-clients", "-t", &session_name])?;
+    let attached_clients_output = get_tmux_output(pl, &["list-clients", "-t", &session_name])?;
     // py:20  attached_count = len(attached_clients_output.rstrip().split('\n'))
     let attached_count = attached_clients_output.trim_end().split('\n').count() as i32;
 

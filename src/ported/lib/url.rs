@@ -60,7 +60,13 @@ where
 {
     items
         .into_iter()
-        .map(|(k, v)| format!("{}={}", percent_encode(k.as_ref()), percent_encode(v.as_ref())))
+        .map(|(k, v)| {
+            format!(
+                "{}={}",
+                percent_encode(k.as_ref()),
+                percent_encode(v.as_ref())
+            )
+        })
         .collect::<Vec<_>>()
         .join("&")
 }

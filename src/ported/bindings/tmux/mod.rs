@@ -23,8 +23,9 @@ use std::sync::OnceLock;
 ///
 /// Python: `TmuxVersionInfo = namedtuple('TmuxVersionInfo', ('major', 'minor', 'suffix'))`
 #[derive(Debug, Clone, PartialEq)]
-pub struct TmuxVersionInfo {                          // py:13
-    pub major: f64,                                   // f64 to model `float('inf')` py:74 master path
+pub struct TmuxVersionInfo {
+    // py:13
+    pub major: f64, // f64 to model `float('inf')` py:74 master path
     pub minor: i32,
     pub suffix: Option<String>,
 }
@@ -54,9 +55,7 @@ pub fn get_tmux_executable_name() -> String {
 pub fn _run_tmux(args: &[&str]) -> std::io::Result<std::process::Output> {
     // py:26  return runner([get_tmux_executable_name()] + list(args))
     let exe = get_tmux_executable_name();
-    Command::new(&exe)
-        .args(args)
-        .output()
+    Command::new(&exe).args(args).output()
 }
 
 /// Port of `run_tmux_command()` from
@@ -94,7 +93,8 @@ pub fn get_tmux_output(pl: &(), args: &[&str]) -> Option<String> {
 pub fn set_tmux_environment(varname: &str, value: &str, remove: bool) {
     // py:49  run_tmux_command('set-environment', '-g', varname, value)
     run_tmux_command(&["set-environment", "-g", varname, value]);
-    if remove {                                       // py:50
+    if remove {
+        // py:50
         // py:51-55  except CalledProcessError: pass — silently ignore failure.
         let _ = _run_tmux(&["set-environment", "-r", varname]);
     }
@@ -150,7 +150,7 @@ pub fn get_tmux_version(pl: &()) -> Option<TmuxVersionInfo> {
     // py:73  _, version_string = version_string.split(' ')
     let mut parts = version_string.splitn(2, ' ');
     let _ = parts.next()?;
-    let version_string = parts.next()?.trim();        // py:74
+    let version_string = parts.next()?.trim(); // py:74
 
     // py:75-76  if version_string == 'master': return TmuxVersionInfo(float('inf'), 0, version_string)
     if version_string == "master" {
@@ -170,11 +170,16 @@ pub fn get_tmux_version(pl: &()) -> Option<TmuxVersionInfo> {
     let major_str = NON_DIGITS().replace_all(major_raw, "").into_owned();
     // py:79  suffix = DIGITS.subn('', minor)[0] or None
     let suffix_str = DIGITS().replace_all(minor_raw, "").into_owned();
-    let suffix = if suffix_str.is_empty() { None } else { Some(suffix_str) };
+    let suffix = if suffix_str.is_empty() {
+        None
+    } else {
+        Some(suffix_str)
+    };
     // py:80  minor = NON_DIGITS.subn('', minor)[0]
     let minor_str = NON_DIGITS().replace_all(minor_raw, "").into_owned();
 
-    Some(TmuxVersionInfo {                            // py:81
+    Some(TmuxVersionInfo {
+        // py:81
         major: major_str.parse().ok()?,
         minor: minor_str.parse().ok()?,
         suffix,
