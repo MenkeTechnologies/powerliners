@@ -735,3 +735,24 @@ flatten_battery
 # callers wiring real `/sys/class/power_supply/*` reads can build
 # the input to flatten_battery without duplicating the zip dance.
 build_device_table
+
+# state_symbols() is the Rust accessor for the Python
+# module-level STATE_SYMBOLS = {...} dict at
+# segments/common/players.py:12-17. Returns a fresh Map per call
+# since callers may mutate the dict locally before passing to
+# player_segment_call (Python's mutable default arg pattern).
+state_symbols
+
+# _convert_seconds_str is the str-input variant of
+# _convert_seconds matching the isinstance(seconds, str) branch
+# at segments/common/players.py:33. Python overloads the type;
+# Rust splits into separate parse-then-convert functions since
+# Rust doesn't support runtime type dispatch on the argument.
+_convert_seconds_str
+
+# player_segment_call materialises PlayerSegment.__call__ at
+# segments/common/players.py:40. The bare `__call__` dunder isn't
+# a valid Rust identifier so the port renames to
+# player_segment_call to describe the result (build the player
+# segment list).
+player_segment_call
