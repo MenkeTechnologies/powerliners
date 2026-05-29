@@ -126,14 +126,17 @@ mod tests {
     use super::*;
 
     fn tmp_file_with_content(content: &str) -> PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
         let mut p = std::env::temp_dir();
         p.push(format!(
-            "powerliners-stat-test-{}-{}.txt",
+            "powerliners-stat-test-{}-{}-{}.txt",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            COUNTER.fetch_add(1, Ordering::SeqCst)
         ));
         std::fs::write(&p, content).unwrap();
         p
