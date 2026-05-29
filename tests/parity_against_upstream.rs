@@ -2192,6 +2192,37 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_multi_runned_thread_default_state() {
+    if !python_available() {
+        return;
+    }
+    // MultiRunnedThread default-constructed state:
+    //   daemon          == True (class-level attribute)
+    //   thread          == None
+    //   is_alive()      == None / False (no thread started yet)
+    let py = match py_eval(
+        "(lambda m: __import__('json').dumps([m.daemon, m.thread is None, bool(m.is_alive())]))(__import__('powerline.lib.threaded', fromlist=['MultiRunnedThread']).MultiRunnedThread())",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    assert_eq!(
+        py_value,
+        serde_json::json!([true, true, false]),
+        "Python MultiRunnedThread default state drift"
+    );
+
+    use powerliners::lib::threaded::MultiRunnedThread;
+    let m = MultiRunnedThread::new();
+    assert!(m.daemon, "Rust MultiRunnedThread.daemon should be true");
+    assert!(
+        !m.is_alive(),
+        "Rust MultiRunnedThread.is_alive() should be false before start"
+    );
+}
+
+#[test]
 fn parity_spec_unknown_spec_and_unknown_msg_record_state() {
     if !python_available() {
         return;
