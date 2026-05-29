@@ -1,6 +1,6 @@
 [package]
 name = "powerliners"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "1:1 Rust port of powerline/powerline. The ultimate statusline/prompt utility."
 license = "MIT"
@@ -25,6 +25,33 @@ exclude = [
 [lib]
 name = "powerliners"
 path = "src/lib.rs"
+
+# Explicit binaries so cargo install / cargo publish ship the full
+# upstream-equivalent CLI surface.
+[[bin]]
+name = "powerline"
+path = "src/bin/powerline.rs"
+
+[[bin]]
+name = "powerline-daemon"
+path = "src/bin/powerline-daemon.rs"
+
+[[bin]]
+name = "powerline-config"
+path = "src/bin/powerline-config.rs"
+
+[[bin]]
+name = "powerline-render"
+path = "src/bin/powerline-render.rs"
+
+[[bin]]
+name = "powerline-lint"
+path = "src/bin/powerline-lint.rs"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
 
 [dependencies]
 # Carefully chosen for the "endgame" durability bar: foundational crates only.

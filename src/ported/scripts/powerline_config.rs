@@ -17,6 +17,187 @@
 use crate::ported::bindings::config as binding_config;
 use crate::ported::commands::config::{get_argparser, StrFunction};
 
+/// Build Colorscheme + Theme + TmuxRenderer + term_truecolor the
+/// same way `powerline-daemon`'s `build_configs` does, then dispatch
+/// `init_tmux_environment` + `source_tmux_files` via
+/// `bindings::tmux::set_tmux_environment` / `source_tmux_file`.
+///
+/// Mirrors `tmux_setup()` from
+/// `powerline/bindings/config.py:182-216` for the `args.source=True`
+/// branch (the default — `args.source is None` and `tmux_version >=
+/// (1, 9)` per py:204-206).
+fn tmux_setup(args: &[String]) -> Result<(), String> {
+    use crate::ported::bindings::config::{init_tmux_environment, sorted_tmux_configs};
+    use crate::ported::bindings::tmux::{
+        get_tmux_version, set_tmux_environment, source_tmux_file,
+    };
+    use crate::ported::colorscheme::Colorscheme;
+    use crate::ported::config::TMUX_CONFIG_DIRECTORY;
+    use crate::ported::lib::config::load_json_config;
+    use crate::ported::lib::dict::mergedicts;
+    use crate::ported::lib::encoding::get_preferred_output_encoding;
+    use crate::ported::renderers::tmux::TmuxRenderer;
+    use crate::ported::theme::Theme;
+    use crate::ported::{_find_config_files, get_config_paths, get_default_theme};
+    use std::path::PathBuf;
+
+    // Build the same search-paths cascade the daemon uses:
+    //   1. `POWERLINE_CONFIG_PATHS` env (colon-split)
+    //   2. `--config-path` / `-p` flags (argparser sh:25 / py:get_argparser)
+    //   3. `get_config_paths()` defaults (XDG + ~/.config)
+    //   4. bundled `vendor/powerline/powerline/config_files`
+    let mut search_paths: Vec<PathBuf> = Vec::new();
+    if let Ok(pcp) = std::env::var("POWERLINE_CONFIG_PATHS") {
+        for p in pcp.split(':').filter(|s| !s.is_empty()) {
+            search_paths.push(PathBuf::from(p));
+        }
+    }
+    let mut i = 0;
+    while i < args.len() {
+        if args[i] == "--config-path" || args[i] == "-p" {
+            if let Some(p) = args.get(i + 1) {
+                search_paths.push(PathBuf::from(p));
+            }
+            i += 2;
+        } else {
+            i += 1;
+        }
+    }
+    search_paths.extend(get_config_paths());
+    if let Some(manifest) = option_env!("CARGO_MANIFEST_DIR") {
+        let bundled = PathBuf::from(manifest).join("vendor/powerline/powerline/config_files");
+        if bundled.is_dir() {
+            search_paths.push(bundled);
+        }
+    }
+
+    // load_one(name) → first hit's load_json_config object.
+    let load_one = |name: &str| -> Option<serde_json::Map<String, serde_json::Value>> {
+        let matches = _find_config_files(&search_paths, name).ok()?;
+        let p = matches.first()?;
+        let v = load_json_config(p).ok()?;
+        v.as_object().cloned()
+    };
+    let load_cascade =
+        |levels: &[String]| -> Option<serde_json::Map<String, serde_json::Value>> {
+            let mut out: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+            let mut loaded = 0u32;
+            for level in levels {
+                if let Ok(matches) = _find_config_files(&search_paths, level) {
+                    if let Some(p) = matches.first() {
+                        if let Ok(v) = load_json_config(p) {
+                            if let Some(o) = v.as_object().cloned() {
+                                mergedicts(&mut out, o, true);
+                                loaded += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            if loaded == 0 {
+                None
+            } else {
+                Some(out)
+            }
+        };
+
+    let main = load_one("config").ok_or_else(|| "config.json not found".to_string())?;
+    let colors_json = load_one("colors").ok_or_else(|| "colors.json not found".to_string())?;
+    let cs_name = main
+        .get("ext")
+        .and_then(|e| e.get("tmux"))
+        .and_then(|t| t.get("colorscheme"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("default")
+        .to_string();
+    let theme_name = main
+        .get("ext")
+        .and_then(|e| e.get("tmux"))
+        .and_then(|t| t.get("theme"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("default")
+        .to_string();
+
+    // py:165  colorscheme cascade
+    let cs_levels = vec![
+        "colorschemes/__main__".to_string(),
+        format!("colorschemes/tmux/__main__"),
+        format!("colorschemes/tmux/{}", cs_name),
+    ];
+    let colorscheme_json =
+        load_cascade(&cs_levels).ok_or_else(|| "no colorscheme for tmux".to_string())?;
+
+    // Same default_top_theme cascade the daemon uses (py:324-326).
+    let user_top_theme = main
+        .get("common")
+        .and_then(|c| c.get("default_top_theme"))
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let computed_top_theme = {
+        let enc = get_preferred_output_encoding().to_lowercase();
+        get_default_theme(enc.starts_with("utf") || enc.starts_with("ucs"))
+    };
+    let top_theme: String = user_top_theme.unwrap_or_else(|| computed_top_theme.to_string());
+
+    let theme_levels = vec![
+        format!("themes/{}", top_theme),
+        "themes/tmux/__main__".to_string(),
+        format!("themes/tmux/{}", theme_name),
+    ];
+    let theme_json = load_cascade(&theme_levels).ok_or_else(|| "no theme for tmux".to_string())?;
+
+    let colorscheme = Colorscheme::new(&colorscheme_json, &colors_json);
+    let mut theme = Theme::new();
+    // py:60-65  self.dividers = theme_config['dividers'] (deep-copied)
+    if let Some(d) = theme_json.get("dividers").and_then(|v| v.as_object()) {
+        theme.dividers = d.clone();
+    }
+
+    // py:167  common_config['term_truecolor'] — defaults to false.
+    let term_truecolor = main
+        .get("common")
+        .and_then(|c| c.get("term_truecolor"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let renderer = TmuxRenderer::new(term_truecolor);
+
+    // py:214  init_tmux_environment(pl, args, set_tmux_environment=ste)
+    let env_vars = init_tmux_environment(&colorscheme, &theme, &renderer, term_truecolor);
+    for (varname, value) in &env_vars {
+        set_tmux_environment(varname, value, true);
+    }
+
+    // py:215  source_tmux_files — version-matched conf files.
+    // py:74  source_tmux_file(TMUX_CONFIG_DIRECTORY/powerline-base.conf)
+    let base_conf = TMUX_CONFIG_DIRECTORY().join("powerline-base.conf");
+    if base_conf.exists() {
+        source_tmux_file(base_conf.to_str().unwrap_or(""));
+    }
+    // py:75-76  for fname, _ in sorted(get_tmux_configs(tmux_version), key=…): source
+    if let Some(version) = get_tmux_version(&()) {
+        for (fname, _priority) in sorted_tmux_configs(&version) {
+            source_tmux_file(fname.to_str().unwrap_or(""));
+        }
+    }
+
+    // py:77-80  if POWERLINE_COMMAND env not set, deduce + setenv
+    if std::env::var("POWERLINE_COMMAND")
+        .map(|v| v.is_empty())
+        .unwrap_or(true)
+    {
+        if let Some(cmd) = binding_config::deduce_command() {
+            set_tmux_environment("POWERLINE_COMMAND", &cmd, false);
+        }
+    }
+
+    // py:81-86  try run_tmux_command('refresh-client') — ignore failures
+    let _ = std::process::Command::new("tmux")
+        .arg("refresh-client")
+        .status();
+
+    Ok(())
+}
+
 /// Port of the `if __name__ == '__main__':` block at
 /// `vendor/powerline/scripts/powerline-config:16-22`.
 ///
@@ -38,9 +219,23 @@ pub fn main(args: &[String]) -> i32 {
     let _parser = get_argparser();
 
     // sh:18  args = parser.parse_args()
-    // Minimal parser: look at args[0] for the sub-action.
-    let action_name = match args.first() {
-        Some(s) => s.as_str(),
+    // sh:18  args = parser.parse_args()
+    // The upstream argparser at `commands/config.py:33-58` defines two
+    // subparsers — `tmux` and `shell` — each with sub-actions
+    // (source/setenv/setup, command/uses). CLI form is
+    //   powerline-config tmux setup [-p PATH] [-s]
+    //   powerline-config shell command|uses [...]
+    // Strip the leading `tmux` / `shell` prefix and treat the next
+    // positional as the action name.
+    let action_name = match args.first().map(String::as_str) {
+        Some("tmux") | Some("shell") => match args.get(1) {
+            Some(s) => s.as_str(),
+            None => {
+                eprintln!("powerline-config: missing action argument");
+                return 2;
+            }
+        },
+        Some(s) => s,
         None => {
             eprintln!("powerline-config: missing function argument");
             return 2;
@@ -181,11 +376,27 @@ pub fn main(args: &[String]) -> i32 {
                 1
             }
         }
-        Some(StrFunction::Source) | Some(StrFunction::Setenv) | Some(StrFunction::Setup) => {
-            // bindings/config.py:65, :99, :182
-            // tmux actions need `ShellPowerline.update_renderer()` to
-            // pull `theme_kwargs['colorscheme']`. That dispatches through
-            // the not-yet-ported Powerline.__init__ chain.
+        Some(StrFunction::Setup) => {
+            // bindings/config.py:182-216
+            //   def tmux_setup(pl, args):
+            //       init_tmux_environment(pl, args, set_tmux_environment=ste)
+            //       source_tmux_files(pl, args, tmux_version=..., source_tmux_file=stf)
+            //
+            // Builds Colorscheme + Theme + TmuxRenderer the same way the
+            // daemon does, then loops set_tmux_environment for each var
+            // and source_tmux_file for each version-matched conf.
+            match tmux_setup(args) {
+                Ok(()) => 0,
+                Err(e) => {
+                    eprintln!("powerline-config: tmux setup failed: {}", e);
+                    1
+                }
+            }
+        }
+        Some(StrFunction::Source) | Some(StrFunction::Setenv) => {
+            // bindings/config.py:65, :99
+            // source/setenv variants of the orchestrator: not yet wired
+            // (only tmux_setup is needed for the daemon-swap path).
             eprintln!(
                 "powerline-config: action '{}' requires the Powerline orchestrator (deferred port)",
                 action_name
