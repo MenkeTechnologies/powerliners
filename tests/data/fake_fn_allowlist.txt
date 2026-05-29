@@ -412,3 +412,23 @@ build_group_name
 # inlines the if-attrs branch inside hlstyle; Rust extracts to a
 # helper so tests can pin the bit→name mapping in isolation.
 attrs_to_hi_attrs
+
+# FileStatus::as_char projects the Rust FileStatus enum back to the
+# single-character display string Python obtains via dict tuple
+# indexing (self.statuses[code][0]) at lib/vcs/mercurial.py:69 and
+# elsewhere. Python's tuple-as-record pattern collapses into Rust
+# enum-with-accessor; the projection has to live somewhere.
+as_char
+
+# statuses() is the Rust accessor for Repository.statuses (py:26-28).
+# Python defines it as a class attribute initialised at class-body
+# evaluation time. Rust uses OnceLock for the same lazy single
+# initialisation pattern.
+statuses
+
+# aggregate_repo_status extracts the bitmask aggregation loop at
+# lib/vcs/mercurial.py:79-82 into a testable static method. Python
+# inlines the loop inside do_status; Rust extracts so the bit→string
+# mapping can be unit-tested in isolation without needing the hg
+# shell-out (which is stubbed in this port pass).
+aggregate_repo_status
