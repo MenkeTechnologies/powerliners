@@ -2155,6 +2155,36 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_markedjson_error_repl_single_codepoint() {
+    if !python_available() {
+        return;
+    }
+    // Verify repl() formats each matched codepoint as '<x{HEX:04}>'
+    // for a single-char match. Test direct invocation via Python's
+    // re.match → repl path, comparing to Rust's repl(c).
+    let cases: &[u32] = &[0x00, 0x01, 0x07, 0x0B, 0x1F, 0x7F];
+    for &cp in cases {
+        let ch = char::from_u32(cp).unwrap();
+        let s_lit = format!("'\\x{:02x}'", cp);
+        let py_expr = format!(
+            "(lambda: __import__('powerline.lint.markedjson.error', fromlist=['repl']).repl(__import__('re').match('.', {})))()",
+            s_lit
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let mut buf = [0u8; 4];
+        let rs = powerliners::lint::markedjson::error::repl(ch.encode_utf8(&mut buf));
+        assert_eq!(
+            py, rs,
+            "repl(0x{:02X}) mismatch: py={:?}, rs={:?}",
+            cp, py, rs
+        );
+    }
+}
+
+#[test]
 fn parity_markedjson_error_strtrans_replaces_tab_and_non_printables() {
     if !python_available() {
         return;
