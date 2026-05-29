@@ -163,7 +163,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/segment.py` ↔ `src/ported/segment.rs` | 399 | 9 | 0 | 0 | 1140 | 17 | 258 |
 | [x] | `powerline/segments/i3wm.py` ↔ `src/ported/segments/i3wm.rs` | 259 | 10 | 0 | 0 | 762 | 19 | 168 |
 | [x] | `powerline/ipython.py` ↔ `src/ported/ipython.rs` | 51 | 0 | 3 | 11 | 252 | 13 | 38 |
-| [x] | `powerline/renderers/ipython/since_5.py` ↔ `src/ported/renderers/ipython/since_5.rs` | 100 | 0 | 3 | 11 | 389 | 17 | 71 |
+| [x] | `powerline/renderers/ipython/since_5.py` ↔ `src/ported/renderers/ipython/since_5.rs` | 100 | 0 | 3 | 11 | 420 | 18 | 77 |
 | [x] | `powerline/theme.py` ↔ `src/ported/theme.rs` | 151 | 6 | 1 | 6 | 444 | 13 | 148 |
 | [x] | `powerline/lint/markedjson/markedvalue.py` ↔ `src/ported/lint/markedjson/markedvalue.rs` | 115 | 4 | 6 | 9 | 274 | 17 | 132 |
 | [x] | `powerline/bindings/config.py` ↔ `src/ported/bindings/config.rs` | 232 | 11 | 1 | 2 | 600 | 20 | 151 |

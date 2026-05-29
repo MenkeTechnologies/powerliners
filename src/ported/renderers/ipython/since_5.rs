@@ -292,6 +292,41 @@ impl PowerlinePromptStyle {
         d.inner = seed;
         d
     }
+
+    /// Port of the inner `fallback()` closure from
+    /// `powerline/renderers/ipython/since_5.py:70-74` (inside
+    /// `get_token_to_attributes_dict`).
+    ///
+    /// Python returns the closure
+    /// ```python
+    /// def fallback(key):
+    ///     try:
+    ///         return dct[key]
+    ///     except KeyError:
+    ///         return self.get_attrs_for_token(key)
+    /// ```
+    /// installed as `PowerlineStyleDict.__missing__` (via
+    /// `PowerlineStyleDict(fallback)`). Rust port surfaces the
+    /// behavior as a free fn taking the dispatched key + the seed
+    /// dict + the resolver closure. Returns the attrs list for the
+    /// key (from `dct` first, then `get_attrs_for_token`).
+    pub fn fallback<R>(
+        key: &str,
+        dct: &HashMap<String, Vec<(String, String)>>,
+        get_attrs_for_token: R,
+    ) -> Vec<(String, String)>
+    where
+        R: FnOnce(&str) -> Vec<(String, String)>,
+    {
+        // py:70  def fallback(key):
+        // py:71  try:
+        // py:72  return dct[key]
+        if let Some(attrs) = dct.get(key) {
+            return attrs.clone();
+        }
+        // py:73-74  except KeyError: return self.get_attrs_for_token(key)
+        get_attrs_for_token(key)
+    }
 }
 
 /// Port of `class IPythonPygmentsRenderer(IPythonRenderer)` from
@@ -630,5 +665,27 @@ mod tests {
         let payload = serde_json::json!({"prompt_count": 5});
         let merged = r.get_segment_info(&payload);
         assert_eq!(merged["ipython"]["prompt_count"], 5);
+    }
+
+    #[test]
+    fn fallback_returns_dict_value_when_key_present() {
+        // py:71-72  return dct[key]
+        let mut dct = HashMap::new();
+        dct.insert(
+            "Token".to_string(),
+            vec![("color".to_string(), "red".to_string())],
+        );
+        let r = PowerlinePromptStyle::fallback("Token", &dct, |_| panic!("should not fall back"));
+        assert_eq!(r, vec![("color".to_string(), "red".to_string())]);
+    }
+
+    #[test]
+    fn fallback_calls_get_attrs_for_token_on_miss() {
+        // py:73-74  except KeyError: return self.get_attrs_for_token(key)
+        let dct = HashMap::new();
+        let r = PowerlinePromptStyle::fallback("Token", &dct, |k| {
+            vec![("computed".to_string(), k.to_string())]
+        });
+        assert_eq!(r, vec![("computed".to_string(), "Token".to_string())]);
     }
 }
