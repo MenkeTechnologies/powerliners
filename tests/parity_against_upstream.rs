@@ -1583,6 +1583,134 @@ fn parity_surrogate_pair_to_character() {
 // ─────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────
+// segments/i3wm.py — WORKSPACE_REGEX pattern + format_name + WS_ICONS
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_i3wm_workspace_regex_pattern() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "__import__('powerline.segments.i3wm', fromlist=['WORKSPACE_REGEX']).WORKSPACE_REGEX.pattern",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(
+        py, r"^[0-9]+: ?",
+        "WORKSPACE_REGEX.pattern mismatch: py={:?}",
+        py
+    );
+}
+
+#[test]
+fn parity_i3wm_format_name_strips_prefix() {
+    if !python_available() {
+        return;
+    }
+    // Verify both branches: strip=False is identity; strip=True removes
+    // `[0-9]+: ?` exactly once at the start.
+    let cases: &[(&str, bool)] = &[
+        ("1: term", false),
+        ("1: term", true),
+        ("10:foo", true),
+        ("no prefix", true),
+        ("", true),
+        ("9: bar baz", true),
+    ];
+    for &(name, strip) in cases {
+        let expr = format!(
+            "__import__('powerline.segments.i3wm', fromlist=['format_name']).format_name({:?}, {})",
+            name,
+            if strip { "True" } else { "False" }
+        );
+        let py = match py_eval(&expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = powerliners::segments::i3wm::format_name(name, strip);
+        assert_eq!(
+            py, rs,
+            "format_name({:?}, {}) mismatch: py={:?}, rs={:?}",
+            name, strip, py, rs
+        );
+    }
+}
+
+#[test]
+fn parity_i3wm_ws_icons_default() {
+    if !python_available() {
+        return;
+    }
+    // Verify WS_ICONS == {"multiple": "M"} on both sides.
+    let py = match py_eval(
+        "list(sorted(__import__('powerline.segments.i3wm', fromlist=['WS_ICONS']).WS_ICONS.items()))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    // Python list repr: [('multiple', 'M')]
+    assert_eq!(
+        py, "[('multiple', 'M')]",
+        "WS_ICONS dict mismatch: py={:?}",
+        py
+    );
+    let rs_map = powerliners::segments::i3wm::ws_icons();
+    assert_eq!(rs_map.len(), 1, "Rust WS_ICONS has wrong key count");
+    assert_eq!(
+        rs_map.get("multiple").and_then(|v| v.as_str()),
+        Some("M"),
+        "Rust WS_ICONS['multiple'] != 'M'"
+    );
+}
+
+#[test]
+fn parity_i3wm_workspace_groups_state_combinations() {
+    if !python_available() {
+        return;
+    }
+    // Exhaustively verify every combination of (focused, urgent, visible)
+    // produces the same highlight-group ordering as upstream Python.
+    for focused in [false, true] {
+        for urgent in [false, true] {
+            for visible in [false, true] {
+                // Build a tiny stub class mimicking i3ipc.Workspace's
+                // attribute shape so the Python fn accepts it.
+                let py_expr = format!(
+                    "(lambda: (lambda W: __import__('powerline.segments.i3wm', fromlist=['workspace_groups']).workspace_groups(W({}, {}, {})))(type('W', (), dict(__init__=lambda self, f, u, v: setattr(self, 'focused', f) or setattr(self, 'urgent', u) or setattr(self, 'visible', v)))))()",
+                    if focused { "True" } else { "False" },
+                    if urgent { "True" } else { "False" },
+                    if visible { "True" } else { "False" }
+                );
+                let py = match py_eval(&py_expr) {
+                    Some(v) => v,
+                    None => return,
+                };
+                let flags = powerliners::segments::i3wm::WorkspaceFlags {
+                    focused,
+                    urgent,
+                    visible,
+                };
+                let rs = powerliners::segments::i3wm::workspace_groups(flags);
+                let rs_repr = format!(
+                    "[{}]",
+                    rs.iter()
+                        .map(|s| format!("'{}'", s))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+                assert_eq!(
+                    py, rs_repr,
+                    "workspace_groups(focused={}, urgent={}, visible={}) mismatch",
+                    focused, urgent, visible
+                );
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // segments/common/time.py — UNICODE_TEXT_TRANSLATION + hour_str default
 // ─────────────────────────────────────────────────────────────────────
 
