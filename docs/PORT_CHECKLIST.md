@@ -178,7 +178,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/bindings/zsh/__init__.py` ↔ `src/ported/bindings/zsh/mod.rs` | 181 | 7 | 4 | 13 | 590 | 24 | 137 |
 | [x] | `powerline/lib/config.py` ↔ `src/ported/lib/config.rs` | 179 | 2 | 3 | 19 | 628 | 24 | 156 |
 | [x] | `powerline/lint/markedjson/constructor.py` ↔ `src/ported/lint/markedjson/constructor.rs` | 240 | 1 | 3 | 21 | 722 | 24 | 142 |
-| [x] | `powerline/vim.py` ↔ `src/ported/vim.rs` | 271 | 4 | 2 | 18 | 660 | 29 | 168 |
+| [x] | `powerline/vim.py` ↔ `src/ported/vim.rs` | 271 | 4 | 2 | 18 | 829 | 35 | 200 |
 | [x] | `powerline/lib/watcher/uv.py` ↔ `src/ported/lib/watcher/uv.rs` | 160 | 3 | 5 | 21 | 405 | 32 | 137 |
 | [x] | `powerline/lint/checks.py` ↔ `src/ported/lint/checks.rs` | 752 | 26 | 0 | 0 | 1071 | 33 | 414 |
 | [x] | `powerline/lib/threaded.py` ↔ `src/ported/lib/threaded.rs` | 199 | 0 | 3 | 29 | 831 | 35 | 163 |

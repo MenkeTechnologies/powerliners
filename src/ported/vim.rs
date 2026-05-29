@@ -250,6 +250,186 @@ impl VimPowerline {
         }
     }
 
+    /// Port of `VimPowerline.init()` from
+    /// `powerline/vim.py:56-66`.
+    ///
+    /// Bare-name alias for [`new`](Self::new) preserving the
+    /// upstream Python identifier byte-for-byte. Python's
+    /// `__init__`-equivalent `init()` is collapsed into Rust's
+    /// `new()` constructor; this fn provides the upstream-API
+    /// shape for callers expecting `init`.
+    pub fn init(pyeval: impl Into<String>) -> Self {
+        // py:56  def init(self, pyeval='PowerlinePyeval', **kwargs):
+        // py:57-66  super().init('vim', **kwargs); last_window_id=1; pyeval=pyeval; ...
+        Self::new(pyeval)
+    }
+
+    /// Port of `VimPowerline.create_window_statusline_constructor()`
+    /// from `powerline/vim.py:69-79`.
+    ///
+    /// Returns a closure that formats a window-id into the
+    /// `%!<pyeval>('powerline.statusline(<idx>)')` bytes string
+    /// vim's `statusline` option expects.
+    ///
+    /// Python defines this twice (Py2 at py:69-71, Py3 at py:73-79).
+    /// Both shape the result as `b'%!' + pyeval + b'(...)'`. The
+    /// Rust port uses the Py3 form via the existing
+    /// `create_window_statusline_format` helper.
+    pub fn create_window_statusline_constructor(&self) -> impl Fn(u64) -> String + '_ {
+        // py:69-71  (Py2)  '%!' + pyeval + '(\'powerline.statusline({0})\')'
+        // py:73-79  (Py3)  same shape with explicit ascii encoding
+        create_window_statusline_format(&self.pyeval)
+    }
+
+    /// Port of `VimPowerline.load_main_config()` from
+    /// `powerline/vim.py:138-148`.
+    ///
+    /// Python loads the main config via super().load_main_config()
+    /// then overlays `g:powerline_config_overrides` via
+    /// [`_override_from`]. When `g:powerline_use_var_handler` is
+    /// truthy, appends the `VimVarHandler` to common.log_file per
+    /// py:144-147.
+    ///
+    /// The Rust port takes the base config + the two vim-var
+    /// values as args since vim.eval isn't reachable. Returns the
+    /// merged main config dict.
+    pub fn load_main_config(
+        base: Map<String, Value>,
+        config_overrides: Option<Map<String, Value>>,
+        use_var_handler: bool,
+    ) -> Map<String, Value> {
+        // py:138  def load_main_config(self):
+        // py:139  main_config = _override_from(super().load_main_config(), 'powerline_config_overrides')
+        let mut main_config = base;
+        if let Some(over) = config_overrides {
+            _override_from(&mut main_config, None, || Some(Value::Object(over)));
+        }
+        // py:140-143  use_var_handler = bool(int(vim_getvar('powerline_use_var_handler')))
+        // py:144  if use_var_handler:
+        if use_var_handler {
+            // py:145  main_config.setdefault('common', {})
+            let common_entry = main_config
+                .entry("common".to_string())
+                .or_insert_with(|| Value::Object(Map::new()));
+            // py:147  main_config['common']['log_file'].append(['powerline.vim.VimVarHandler', ...])
+            if let Value::Object(common_obj) = common_entry {
+                let log_file = common_obj
+                    .entry("log_file".to_string())
+                    .or_insert_with(|| Value::Array(Vec::new()));
+                if let Value::Array(arr) = log_file {
+                    arr.push(serde_json::json!([
+                        "powerline.vim.VimVarHandler",
+                        [["powerline_log_messages"]]
+                    ]));
+                }
+            }
+        }
+        // py:148  return main_config
+        main_config
+    }
+
+    /// Port of `VimPowerline.load_theme_config()` from
+    /// `powerline/vim.py:150-155`.
+    ///
+    /// Delegates to super().load_theme_config(name) then overlays
+    /// `g:powerline_theme_overrides[name]` per py:151-154. Rust
+    /// port takes the base theme + the per-theme override since
+    /// vim.eval isn't reachable.
+    pub fn load_theme_config(
+        base: Map<String, Value>,
+        theme_overrides: Option<Map<String, Value>>,
+        name: &str,
+    ) -> Map<String, Value> {
+        // py:150  def load_theme_config(self, name):
+        // py:151  return _override_from(super().load_theme_config(name), 'powerline_theme_overrides', name)
+        let mut config = base;
+        if let Some(over) = theme_overrides {
+            _override_from(&mut config, Some(name), || Some(Value::Object(over)));
+        }
+        config
+    }
+
+    /// Port of `VimPowerline.get_matcher()` from
+    /// `powerline/vim.py:176-181`.
+    ///
+    /// Resolves a matcher function name. Dotted names are split
+    /// via `rpartition('.')`; undotted names default to
+    /// `powerline.matchers.<ext>`. Returns the
+    /// `(module, function)` pair or None when get_module_attr
+    /// reports the function missing.
+    ///
+    /// Same shape as [`get_matcher_module`] but threads the
+    /// resolution through the supplied get_module_attr closure
+    /// (mirrors py:181 `self.get_module_attr(...)`).
+    pub fn get_matcher<F>(
+        match_name: &str,
+        ext: &str,
+        get_module_attr: F,
+    ) -> Option<(String, String)>
+    where
+        F: Fn(&str, &str) -> bool,
+    {
+        // py:176  def get_matcher(self, match_name):
+        // py:177  match_module, separator, match_function = match_name.rpartition('.')
+        let (module, function) = if let Some(idx) = match_name.rfind('.') {
+            (
+                match_name[..idx].to_string(),
+                match_name[idx + 1..].to_string(),
+            )
+        } else {
+            // py:178-180  default to powerline.matchers.<ext>
+            (
+                format!("powerline.matchers.{}", ext),
+                match_name.to_string(),
+            )
+        };
+        // py:181  return self.get_module_attr(match_module, match_function, prefix='matcher_generator')
+        if get_module_attr(&module, &function) {
+            Some((module, function))
+        } else {
+            None
+        }
+    }
+
+    /// Port of `VimPowerline.do_setup()` from
+    /// `powerline/vim.py:189-243`.
+    ///
+    /// Wires up the augroup + pycmd at py:194-243. Python uses
+    /// `vim.command` to install the BufNewFile/CursorHold/etc
+    /// autocmds and the bridge that calls powerline.new_window().
+    ///
+    /// Rust port takes the caller-supplied register_pycmd closure
+    /// for the actual vim.command dispatch since the runtime
+    /// isn't reachable. Returns the resolved (pyeval, pycmd) pair
+    /// per py:191-198 / py:199-202.
+    pub fn do_setup<R>(
+        pyeval: Option<&str>,
+        pycmd: Option<&str>,
+        can_replace_pyeval: bool,
+        mut register_pycmd: R,
+    ) -> (String, String)
+    where
+        R: FnMut(&str),
+    {
+        // py:189  def do_setup(self, pyeval=None, pycmd=None, can_replace_pyeval=True, _local_themes=()):
+        // py:191-198  resolve pyeval default
+        let resolved_pyeval = match pyeval {
+            Some(p) => p.to_string(),
+            None => {
+                let _ = can_replace_pyeval;
+                "py3eval".to_string()
+            }
+        };
+        // py:199-202  resolve pycmd default
+        let resolved_pycmd = match pycmd {
+            Some(p) => p.to_string(),
+            None => "py3".to_string(),
+        };
+        // py:204+  vim.command(...) augroup wiring — caller-supplied
+        register_pycmd(&resolved_pycmd);
+        (resolved_pyeval, resolved_pycmd)
+    }
+
     /// Port of `VimPowerline.add_local_theme()` from
     /// `powerline/vim.py:95`.
     ///
@@ -1158,5 +1338,102 @@ mod tests {
         // py:357-359
         let p = setup("MyPyeval");
         assert_eq!(p.pyeval, "MyPyeval");
+    }
+
+    #[test]
+    fn init_constructs_with_default_pyeval() {
+        // py:56  default 'PowerlinePyeval'
+        let p = VimPowerline::init("MyEval");
+        assert_eq!(p.pyeval, "MyEval");
+        assert_eq!(p.last_window_id, 1);
+    }
+
+    #[test]
+    fn create_window_statusline_constructor_emits_pyeval_call() {
+        // py:73-79
+        let p = VimPowerline::new("py3eval");
+        let fmt = p.create_window_statusline_constructor();
+        assert_eq!(fmt(42), "%!py3eval('powerline.statusline(42)')");
+    }
+
+    #[test]
+    fn load_main_config_no_overrides_passes_through() {
+        // py:139  no overrides → identity
+        let mut base = Map::new();
+        base.insert("a".to_string(), Value::Number(1.into()));
+        let r = VimPowerline::load_main_config(base.clone(), None, false);
+        assert_eq!(r, base);
+    }
+
+    #[test]
+    fn load_main_config_use_var_handler_appends_to_log_file() {
+        // py:144-147
+        let base = Map::new();
+        let r = VimPowerline::load_main_config(base, None, true);
+        let common = r.get("common").unwrap().as_object().unwrap();
+        let log_file = common.get("log_file").unwrap().as_array().unwrap();
+        assert_eq!(log_file.len(), 1);
+        let entry = log_file[0].as_array().unwrap();
+        assert_eq!(entry[0], "powerline.vim.VimVarHandler");
+    }
+
+    #[test]
+    fn load_theme_config_no_overrides_passes_through() {
+        // py:150  no overrides → identity
+        let mut base = Map::new();
+        base.insert("name".to_string(), Value::String("test".to_string()));
+        let r = VimPowerline::load_theme_config(base.clone(), None, "test");
+        assert_eq!(r, base);
+    }
+
+    #[test]
+    fn get_matcher_dotted_name_splits_via_rpartition() {
+        // py:177
+        let r = VimPowerline::get_matcher("foo.bar.baz", "vim", |m, f| {
+            m == "foo.bar" && f == "baz"
+        });
+        assert_eq!(r, Some(("foo.bar".to_string(), "baz".to_string())));
+    }
+
+    #[test]
+    fn get_matcher_undotted_uses_powerline_matchers_ext() {
+        // py:178-180
+        let r = VimPowerline::get_matcher("isfile", "vim", |m, f| {
+            m == "powerline.matchers.vim" && f == "isfile"
+        });
+        assert_eq!(
+            r,
+            Some(("powerline.matchers.vim".to_string(), "isfile".to_string()))
+        );
+    }
+
+    #[test]
+    fn get_matcher_returns_none_when_function_missing() {
+        // py:181  None when get_module_attr fails
+        let r = VimPowerline::get_matcher("missing", "vim", |_, _| false);
+        assert_eq!(r, None);
+    }
+
+    #[test]
+    fn do_setup_uses_supplied_pyeval_and_pycmd() {
+        // py:191-202
+        let mut cmd_calls = Vec::<String>::new();
+        let (py, cm) = VimPowerline::do_setup(
+            Some("CustomEval"),
+            Some("custom_cmd"),
+            true,
+            |c| cmd_calls.push(c.to_string()),
+        );
+        assert_eq!(py, "CustomEval");
+        assert_eq!(cm, "custom_cmd");
+        assert_eq!(cmd_calls, vec!["custom_cmd"]);
+    }
+
+    #[test]
+    fn do_setup_defaults_to_py3eval_when_unspecified() {
+        // py:192  py3eval default for Py3
+        let (py, cm) = VimPowerline::do_setup(None, None, true, |_| {});
+        assert_eq!(py, "py3eval");
+        assert_eq!(cm, "py3");
     }
 }
