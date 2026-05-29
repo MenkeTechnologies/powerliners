@@ -537,3 +537,23 @@ in_prompt_tokens
 continuation_prompt_tokens
 rewrite_prompt_tokens
 out_prompt_tokens
+
+# old_prompt_manager() is the Rust accessor for the Python
+# module-level `old_prompt_manager = None` global at
+# bindings/ipython/post_0_11.py:36. Python initialises this at
+# import time and mutates inside do_setup/unload_ipython_extension;
+# Rust uses OnceLock<Mutex<Option<Value>>> for the equivalent
+# thread-safe lazy-init / mutation pattern.
+old_prompt_manager
+
+# ShutdownHook::set_powerline materialises the Python attribute
+# assignment `shutdown_hook.powerline = ref(self)` at
+# bindings/ipython/post_0_11.py:97 as an explicit method since
+# Rust struct fields aren't mutated by external attribute syntax.
+set_powerline
+
+# ShutdownHook::call is the Rust analog of Python's `__call__`
+# dunder at bindings/ipython/post_0_11.py:44. Rust drops the
+# leading dunder underscores since they're reserved for the
+# language's own attr magic.
+call
