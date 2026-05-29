@@ -970,23 +970,34 @@ impl Renderer {
             let mut distribute_len_remainder = remaining_total % n;
             // py:390  for segment in segments_spacers:
             for idx in &segments_spacers {
-                // py:391-395  segment['contents'] = segment['expand'](pl, distribute_len + (1 if remainder > 0 else 0), segment)
-                // expand is a Python callable; can't invoke from JSON.
-                // Synthesize padding spaces of the computed width instead so the
-                // line still fills to `width` in the default tmux flow.
+                // py:391-395  segment['contents'] = segment['expand'](
+                //     pl, distribute_len + (1 if remainder > 0 else 0), segment)
+                // `Theme.get_segments` (py:155) stored the align char
+                // ('l'/'r'/'c') in `expand`. Dispatch through the
+                // upstream `expand_functions` table at
+                // `theme.py:40-44` so left-align right-pads,
+                // right-align left-pads, center-align splits.
                 let extra = if distribute_len_remainder > 0 { 1 } else { 0 };
                 let pad_n = (distribute_len + extra).max(0) as usize;
-                let pad = " ".repeat(pad_n);
                 if let Some(obj) = segments[*idx].as_object_mut() {
-                    let existing = obj
-                        .get("contents")
+                    let align_char = obj
+                        .get("expand")
                         .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string();
-                    obj.insert(
-                        "contents".to_string(),
-                        Value::String(format!("{}{}", existing, pad)),
-                    );
+                        .and_then(|s| s.chars().next())
+                        .unwrap_or('l');
+                    let expanded = match crate::ported::theme::expand_functions(align_char) {
+                        Some(f) => f(&(), pad_n, obj),
+                        None => {
+                            // py:157  pl.error('Align argument must be "r", "l" or "c", ...')
+                            let cur = obj
+                                .get("contents")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string();
+                            format!("{}{}", cur, " ".repeat(pad_n))
+                        }
+                    };
+                    obj.insert("contents".to_string(), Value::String(expanded));
                 }
                 // py:396  distribute_len_remainder -= 1
                 distribute_len_remainder -= 1;

@@ -57,10 +57,12 @@ pub fn main(args: &[String]) -> i32 {
     }
 
     // sh:13  sys.exit(check(args.config_path, args.debug))
-    // TODO: powerline.lint.check() is deferred; returning 0 once a
-    // config path is supplied mirrors "no problems found" until the
-    // checker is wired up.
-    0
+    let hadproblem = crate::ported::lint::check(Some(&config_paths), debug, None);
+    if hadproblem {
+        1
+    } else {
+        0
+    }
 }
 
 #[cfg(test)]

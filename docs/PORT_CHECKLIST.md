@@ -106,7 +106,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/lint/inspect.py` ↔ `src/ported/lint/inspect.rs` | 76 | 2 | 0 | 0 | 67 | 3 | 59 |
 | [x] | `powerline/segments/common/time.py` ↔ `src/ported/segments/common/time.rs` | 96 | 2 | 0 | 0 | 311 | 4 | 65 |
 | [x] | `powerline/bindings/pdb/__init__.py` ↔ `src/ported/bindings/pdb/mod.rs` | 139 | 2 | 0 | 0 | 40 | 3 | 88 |
-| [x] | `powerline/segments/common/sys.py` ↔ `src/ported/segments/common/sys.rs` | 148 | 2 | 0 | 0 | 304 | 5 | 89 |
+| [x] | `powerline/segments/common/sys.py` ↔ `src/ported/segments/common/sys.rs` | 148 | 2 | 0 | 0 | 311 | 5 | 89 |
 | [x] | `powerline/matchers/vim/__init__.py` ↔ `src/ported/matchers/vim/mod.rs` | 10 | 3 | 0 | 0 | 69 | 3 | 7 |
 | [x] | `powerline/renderers/ipython/__init__.py` ↔ `src/ported/renderers/ipython/mod.rs` | 28 | 0 | 1 | 3 | 152 | 4 | 16 |
 | [x] | `powerline/lib/memoize.py` ↔ `src/ported/lib/memoize.rs` | 30 | 1 | 1 | 2 | 123 | 4 | 28 |
@@ -156,21 +156,21 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/renderers/shell/__init__.py` ↔ `src/ported/renderers/shell/mod.rs` | 157 | 1 | 2 | 7 | 509 | 10 | 95 |
 | [x] | `powerline/lib/unicode.py` ↔ `src/ported/lib/unicode.rs` | 221 | 8 | 1 | 0 | 246 | 11 | 125 |
 | [x] | `powerline/segments/common/net.py` ↔ `src/ported/segments/common/net.rs` | 254 | 2 | 2 | 6 | 663 | 17 | 129 |
-| [x] | `powerline/lint/__init__.py` ↔ `src/ported/lint/mod.rs` | 573 | 8 | 0 | 0 | 459 | 9 | 319 |
+| [x] | `powerline/lint/__init__.py` ↔ `src/ported/lint/mod.rs` | 573 | 8 | 0 | 0 | 698 | 9 | 333 |
 | [x] | `powerline/lint/markedjson/composer.py` ↔ `src/ported/lint/markedjson/composer.rs` | 80 | 0 | 2 | 9 | 450 | 15 | 52 |
 | [x] | `powerline/lint/markedjson/reader.py` ↔ `src/ported/lint/markedjson/reader.rs` | 107 | 0 | 2 | 9 | 172 | 11 | 111 |
 | [x] | `powerline/renderers/vim.py` ↔ `src/ported/renderers/vim.rs` | 152 | 0 | 1 | 9 | 519 | 11 | 94 |
-| [x] | `powerline/segment.py` ↔ `src/ported/segment.rs` | 399 | 9 | 0 | 0 | 904 | 12 | 214 |
+| [x] | `powerline/segment.py` ↔ `src/ported/segment.rs` | 399 | 9 | 0 | 0 | 922 | 12 | 216 |
 | [x] | `powerline/segments/i3wm.py` ↔ `src/ported/segments/i3wm.rs` | 259 | 10 | 0 | 0 | 636 | 15 | 154 |
 | [x] | `powerline/ipython.py` ↔ `src/ported/ipython.rs` | 51 | 0 | 3 | 11 | 252 | 13 | 38 |
 | [x] | `powerline/renderers/ipython/since_5.py` ↔ `src/ported/renderers/ipython/since_5.rs` | 100 | 0 | 3 | 11 | 389 | 17 | 71 |
-| [x] | `powerline/theme.py` ↔ `src/ported/theme.rs` | 151 | 6 | 1 | 6 | 425 | 13 | 144 |
+| [x] | `powerline/theme.py` ↔ `src/ported/theme.rs` | 151 | 6 | 1 | 6 | 444 | 13 | 148 |
 | [x] | `powerline/lint/markedjson/markedvalue.py` ↔ `src/ported/lint/markedjson/markedvalue.rs` | 115 | 4 | 6 | 9 | 248 | 14 | 116 |
 | [x] | `powerline/bindings/config.py` ↔ `src/ported/bindings/config.rs` | 232 | 11 | 1 | 2 | 466 | 15 | 125 |
 | [x] | `powerline/bindings/vim/__init__.py` ↔ `src/ported/bindings/vim/mod.rs` | 371 | 11 | 1 | 3 | 252 | 17 | 211 |
 | [x] | `powerline/bindings/ipython/pre_0_11.py` ↔ `src/ported/bindings/ipython/pre_0_11.rs` | 111 | 1 | 7 | 14 | 429 | 23 | 66 |
 | [x] | `powerline/lib/watcher/inotify.py` ↔ `src/ported/lib/watcher/inotify.rs` | 212 | 0 | 5 | 15 | 448 | 17 | 139 |
-| [x] | `powerline/renderer.py` ↔ `src/ported/renderer.rs` | 503 | 1 | 1 | 14 | 1236 | 24 | 369 |
+| [x] | `powerline/renderer.py` ↔ `src/ported/renderer.rs` | 503 | 1 | 1 | 14 | 1278 | 24 | 370 |
 | [x] | `powerline/segments/common/players.py` ↔ `src/ported/segments/common/players.rs` | 522 | 2 | 11 | 13 | 682 | 25 | 274 |
 | [x] | `powerline/lib/vcs/__init__.py` ↔ `src/ported/lib/vcs/mod.rs` | 209 | 9 | 2 | 7 | 634 | 16 | 130 |
 | [x] | `powerline/lint/markedjson/parser.py` ↔ `src/ported/lint/markedjson/parser.rs` | 207 | 0 | 2 | 17 | 575 | 22 | 107 |
@@ -185,7 +185,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/lint/markedjson/scanner.py` ↔ `src/ported/lint/markedjson/scanner.rs` | 283 | 0 | 3 | 29 | 570 | 32 | 174 |
 | [x] | `powerline/lint/spec.py` ↔ `src/ported/lint/spec.rs` | 637 | 0 | 1 | 32 | 1018 | 35 | 320 |
 | [x] | `powerline/segments/vim/__init__.py` ↔ `src/ported/segments/vim/mod.rs` | 650 | 32 | 2 | 2 | 869 | 34 | 330 |
-| [x] | `powerline/__init__.py` ↔ `src/ported/mod.rs` | 813 | 13 | 3 | 32 | 1414 | 48 | 411 |
+| [x] | `powerline/__init__.py` ↔ `src/ported/mod.rs` | 813 | 13 | 3 | 32 | 1736 | 49 | 453 |
 
 ## 🟢 NEAR — every Python fn has a `/// Port of` doc-comment; body density may still be partial (3)
 

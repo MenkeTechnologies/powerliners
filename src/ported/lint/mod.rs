@@ -399,11 +399,229 @@ pub fn find_all_ext_config_files(
 
 /// Port of `check()` from `powerline/lint/__init__.py:393`.
 ///
-/// **Status:** stub. The full check pipeline requires the entire
-/// powerliners lint Spec DSL, ConfigLoader, themes/colorschemes
-/// dispatch, etc. Returns `false` (no problems) as a baseline.
-/// The Python body trace below records the algorithmic contract.
-pub fn check() -> bool {
+/// **Status:** structural — args wired, body deferred.
+///
+/// The Rust port mirrors the Python signature
+/// `check(paths=None, debug=False, echoerr=echoerr, require_ext=None)`.
+/// The full lint pipeline (Spec DSL walks, themes/colorscheme
+/// cross-validation, undefined-name detection) is deferred; this
+/// surface satisfies the `powerline-lint` script contract by
+/// returning `false` (no problems found) so the script exits 0 when
+/// the config-path is supplied.
+pub fn check(
+    paths: Option<&[String]>,
+    debug: bool,
+    require_ext: Option<&str>,
+) -> bool {
+    let _ = (debug, require_ext);
+    // py:412  hadproblem = False
+    let mut hadproblem = false;
+
+    // py:414  register_common_names()
+    register_common_names();
+
+    // py:415  search_paths = paths or get_config_paths()
+    let search_paths: Vec<std::path::PathBuf> = match paths {
+        Some(ps) if !ps.is_empty() => ps.iter().map(std::path::PathBuf::from).collect(),
+        _ => crate::ported::get_config_paths(),
+    };
+
+    // py:456-498  for d in chain(find_all_ext_config_files(search_paths, 'colorschemes'),
+    //                            find_all_ext_config_files(search_paths, 'themes')):
+    for subdir in ["colorschemes", "themes"] {
+        for entry in find_all_ext_config_files(&search_paths, subdir) {
+            if let Some(err) = &entry.error {
+                eprintln!("powerline-lint: {}", err);
+                hadproblem = true;
+                continue;
+            }
+            // py:471-478  Reject `__name__`/`name__` filenames except __main__
+            if let Some(name) = entry.name.as_deref() {
+                if name != "__main__"
+                    && (name.starts_with("__") || name.ends_with("__"))
+                {
+                    eprintln!(
+                        "powerline-lint: File name is not supposed to start or end with \u{201c}__\u{201d}: {}",
+                        entry.path.display()
+                    );
+                    hadproblem = true;
+                }
+            }
+            // py:506-621  Spec-DSL match. The Rust Spec composition
+            // for `main_spec` / `colorscheme_spec` / `theme_spec` is
+            // not yet wired (the per-Spec ports at `lint::spec` and
+            // `lint::checks` are reusable but `register_main_spec`
+            // hasn't been ported). Substitute a structural JSON-shape
+            // probe that catches the most common authoring errors:
+            // parse failures, non-object roots, and missing required
+            // top-level keys per ext-specific schema.
+            let config_v = match crate::ported::lib::config::load_json_config(&entry.path) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!(
+                        "powerline-lint: parse error in {}: {}",
+                        entry.path.display(),
+                        e
+                    );
+                    hadproblem = true;
+                    continue;
+                }
+            };
+            let config_obj = match config_v.as_object() {
+                Some(o) => o,
+                None => {
+                    eprintln!(
+                        "powerline-lint: {} root must be a JSON object",
+                        entry.path.display()
+                    );
+                    hadproblem = true;
+                    continue;
+                }
+            };
+            // Skip ext-name-only entries (__main__ etc) — they layer
+            // defaults; required keys may not be present.
+            let is_main = entry.name.as_deref() == Some("__main__");
+            match subdir {
+                "colorschemes" if !is_main => {
+                    // py:506-552  colorscheme_spec requires 'groups'.
+                    let groups = config_obj.get("groups");
+                    if groups.is_none() {
+                        eprintln!(
+                            "powerline-lint: colorscheme {} missing required key 'groups'",
+                            entry.path.display()
+                        );
+                        hadproblem = true;
+                    }
+                    // py:168-176  group_spec: either {fg, bg, attrs} or
+                    // a string alias to another group. Validate the
+                    // shape of each entry in `groups`.
+                    if let Some(groups_obj) = groups.and_then(|v| v.as_object()) {
+                        for (gname, gv) in groups_obj {
+                            match gv {
+                                // String aliases (py:168 either branch
+                                // takes either a dict or a string).
+                                Value::String(_) => {}
+                                Value::Object(gobj) => {
+                                    for required_key in ["fg", "bg"] {
+                                        if !gobj.contains_key(required_key) {
+                                            eprintln!(
+                                                "powerline-lint: colorscheme {} group {:?} missing required key {:?}",
+                                                entry.path.display(),
+                                                gname,
+                                                required_key,
+                                            );
+                                            hadproblem = true;
+                                        }
+                                    }
+                                    if let Some(a) = gobj.get("attrs") {
+                                        if !a.is_array() {
+                                            eprintln!(
+                                                "powerline-lint: colorscheme {} group {:?} 'attrs' must be a list",
+                                                entry.path.display(),
+                                                gname,
+                                            );
+                                            hadproblem = true;
+                                        }
+                                    }
+                                }
+                                _ => {
+                                    eprintln!(
+                                        "powerline-lint: colorscheme {} group {:?} must be an object or alias string",
+                                        entry.path.display(),
+                                        gname,
+                                    );
+                                    hadproblem = true;
+                                }
+                            }
+                        }
+                    }
+                    // py:181-198  mode_translations_value_spec — when
+                    // present, must be an object.
+                    if let Some(mt) = config_obj.get("mode_translations") {
+                        if !mt.is_object() {
+                            eprintln!(
+                                "powerline-lint: colorscheme {} 'mode_translations' must be an object",
+                                entry.path.display()
+                            );
+                            hadproblem = true;
+                        }
+                    }
+                }
+                "themes" if !is_main => {
+                    // py:556-621  theme_spec requires 'segments'.
+                    let segments = config_obj.get("segments");
+                    if segments.is_none() {
+                        eprintln!(
+                            "powerline-lint: theme {} missing required key 'segments'",
+                            entry.path.display()
+                        );
+                        hadproblem = true;
+                    }
+                    // py:298-310  segments shape: {left: [...], right: [...]}
+                    // or optionally {above: [{left, right}, ...]}.
+                    if let Some(seg_obj) = segments.and_then(|v| v.as_object()) {
+                        for side in ["left", "right"] {
+                            if let Some(side_v) = seg_obj.get(side) {
+                                if !side_v.is_array() {
+                                    eprintln!(
+                                        "powerline-lint: theme {} segments.{} must be an array",
+                                        entry.path.display(),
+                                        side
+                                    );
+                                    hadproblem = true;
+                                }
+                            }
+                        }
+                        if let Some(above) = seg_obj.get("above") {
+                            if !above.is_array() {
+                                eprintln!(
+                                    "powerline-lint: theme {} segments.above must be an array",
+                                    entry.path.display()
+                                );
+                                hadproblem = true;
+                            }
+                        }
+                    }
+                    // py:284-292  Numeric theme keys.
+                    for (key, expected) in [
+                        ("spaces", "integer"),
+                        ("outer_padding", "integer"),
+                        ("cursor_space", "number"),
+                        ("cursor_columns", "integer"),
+                    ] {
+                        if let Some(v) = config_obj.get(key) {
+                            let ok = matches!(expected, "integer") && v.is_i64()
+                                || matches!(expected, "number") && v.is_number();
+                            if !ok {
+                                eprintln!(
+                                    "powerline-lint: theme {} key {:?} must be a {}",
+                                    entry.path.display(),
+                                    key,
+                                    expected
+                                );
+                                hadproblem = true;
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    // py:495-621  Detailed Spec-DSL matches across main_spec /
+    // colorscheme_spec / theme_spec are deferred (require ConfigLoader
+    // mutex weaving + register_main_spec subsystem). Structural
+    // scan above flags filesystem-level issues; deeper validation is
+    // tracked by the per-Spec ports in `lint::spec`.
+    let _ = paths; // silence unused after refactor
+    return hadproblem;
+}
+
+// Legacy body trace from `lint::check()` kept here so the upstream
+// Python line citations remain greppable for the deferred Spec-DSL
+// walk. None of these comment lines is compiled.
+#[cfg(any())]
+mod _check_body_trace {
     // py:393  def check(paths=None, debug=False, echoerr=echoerr, require_ext=None):
     // py:394  '''Check configuration sanity
     // py:395-411  docstring
@@ -602,7 +820,6 @@ pub fn check() -> bool {
     // py:622  if top_theme_spec.match(config, context=Context(config), data=data, echoerr=ee)[1]:
     // py:623  hadproblem = True
     // py:625  return hadproblem
-    false
 }
 
 #[cfg(test)]
@@ -901,6 +1118,83 @@ mod tests {
         });
         assert!(err.is_some());
         std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn check_against_clean_fixture_returns_false() {
+        // Existing E2E fixture is hand-curated to be lint-clean.
+        let fixture = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/data/e2e/scenario_hostname");
+        if !fixture.is_dir() {
+            return;
+        }
+        let paths = vec![fixture.to_string_lossy().to_string()];
+        let hadproblem = check(Some(&paths), false, None);
+        assert!(!hadproblem, "lint flagged a clean fixture");
+    }
+
+    #[test]
+    fn check_rejects_colorscheme_missing_groups() {
+        // Construct a minimal config tree with a malformed colorscheme.
+        let root = tmp_dir();
+        std::fs::create_dir_all(root.join("colorschemes/tmux")).unwrap();
+        // No `groups` key — colorscheme_spec at py:506-552 requires it.
+        std::fs::write(
+            root.join("colorschemes/tmux/bad.json"),
+            br#"{"name": "Bad"}"#,
+        )
+        .unwrap();
+        let paths = vec![root.to_string_lossy().to_string()];
+        let hadproblem = check(Some(&paths), false, None);
+        assert!(hadproblem, "missing 'groups' key should be flagged");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn check_rejects_double_underscore_filenames() {
+        // py:471-478  File names ending in `__` are rejected (except
+        // the literal `__main__`).
+        let root = tmp_dir();
+        std::fs::create_dir_all(root.join("themes/tmux")).unwrap();
+        std::fs::write(
+            root.join("themes/tmux/__bogus.json"),
+            br#"{"segments": {"left": [], "right": []}}"#,
+        )
+        .unwrap();
+        let paths = vec![root.to_string_lossy().to_string()];
+        let hadproblem = check(Some(&paths), false, None);
+        assert!(hadproblem, "double-underscore filename should be flagged");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn check_rejects_theme_segments_left_not_array() {
+        let root = tmp_dir();
+        std::fs::create_dir_all(root.join("themes/tmux")).unwrap();
+        std::fs::write(
+            root.join("themes/tmux/typo.json"),
+            br#"{"segments": {"left": "should-be-array", "right": []}}"#,
+        )
+        .unwrap();
+        let paths = vec![root.to_string_lossy().to_string()];
+        let hadproblem = check(Some(&paths), false, None);
+        assert!(hadproblem, "non-array segments.left should be flagged");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn check_rejects_parse_error() {
+        let root = tmp_dir();
+        std::fs::create_dir_all(root.join("themes/tmux")).unwrap();
+        std::fs::write(
+            root.join("themes/tmux/broken.json"),
+            br#"{ this is not json"#,
+        )
+        .unwrap();
+        let paths = vec![root.to_string_lossy().to_string()];
+        let hadproblem = check(Some(&paths), false, None);
+        assert!(hadproblem, "JSON parse failure should be flagged");
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

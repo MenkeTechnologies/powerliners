@@ -699,6 +699,18 @@ where
                 return None;
             }
 
+            // py:333  if not get_key(False, segment, module, function_name, name, 'display', True): return None
+            // Mirrors the Python `display: false` gate. The full
+            // upstream form pulls `display` through `get_segment_key`
+            // (theme_configs.segment_data.{module.function|name}.display
+            // fallback). Inline form here handles the common case of
+            // `display: false` set on the segment dict directly; the
+            // segment_data-driven case relies on user theme_data
+            // overrides via mergedicts at theme-load time.
+            if let Some(false) = segment.get("display").and_then(|v| v.as_bool()) {
+                return None;
+            }
+
             // py:327-331  contents, _contents_func, module, function_name, name = get_segment_info(data, segment)
             let (function_name, module, name): (String, String, Option<String>) =
                 if segment_type == "string" {
@@ -830,6 +842,25 @@ where
             out.insert("truncate".to_string(), Value::Null);
             out.insert("startup".to_string(), Value::Null);
             out.insert("shutdown".to_string(), Value::Null);
+            // py:265-301  get_segment_selector — mode lists + function
+            // names carry over to `Theme.get_segments`'s
+            // `gen_display_condition` at `segment.py:303`. The function
+            // name strings are resolved at evaluation time through a
+            // selectors registry (analog of `gen_module_attr_getter`
+            // for selector callables) — bin shim provides one keyed by
+            // dotted name (e.g. `powerline.selectors.vim.single_tab`).
+            if let Some(v) = segment.get("include_modes") {
+                out.insert("include_modes".to_string(), v.clone());
+            }
+            if let Some(v) = segment.get("exclude_modes") {
+                out.insert("exclude_modes".to_string(), v.clone());
+            }
+            if let Some(v) = segment.get("include_function") {
+                out.insert("include_function".to_string(), v.clone());
+            }
+            if let Some(v) = segment.get("exclude_function") {
+                out.insert("exclude_function".to_string(), v.clone());
+            }
             out.insert("_rendered_raw".to_string(), Value::String(String::new()));
             out.insert("_rendered_hl".to_string(), Value::String(String::new()));
             out.insert("_len".to_string(), Value::Null);
