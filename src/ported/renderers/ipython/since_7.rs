@@ -162,12 +162,26 @@ impl IPythonPygmentsRenderer {
     /// Builds the synthetic `pl_a<attr>_f<rrggbb>_b<rrggbb>` token
     /// name from a (fg, bg, attrs) triple per py:62-67.
     pub fn build_token_name(fg: Option<ColorSpec>, bg: Option<ColorSpec>, attrs: u32) -> String {
+        // py:43  def hl(self, escaped_contents, fg=None, bg=None, attrs=None, *args, **kwargs):
+        // py:50  guifg = None
+        // py:51  guibg = None
+        // py:52  att = []
+        // py:53  if fg is not None and fg is not False:
+        // py:54  guifg = fg[1]
         let guifg = fg.and_then(|f| f.truecolor);
+        // py:55  if bg is not None and bg is not False:
+        // py:56  guibg = bg[1]
         let guibg = bg.and_then(|b| b.truecolor);
         let att = Self::attrs_to_attr_names(attrs);
+        // py:66  fg = (('%06x' % guifg) if guifg is not None else '')
         let fg_hex = guifg.map(|v| format!("{:06x}", v)).unwrap_or_default();
+        // py:67  bg = (('%06x' % guibg) if guibg is not None else '')
         let bg_hex = guibg.map(|v| format!("{:06x}", v)).unwrap_or_default();
-        // py:62-67  'pl' + _a<attr>... + _f<rrggbb> + _b<rrggbb>
+        // py:68  name = (
+        // py:69  'pl'
+        // py:70  + ''.join(('_a' + attr for attr in att))
+        // py:71  + '_f' + fg + '_b' + bg
+        // py:72  )
         let mut name = String::from("pl");
         for a in &att {
             name.push_str("_a");
