@@ -1582,6 +1582,76 @@ fn parity_surrogate_pair_to_character() {
 // (verify pattern strings match upstream regex sources)
 // ─────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────
+// segments/common/time.py — UNICODE_TEXT_TRANSLATION + hour_str default
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_time_unicode_text_translation_table() {
+    if !python_available() {
+        return;
+    }
+    // Verify the upstream table maps exactly two ASCII characters to
+    // their unicode equivalents, and the Rust translate() helper
+    // mirrors that mapping when applied to a string containing both.
+    let py = match py_eval(
+        "list(sorted(__import__('powerline.segments.common.time', fromlist=['UNICODE_TEXT_TRANSLATION']).UNICODE_TEXT_TRANSLATION.items()))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    // Python prints e.g. [(39, '’'), (45, '‐')]
+    // ASCII apostrophe (39) → U+2019, ASCII hyphen-minus (45) → U+2010.
+    assert!(
+        py.contains("39") && py.contains("’"),
+        "expected apostrophe mapping in table, got {}",
+        py
+    );
+    assert!(
+        py.contains("45") && py.contains("‐"),
+        "expected hyphen mapping in table, got {}",
+        py
+    );
+
+    // Round-trip via Rust translate()
+    let rs = powerliners::segments::common::time::unicode_text_translate("don't-care");
+    assert_eq!(rs, "don\u{2019}t\u{2010}care", "Rust translate() mismatch");
+
+    // Round-trip via Python str.translate()
+    let py_rt = match py_eval(
+        "\"don't-care\".translate(__import__('powerline.segments.common.time', fromlist=['UNICODE_TEXT_TRANSLATION']).UNICODE_TEXT_TRANSLATION)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(rs, py_rt, "py vs rs translate() output mismatch");
+}
+
+#[test]
+fn parity_time_fuzzy_time_default_hour_str() {
+    if !python_available() {
+        return;
+    }
+    // The default hour_str list is positional 1st default of fuzzy_time.
+    // Read it from the function's __defaults__ via inspect.
+    let py = match py_eval(
+        "list(__import__('inspect').signature(__import__('powerline.segments.common.time', fromlist=['fuzzy_time']).fuzzy_time).parameters['hour_str'].default)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    // Python list repr: ['twelve', 'one', ..., 'eleven']
+    let rs = powerliners::segments::common::time::fuzzy_time_default_hour_str();
+    let rs_repr = format!(
+        "[{}]",
+        rs.iter()
+            .map(|s| format!("'{}'", s))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    assert_eq!(py, rs_repr, "fuzzy_time hour_str default mismatch");
+}
+
 #[test]
 fn parity_tmux_regex_pattern_strings() {
     if !python_available() {
