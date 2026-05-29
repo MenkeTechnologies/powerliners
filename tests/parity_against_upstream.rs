@@ -2192,6 +2192,59 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_gen_marked_value_dispatches_on_type() {
+    if !python_available() {
+        return;
+    }
+    // gen_marked_value(value, mark) routes through specialclasses
+    // dispatch — int→MarkedInt, dict→MarkedDict, list→MarkedList,
+    // str→MarkedUnicode, float→MarkedFloat. Verify the type-tag
+    // string matches in both ports for canonical inputs.
+    let cases: &[(&str, &str)] = &[
+        ("42", "MarkedInt"),
+        ("3.14", "MarkedFloat"),
+        ("{}", "MarkedDict"),
+        ("[]", "MarkedList"),
+        ("\"hello\"", "MarkedUnicode"),
+    ];
+    for (py_value_lit, expected_typename) in cases {
+        let py_expr = format!(
+            "type(__import__('powerline.lint.markedjson.markedvalue', fromlist=['gen_marked_value']).gen_marked_value({}, ('cfg', 1, 2))).__name__",
+            py_value_lit
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(
+            py.as_str(),
+            *expected_typename,
+            "Python gen_marked_value({}) typename drift",
+            py_value_lit
+        );
+    }
+
+    // Rust side: verify the MarkedAny variant matches the expected
+    // type for each input shape.
+    use powerliners::lint::markedjson::markedvalue::{gen_marked_value, MarkedAny};
+    use powerliners::lint::markedjson::nodes::Mark;
+    let mark = Mark { line: 1, column: 2 };
+    let i = gen_marked_value(serde_json::Value::from(42), mark.clone());
+    assert!(matches!(i, MarkedAny::Int(_)), "expected Int variant");
+    let f = gen_marked_value(serde_json::json!(3.14), mark.clone());
+    assert!(matches!(f, MarkedAny::Float(_)), "expected Float variant");
+    let d = gen_marked_value(serde_json::json!({}), mark.clone());
+    assert!(matches!(d, MarkedAny::Dict(_)), "expected Dict variant");
+    let l = gen_marked_value(serde_json::json!([]), mark.clone());
+    assert!(matches!(l, MarkedAny::List(_)), "expected List variant");
+    let s = gen_marked_value(serde_json::json!("hello"), mark.clone());
+    assert!(
+        matches!(s, MarkedAny::Unicode(_)),
+        "expected Unicode variant"
+    );
+}
+
+#[test]
 fn parity_markedjson_resolver_default_tags_match() {
     if !python_available() {
         return;
