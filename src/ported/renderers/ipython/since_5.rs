@@ -218,6 +218,115 @@ pub struct TokenAttrs {
     pub blink: bool,
 }
 
+/// Port of `class PowerlinePromptStyle(DynamicStyle)` from
+/// `powerline/renderers/ipython/since_5.py:40`.
+///
+/// Marker struct that owns the dispatch for the token-attrs lookup.
+/// The underlying `DynamicStyle` from prompt_toolkit isn't reachable
+/// from Rust; the Rust port captures the `base_get_attrs_for_token`
+/// closure so callers can wire in the super-class fallback at py:48.
+pub struct PowerlinePromptStyle;
+
+impl PowerlinePromptStyle {
+    /// Port of `PowerlinePromptStyle.get_attrs_for_token()` from
+    /// `powerline/renderers/ipython/since_5.py:41-65`.
+    ///
+    /// Returns the parsed `TokenAttrs` for a Powerline-format token
+    /// per py:49-65. Returns None for non-Powerline tokens per
+    /// py:42-48 (super delegation point); callers pass the base
+    /// implementation result through their own dispatch.
+    pub fn get_attrs_for_token(token: &str) -> Option<TokenAttrs> {
+        // py:42-47  token not in PowerlinePromptToken / wrong length /
+        //          missing Pl prefix / equal to 'Pl' → super delegation
+        parse_token_attrs(token)
+    }
+
+    /// Port of `PowerlinePromptStyle.invalidation_hash()` from
+    /// `powerline/renderers/ipython/since_5.py:78-79`.
+    ///
+    /// Delegates to the standalone helper for the
+    /// `super().invalidation_hash() + 1` math.
+    pub fn invalidation_hash(base: u64) -> u64 {
+        powerline_prompt_style_invalidation_hash(base)
+    }
+
+    /// Port of `PowerlinePromptStyle.get_token_to_attributes_dict()`
+    /// from `powerline/renderers/ipython/since_5.py:67-76`.
+    ///
+    /// Returns a `PowerlineStyleDict` initialised with a `fallback`
+    /// closure that dispatches to `get_attrs_for_token`. The Rust
+    /// port returns the `PowerlineStyleDict` populated with the
+    /// supplied seed entries; callers query via `lookup(key, ...)`.
+    pub fn get_token_to_attributes_dict(
+        seed: HashMap<String, Vec<(String, String)>>,
+    ) -> PowerlineStyleDict {
+        // py:68-76  defaultdict-like dict with fallback
+        let mut d = PowerlineStyleDict::new();
+        d.inner = seed;
+        d
+    }
+}
+
+/// Port of `class IPythonPygmentsRenderer(IPythonRenderer)` from
+/// `powerline/renderers/ipython/since_5.py:82`.
+///
+/// Marker struct holding the renderer state. The actual rendering
+/// dispatch chains through `IPythonRenderer` (already ported) — the
+/// Rust port surfaces the IPython-Pygments-specific methods + the
+/// `id(self)` client-id stand-in.
+pub struct IPythonPygmentsRenderer {
+    /// Stable per-instance ID used as the cache key by daemon-mode
+    /// renderer dispatch per py:127.
+    pub id: u64,
+}
+
+impl IPythonPygmentsRenderer {
+    /// Construct with a fresh ID. Each call increments a global
+    /// counter so distinct instances get distinct IDs (matching
+    /// Python's `id(self)` semantics — every fresh object has a
+    /// distinct integer identity).
+    pub fn new() -> Self {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(1);
+        Self {
+            id: COUNTER.fetch_add(1, Ordering::SeqCst),
+        }
+    }
+
+    /// Port of `IPythonPygmentsRenderer.get_segment_info()` from
+    /// `powerline/renderers/ipython/since_5.py:85-87`.
+    ///
+    /// Wraps `segment_info` with `IPythonInfo(...)` and delegates to
+    /// the parent `IPythonRenderer.get_segment_info`. The Rust port
+    /// returns the merged dict directly — caller wires it into the
+    /// parent IPythonRenderer.
+    pub fn get_segment_info(
+        &self,
+        segment_info: &serde_json::Value,
+    ) -> serde_json::Map<String, serde_json::Value> {
+        // py:86-87  super().get_segment_info(IPythonInfo(segment_info), mode)
+        let mut r = serde_json::Map::new();
+        r.insert("ipython".to_string(), segment_info.clone());
+        r
+    }
+
+    /// Port of `IPythonPygmentsRenderer.get_client_id()` from
+    /// `powerline/renderers/ipython/since_5.py:126-127`.
+    ///
+    /// Python: `return id(self)` — each instance's stable identity.
+    /// The Rust port returns the renderer's `id` field.
+    pub fn get_client_id(&self) -> u64 {
+        // py:127  return id(self)
+        self.id
+    }
+}
+
+impl Default for IPythonPygmentsRenderer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -437,5 +546,62 @@ mod tests {
     #[test]
     fn reduce_initial_const_is_empty_array() {
         assert_eq!(REDUCE_INITIAL.len(), 0);
+    }
+
+    #[test]
+    fn powerline_prompt_style_get_attrs_for_token_pl_format() {
+        // py:42-65  Powerline token → TokenAttrs
+        let r = PowerlinePromptStyle::get_attrs_for_token("Pl_abold_fff0000").unwrap();
+        assert!(r.bold);
+        assert_eq!(r.color.as_deref(), Some("ff0000"));
+    }
+
+    #[test]
+    fn powerline_prompt_style_get_attrs_for_token_non_pl_returns_none() {
+        // py:42-47  non-Powerline tokens delegated to super
+        assert!(PowerlinePromptStyle::get_attrs_for_token("Generic").is_none());
+    }
+
+    #[test]
+    fn powerline_prompt_style_invalidation_hash_bumps_by_one() {
+        // py:79
+        assert_eq!(PowerlinePromptStyle::invalidation_hash(10), 11);
+    }
+
+    #[test]
+    fn powerline_prompt_style_get_token_to_attributes_dict_returns_dict() {
+        // py:67-76
+        let mut seed = HashMap::new();
+        seed.insert(
+            "Pl_abold".to_string(),
+            vec![("k".to_string(), "v".to_string())],
+        );
+        let d = PowerlinePromptStyle::get_token_to_attributes_dict(seed);
+        let r = d.lookup("Pl_abold", |_| Vec::new());
+        assert_eq!(r, vec![("k".to_string(), "v".to_string())]);
+    }
+
+    #[test]
+    fn ipython_pygments_renderer_each_instance_gets_unique_id() {
+        // py:127  id(self) — distinct per instance
+        let r1 = IPythonPygmentsRenderer::new();
+        let r2 = IPythonPygmentsRenderer::new();
+        assert_ne!(r1.id, r2.id);
+        assert_ne!(r1.get_client_id(), r2.get_client_id());
+    }
+
+    #[test]
+    fn ipython_pygments_renderer_get_client_id_returns_self_id() {
+        let r = IPythonPygmentsRenderer::new();
+        assert_eq!(r.get_client_id(), r.id);
+    }
+
+    #[test]
+    fn ipython_pygments_renderer_get_segment_info_wraps_payload_under_ipython_key() {
+        // py:86-87  super().get_segment_info(IPythonInfo(segment_info), mode)
+        let r = IPythonPygmentsRenderer::new();
+        let payload = serde_json::json!({"prompt_count": 5});
+        let merged = r.get_segment_info(&payload);
+        assert_eq!(merged["ipython"]["prompt_count"], 5);
     }
 }
