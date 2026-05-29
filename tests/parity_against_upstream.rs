@@ -2192,6 +2192,49 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_clear_special_values_walks_nested_dicts() {
+    if !python_available() {
+        return;
+    }
+    // _clear_special_values walks a nested dict iteratively (explicit
+    // stack) and removes every key whose value is the REMOVE_THIS_KEY
+    // sentinel — at every depth. Verify against 3-level nesting:
+    //   root keeps a=1, deletes b
+    //   nested keeps y=2, deletes x
+    //   deeper keeps r=3, deletes q
+    let py = match py_eval(
+        "(lambda d: (__import__('powerline.lib.dict', fromlist=['_clear_special_values'])._clear_special_values(d), __import__('json').dumps(d, sort_keys=True))[1])({'a': 1, 'b': __import__('powerline.lib.dict', fromlist=['REMOVE_THIS_KEY']).REMOVE_THIS_KEY, 'nested': {'x': __import__('powerline.lib.dict', fromlist=['REMOVE_THIS_KEY']).REMOVE_THIS_KEY, 'y': 2, 'deeper': {'q': __import__('powerline.lib.dict', fromlist=['REMOVE_THIS_KEY']).REMOVE_THIS_KEY, 'r': 3}}})",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+
+    use serde_json::json;
+    let mut d = json!({
+        "a": 1,
+        "b": powerliners::lib::dict::REMOVE_THIS_KEY(),
+        "nested": {
+            "x": powerliners::lib::dict::REMOVE_THIS_KEY(),
+            "y": 2,
+            "deeper": {
+                "q": powerliners::lib::dict::REMOVE_THIS_KEY(),
+                "r": 3,
+            }
+        }
+    })
+    .as_object()
+    .unwrap()
+    .clone();
+    powerliners::lib::dict::_clear_special_values(&mut d);
+    assert_eq!(
+        py_value,
+        serde_json::Value::Object(d),
+        "_clear_special_values nested walk mismatch"
+    );
+}
+
+#[test]
 fn parity_mergedicts_remove_this_key_deletes_when_remove_true() {
     if !python_available() {
         return;
