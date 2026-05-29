@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">646</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3495</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">62.8%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">647</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3498</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">62.9%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -199,8 +199,8 @@ columns:
   <!-- SYM py_file=powerline/segments/common/sys.py rs_file=src/ported/segments/common/sys.rs rs_exists=True py_fn_total=13 ported_count=13 missing_count=0 rs_extra_count=15 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/segments/common/sys.py -->
   <!-- BEGIN-GROUP py_file=powerline/renderers/ipython/since_5.py -->
-  <tr class="partial"><td><code>renderers/ipython/since_5.py</code></td><td>✔ <code>renderers/ipython/since_5.rs</code></td><td>12</td><td><code>get_attrs_for_token</code>, <code>get_token_to_attributes_dict</code>, <code>invalidation_hash</code>, <code>get_segment_info</code>, <code>hl_join</code>, <code>hl</code>, <code>hlstyle</code>, <code>get_client_id</code></td><td><code>__new__</code>, <code>__init__</code>, <code>__missing__</code>, <code>fallback</code></td><td><code>attrs_to_attr_names</code>, <code>build_token_name</code>, <code>default</code>, <code>new</code>, <code>lookup</code>, <code>insert</code>, <code>powerline_prompt_style_invalidation_hash</code>, <code>parse_token_attrs</code>, <code>new</code>, <code>default</code>, <code>attrs_to_attr_names_zero_is_empty</code>, <code>attrs_to_attr_names_bold</code>, <code>attrs_to_attr_names_italic</code>, <code>attrs_to_attr_names_all_three</code>, <code>build_token_name_capital_pl_prefix</code>, <code>build_token_name_with_fg_uses_space_padded_hex</code>, <code>build_token_name_with_small_fg_pads_with_space</code>, <code>build_token_name_with_bg</code>, <code>build_token_name_with_attrs</code>, <code>build_token_name_with_all_three</code>, <code>hl_returns_single_segment_pair</code>, <code>hl_uses_token_name_with_color</code>, <code>hlstyle_returns_empty</code>, <code>hl_join_flattens_segments</code>, <code>powerline_style_dict_lookup_returns_existing</code>, <code>powerline_style_dict_lookup_calls_missing_func_on_miss</code>, <code>powerline_prompt_style_invalidation_hash_adds_one</code>, <code>parse_token_attrs_plain_pl_returns_default</code>, <code>parse_token_attrs_non_pl_returns_none</code>, <code>parse_token_attrs_bold</code>, <code>parse_token_attrs_fg_color</code>, <code>parse_token_attrs_bg_color</code>, <code>parse_token_attrs_all_three</code>, <code>parse_token_attrs_default_reverse_and_blink_false</code>, <code>reduce_initial_const_is_empty_array</code>, <code>powerline_prompt_style_get_attrs_for_token_pl_format</code>, <code>powerline_prompt_style_get_attrs_for_token_non_pl_returns_none</code>, <code>powerline_prompt_style_invalidation_hash_bumps_by_one</code>, <code>powerline_prompt_style_get_token_to_attributes_dict_returns_dict</code>, <code>ipython_pygments_renderer_each_instance_gets_unique_id</code>, <code>ipython_pygments_renderer_get_client_id_returns_self_id</code>, <code>ipython_pygments_renderer_get_segment_info_wraps_payload_under_ipython_key</code></td><td class="coverage">67%</td></tr>
-  <!-- SYM py_file=powerline/renderers/ipython/since_5.py rs_file=src/ported/renderers/ipython/since_5.rs rs_exists=True py_fn_total=12 ported_count=8 missing_count=4 rs_extra_count=42 coverage=0.6667 -->
+  <tr class="partial"><td><code>renderers/ipython/since_5.py</code></td><td>✔ <code>renderers/ipython/since_5.rs</code></td><td>12</td><td><code>get_attrs_for_token</code>, <code>get_token_to_attributes_dict</code>, <code>fallback</code>, <code>invalidation_hash</code>, <code>get_segment_info</code>, <code>hl_join</code>, <code>hl</code>, <code>hlstyle</code>, <code>get_client_id</code></td><td><code>__new__</code>, <code>__init__</code>, <code>__missing__</code></td><td><code>attrs_to_attr_names</code>, <code>build_token_name</code>, <code>default</code>, <code>new</code>, <code>lookup</code>, <code>insert</code>, <code>powerline_prompt_style_invalidation_hash</code>, <code>parse_token_attrs</code>, <code>new</code>, <code>default</code>, <code>attrs_to_attr_names_zero_is_empty</code>, <code>attrs_to_attr_names_bold</code>, <code>attrs_to_attr_names_italic</code>, <code>attrs_to_attr_names_all_three</code>, <code>build_token_name_capital_pl_prefix</code>, <code>build_token_name_with_fg_uses_space_padded_hex</code>, <code>build_token_name_with_small_fg_pads_with_space</code>, <code>build_token_name_with_bg</code>, <code>build_token_name_with_attrs</code>, <code>build_token_name_with_all_three</code>, <code>hl_returns_single_segment_pair</code>, <code>hl_uses_token_name_with_color</code>, <code>hlstyle_returns_empty</code>, <code>hl_join_flattens_segments</code>, <code>powerline_style_dict_lookup_returns_existing</code>, <code>powerline_style_dict_lookup_calls_missing_func_on_miss</code>, <code>powerline_prompt_style_invalidation_hash_adds_one</code>, <code>parse_token_attrs_plain_pl_returns_default</code>, <code>parse_token_attrs_non_pl_returns_none</code>, <code>parse_token_attrs_bold</code>, <code>parse_token_attrs_fg_color</code>, <code>parse_token_attrs_bg_color</code>, <code>parse_token_attrs_all_three</code>, <code>parse_token_attrs_default_reverse_and_blink_false</code>, <code>reduce_initial_const_is_empty_array</code>, <code>powerline_prompt_style_get_attrs_for_token_pl_format</code>, <code>powerline_prompt_style_get_attrs_for_token_non_pl_returns_none</code>, <code>powerline_prompt_style_invalidation_hash_bumps_by_one</code>, <code>powerline_prompt_style_get_token_to_attributes_dict_returns_dict</code>, <code>ipython_pygments_renderer_each_instance_gets_unique_id</code>, <code>ipython_pygments_renderer_get_client_id_returns_self_id</code>, <code>ipython_pygments_renderer_get_segment_info_wraps_payload_under_ipython_key</code>, <code>fallback_returns_dict_value_when_key_present</code>, <code>fallback_calls_get_attrs_for_token_on_miss</code></td><td class="coverage">75%</td></tr>
+  <!-- SYM py_file=powerline/renderers/ipython/since_5.py rs_file=src/ported/renderers/ipython/since_5.rs rs_exists=True py_fn_total=12 ported_count=9 missing_count=3 rs_extra_count=44 coverage=0.7500 -->
   <!-- END-GROUP py_file=powerline/renderers/ipython/since_5.py -->
   <!-- BEGIN-GROUP py_file=powerline/segments/i3wm.py -->
   <tr class="full"><td><code>segments/i3wm.py</code></td><td>✔ <code>segments/i3wm.rs</code></td><td>12</td><td><code>workspace_groups</code>, <code>format_name</code>, <code>is_empty_workspace</code>, <code>get_icon</code>, <code>workspaces</code>, <code>sort_ws</code>, <code>natural_key</code>, <code>workspace</code>, <code>mode</code>, <code>scratchpad_groups</code>, <code>scratchpad</code>, <code>active_window</code></td><td>—</td><td><code>WORKSPACE_REGEX</code>, <code>ws_icons</code>, <code>mode_segment</code>, <code>scratchpad_icons</code>, <code>active_window_contents</code>, <code>priority_sort_workspaces</code>, <code>workspace_default_format</code>, <code>scratchpad_entry</code>, <code>build_workspace_entry</code>, <code>workspace_regex_strips_leading_number_and_optional_space</code>, <code>workspace_groups_focused_only</code>, <code>workspace_groups_urgent_only</code>, <code>workspace_groups_visible_only</code>, <code>workspace_groups_none_returns_just_workspace</code>, <code>workspace_groups_all_flags_set_returns_all_classes</code>, <code>format_name_strip_true_removes_leading_number</code>, <code>format_name_strip_false_passes_through</code>, <code>is_empty_workspace_focused_returns_false</code>, <code>is_empty_workspace_visible_returns_false</code>, <code>is_empty_workspace_with_leaves_returns_false</code>, <code>is_empty_workspace_unfocused_invisible_no_leaves_returns_true</code>, <code>ws_icons_contains_multiple_entry</code>, <code>get_icon_no_windows_returns_empty</code>, <code>get_icon_matches_window_class_substring</code>, <code>get_icon_collapses_multiple_to_multi_icon_when_not_show_all</code>, <code>get_icon_skips_scratchpad_windows</code>, <code>mode_segment_default_hidden_returns_none</code>, <code>mode_segment_named_returns_translation</code>, <code>mode_segment_unknown_passes_through</code>, <code>scratchpad_groups_urgent_focused_visible</code>, <code>scratchpad_groups_on_scratch_workspace_omits_visible</code>, <code>scratchpad_icons_contains_fresh_and_changed</code>, <code>active_window_returns_title_when_short</code>, <code>active_window_returns_class_when_title_too_long</code>, <code>build_workspace_entry_substitutes_name</code>, <code>build_workspace_entry_substitutes_stripped_name</code>, <code>build_workspace_entry_substitutes_number</code>, <code>build_workspace_entry_strip_skips_leading_chars</code>, <code>natural_key_orders_digits_numerically</code>, <code>natural_key_handles_pure_digits</code>, <code>natural_key_handles_no_digits</code>, <code>natural_key_alternating_chunks</code>, <code>priority_sort_workspaces_puts_priority_names_first</code>, <code>priority_sort_workspaces_empty_priority_preserves_order</code>, <code>priority_sort_workspaces_priority_not_in_list_is_skipped</code>, <code>sort_ws_sort_workspaces_true_applies_natural_key_order</code>, <code>sort_ws_sort_workspaces_false_preserves_input_order</code>, <code>sort_ws_priority_workspaces_pin_to_front</code>, <code>mode_alias_dispatches_to_mode_segment</code>, <code>workspace_default_format_strip_returns_stripped_name</code>, <code>workspace_default_format_no_strip_returns_name</code>, <code>scratchpad_entry_none_state_returns_none</code>, <code>scratchpad_entry_known_state_uses_matching_icon</code>, <code>scratchpad_entry_unknown_state_falls_back_to_changed_icon</code>, <code>scratchpad_entry_emits_highlight_groups_from_flags</code>, <code>active_window_returns_title_under_cutoff</code>, <code>active_window_returns_class_when_title_exceeds_cutoff</code>, <code>workspace_uses_supplied_format_string</code>, <code>workspace_substitutes_stripped_name_when_strip_true</code>, <code>scratchpad_emits_one_entry_per_non_none_window</code></td><td class="coverage">100%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3495,
-    "ported_fns": 646,
-    "coverage": 0.6284046692607004
+    "rs_fns_in_ported": 3498,
+    "ported_fns": 647,
+    "coverage": 0.6293774319066148
   },
   "rows": [
     {
@@ -2392,6 +2392,7 @@ columns:
       "ported_fns": [
         "get_attrs_for_token",
         "get_token_to_attributes_dict",
+        "fallback",
         "invalidation_hash",
         "get_segment_info",
         "hl_join",
@@ -2402,8 +2403,7 @@ columns:
       "missing_fns": [
         "__new__",
         "__init__",
-        "__missing__",
-        "fallback"
+        "__missing__"
       ],
       "rs_extra_fns": [
         "attrs_to_attr_names",
@@ -2447,9 +2447,11 @@ columns:
         "powerline_prompt_style_get_token_to_attributes_dict_returns_dict",
         "ipython_pygments_renderer_each_instance_gets_unique_id",
         "ipython_pygments_renderer_get_client_id_returns_self_id",
-        "ipython_pygments_renderer_get_segment_info_wraps_payload_under_ipython_key"
+        "ipython_pygments_renderer_get_segment_info_wraps_payload_under_ipython_key",
+        "fallback_returns_dict_value_when_key_present",
+        "fallback_calls_get_attrs_for_token_on_miss"
       ],
-      "coverage": 0.6666666666666666
+      "coverage": 0.75
     },
     {
       "py_file": "powerline/segments/i3wm.py",
