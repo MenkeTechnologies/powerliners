@@ -47,11 +47,24 @@ fn format_strftime(fmt: &str, ts: libc::time_t) -> String {
 /// Highlight groups used: `time` or `date`. Divider highlight group:
 /// `time:divider`.
 pub fn date(_pl: &(), format: &str, istime: bool, _timezone: Option<&str>) -> Vec<Value> {
-    // py:23  nw = datetime.now(tz)
+    // py:5  def date(pl, format='%Y-%m-%d', istime=False, timezone=None):
+    // py:6-19  docstring
+    // py:21  try:
+    // py:22  tz = datetime.strptime(timezone, '%z').tzinfo if timezone else None
+    // py:23  except ValueError:
+    // py:24  tz = None
+    // py:26  nw = datetime.now(tz)
     let ts = unsafe { libc::time(std::ptr::null_mut()) };
-    // py:25-29  contents = nw.strftime(format)
+    // py:28  try:
+    // py:29  contents = nw.strftime(format)
+    // py:30  except UnicodeEncodeError:
+    // py:31  contents = nw.strftime(format.encode('utf-8')).decode('utf-8')
     let contents = format_strftime(format, ts);
-    // py:31-35  return [{contents, highlight_groups, divider_highlight_group}]
+    // py:33  return [{
+    // py:34  'contents': contents,
+    // py:35  'highlight_groups': (['time'] if istime else []) + ['date'],
+    // py:36  'divider_highlight_group': 'time:divider' if istime else None,
+    // py:37  }]
     let highlight_groups: Vec<Value> = if istime {
         vec![Value::String("time".into()), Value::String("date".into())]
     } else {
@@ -149,26 +162,46 @@ pub fn fuzzy_time_compute(
     special_cases: &std::collections::HashMap<(u32, u32), &str>,
     unicode_text: bool,
 ) -> String {
-    // py:93-99  special_case_str[(hour, minute)]
+    // py:90  try:
+    // py:91  # We don't want to enforce a special type of spaces/ alignment in the input
+    // py:92  from ast import literal_eval
+    // py:93  special_case_str = {literal_eval(x):special_case_str[x] for x in special_case_str}
+    // py:94  result = special_case_str[(now.hour, now.minute)]
+    // py:95  if unicode_text:
+    // py:96  result = result.translate(UNICODE_TEXT_TRANSLATION)
+    // py:97  return result
+    // py:98  except KeyError:
+    // py:99  pass
     if let Some(s) = special_cases.get(&(hour, minute)) {
         if unicode_text {
             return unicode_text_translate(s);
         }
         return s.to_string();
     }
-    // py:101-104  rounding up to next hour when minute >= 32
+    // py:101  hour = now.hour
+    // py:102  if now.minute >= 32:
+    // py:103  hour = hour + 1
     let mut h = hour;
     if minute >= 32 {
         h += 1;
     }
     // py:104  hour = hour % len(hour_str)
     let h = (h as usize) % hour_str.len();
-    // py:106-116  find closest minute_str key to current minute
+    // py:106  min_dis = 100
+    // py:107  min_pos = 0
     let mut min_dis: u32 = 100;
     let mut min_pos: u32 = 0;
     let mut keys: Vec<u32> = minute_str.keys().copied().collect();
     keys.sort();
+    // py:109  for mn in minute_str:
+    // py:110  mn = int(mn)
     for &mn in &keys {
+        // py:111  if now.minute >= mn and now.minute - mn < min_dis:
+        // py:112  min_dis = now.minute - mn
+        // py:113  min_pos = mn
+        // py:114  elif now.minute < mn and mn - now.minute < min_dis:
+        // py:115  min_dis = mn - now.minute
+        // py:116  min_pos = mn
         let dis = if minute >= mn {
             minute - mn
         } else {
@@ -179,10 +212,12 @@ pub fn fuzzy_time_compute(
             min_pos = mn;
         }
     }
-    // py:117  minute_str[str(min_pos)].format(hour_str=hour_str[hour])
+    // py:117  result = minute_str[str(min_pos)].format(hour_str=hour_str[hour])
     let template = minute_str.get(&min_pos).copied().unwrap_or("");
     let result = template.replace("{hour_str}", hour_str[h]);
-    // py:119-120  unicode_text replacement
+    // py:119  if unicode_text:
+    // py:120  result = result.translate(UNICODE_TEXT_TRANSLATION)
+    // py:122  return result
     if unicode_text {
         unicode_text_translate(&result)
     } else {
@@ -203,7 +238,12 @@ pub fn fuzzy_time(
     minute_str: Option<&std::collections::HashMap<u32, &str>>,
     special_cases: Option<&std::collections::HashMap<(u32, u32), &str>>,
 ) -> String {
-    // py:83-86  tz dispatch (timezone arg deferred — system localtime only)
+    // py:46  def fuzzy_time(pl, format=None, unicode_text=False, timezone=None, hour_str=[...], minute_str={...}, special_case_str={...}):
+    // py:60-81  docstring
+    // py:83  try:
+    // py:84  tz = datetime.strptime(timezone, '%z').tzinfo if timezone else None
+    // py:85  except ValueError:
+    // py:86  tz = None
     // py:88  now = datetime.now(tz)
     let ts = unsafe { libc::time(std::ptr::null_mut()) };
     let mut tm: libc::tm = unsafe { std::mem::zeroed() };

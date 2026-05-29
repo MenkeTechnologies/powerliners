@@ -59,10 +59,13 @@ impl CoerceIO {
     /// Decodes bytes via UTF-8 with replacement, then appends to the
     /// buffer (Python's super().write()).
     pub fn write(&mut self, arg: &[u8]) -> usize {
-        // py:18-19  bytes → decode via preferred encoding, replace errors
+        // py:16  class CoerceIO(StringIO):
+        // py:17  def write(self, arg):
+        // py:18  if isinstance(arg, bytes):
+        // py:19  arg = arg.decode(get_preferred_file_contents_encoding(), 'replace')
         let s = String::from_utf8_lossy(arg);
         let n = s.len();
-        // py:20  return super().write(arg)
+        // py:20  return super(CoerceIO, self).write(arg)
         self.buffer.push_str(&s);
         n
     }
@@ -77,7 +80,17 @@ pub fn branch_name_from_config_file(
     directory: &std::path::Path,
     config_file: &std::path::Path,
 ) -> String {
-    // py:28-35  try open + iterate lines + nick_pat.match
+    // py:26  def branch_name_from_config_file(directory, config_file):
+    // py:27  ans = None
+    // py:28  try:
+    // py:29  with open(config_file, 'rb') as f:
+    // py:30  for line in f:
+    // py:31  m = nick_pat.match(line)
+    // py:32  if m is not None:
+    // py:33  ans = m.group(1).strip().decode(get_preferred_file_contents_encoding(), 'replace')
+    // py:34  break
+    // py:35  except Exception:
+    // py:36  pass
     if let Ok(bytes) = std::fs::read(config_file) {
         for line in bytes.split(|&b| b == b'\n') {
             if let Some(c) = nick_pat().captures(line) {
@@ -90,7 +103,7 @@ pub fn branch_name_from_config_file(
             }
         }
     }
-    // py:37  ans or os.path.basename(directory)
+    // py:37  return ans or os.path.basename(directory)
     directory
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
@@ -124,14 +137,29 @@ impl Repository {
     ///
     /// **Status:** stub for the bzrlib path. Returns None (clean).
     pub fn status(&self, _path: Option<&str>) -> Option<String> {
-        // py:60-67  delegated to do_status which needs bzrlib
+        // py:48  def status(self, path=None):
+        // py:49-59  docstring
+        // py:60  if path is not None:
+        // py:61  return get_file_status(
+        // py:62  directory=self.directory,
+        // py:63  dirstate_file=join(self.directory, '.bzr', 'checkout', 'dirstate'),
+        // py:64  file_path=path,
+        // py:65  ignore_file_name='.bzrignore',
+        // py:66  get_func=self.do_status,
+        // py:67  create_watcher=self.create_watcher,
+        // py:68  )
+        // py:69  return self.do_status(self.directory, path)
         None
     }
 
     /// Port of `Repository.do_status()` from
     /// `powerline/lib/vcs/bzr.py:70`.
     pub fn do_status(&self, _directory: &std::path::Path, _path: Option<&str>) -> Option<String> {
-        // py:71-74  try _status; swallow exception
+        // py:71  def do_status(self, directory, path):
+        // py:72  try:
+        // py:73  return self._status(self.directory, path)
+        // py:74  except Exception:
+        // py:75  pass
         None
     }
 
@@ -142,14 +170,30 @@ impl Repository {
     /// `bzrlib.status.show_tree_status` and parses the `-S` output;
     /// adding a Rust bzrlib is out of scope.
     pub fn _status(&self, _directory: &std::path::Path, _path: Option<&str>) -> Option<String> {
-        // py:75-95 stub
+        // py:77  def _status(self, directory, path):
+        // py:78  global state
+        // py:79  if state is None:
+        // py:80  state = library_state.BzrLibraryState(ui=ui.SilentUIFactory, trace=trace.DefaultConfig())
+        // py:81  buf = CoerceIO()
+        // py:82  w = workingtree.WorkingTree.open(directory)
+        // py:83  status.show_tree_status(w, specific_files=[path] if path else None, to_file=buf, short=True)
+        // py:84  raw = buf.getvalue()
+        // py:85  if not raw.strip():
+        // py:86  return
         None
     }
 
     /// Port of `Repository.branch()` from
     /// `powerline/lib/vcs/bzr.py:97`.
     pub fn branch(&self) -> String {
-        // py:98-103  config_file = .bzr/branch/branch.conf
+        // py:101  def branch(self):
+        // py:102  config_file = join(self.directory, '.bzr', 'branch', 'branch.conf')
+        // py:103  return get_branch_name(
+        // py:104  directory=self.directory,
+        // py:105  config_file=config_file,
+        // py:106  get_func=branch_name_from_config_file,
+        // py:107  create_watcher=self.create_watcher,
+        // py:108  )
         let config_file = self
             .directory
             .join(".bzr")

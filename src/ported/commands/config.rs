@@ -176,24 +176,43 @@ impl ConfigArgParser {
 /// The Rust port flattens them into one `ArgParser` returning the full
 /// flag set; the caller (CLI driver) dispatches on the sub-command.
 pub fn get_argparser() -> ArgParser {
+    // py:45  def get_argparser(ArgumentParser=ConfigArgParser):
     ArgParser {
-        description: "Script used to obtain powerline configuration.".to_string(), // py:46
+        // py:46  parser = ArgumentParser(description='Script used to obtain powerline configuration.')
+        description: "Script used to obtain powerline configuration.".to_string(),
         arguments: vec![
-            // py:47-52  -p / --config-path (top-level)
+            // py:47  parser.add_argument(
+            // py:48  '-p', '--config-path', action='append', metavar='PATH',
             Argument {
                 flags: vec!["-p".into(), "--config-path".into()],
                 action: ArgAction::Append,
                 metavar: Some("PATH".into()),
+                // py:49  help='Path to configuration directory. If it is present '
+                // py:50  'then configuration files will only be sought in the provided path. '
+                // py:51  'May be provided multiple times to search in a list of directories.'
+                // py:52  )
                 help: "Path to configuration directory. If it is present \
                        then configuration files will only be sought in the provided path. \
                        May be provided multiple times to search in a list of directories."
                     .into(),
             },
-            // py:54  tmux sub-parser dispatch (function positional)
+            // py:53  subparsers = parser.add_subparsers()
+            // py:54  tmux_parser = subparsers.add_parser('tmux', help='Tmux-specific commands')
+            // py:55  tmux_parser.add_argument(
+            // py:56  'function',
+            // py:57  choices=tuple(TMUX_ACTIONS.values()),
+            // py:58  metavar='ACTION',
+            // py:59  type=(lambda v: TMUX_ACTIONS.get(v)),
             Argument {
                 flags: vec!["tmux".into()],
                 action: ArgAction::Store,
                 metavar: Some("ACTION".into()),
+                // py:60  help='If action is `source\' then version-specific tmux configuration '
+                // py:61  'files are sourced, if it is `setenv\' then special '
+                // py:62  '(prefixed with `_POWERLINE\') tmux global environment variables '
+                // py:63  'are filled with data from powerline configuration. '
+                // py:64  'Action `setup\' is just doing `setenv\' then `source\'.'
+                // py:65  )
                 help: "Tmux-specific commands: source / setenv / setup. \
                        If action is `source' then version-specific tmux configuration \
                        files are sourced, if it is `setenv' then special \
@@ -202,21 +221,35 @@ pub fn get_argparser() -> ArgParser {
                        Action `setup' is just doing `setenv' then `source'."
                     .into(),
             },
-            // py:67-72  -s / --source (tmux sub-parser)
+            // py:66  tpg = tmux_parser.add_mutually_exclusive_group()
+            // py:67  tpg.add_argument(
+            // py:68  '-s', '--source', action='store_true', default=None,
             Argument {
                 flags: vec!["-s".into(), "--source".into()],
                 action: ArgAction::StoreTrue,
                 metavar: None,
+                // py:69  help='When using `setup\': always use configuration file sourcing. '
+                // py:70  'By default this is determined automatically based on tmux '
+                // py:71  'version: this is the default for tmux 1.8 and below.',
+                // py:72  )
                 help: "When using `setup': always use configuration file sourcing. \
                        By default this is determined automatically based on tmux \
                        version: this is the default for tmux 1.8 and below."
                     .into(),
             },
-            // py:73-81  -n / --no-source (tmux sub-parser)
+            // py:73  tpg.add_argument(
+            // py:74  '-n', '--no-source', action='store_false', dest='source', default=None,
             Argument {
                 flags: vec!["-n".into(), "--no-source".into()],
                 action: ArgAction::StoreTrue,
                 metavar: None,
+                // py:75  help='When using `setup\': in place of sourcing directly execute '
+                // py:76  'configuration files. That is, read each needed '
+                // py:77  'powerline-specific configuration file, substitute '
+                // py:78  '`$_POWERLINE_…\' variables with appropriate values and run '
+                // py:79  '`tmux config line\'. This is the default behaviour for '
+                // py:80  'tmux 1.9 and above.'
+                // py:81  )
                 help: "When using `setup': in place of sourcing directly execute \
                        configuration files. That is, read each needed \
                        powerline-specific configuration file, substitute \
@@ -225,22 +258,41 @@ pub fn get_argparser() -> ArgParser {
                        tmux 1.9 and above."
                     .into(),
             },
-            // py:83  shell sub-parser dispatch (function positional)
+            // py:83  shell_parser = subparsers.add_parser('shell', help='Shell-specific commands')
+            // py:84  shell_parser.add_argument(
+            // py:85  'function',
+            // py:86  choices=tuple(SHELL_ACTIONS.values()),
+            // py:87  type=(lambda v: SHELL_ACTIONS.get(v)),
+            // py:88  metavar='ACTION',
             Argument {
                 flags: vec!["shell".into()],
                 action: ArgAction::Store,
                 metavar: Some("ACTION".into()),
+                // py:89  help='If action is `command\' then preferred powerline command is '
+                // py:90  'output, if it is `uses\' then powerline-config script will exit '
+                // py:91  'with 1 if specified component is disabled and 0 otherwise.',
+                // py:92  )
                 help: "Shell-specific commands: command / uses. \
                        If action is `command' then preferred powerline command is \
                        output, if it is `uses' then powerline-config script will exit \
                        with 1 if specified component is disabled and 0 otherwise."
                     .into(),
             },
-            // py:93-103  component (positional for shell uses)
+            // py:93  shell_parser.add_argument(
+            // py:94  'component',
+            // py:95  nargs='?',
+            // py:96  choices=('tmux', 'prompt'),
+            // py:97  metavar='COMPONENT',
             Argument {
                 flags: vec!["component".into()],
                 action: ArgAction::Store,
                 metavar: Some("COMPONENT".into()),
+                // py:98  help='Only applicable for `uses\' subcommand: makes `powerline-config\' '
+                // py:99  'exit with 0 if specific component is enabled and with 1 otherwise. '
+                // py:100  '`tmux\' component stands for tmux bindings '
+                // py:101  '(e.g. those that notify tmux about current directory changes), '
+                // py:102  '`prompt\' component stands for shell prompt.'
+                // py:103  )
                 help: "Only applicable for `uses' subcommand: makes `powerline-config' \
                        exit with 0 if specific component is enabled and with 1 otherwise. \
                        `tmux' component stands for tmux bindings \
@@ -248,15 +300,20 @@ pub fn get_argparser() -> ArgParser {
                        `prompt' component stands for shell prompt."
                     .into(),
             },
-            // py:104-108  -s / --shell (shell sub-parser)
+            // py:104  shell_parser.add_argument(
+            // py:105  '-s', '--shell',
+            // py:106  metavar='SHELL',
             Argument {
                 flags: vec!["--shell".into()],
                 action: ArgAction::Store,
                 metavar: Some("SHELL".into()),
+                // py:107  help='Shell for which query is run',
+                // py:108  )
                 help: "Shell for which query is run".into(),
             },
         ],
     }
+    // py:109  return parser
 }
 
 #[cfg(test)]
