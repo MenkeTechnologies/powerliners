@@ -371,6 +371,105 @@ where
     fetcher()
 }
 
+/// Port of `_failing_get_status()` from
+/// `powerline/segments/common/bat.py:217-218`.
+///
+/// Unconditional-error battery-status callable installed when
+/// `_fetch_battery_info` raises `NotImplementedError` (py:222-223 in
+/// `battery()`'s setup block). Returns `None` so `battery()` shorts
+/// to the early-return at py:228 (segment hidden).
+///
+/// Python raises `NotImplementedError`; the Rust port returns `None`
+/// since the caller treats Option-None and raise-NIE identically at
+/// the call site (both bail out of the segment computation).
+pub fn _failing_get_status(_pl: &()) -> Option<(f64, bool)> {
+    // py:217  def _failing_get_status(pl):
+    // py:218  raise NotImplementedError
+    None
+}
+
+/// Port of `_fetch_battery_info()` from
+/// `powerline/segments/common/bat.py:11-217`.
+///
+/// Python tries dbus+UPower → /sys/class/power_supply → pmset
+/// (macOS) → win32com → GetSystemPowerStatus (Windows) and returns
+/// the first working backend's closure. The Rust port can't drive
+/// dbus/win32 without external bindings; callers inject the per-
+/// backend fetcher via the `try_backends` slice.
+///
+/// Returns the first backend that yields `Some` per the dispatch
+/// chain; `None` if none succeeds (caller installs
+/// `_failing_get_status`).
+pub fn _fetch_battery_info(
+    try_backends: &[&dyn Fn() -> Option<(f64, bool)>],
+) -> Option<(f64, bool)> {
+    // py:11  def _fetch_battery_info(pl):
+    // py:12-216  try-cascade through dbus/sys/pmset/win32com/GetSystemPowerStatus
+    for backend in try_backends {
+        if let Some(result) = backend() {
+            return Some(result);
+        }
+    }
+    None
+}
+
+/// Port of `_flatten_battery()` from
+/// `powerline/segments/common/bat.py:53-77` (the dbus+UPower
+/// closure).
+///
+/// Wrapper around [`flatten_battery`] that mirrors the dbus
+/// closure signature — `pl` is the powerline logger handle, `devices`
+/// is the precomputed (energy, energy_full, state) tuple list.
+/// Python's `_flatten_battery` captures `devices` from its outer
+/// scope; the Rust port takes it as an explicit argument.
+pub fn _flatten_battery(_pl: &(), devices: &[(f64, f64, bool)]) -> (f64, bool) {
+    // py:53  def _flatten_battery(pl):
+    // py:54-77  energy/energy_full sum + AND-fold of state
+    flatten_battery(devices)
+}
+
+/// Port of `_get_battery_perc()` from
+/// `powerline/segments/common/bat.py:121-130` (the
+/// /sys/class/power_supply closure).
+///
+/// Reads `/sys/class/power_supply/<batt>/capacity` and `.../status`
+/// for the supplied battery device. Returns
+/// `Some((percent_0_100, charging_flag))` or `None` when the device
+/// files can't be read.
+///
+/// Python captures `batt` (the device dir name) from the outer for-
+/// loop; the Rust port takes it as an explicit argument.
+pub fn _get_battery_perc(_pl: &(), batt: &str) -> Option<(u8, Option<bool>)> {
+    // py:121  def _get_battery_perc(pl):
+    // py:122  state = True
+    let state: Option<bool>;
+    // py:123  with open('/sys/class/power_supply/{0}/capacity', 'r') as f:
+    let capacity_path = format!("/sys/class/power_supply/{}/capacity", batt);
+    let capacity_text = std::fs::read_to_string(capacity_path).ok()?;
+    // py:124  perc = int(f.readline().split()[0])
+    let perc: u8 = capacity_text
+        .split_whitespace()
+        .next()?
+        .parse()
+        .ok()?;
+    // py:125  try:
+    // py:126  with open(linux_status_fmt.format(batt), 'r') as f:
+    let status_path = format!("/sys/class/power_supply/{}/status", batt);
+    match std::fs::read_to_string(status_path) {
+        Ok(status_text) => {
+            // py:127  state &= (f.readline().strip() != 'Discharging')
+            state = Some(parse_linux_status(&status_text));
+        }
+        Err(_) => {
+            // py:128  except IOError:
+            // py:129  state = None
+            state = None;
+        }
+    }
+    // py:130  return perc, state
+    Some((perc, state))
+}
+
 /// Builds the per-device list passed to `flatten_battery` from
 /// the two parallel slices: `energies` and `energy_fulls` of the same
 /// length plus a single `state_flag`.
@@ -664,5 +763,44 @@ mod tests {
     fn get_battery_status_propagates_none() {
         let r = _get_battery_status(|| None);
         assert!(r.is_none());
+    }
+
+    #[test]
+    fn failing_get_status_returns_none() {
+        // py:217-218  raise NotImplementedError → None
+        assert!(_failing_get_status(&()).is_none());
+    }
+
+    #[test]
+    fn fetch_battery_info_returns_first_successful_backend() {
+        let backend_a: &dyn Fn() -> Option<(f64, bool)> = &|| None;
+        let backend_b: &dyn Fn() -> Option<(f64, bool)> = &|| Some((75.0, true));
+        let backend_c: &dyn Fn() -> Option<(f64, bool)> = &|| Some((20.0, false));
+        let r = _fetch_battery_info(&[backend_a, backend_b, backend_c]);
+        assert_eq!(r, Some((75.0, true)));
+    }
+
+    #[test]
+    fn fetch_battery_info_none_when_all_backends_fail() {
+        let backend: &dyn Fn() -> Option<(f64, bool)> = &|| None;
+        let r = _fetch_battery_info(&[backend, backend]);
+        assert!(r.is_none());
+    }
+
+    #[test]
+    fn flatten_battery_closure_delegates_to_flatten_battery() {
+        let devices = vec![(20.0, 100.0, true), (80.0, 100.0, true)];
+        let r = _flatten_battery(&(), &devices);
+        // 100/200 = 50%
+        assert_eq!(r.0, 50.0);
+        assert!(r.1);
+    }
+
+    #[test]
+    fn get_battery_perc_missing_files_returns_none() {
+        // /sys/class/power_supply/<batt>/capacity doesn't exist for
+        // a synthetic name.
+        let r = _get_battery_perc(&(), "nonexistent_batt_zz_9999");
+        assert!(r.is_none(), "expected None for missing battery, got {r:?}");
     }
 }
