@@ -241,12 +241,18 @@ impl Parser {
     /// Port of `Parser.__init__()` from
     /// `powerline/lint/markedjson/parser.py:14`.
     pub fn new() -> Self {
+        // py:13  class Parser:
+        // py:14  def __init__(self):
+        // py:15  self.current_event = None
+        // py:16  self.yaml_version = None
+        // py:17  self.states = []
+        // py:18  self.marks = []
+        // py:19  self.state = self.parse_stream_start
         Self {
             current_event: None,
             yaml_version: None,
             states: Vec::new(),
             marks: Vec::new(),
-            // py:19  self.state = self.parse_stream_start
             state: State::StreamStart,
         }
     }
@@ -254,7 +260,10 @@ impl Parser {
     /// Port of `Parser.dispose()` from
     /// `powerline/lint/markedjson/parser.py:21`.
     pub fn dispose(&mut self) {
-        // py:23-24  states = []; state = None
+        // py:21  def dispose(self):
+        // py:22  # Reset the state attributes (to clear self-references)
+        // py:23  self.states = []
+        // py:24  self.state = None
         self.states.clear();
         self.state = State::Done;
     }
@@ -262,11 +271,21 @@ impl Parser {
     /// Port of `Parser.check_event(*choices)` from
     /// `powerline/lint/markedjson/parser.py:26`.
     pub fn check_event<S: TokenStream>(&mut self, scanner: &mut S, choices: &[EventKind]) -> bool {
-        // py:28-31  if current_event is None: current_event = self.state()
+        // py:26  def check_event(self, *choices):
+        // py:27  # Check the type of the next event.
+        // py:28  if self.current_event is None:
+        // py:29  if self.state:
+        // py:30  self.current_event = self.state()
         if self.current_event.is_none() && self.state != State::Done {
             self.current_event = Some(self.dispatch_state(scanner));
         }
-        // py:32-37  match against any choice
+        // py:31  if self.current_event is not None:
+        // py:32  if not choices:
+        // py:33  return True
+        // py:34  for choice in choices:
+        // py:35  if isinstance(self.current_event, choice):
+        // py:36  return True
+        // py:37  return False
         if let Some(ev) = &self.current_event {
             if choices.is_empty() {
                 return true;
@@ -279,7 +298,12 @@ impl Parser {
     /// Port of `Parser.peek_event()` from
     /// `powerline/lint/markedjson/parser.py:39`.
     pub fn peek_event<S: TokenStream>(&mut self, scanner: &mut S) -> Option<AnyEvent> {
-        // py:41-43  same fill-cache logic as check_event
+        // py:39  def peek_event(self):
+        // py:40  # Get the next event.
+        // py:41  if self.current_event is None:
+        // py:42  if self.state:
+        // py:43  self.current_event = self.state()
+        // py:44  return self.current_event
         if self.current_event.is_none() && self.state != State::Done {
             self.current_event = Some(self.dispatch_state(scanner));
         }
@@ -289,11 +313,17 @@ impl Parser {
     /// Port of `Parser.get_event()` from
     /// `powerline/lint/markedjson/parser.py:46`.
     pub fn get_event<S: TokenStream>(&mut self, scanner: &mut S) -> AnyEvent {
-        // py:48-50  fill cache if empty
+        // py:46  def get_event(self):
+        // py:47  # Get the next event and proceed further.
+        // py:48  if self.current_event is None:
+        // py:49  if self.state:
+        // py:50  self.current_event = self.state()
         if self.current_event.is_none() && self.state != State::Done {
             self.current_event = Some(self.dispatch_state(scanner));
         }
-        // py:51-53  consume and return
+        // py:51  value = self.current_event
+        // py:52  self.current_event = None
+        // py:53  return value
         self.current_event.take().unwrap_or(AnyEvent::StreamEnd)
     }
 
@@ -322,27 +352,40 @@ impl Parser {
     /// Port of `Parser.parse_stream_start()` from
     /// `powerline/lint/markedjson/parser.py:59`.
     fn parse_stream_start<S: TokenStream>(&mut self, scanner: &mut S) -> AnyEvent {
-        // py:60-61  token = self.get_token(); event = events.StreamStartEvent(...)
+        // py:59  def parse_stream_start(self):
+        // py:60  # Parse the stream start.
+        // py:61  token = self.get_token()
+        // py:62  event = events.StreamStartEvent(token.start_mark, token.end_mark, encoding=token.encoding)
         let token = scanner.get_token();
-        let _ = token; // StreamStartEvent currently carries no fields in our model
-                       // py:64  state = parse_implicit_document_start
+        let _ = token;
+        // py:64  # Prepare the next state.
+        // py:65  self.state = self.parse_implicit_document_start
         self.state = State::ImplicitDocumentStart;
-        // py:66  return event
+        // py:67  return event
         AnyEvent::StreamStart
     }
 
     /// Port of `Parser.parse_implicit_document_start()` from
     /// `powerline/lint/markedjson/parser.py:69`.
     fn parse_implicit_document_start<S: TokenStream>(&mut self, scanner: &mut S) -> AnyEvent {
-        // py:71  if not StreamEndToken:
+        // py:69  def parse_implicit_document_start(self):
+        // py:70  # Parse an implicit document.
+        // py:71  if not self.check_token(tokens.StreamEndToken):
         if !scanner.check_token(&[TokenKind::StreamEnd]) {
-            // py:72-78
+            // py:72  token = self.peek_token()
+            // py:73  start_mark = end_mark = token.start_mark
+            // py:74  event = events.DocumentStartEvent(start_mark, end_mark, explicit=False)
             let _ = scanner.peek_token();
+            // py:76  # Prepare the next state.
+            // py:77  self.states.append(self.parse_document_end)
+            // py:78  self.state = self.parse_node
             self.states.push(State::DocumentEnd);
             self.state = State::Node;
+            // py:80  return event
             AnyEvent::DocumentStart
         } else {
-            // py:82  return self.parse_document_start()
+            // py:82  else:
+            // py:83  return self.parse_document_start()
             self.parse_document_start(scanner)
         }
     }
@@ -350,13 +393,26 @@ impl Parser {
     /// Port of `Parser.parse_document_start()` from
     /// `powerline/lint/markedjson/parser.py:85`.
     fn parse_document_start<S: TokenStream>(&mut self, scanner: &mut S) -> AnyEvent {
-        // py:87  if not StreamEndToken
+        // py:85  def parse_document_start(self):
+        // py:86  # Parse an explicit document.
+        // py:87  if not self.check_token(tokens.StreamEndToken):
         if !scanner.check_token(&[TokenKind::StreamEnd]) {
-            // py:88-93  unexpected token; emit StreamEnd
+            // py:88  token = self.peek_token()
+            // py:89  self.echoerr(
+            // py:90  None, None,
+            // py:91  ('expected \'<stream end>\', but found %r' % token.id), token.start_mark
+            // py:92  )
+            // py:93  return events.StreamEndEvent(token.start_mark, token.end_mark)
             let _ = scanner.peek_token();
             return AnyEvent::StreamEnd;
         }
-        // py:95-100  consume StreamEndToken, set state=None
+        // py:94  else:
+        // py:95  # Parse the end of the stream.
+        // py:96  token = self.get_token()
+        // py:97  event = events.StreamEndEvent(token.start_mark, token.end_mark)
+        // py:98  assert not self.states
+        // py:99  assert not self.marks
+        // py:100  self.state = None
         let _ = scanner.get_token();
         debug_assert!(self.states.is_empty());
         debug_assert!(self.marks.is_empty());
@@ -367,17 +423,24 @@ impl Parser {
     /// Port of `Parser.parse_document_end()` from
     /// `powerline/lint/markedjson/parser.py:103`.
     fn parse_document_end<S: TokenStream>(&mut self, scanner: &mut S) -> AnyEvent {
-        // py:104-110
+        // py:103  def parse_document_end(self):
+        // py:104  # Parse the document end.
+        // py:105  token = self.peek_token()
+        // py:106  start_mark = end_mark = token.start_mark
+        // py:107  event = events.DocumentEndEvent(start_mark, end_mark, explicit=False)
         let _ = scanner.peek_token();
-        // py:113  state = parse_document_start
+        // py:109  # Prepare the next state.
+        // py:110  self.state = self.parse_document_start
         self.state = State::DocumentStart;
+        // py:112  return event
         AnyEvent::DocumentEnd
     }
 
     /// Port of `Parser.parse_document_content()` from
     /// `powerline/lint/markedjson/parser.py:115`.
     fn parse_document_content<S: TokenStream>(&mut self, scanner: &mut S) -> AnyEvent {
-        // py:116  return self.parse_node()
+        // py:114  def parse_document_content(self):
+        // py:115  return self.parse_node()
         self.parse_node(scanner, false)
     }
 
