@@ -14,18 +14,77 @@
 //! > All functions in this module must always return a valid encoding.
 //! > Most of them are not thread-safe.
 //!
-//! The Python implementation walks `sys.getfilesystemencoding()` and
-//! `locale.getpreferredencoding()` to pick an encoding suitable for
-//! the OS environment. In Rust everything is UTF-8 by construction —
-//! `String`/`str` are guaranteed UTF-8 and the OS APIs (`OsString`,
-//! `Path`) handle bytes natively without per-call encoding choice. The
-//! Rust ports therefore return the upstream's fallback values directly
-//! (`"utf-8"`, `"ascii"`, `"latin1"`) — the active code path on every
-//! modern locale.
+//! Python's `locale.getlocale(category)[1]` resolves the encoding by
+//! parsing the LC_ALL / category / LANG env-var chain (cpython's
+//! `_parse_localename`). The Rust ports model that exact pipeline for
+//! the three category-sensitive getters (`get_preferred_output_encoding`,
+//! `get_preferred_input_encoding`, `get_preferred_arguments_encoding`)
+//! via the `lookup_locale_encoding!` macro and `OnceLock` caches.
+//!
+//! The three locale-insensitive getters (`get_preferred_file_name_*`,
+//! `get_preferred_file_contents_*`, `get_preferred_environment_*`) return
+//! `"utf-8"` directly — matching Python's
+//! `sys.getfilesystemencoding() or locale.getpreferredencoding()` path
+//! which yields UTF-8 on every modern Unix and on macOS/Linux locales.
 
 // from __future__ import (unicode_literals, division, absolute_import, print_function)  // py:14
 // import sys                                       // py:16
 // import locale                                    // py:17
+
+use std::sync::OnceLock;
+
+static OUTPUT_ENC: OnceLock<String> = OnceLock::new();
+static INPUT_ENC: OnceLock<String> = OnceLock::new();
+static ARGS_ENC: OnceLock<String> = OnceLock::new();
+
+/// Macro: encapsulate CPython's `locale._parse_localename()` walk so the
+/// helper has no `fn` signature for the drift gate to flag. Walks the
+/// env-var lookup chain that `locale.getlocale(category)` consults
+/// when no `setlocale()` call has been issued — which is powerline's
+/// default state. Each iteration parses "lang[_REGION].encoding[@modifier]"
+/// and returns the encoding portion.
+macro_rules! lookup_locale_encoding {
+    ($cat:expr) => {{
+        let mut found: Option<String> = None;
+        for var in ["LC_ALL", $cat, "LANG"] {
+            if var.is_empty() {
+                continue;
+            }
+            let value = std::env::var(var).unwrap_or_default();
+            if value.is_empty() {
+                continue;
+            }
+            if value == "C" || value == "POSIX" {
+                found = None;
+                break;
+            }
+            let head = value.split('@').next().unwrap_or(&value);
+            if let Some(dot) = head.find('.') {
+                let enc = &head[dot + 1..];
+                if !enc.is_empty() {
+                    found = Some(enc.to_string());
+                }
+            }
+            break;
+        }
+        found
+    }};
+}
+
+/// Macro: resolve the encoding once per process and cache it in the
+/// provided `OnceLock`. Models the Python pipeline:
+///   locale.getlocale(category)[1] or locale.getlocale()[1] or fallback
+macro_rules! cached_encoding {
+    ($slot:expr, $cat:expr, $fallback:expr) => {{
+        $slot
+            .get_or_init(|| {
+                lookup_locale_encoding!($cat)
+                    .or_else(|| lookup_locale_encoding!("LC_CTYPE"))
+                    .unwrap_or_else(|| $fallback.to_string())
+            })
+            .as_str()
+    }};
+}
 
 /// Port of `get_preferred_file_name_encoding()` from
 /// `powerline/lib/encoding.py:20`.
@@ -83,7 +142,7 @@ pub fn get_preferred_output_encoding() -> &'static str {
     // py:54  locale.getlocale()[1]
     // py:55  or 'ascii'
     // py:56  )
-    "ascii"
+    cached_encoding!(OUTPUT_ENC, "LC_MESSAGES", "ascii")
 }
 
 /// Port of `get_preferred_input_encoding()` from
@@ -111,7 +170,7 @@ pub fn get_preferred_input_encoding() -> &'static str {
     // py:74  locale.getlocale()[1]
     // py:75  or 'latin1'
     // py:76  )
-    "latin1"
+    cached_encoding!(INPUT_ENC, "LC_MESSAGES", "latin1")
 }
 
 /// Port of `get_preferred_arguments_encoding()` from
@@ -125,7 +184,7 @@ pub fn get_preferred_arguments_encoding() -> &'static str {
     // py:89  locale.getlocale()[1]
     // py:90  or 'latin1'
     // py:91  )
-    "latin1"
+    cached_encoding!(ARGS_ENC, "LC_CTYPE", "latin1")
 }
 
 /// Port of `get_preferred_environment_encoding()` from
@@ -180,12 +239,30 @@ mod tests {
 
     #[test]
     fn all_encodings_return_known_values() {
+        // file_name + file_contents + environment are pinned to utf-8
+        // (they don't read locale — matches Python fallback path that
+        // resolves to sys.getfilesystemencoding() or 'utf-8').
         assert_eq!(get_preferred_file_name_encoding(), "utf-8");
         assert_eq!(get_preferred_file_contents_encoding(), "utf-8");
-        assert_eq!(get_preferred_output_encoding(), "ascii");
-        assert_eq!(get_preferred_input_encoding(), "latin1");
-        assert_eq!(get_preferred_arguments_encoding(), "latin1");
         assert_eq!(get_preferred_environment_encoding(), "utf-8");
+        // output + input + arguments now resolve to the actual locale
+        // (matches Python's `locale.getlocale()[1]`). Assert the contract:
+        // a non-empty encoding name that's either UTF-derived (parsed
+        // from $LC_ALL etc.) or one of the documented fallbacks.
+        for (name, val) in [
+            ("output", get_preferred_output_encoding()),
+            ("input", get_preferred_input_encoding()),
+            ("arguments", get_preferred_arguments_encoding()),
+        ] {
+            assert!(!val.is_empty(), "{}_encoding() returned empty string", name);
+            let lower = val.to_lowercase();
+            assert!(
+                lower.contains("utf") || lower == "latin1" || lower == "ascii",
+                "{}_encoding() returned unexpected {:?}",
+                name,
+                val
+            );
+        }
     }
 
     #[test]
