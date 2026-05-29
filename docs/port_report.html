@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">585</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3362</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">56.9%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">588</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3368</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">57.2%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -171,8 +171,8 @@ columns:
   <!-- SYM py_file=powerline/bindings/ipython/pre_0_11.py rs_file=src/ported/bindings/ipython/pre_0_11.rs rs_exists=True py_fn_total=16 ported_count=10 missing_count=6 rs_extra_count=37 coverage=0.6250 -->
   <!-- END-GROUP py_file=powerline/bindings/ipython/pre_0_11.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/watcher/inotify.py -->
-  <tr class="partial"><td><code>lib/watcher/inotify.py</code></td><td>✔ <code>lib/watcher/inotify.rs</code></td><td>15</td><td><code>expire_watches</code>, <code>process_event</code>, <code>unwatch</code>, <code>watch</code>, <code>is_watching</code>, <code>close</code>, <code>add_watch</code>, <code>process_event</code></td><td><code>__init__</code>, <code>__call__</code>, <code>__init__</code>, <code>__init__</code>, <code>watch_tree</code>, <code>add_watches</code>, <code>__call__</code></td><td><code>fmt</code>, <code>fmt</code>, <code>fmt</code>, <code>new</code>, <code>now</code>, <code>query</code>, <code>mark_modified</code>, <code>new</code>, <code>query</code>, <code>no_such_dir_implements_error_traits</code>, <code>base_dir_changed_implements_error_traits</code>, <code>dir_too_large_message_matches_upstream</code>, <code>file_watcher_init_multiplies_expire_time_by_60</code>, <code>file_watcher_watch_stores_wd_in_state</code>, <code>file_watcher_watch_does_not_overwrite_existing</code>, <code>file_watcher_unwatch_removes_state_and_calls_rm</code>, <code>file_watcher_unwatch_unknown_path_no_op</code>, <code>file_watcher_is_watching_false_when_not_registered</code>, <code>file_watcher_query_returns_modified_flag_and_resets</code>, <code>file_watcher_query_unknown_path_returns_true</code>, <code>file_watcher_query_calls_read_callback</code>, <code>file_watcher_close_unwatches_all_paths</code>, <code>tree_watcher_is_dummy_false</code>, <code>tree_watcher_init_modified_true</code>, <code>tree_watcher_add_watch_dir_stores_both_maps</code>, <code>tree_watcher_add_watch_file_returns_false</code>, <code>tree_watcher_add_watch_failure_returns_false_and_no_state</code>, <code>tree_watcher_process_event_q_overflow_triggers_rescan</code>, <code>tree_watcher_process_event_unknown_wd_ignored</code>, <code>tree_watcher_process_event_create_returns_add_child_watch</code>, <code>tree_watcher_process_event_delete_self_on_basedir_returns_base_dir_changed</code>, <code>tree_watcher_process_event_ignored_event_does_not_set_modified</code>, <code>tree_watcher_query_returns_and_resets_modified</code>, <code>process_event_outcome_acknowledged_for_modified_only</code>, <code>file_watcher_expire_watches_removes_expired_entries</code></td><td class="coverage">53%</td></tr>
-  <!-- SYM py_file=powerline/lib/watcher/inotify.py rs_file=src/ported/lib/watcher/inotify.rs rs_exists=True py_fn_total=15 ported_count=8 missing_count=7 rs_extra_count=35 coverage=0.5333 -->
+  <tr class="partial"><td><code>lib/watcher/inotify.py</code></td><td>✔ <code>lib/watcher/inotify.rs</code></td><td>15</td><td><code>expire_watches</code>, <code>process_event</code>, <code>unwatch</code>, <code>watch</code>, <code>is_watching</code>, <code>close</code>, <code>watch_tree</code>, <code>add_watches</code>, <code>add_watch</code>, <code>process_event</code></td><td><code>__init__</code>, <code>__call__</code>, <code>__init__</code>, <code>__init__</code>, <code>__call__</code></td><td><code>fmt</code>, <code>fmt</code>, <code>fmt</code>, <code>new</code>, <code>now</code>, <code>query</code>, <code>mark_modified</code>, <code>new</code>, <code>query</code>, <code>no_such_dir_implements_error_traits</code>, <code>base_dir_changed_implements_error_traits</code>, <code>dir_too_large_message_matches_upstream</code>, <code>file_watcher_init_multiplies_expire_time_by_60</code>, <code>file_watcher_watch_stores_wd_in_state</code>, <code>file_watcher_watch_does_not_overwrite_existing</code>, <code>file_watcher_unwatch_removes_state_and_calls_rm</code>, <code>file_watcher_unwatch_unknown_path_no_op</code>, <code>file_watcher_is_watching_false_when_not_registered</code>, <code>file_watcher_query_returns_modified_flag_and_resets</code>, <code>file_watcher_query_unknown_path_returns_true</code>, <code>file_watcher_query_calls_read_callback</code>, <code>file_watcher_close_unwatches_all_paths</code>, <code>tree_watcher_is_dummy_false</code>, <code>tree_watcher_init_modified_true</code>, <code>tree_watcher_add_watch_dir_stores_both_maps</code>, <code>tree_watcher_add_watch_file_returns_false</code>, <code>tree_watcher_add_watch_failure_returns_false_and_no_state</code>, <code>tree_watcher_process_event_q_overflow_triggers_rescan</code>, <code>tree_watcher_process_event_unknown_wd_ignored</code>, <code>tree_watcher_process_event_create_returns_add_child_watch</code>, <code>tree_watcher_process_event_delete_self_on_basedir_returns_base_dir_changed</code>, <code>tree_watcher_process_event_ignored_event_does_not_set_modified</code>, <code>tree_watcher_query_returns_and_resets_modified</code>, <code>process_event_outcome_acknowledged_for_modified_only</code>, <code>file_watcher_expire_watches_removes_expired_entries</code>, <code>tree_watcher_watch_tree_resets_and_calls_add_watches</code>, <code>tree_watcher_add_watches_skips_already_known_paths</code>, <code>tree_watcher_add_watches_records_wd_on_success</code></td><td class="coverage">67%</td></tr>
+  <!-- SYM py_file=powerline/lib/watcher/inotify.py rs_file=src/ported/lib/watcher/inotify.rs rs_exists=True py_fn_total=15 ported_count=10 missing_count=5 rs_extra_count=38 coverage=0.6667 -->
   <!-- END-GROUP py_file=powerline/lib/watcher/inotify.py -->
   <!-- BEGIN-GROUP py_file=powerline/renderer.py -->
   <tr class="partial"><td><code>renderer.py</code></td><td>✔ <code>renderer.rs</code></td><td>15</td><td><code>construct_returned_value</code>, <code>get_theme</code>, <code>shutdown</code>, <code>get_segment_info</code>, <code>render_above_lines</code>, <code>render</code>, <code>compute_divider_widths</code>, <code>do_render</code>, <code>_prepare_segments</code>, <code>_render_length</code>, <code>_render_segments</code>, <code>escape</code>, <code>hlstyle</code>, <code>hl</code></td><td><code>__init__</code></td><td><code>np_control_character_translations</code>, <code>np_invalid_character_translations</code>, <code>np_invalid_character_re</code>, <code>np_character_translations</code>, <code>translate_np</code>, <code>width_data</code>, <code>strwidth</code>, <code>new</code>, <code>segment_info</code>, <code>nbsp_constant_matches_upstream</code>, <code>np_control_character_translations_has_32_entries</code>, <code>np_control_character_translations_maps_null_to_caret_at</code>, <code>np_control_character_translations_maps_a_to_caret_a</code>, <code>np_control_character_translations_maps_tab_to_caret_i</code>, <code>np_control_character_translations_maps_newline_to_caret_j</code>, <code>np_invalid_character_translations_has_128_entries</code>, <code>np_invalid_character_translations_first_entry_is_80</code>, <code>np_invalid_character_translations_last_entry_is_ff</code>, <code>np_character_translations_contains_both_control_and_invalid</code>, <code>translate_np_replaces_control_chars</code>, <code>translate_np_passes_printable_chars_through</code>, <code>translate_np_handles_multiple_control_chars</code>, <code>construct_returned_value_plain_when_no_flags</code>, <code>construct_returned_value_tuple_with_width_only</code>, <code>construct_returned_value_tuple_with_raw_only</code>, <code>construct_returned_value_tuple_with_both</code>, <code>width_data_default_ambiwidth_is_1</code>, <code>width_data_ambiwidth_overrides_ambiguous</code>, <code>strwidth_counts_chars</code>, <code>compute_divider_widths_emits_both_sides_and_kinds</code>, <code>renderer_init_use_nbsp_default_adds_space_translation</code>, <code>renderer_init_use_nbsp_false_omits_space_translation</code>, <code>renderer_init_uses_ambiwidth_for_width_data</code>, <code>segment_info_includes_environ_and_home</code>, <code>get_segment_info_merges_segment_info_over_base</code>, <code>get_segment_info_sets_mode_null_when_none</code>, <code>get_segment_info_overrides_getcwd_when_pwd_set</code>, <code>get_theme_returns_self_theme</code>, <code>get_theme_ignores_matcher_info</code>, <code>shutdown_records_theme</code>, <code>escape_translates_chars_via_character_translations</code>, <code>escape_passes_untranslated_chars_through</code>, <code>escape_default_translates_space_to_nbsp</code>, <code>escape_use_non_breaking_spaces_false_keeps_spaces</code>, <code>hl_concatenates_hlstyle_output_and_contents</code>, <code>hl_none_contents_becomes_empty_string</code>, <code>_prepare_segments_translates_non_printable_contents</code>, <code>_prepare_segments_calculates_contents_len_from_strwidth_when_no_literal</code>, <code>_prepare_segments_uses_literal_contents_len_when_literal_non_empty</code>, <code>_prepare_segments_skips_contents_len_when_not_requested</code></td><td class="coverage">93%</td></tr>
@@ -283,8 +283,8 @@ columns:
   <!-- SYM py_file=powerline/commands/main.py rs_file=src/ported/commands/main.rs rs_exists=True py_fn_total=6 ported_count=6 missing_count=0 rs_extra_count=12 coverage=1.0000 -->
   <!-- END-GROUP py_file=powerline/commands/main.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/vcs/mercurial.py -->
-  <tr class="partial"><td><code>lib/vcs/mercurial.py</code></td><td>✔ <code>lib/vcs/mercurial.rs</code></td><td>6</td><td><code>branch_name_from_config_file</code>, <code>status</code>, <code>do_status</code>, <code>branch</code></td><td><code>__init__</code>, <code>_repo</code></td><td><code>as_char</code>, <code>statuses</code>, <code>new</code>, <code>aggregate_repo_status</code>, <code>tmp_dir</code>, <code>statuses_table_matches_upstream</code>, <code>repo_statuses_str_matches_upstream</code>, <code>file_status_as_char_matches_upstream</code>, <code>branch_name_from_existing_file_returns_trimmed_content</code>, <code>branch_name_missing_file_returns_default</code>, <code>branch_name_empty_file_returns_empty_string_after_strip</code>, <code>repository_new_canonicalizes_directory</code>, <code>repository_branch_reads_hg_branch_file</code>, <code>repository_branch_missing_returns_default</code>, <code>repository_status_repo_level_stub_returns_none</code>, <code>repository_do_status_stub_returns_none</code>, <code>aggregate_repo_status_clean_returns_none</code>, <code>aggregate_repo_status_modified_returns_dirty</code>, <code>aggregate_repo_status_unknown_returns_untracked</code>, <code>aggregate_repo_status_dirty_plus_untracked_returns_both</code>, <code>aggregate_repo_status_clean_codes_ignored</code></td><td class="coverage">67%</td></tr>
-  <!-- SYM py_file=powerline/lib/vcs/mercurial.py rs_file=src/ported/lib/vcs/mercurial.rs rs_exists=True py_fn_total=6 ported_count=4 missing_count=2 rs_extra_count=21 coverage=0.6667 -->
+  <tr class="partial"><td><code>lib/vcs/mercurial.py</code></td><td>✔ <code>lib/vcs/mercurial.rs</code></td><td>6</td><td><code>branch_name_from_config_file</code>, <code>_repo</code>, <code>status</code>, <code>do_status</code>, <code>branch</code></td><td><code>__init__</code></td><td><code>as_char</code>, <code>statuses</code>, <code>new</code>, <code>aggregate_repo_status</code>, <code>tmp_dir</code>, <code>statuses_table_matches_upstream</code>, <code>repo_statuses_str_matches_upstream</code>, <code>file_status_as_char_matches_upstream</code>, <code>branch_name_from_existing_file_returns_trimmed_content</code>, <code>branch_name_missing_file_returns_default</code>, <code>branch_name_empty_file_returns_empty_string_after_strip</code>, <code>repository_new_canonicalizes_directory</code>, <code>repository_branch_reads_hg_branch_file</code>, <code>repository_branch_missing_returns_default</code>, <code>repository_status_repo_level_stub_returns_none</code>, <code>repository_do_status_stub_returns_none</code>, <code>aggregate_repo_status_clean_returns_none</code>, <code>aggregate_repo_status_modified_returns_dirty</code>, <code>aggregate_repo_status_unknown_returns_untracked</code>, <code>aggregate_repo_status_dirty_plus_untracked_returns_both</code>, <code>aggregate_repo_status_clean_codes_ignored</code></td><td class="coverage">83%</td></tr>
+  <!-- SYM py_file=powerline/lib/vcs/mercurial.py rs_file=src/ported/lib/vcs/mercurial.rs rs_exists=True py_fn_total=6 ported_count=5 missing_count=1 rs_extra_count=21 coverage=0.8333 -->
   <!-- END-GROUP py_file=powerline/lib/vcs/mercurial.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/watcher/stat.py -->
   <tr class="partial"><td><code>lib/watcher/stat.py</code></td><td>✔ <code>lib/watcher/stat.rs</code></td><td>6</td><td><code>watch</code>, <code>unwatch</code>, <code>is_watching</code>, <code>close</code></td><td><code>__init__</code>, <code>__call__</code></td><td><code>default</code>, <code>new</code>, <code>check</code>, <code>tmp_file_with_content</code>, <code>watch_then_check_returns_false_unchanged</code>, <code>check_returns_true_when_unwatched</code>, <code>check_returns_true_after_mtime_change</code>, <code>unwatch_removes_from_set</code>, <code>close_clears_all_watches</code></td><td class="coverage">67%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3362,
-    "ported_fns": 585,
-    "coverage": 0.5690661478599222
+    "rs_fns_in_ported": 3368,
+    "ported_fns": 588,
+    "coverage": 0.5719844357976653
   },
   "rows": [
     {
@@ -1885,6 +1885,8 @@ columns:
         "watch",
         "is_watching",
         "close",
+        "watch_tree",
+        "add_watches",
         "add_watch",
         "process_event"
       ],
@@ -1893,8 +1895,6 @@ columns:
         "__call__",
         "__init__",
         "__init__",
-        "watch_tree",
-        "add_watches",
         "__call__"
       ],
       "rs_extra_fns": [
@@ -1932,9 +1932,12 @@ columns:
         "tree_watcher_process_event_ignored_event_does_not_set_modified",
         "tree_watcher_query_returns_and_resets_modified",
         "process_event_outcome_acknowledged_for_modified_only",
-        "file_watcher_expire_watches_removes_expired_entries"
+        "file_watcher_expire_watches_removes_expired_entries",
+        "tree_watcher_watch_tree_resets_and_calls_add_watches",
+        "tree_watcher_add_watches_skips_already_known_paths",
+        "tree_watcher_add_watches_records_wd_on_success"
       ],
-      "coverage": 0.5333333333333333
+      "coverage": 0.6666666666666666
     },
     {
       "py_file": "powerline/renderer.py",
@@ -3270,13 +3273,13 @@ columns:
       "py_fn_total": 6,
       "ported_fns": [
         "branch_name_from_config_file",
+        "_repo",
         "status",
         "do_status",
         "branch"
       ],
       "missing_fns": [
-        "__init__",
-        "_repo"
+        "__init__"
       ],
       "rs_extra_fns": [
         "as_char",
@@ -3301,7 +3304,7 @@ columns:
         "aggregate_repo_status_dirty_plus_untracked_returns_both",
         "aggregate_repo_status_clean_codes_ignored"
       ],
-      "coverage": 0.6666666666666666
+      "coverage": 0.8333333333333334
     },
     {
       "py_file": "powerline/lib/watcher/stat.py",

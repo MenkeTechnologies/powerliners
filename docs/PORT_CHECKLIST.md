@@ -137,7 +137,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/shell.py` ↔ `src/ported/shell.rs` | 28 | 0 | 1 | 6 | 253 | 7 | 18 |
 | [x] | `powerline/lib/watcher/stat.py` ↔ `src/ported/lib/watcher/stat.rs` | 33 | 0 | 1 | 6 | 137 | 7 | 28 |
 | [x] | `powerline/renderers/ipython/pre_5.py` ↔ `src/ported/renderers/ipython/pre_5.rs` | 38 | 0 | 4 | 6 | 156 | 10 | 27 |
-| [x] | `powerline/lib/vcs/mercurial.py` ↔ `src/ported/lib/vcs/mercurial.rs` | 68 | 1 | 1 | 5 | 224 | 8 | 56 |
+| [x] | `powerline/lib/vcs/mercurial.py` ↔ `src/ported/lib/vcs/mercurial.rs` | 68 | 1 | 1 | 5 | 227 | 9 | 59 |
 | [x] | `powerline/bindings/ipython/post_0_11.py` ↔ `src/ported/bindings/ipython/post_0_11.rs` | 102 | 2 | 2 | 4 | 398 | 14 | 76 |
 | [x] | `powerline/lint/markedjson/resolver.py` ↔ `src/ported/lint/markedjson/resolver.rs` | 110 | 0 | 3 | 6 | 252 | 13 | 97 |
 | [x] | `powerline/colorscheme.py` ↔ `src/ported/colorscheme.rs` | 120 | 2 | 1 | 4 | 369 | 12 | 76 |
@@ -169,7 +169,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/bindings/config.py` ↔ `src/ported/bindings/config.rs` | 232 | 11 | 1 | 2 | 600 | 20 | 151 |
 | [x] | `powerline/bindings/vim/__init__.py` ↔ `src/ported/bindings/vim/mod.rs` | 371 | 11 | 1 | 3 | 252 | 17 | 211 |
 | [x] | `powerline/bindings/ipython/pre_0_11.py` ↔ `src/ported/bindings/ipython/pre_0_11.rs` | 111 | 1 | 7 | 14 | 429 | 23 | 66 |
-| [x] | `powerline/lib/watcher/inotify.py` ↔ `src/ported/lib/watcher/inotify.rs` | 212 | 0 | 5 | 15 | 448 | 17 | 139 |
+| [x] | `powerline/lib/watcher/inotify.py` ↔ `src/ported/lib/watcher/inotify.rs` | 212 | 0 | 5 | 15 | 545 | 19 | 153 |
 | [x] | `powerline/renderer.py` ↔ `src/ported/renderer.rs` | 503 | 1 | 1 | 14 | 1280 | 25 | 373 |
 | [x] | `powerline/segments/common/players.py` ↔ `src/ported/segments/common/players.rs` | 522 | 2 | 11 | 13 | 682 | 25 | 274 |
 | [x] | `powerline/lib/vcs/__init__.py` ↔ `src/ported/lib/vcs/mod.rs` | 209 | 9 | 2 | 7 | 634 | 16 | 130 |

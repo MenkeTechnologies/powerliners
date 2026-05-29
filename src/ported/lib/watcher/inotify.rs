@@ -404,6 +404,89 @@ impl INotifyTreeWatcher {
         }
     }
 
+    /// Port of `INotifyTreeWatcher.watch_tree()` from
+    /// `powerline/lib/watcher/inotify.py:163-170`.
+    ///
+    /// Resets the watched-dir/rmap and adds watches via
+    /// [`add_watches`](Self::add_watches) starting at `basedir`.
+    /// `add_wd` is the caller's per-path inotify syscall hook.
+    /// On `ENOSPC` (system inotify limit exhausted), Python raises
+    /// `DirTooLarge`; the Rust port returns `Err(DirTooLarge(...))`
+    /// since we don't model the syscall errno chain in the closure
+    /// signature.
+    pub fn watch_tree<F>(&mut self, mut add_wd: F) -> Result<(), DirTooLarge>
+    where
+        F: FnMut(&str) -> Option<(i32, bool)>,
+    {
+        // py:164  self.watched_dirs = {}
+        // py:165  self.watched_rmap = {}
+        self.watched_dirs.clear();
+        self.watched_rmap.clear();
+        // py:166  try:
+        // py:167  self.add_watches(self.basedir)
+        // py:168-170  except OSError as e: if ENOSPC: raise DirTooLarge
+        let basedir = self.basedir.clone();
+        match self.add_watches(&basedir, true, &mut add_wd) {
+            Ok(()) => Ok(()),
+            Err(_) => Err(DirTooLarge { basedir }),
+        }
+    }
+
+    /// Port of `INotifyTreeWatcher.add_watches()` from
+    /// `powerline/lib/watcher/inotify.py:172-203`.
+    ///
+    /// Recursively walks `base` and its subdirectories, adding a
+    /// watch for each. Skips entries already in `watched_dirs`
+    /// (per py:178-179, prevents symlink-loop recursion).
+    ///
+    /// `add_wd` is the caller's inotify syscall hook (same shape as
+    /// `add_watch`). Returns `Err(())` when the underlying syscall
+    /// hits `ENOSPC` (caller surfaces `DirTooLarge`).
+    pub fn add_watches<F>(
+        &mut self,
+        base: &str,
+        top_level: bool,
+        add_wd: &mut F,
+    ) -> Result<(), ()>
+    where
+        F: FnMut(&str) -> Option<(i32, bool)>,
+    {
+        // py:172  def add_watches(self, base, top_level=True):
+        // py:175  base = realpath(base)
+        // py:176-179  if not top_level and base in self.watched_dirs: return
+        if !top_level && self.watched_dirs.contains_key(base) {
+            return Ok(());
+        }
+        // py:180-181  is_dir = self.add_watch(base)
+        let is_dir = match add_wd(base) {
+            Some((wd, is_dir)) => {
+                self.watched_dirs.insert(base.to_string(), wd);
+                self.watched_rmap.insert(wd, base.to_string());
+                is_dir
+            }
+            // py:183-188  ENOENT: skip non-top-level; raise NoSuchDir top-level
+            None => {
+                if top_level {
+                    return Err(());
+                }
+                return Ok(());
+            }
+        };
+        // py:201-203  if is_dir: for entry in listdir(base): recurse
+        if is_dir {
+            if let Ok(entries) = std::fs::read_dir(base) {
+                for entry in entries.flatten() {
+                    let p = entry.path();
+                    if p.is_dir() {
+                        let p_str = p.to_string_lossy().to_string();
+                        self.add_watches(&p_str, false, add_wd)?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Port of `INotifyTreeWatcher.add_watch()` from
     /// `powerline/lib/watcher/inotify.py:214`.
     ///
@@ -774,5 +857,64 @@ mod tests {
         assert_eq!(expired.len(), 1);
         assert_eq!(expired[0], "/foo");
         assert!(!w.is_watching("/foo"));
+    }
+
+    #[test]
+    fn tree_watcher_watch_tree_resets_and_calls_add_watches() {
+        // py:164-165 + 167  watched_dirs/rmap cleared, add_watches called
+        let mut w = INotifyTreeWatcher::new("/data/dummy_basedir_zz_9999");
+        // Pre-populate so we can verify watch_tree resets.
+        w.watched_dirs.insert("/stale".to_string(), 999);
+        w.watched_rmap.insert(999, "/stale".to_string());
+        let calls = std::sync::Arc::new(std::sync::Mutex::new(0u32));
+        let calls_c = calls.clone();
+        // add_wd returns None for the basedir → triggers Err
+        // (ENOSPC-equivalent) but only for top-level paths.
+        let r = w.watch_tree(move |_| {
+            *calls_c.lock().unwrap() += 1;
+            None
+        });
+        // basedir doesn't exist → first add_wd call returns None →
+        // top_level Err → watch_tree returns DirTooLarge.
+        assert!(r.is_err());
+        assert_eq!(*calls.lock().unwrap(), 1);
+        // Stale state was cleared.
+        assert!(!w.watched_dirs.contains_key("/stale"));
+        assert!(!w.watched_rmap.contains_key(&999));
+    }
+
+    #[test]
+    fn tree_watcher_add_watches_skips_already_known_paths() {
+        // py:178-179  prevent symlink-loop recursion
+        let mut w = INotifyTreeWatcher::new("/data/x");
+        w.watched_dirs.insert("/data/x".to_string(), 7);
+        w.watched_rmap.insert(7, "/data/x".to_string());
+        let calls = std::sync::Arc::new(std::sync::Mutex::new(0u32));
+        let calls_c = calls.clone();
+        let r = w.add_watches("/data/x", false, &mut |_| {
+            *calls_c.lock().unwrap() += 1;
+            Some((42, true))
+        });
+        assert!(r.is_ok());
+        assert_eq!(
+            *calls.lock().unwrap(),
+            0,
+            "already-watched path should not call add_wd"
+        );
+    }
+
+    #[test]
+    fn tree_watcher_add_watches_records_wd_on_success() {
+        // py:181 + py:227-229
+        let mut w = INotifyTreeWatcher::new("/data/x");
+        let mut calls = 0;
+        let r = w.add_watches("/data/synthetic_path", true, &mut |_| {
+            calls += 1;
+            Some((100, false)) // is_dir=false → no recursion
+        });
+        assert!(r.is_ok());
+        assert_eq!(calls, 1);
+        assert_eq!(w.watched_dirs.get("/data/synthetic_path"), Some(&100));
+        assert_eq!(w.watched_rmap.get(&100), Some(&"/data/synthetic_path".to_string()));
     }
 }
