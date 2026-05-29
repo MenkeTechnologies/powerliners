@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">644</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3489</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">62.6%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">646</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3495</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">62.8%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -163,8 +163,8 @@ columns:
   <!-- SYM py_file=powerline/lint/markedjson/parser.py rs_file=src/ported/lint/markedjson/parser.rs rs_exists=True py_fn_total=17 ported_count=16 missing_count=1 rs_extra_count=33 coverage=0.9412 -->
   <!-- END-GROUP py_file=powerline/lint/markedjson/parser.py -->
   <!-- BEGIN-GROUP py_file=powerline/segments/common/players.py -->
-  <tr class="partial"><td><code>segments/common/players.py</code></td><td>✔ <code>segments/common/players.rs</code></td><td>17</td><td><code>_convert_state</code>, <code>_convert_seconds</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>_get_dbus_player_status</code>, <code>_get_dbus_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code></td><td><code>__call__</code>, <code>argspecobjs</code>, <code>omitted_args</code></td><td><code>state_symbols</code>, <code>_convert_seconds_str</code>, <code>fallback</code>, <code>player_segment_call</code>, <code>MPC_OUTPUT_RE</code>, <code>state_symbols_table_matches_upstream</code>, <code>convert_state_play_returns_play</code>, <code>convert_state_pause_returns_pause</code>, <code>convert_state_stop_returns_stop</code>, <code>convert_state_unknown_returns_fallback</code>, <code>convert_state_play_takes_precedence_over_pause</code>, <code>convert_seconds_zero_emits_zero_zero_zero</code>, <code>convert_seconds_under_a_minute_pads_to_two_digits</code>, <code>convert_seconds_one_minute_emits_one_zero_zero</code>, <code>convert_seconds_multi_minute_pads_seconds</code>, <code>convert_seconds_handles_large_values</code>, <code>convert_seconds_str_accepts_dot_notation</code>, <code>convert_seconds_str_accepts_comma_notation</code>, <code>convert_seconds_str_invalid_returns_none</code>, <code>player_stats_fallback_initial_state</code>, <code>player_segment_call_no_stats_returns_none</code>, <code>player_segment_call_emits_player_state_highlight_group</code>, <code>player_segment_call_substitutes_all_placeholders</code>, <code>player_segment_call_empty_fields_become_empty_strings</code>, <code>player_segment_call_unknown_state_uses_fallback_symbol</code>, <code>player_segment_call_state_none_falls_back</code>, <code>player_segment_call_with_custom_state_symbols</code>, <code>cmus_parses_basic_status</code>, <code>cmus_returns_none_for_empty_input</code>, <code>cmus_handles_paused_state</code>, <code>cmus_handles_set_level_keys</code>, <code>mpd_parses_mpc_output</code>, <code>mpd_returns_none_when_wrong_newline_count</code>, <code>mpd_returns_none_when_empty</code>, <code>dbus_player_status_converts_micros_to_mss</code>, <code>dbus_player_status_none_elapsed_and_length</code>, <code>applescript_delimiter_matches_python</code>, <code>spotify_applescript_parses_playing</code>, <code>spotify_applescript_returns_none_for_stop</code>, <code>spotify_applescript_returns_none_for_empty</code>, <code>rhythmbox_parses_5_field_output</code>, <code>rhythmbox_returns_none_for_empty</code>, <code>rdio_parses_6_field_output_with_elapsed_pct</code>, <code>rdio_returns_none_for_wrong_field_count</code>, <code>itunes_parses_6_field_output</code>, <code>itunes_returns_none_for_wrong_field_count</code>, <code>mocp_parses_key_value_output</code>, <code>mocp_defaults_state_to_stop_when_missing</code>, <code>mocp_returns_none_for_empty</code>, <code>mpc_output_re_captures_5_groups</code></td><td class="coverage">82%</td></tr>
-  <!-- SYM py_file=powerline/segments/common/players.py rs_file=src/ported/segments/common/players.rs rs_exists=True py_fn_total=17 ported_count=14 missing_count=3 rs_extra_count=50 coverage=0.8235 -->
+  <tr class="partial"><td><code>segments/common/players.py</code></td><td>✔ <code>segments/common/players.rs</code></td><td>17</td><td><code>_convert_state</code>, <code>_convert_seconds</code>, <code>get_player_status</code>, <code>argspecobjs</code>, <code>omitted_args</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>_get_dbus_player_status</code>, <code>_get_dbus_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code>, <code>get_player_status</code></td><td><code>__call__</code></td><td><code>state_symbols</code>, <code>_convert_seconds_str</code>, <code>fallback</code>, <code>call</code>, <code>player_segment_call</code>, <code>MPC_OUTPUT_RE</code>, <code>state_symbols_table_matches_upstream</code>, <code>convert_state_play_returns_play</code>, <code>convert_state_pause_returns_pause</code>, <code>convert_state_stop_returns_stop</code>, <code>convert_state_unknown_returns_fallback</code>, <code>convert_state_play_takes_precedence_over_pause</code>, <code>convert_seconds_zero_emits_zero_zero_zero</code>, <code>convert_seconds_under_a_minute_pads_to_two_digits</code>, <code>convert_seconds_one_minute_emits_one_zero_zero</code>, <code>convert_seconds_multi_minute_pads_seconds</code>, <code>convert_seconds_handles_large_values</code>, <code>convert_seconds_str_accepts_dot_notation</code>, <code>convert_seconds_str_accepts_comma_notation</code>, <code>convert_seconds_str_invalid_returns_none</code>, <code>player_stats_fallback_initial_state</code>, <code>player_segment_call_no_stats_returns_none</code>, <code>player_segment_call_emits_player_state_highlight_group</code>, <code>player_segment_call_substitutes_all_placeholders</code>, <code>player_segment_call_empty_fields_become_empty_strings</code>, <code>player_segment_call_unknown_state_uses_fallback_symbol</code>, <code>player_segment_call_state_none_falls_back</code>, <code>player_segment_call_with_custom_state_symbols</code>, <code>cmus_parses_basic_status</code>, <code>cmus_returns_none_for_empty_input</code>, <code>cmus_handles_paused_state</code>, <code>cmus_handles_set_level_keys</code>, <code>mpd_parses_mpc_output</code>, <code>mpd_returns_none_when_wrong_newline_count</code>, <code>mpd_returns_none_when_empty</code>, <code>dbus_player_status_converts_micros_to_mss</code>, <code>dbus_player_status_none_elapsed_and_length</code>, <code>applescript_delimiter_matches_python</code>, <code>spotify_applescript_parses_playing</code>, <code>spotify_applescript_returns_none_for_stop</code>, <code>spotify_applescript_returns_none_for_empty</code>, <code>rhythmbox_parses_5_field_output</code>, <code>rhythmbox_returns_none_for_empty</code>, <code>rdio_parses_6_field_output_with_elapsed_pct</code>, <code>rdio_returns_none_for_wrong_field_count</code>, <code>itunes_parses_6_field_output</code>, <code>itunes_returns_none_for_wrong_field_count</code>, <code>mocp_parses_key_value_output</code>, <code>mocp_defaults_state_to_stop_when_missing</code>, <code>mocp_returns_none_for_empty</code>, <code>mpc_output_re_captures_5_groups</code>, <code>argspecobjs_yields_get_player_status_pair</code>, <code>omitted_args_returns_empty_tuple</code>, <code>call_alias_dispatches_to_player_segment_call</code></td><td class="coverage">94%</td></tr>
+  <!-- SYM py_file=powerline/segments/common/players.py rs_file=src/ported/segments/common/players.rs rs_exists=True py_fn_total=17 ported_count=16 missing_count=1 rs_extra_count=54 coverage=0.9412 -->
   <!-- END-GROUP py_file=powerline/segments/common/players.py -->
   <!-- BEGIN-GROUP py_file=powerline/bindings/ipython/pre_0_11.py -->
   <tr class="partial"><td><code>bindings/ipython/pre_0_11.py</code></td><td>✔ <code>bindings/ipython/pre_0_11.rs</code></td><td>16</td><td><code>prompt_count</code>, <code>set_p_str</code>, <code>set_colors</code>, <code>set_p_str</code>, <code>auto_rewrite</code>, <code>set_p_str</code>, <code>init</code>, <code>ipython_magic</code>, <code>do_setup</code>, <code>setup</code>, <code>late_startup_hook</code></td><td><code>__init__</code>, <code>__init__</code>, <code>__str__</code>, <code>__str__</code>, <code>__call__</code></td><td><code>rspace</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>to_p_str</code>, <code>new</code>, <code>new</code>, <code>default</code>, <code>new</code>, <code>default</code>, <code>new</code>, <code>set_powerline</code>, <code>call</code>, <code>fake_render</code>, <code>rspace_matches_trailing_whitespace</code>, <code>rspace_matches_empty_at_end_of_no_trailing_space</code>, <code>ipython_info_prompt_count_returns_value</code>, <code>powerline_prompt_set_p_str_stashes_render_result</code>, <code>powerline_prompt_set_colors_is_noop</code>, <code>powerline_prompt_init_sets_pad_left_false</code>, <code>powerline_prompt_init_preserves_sep_when_supplied</code>, <code>powerline_prompt1_advances_count_and_snapshots_last_prompt</code>, <code>powerline_prompt1_set_p_str_counts_trailing_spaces</code>, <code>powerline_prompt1_set_p_str_zero_trailing_spaces</code>, <code>powerline_prompt1_auto_rewrite_pads_with_nrspaces</code>, <code>powerline_prompt_out_pads_with_last_in_nrspaces</code>, <code>powerline_prompt2_inherits_padding_behaviour</code>, <code>powerline_prompt2_is_prompt_true</code>, <code>powerline_prompt_out_is_not_a_prompt</code>, <code>configurable_init_pins_pre_5_renderer</code>, <code>configurable_init_stashes_all_three_overrides</code>, <code>ipython_magic_reload_succeeds</code>, <code>ipython_magic_other_errors</code>, <code>do_setup_installs_three_prompts_and_wires_hook</code>, <code>shutdown_hook_call_returns_try_next</code>, <code>shutdown_hook_call_skips_when_target_dead</code>, <code>setup_returns_pair_of_powerline_and_hook</code>, <code>late_startup_hook_dispatches_setup_then_returns_try_next</code></td><td class="coverage">69%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3489,
-    "ported_fns": 644,
-    "coverage": 0.6264591439688716
+    "rs_fns_in_ported": 3495,
+    "ported_fns": 646,
+    "coverage": 0.6284046692607004
   },
   "rows": [
     {
@@ -1778,6 +1778,8 @@ columns:
         "_convert_state",
         "_convert_seconds",
         "get_player_status",
+        "argspecobjs",
+        "omitted_args",
         "get_player_status",
         "get_player_status",
         "_get_dbus_player_status",
@@ -1791,14 +1793,13 @@ columns:
         "get_player_status"
       ],
       "missing_fns": [
-        "__call__",
-        "argspecobjs",
-        "omitted_args"
+        "__call__"
       ],
       "rs_extra_fns": [
         "state_symbols",
         "_convert_seconds_str",
         "fallback",
+        "call",
         "player_segment_call",
         "MPC_OUTPUT_RE",
         "state_symbols_table_matches_upstream",
@@ -1845,9 +1846,12 @@ columns:
         "mocp_parses_key_value_output",
         "mocp_defaults_state_to_stop_when_missing",
         "mocp_returns_none_for_empty",
-        "mpc_output_re_captures_5_groups"
+        "mpc_output_re_captures_5_groups",
+        "argspecobjs_yields_get_player_status_pair",
+        "omitted_args_returns_empty_tuple",
+        "call_alias_dispatches_to_player_segment_call"
       ],
-      "coverage": 0.8235294117647058
+      "coverage": 0.9411764705882353
     },
     {
       "py_file": "powerline/bindings/ipython/pre_0_11.py",

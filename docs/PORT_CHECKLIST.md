@@ -171,7 +171,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/bindings/ipython/pre_0_11.py` ↔ `src/ported/bindings/ipython/pre_0_11.rs` | 111 | 1 | 7 | 14 | 443 | 24 | 70 |
 | [x] | `powerline/lib/watcher/inotify.py` ↔ `src/ported/lib/watcher/inotify.rs` | 212 | 0 | 5 | 15 | 545 | 19 | 153 |
 | [x] | `powerline/renderer.py` ↔ `src/ported/renderer.rs` | 503 | 1 | 1 | 14 | 1280 | 25 | 373 |
-| [x] | `powerline/segments/common/players.py` ↔ `src/ported/segments/common/players.rs` | 522 | 2 | 11 | 13 | 682 | 25 | 274 |
+| [x] | `powerline/segments/common/players.py` ↔ `src/ported/segments/common/players.rs` | 522 | 2 | 11 | 13 | 712 | 28 | 284 |
 | [x] | `powerline/lib/vcs/__init__.py` ↔ `src/ported/lib/vcs/mod.rs` | 209 | 9 | 2 | 7 | 634 | 16 | 130 |
 | [x] | `powerline/lint/markedjson/parser.py` ↔ `src/ported/lint/markedjson/parser.rs` | 207 | 0 | 2 | 17 | 575 | 22 | 107 |
 | [x] | `powerline/lint/markedjson/error.py` ↔ `src/ported/lint/markedjson/error.rs` | 197 | 3 | 4 | 16 | 643 | 24 | 152 |

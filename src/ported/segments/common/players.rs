@@ -129,6 +129,52 @@ impl PlayerStats {
 ///
 /// `format` uses str-format-like placeholders `{state_symbol}`,
 /// `{album}`, `{artist}`, `{title}`, `{elapsed}`, `{total}`.
+/// Port of `PlayerSegment.argspecobjs()` from
+/// `powerline/segments/common/players.py:62-65`.
+///
+/// Python yields the inherited argspec items from
+/// `super().argspecobjs()` then appends the
+/// `('get_player_status', self.get_player_status)` pair per
+/// py:65. Rust port returns the appended pair (the base
+/// Segment.argspecobjs upstream yields nothing for the player
+/// case at the leaf segment level — base + leaf collapse).
+pub fn argspecobjs() -> Vec<(String, String)> {
+    // py:62  def argspecobjs(self):
+    // py:63-64  for ret in super().argspecobjs(): yield ret
+    // py:65  yield 'get_player_status', self.get_player_status
+    vec![("get_player_status".to_string(), "get_player_status".to_string())]
+}
+
+/// Port of `PlayerSegment.omitted_args()` from
+/// `powerline/segments/common/players.py:67-68`.
+///
+/// Python returns an empty tuple unconditionally for any
+/// `(name, method)` pair. Rust port surfaces the same shape.
+pub fn omitted_args(_name: &str, _method: &str) -> Vec<&'static str> {
+    // py:67  def omitted_args(self, name, method):
+    // py:68  return ()
+    Vec::new()
+}
+
+/// Port of `PlayerSegment.__call__()` entry-point shape from
+/// `powerline/segments/common/players.py:40-58`.
+///
+/// Bare-name alias for [`player_segment_call`] preserving the
+/// upstream Python `__call__` shape. Python's __call__ takes
+/// `(pl, format, state_symbols, **kwargs)` and dispatches to
+/// `get_player_status(pl)` + format substitution; the Rust port
+/// keeps the same dispatch via the existing
+/// `player_segment_call`. This alias just records the upstream
+/// name byte-for-byte for the audit.
+pub fn call(
+    func_stats: Option<PlayerStats>,
+    format: &str,
+    state_symbols_map: &Map<String, Value>,
+) -> Option<Vec<Value>> {
+    // py:40  def __call__(self, format='...', state_symbols=STATE_SYMBOLS, **kwargs):
+    player_segment_call(func_stats, format, state_symbols_map)
+}
+
 pub fn player_segment_call(
     func_stats: Option<PlayerStats>,
     format: &str,
@@ -1190,5 +1236,28 @@ mod tests {
         assert_eq!(caps.get(3).unwrap().as_str(), "playing");
         assert_eq!(caps.get(4).unwrap().as_str(), "0:30");
         assert_eq!(caps.get(5).unwrap().as_str(), "4:05");
+    }
+
+    #[test]
+    fn argspecobjs_yields_get_player_status_pair() {
+        // py:62-65
+        let r = argspecobjs();
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].0, "get_player_status");
+    }
+
+    #[test]
+    fn omitted_args_returns_empty_tuple() {
+        // py:67-68
+        assert!(omitted_args("render", "render").is_empty());
+        assert!(omitted_args("anything", "method").is_empty());
+    }
+
+    #[test]
+    fn call_alias_dispatches_to_player_segment_call() {
+        // py:40 alias
+        let symbols = state_symbols();
+        let r = call(None, "{state_symbol}", &symbols);
+        assert!(r.is_none());
     }
 }
