@@ -475,3 +475,29 @@ aggregate_porcelain_status
 # will move there. Allowlist entry captures the
 # scaffolding-helper status.
 which_exists
+
+# used_styles() and seen() are Rust accessors for the Python
+# module-level `used_styles = []` (py:16) and `seen = set()` (py:17)
+# globals in renderers/ipython/since_7.py. Python mutates these at
+# import + hl() call time; Rust uses OnceLock<Mutex<...>> for the
+# equivalent thread-safe lazy-init / mutation pattern.
+used_styles
+seen
+
+# IPythonPygmentsRenderer::attrs_to_attr_names builds the
+# bold/italic/underline name list from a powerline ATTR_* bitfield
+# per renderers/ipython/since_7.py:55-60. Python inlines the
+# if-attrs branch inside hl(); Rust extracts to a helper so the
+# bit→name mapping can be unit-tested in isolation.
+attrs_to_attr_names
+
+# IPythonPygmentsRenderer::build_token_name and build_style_rule
+# materialise the Python inline `name = 'pl' + ...` and
+# `' '.join(' ' + a) + ' fg:#'+fg` builders at
+# renderers/ipython/since_7.py:62-77. Rust extracts to helpers so
+# the synthetic name format + style-rule format can be pinned with
+# focused tests, separating them from the global-mutation logic in
+# hl(). Without extraction the global-state side effects would
+# require complex setup to exercise the name/rule format.
+build_token_name
+build_style_rule
