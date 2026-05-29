@@ -2192,6 +2192,62 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_scalar_event_init_sets_tag_none() {
+    if !python_available() {
+        return;
+    }
+    // ScalarEvent.__init__(implicit, value, ..., style) — py:75-81:
+    //   self.tag = None
+    //   self.implicit = implicit
+    //   self.value = value
+    //   self.style = style
+    // The `tag = None` line is the key invariant — even though
+    // ScalarEvent inherits from NodeEvent which may have its own
+    // tag plumbing, the init unconditionally clears it to None.
+    let cases: &[(bool, &str, Option<char>)] = &[
+        (true, "hello", Some('p')),
+        (false, "\"q\"", Some('"')),
+        (true, "", None),
+    ];
+    for (implicit, value, style) in cases {
+        let style_py = style
+            .map(|c| format!("{:?}", c.to_string()))
+            .unwrap_or_else(|| "None".to_string());
+        let py_expr = format!(
+            "(lambda e: __import__('json').dumps([e.tag, e.implicit, e.value, e.style]))(__import__('powerline.lint.markedjson.events', fromlist=['ScalarEvent']).ScalarEvent({imp}, {val:?}, None, None, {sty}))",
+            imp = if *implicit { "True" } else { "False" },
+            val = value,
+            sty = style_py
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let py_arr = py_value.as_array().expect("py array");
+        assert!(py_arr[0].is_null(), "Python tag should be None");
+        assert_eq!(
+            py_arr[1].as_bool(),
+            Some(*implicit),
+            "Python implicit drift"
+        );
+        assert_eq!(py_arr[2].as_str(), Some(*value), "Python value drift");
+
+        let e = powerliners::lint::markedjson::events::ScalarEvent::new(
+            *implicit,
+            serde_json::Value::from(*value),
+            None,
+            None,
+            *style,
+        );
+        assert!(e.tag.is_none(), "Rust tag must be None after init");
+        assert_eq!(e.implicit, *implicit);
+        assert_eq!(e.style, *style);
+        assert_eq!(e.value.as_str(), Some(*value));
+    }
+}
+
+#[test]
 fn parity_markedjson_scalar_token_state_preserved() {
     if !python_available() {
         return;
