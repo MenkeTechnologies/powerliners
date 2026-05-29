@@ -1467,3 +1467,42 @@ workspace_default_format
 # (contents + highlight_groups) can be tested without an i3ipc
 # connection. Returns None for state=='none' per py:292.
 scratchpad_entry
+
+# bindings/config.rs::parse_tmux_file_line — extracts the inline
+# tmux-file line filter from the body of source_tmux_file_nosource
+# at powerline/bindings/config.py:198-200. Python embeds the
+# comment/blank-skip + shlex.split inside source_tmux_file_nosource;
+# Rust extracts to a pure helper so the line-parsing rules are
+# independently testable without subprocess.
+parse_tmux_file_line
+
+# bindings/config.rs::shlex_split — minimal Rust implementation of
+# Python's shlex.split (a stdlib function with no direct Rust
+# equivalent). Used by parse_tmux_file_line at py:200. Not in the
+# Python source per se since Python imports `shlex` directly; Rust
+# requires its own implementation for tmux config line parsing.
+shlex_split
+
+# bindings/config.rs::sorted_tmux_configs — extracts the priority
+# sort step from source_tmux_files at
+# powerline/bindings/config.py:75 (`sorted(get_tmux_configs(...),
+# key=lambda v: v[1])`). Python sorts inline before iterating;
+# Rust extracts as a fn so the sort order can be verified
+# independently of the run_tmux_command subprocess wrapper.
+sorted_tmux_configs
+
+# bindings/config.rs::uses_check_env_vars — extracts the
+# POWERLINE_NO_<SHELL>_<COMPONENT> env-var check loop from uses()
+# at powerline/bindings/config.py:277-281. Python embeds the
+# (shell, 'shell') iteration + varname template inside the uses()
+# body; Rust extracts as a fn taking the environ HashMap so the
+# env-var dispatch is testable.
+uses_check_env_vars
+
+# bindings/config.rs::uses_component_exit_code — extracts the
+# component-membership exit-code branch from uses() at
+# powerline/bindings/config.py:283-286. Python computes the
+# config.ext.shell.components lookup inline + dispatches via
+# sys.exit(); Rust extracts as a fn returning the exit code
+# value so callers can route through any exit-handling strategy.
+uses_component_exit_code
