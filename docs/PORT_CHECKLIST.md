@@ -97,7 +97,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/lib/path.py` ↔ `src/ported/lib/path.rs` | 12 | 2 | 0 | 0 | 65 | 2 | 6 |
 | [x] | `powerline/lemonbar.py` ↔ `src/ported/lemonbar.rs` | 14 | 0 | 1 | 2 | 70 | 5 | 14 |
 | [x] | `powerline/lint/markedjson/loader.py` ↔ `src/ported/lint/markedjson/loader.rs` | 20 | 0 | 1 | 2 | 62 | 4 | 18 |
-| [x] | `powerline/lib/__init__.py` ↔ `src/ported/lib/mod.rs` | 22 | 2 | 0 | 0 | 165 | 2 | 20 |
+| [x] | `powerline/lib/__init__.py` ↔ `src/ported/lib/mod.rs` | 22 | 2 | 0 | 0 | 205 | 5 | 37 |
 | [x] | `powerline/renderers/i3bar.py` ↔ `src/ported/renderers/i3bar.rs` | 24 | 0 | 1 | 2 | 63 | 4 | 21 |
 | [x] | `powerline/renderers/pango_markup.py` ↔ `src/ported/renderers/pango_markup.rs` | 28 | 0 | 1 | 2 | 103 | 5 | 26 |
 | [x] | `powerline/segments/vim/plugin/coc.py` ↔ `src/ported/segments/vim/plugin/coc.rs` | 43 | 2 | 0 | 0 | 76 | 2 | 39 |
