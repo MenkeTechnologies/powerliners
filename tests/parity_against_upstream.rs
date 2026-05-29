@@ -2155,6 +2155,36 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_mergeargs_iterates_kv_tuples() {
+    if !python_available() {
+        return;
+    }
+    // mergeargs takes an iterable of (key, value) tuples and merges
+    // them into a single dict via mergedicts (overrides win on
+    // collision; nested values merge recursively).
+    let py = match py_eval(
+        "(lambda r: __import__('json').dumps(r, sort_keys=True))(__import__('powerline.lib.dict', fromlist=['mergeargs']).mergeargs([('a', 1), ('b', 2), ('a', {'nested': True})]))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+
+    let updates: Vec<(String, serde_json::Value)> = vec![
+        ("a".to_string(), serde_json::Value::from(1)),
+        ("b".to_string(), serde_json::Value::from(2)),
+        ("a".to_string(), serde_json::json!({"nested": true})),
+    ];
+    let rs = powerliners::lib::dict::mergeargs(updates, false)
+        .expect("Rust mergeargs returned None for non-empty input");
+    assert_eq!(
+        py_value,
+        serde_json::Value::Object(rs),
+        "mergeargs merge result mismatch"
+    );
+}
+
+#[test]
 fn parity_spec_copy_preserves_state_and_independent() {
     if !python_available() {
         return;
