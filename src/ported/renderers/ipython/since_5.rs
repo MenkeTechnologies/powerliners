@@ -57,10 +57,22 @@ pub fn attrs_to_attr_names(attrs: u32) -> Vec<String> {
 /// guibg` — `%6x` is space-padded (not zero-padded) to a minimum
 /// width of 6 chars. Compare with since_7's `%06x` zero-padded.
 pub fn build_token_name(fg: Option<ColorSpec>, bg: Option<ColorSpec>, attrs: u32) -> String {
+    // py:93  def hl(self, contents, fg=None, bg=None, attrs=None, **kwargs):
+    // py:100  guifg = None
+    // py:101  guibg = None
+    // py:102  attrs = []
+    // py:103  if fg is not None and fg is not False:
+    // py:104  guifg = fg[1]
     let guifg = fg.and_then(|f| f.truecolor);
+    // py:105  if bg is not None and bg is not False:
+    // py:106  guibg = bg[1]
     let guibg = bg.and_then(|b| b.truecolor);
     let att = attrs_to_attr_names(attrs);
-    // py:114-120  'Pl' + _a<attr>... + _f<6x> + _b<6x>
+    // py:115  'Pl'
+    // py:116  + ''.join(('_a' + attr for attr in attrs))
+    // py:117  + (('_f%6x' % guifg) if guifg is not None else '')
+    // py:118  + (('_b%6x' % guibg) if guibg is not None else '')
+    // py:119  )
     let mut name = String::from("Pl");
     for a in &att {
         name.push_str("_a");
@@ -236,8 +248,23 @@ impl PowerlinePromptStyle {
     /// py:42-48 (super delegation point); callers pass the base
     /// implementation result through their own dispatch.
     pub fn get_attrs_for_token(token: &str) -> Option<TokenAttrs> {
-        // py:42-47  token not in PowerlinePromptToken / wrong length /
-        //          missing Pl prefix / equal to 'Pl' → super delegation
+        // py:41  def get_attrs_for_token(self, token):
+        // py:42  if (
+        // py:43  token not in PowerlinePromptToken
+        // py:44  or len(token) != len(PowerlinePromptToken) + 1
+        // py:45  or not token[-1].startswith('Pl')
+        // py:46  or token[-1] == 'Pl'
+        // py:47  ):
+        // py:48  return super(PowerlinePromptStyle, self).get_attrs_for_token(token)
+        // py:49  ret = {
+        // py:50  'color': None,
+        // py:51  'bgcolor': None,
+        // py:52  'bold': None,
+        // py:53  'underline': None,
+        // py:54  'italic': None,
+        // py:55  'reverse': False,
+        // py:56  'blink': False,
+        // py:57  }
         parse_token_attrs(token)
     }
 
