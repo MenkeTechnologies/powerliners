@@ -2192,6 +2192,56 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_load_nested_and_unicode() {
+    if !python_available() {
+        return;
+    }
+    // markedjson.load() — verify nested structures + numeric variants +
+    // unicode handling.
+    let cases: &[(&str, &str)] = &[
+        (r#"{"x": [1, {"y": 2}]}"#, r#"{"x": [1, {"y": 2}]}"#),
+        ("-42", "-42"),
+        ("3.14", "3.14"),
+        (r#""hello world""#, r#""hello world""#),
+        (r#""é""#, r#""é""#),
+    ];
+    for (i, (payload, expected_json)) in cases.iter().enumerate() {
+        let tmpfile = std::env::temp_dir().join(format!(
+            "powerliners_parity_load_nested_{}_{}.json",
+            std::process::id(),
+            i
+        ));
+        std::fs::write(&tmpfile, payload).expect("write fixture");
+
+        let py_expr = format!(
+            "(lambda: __import__('json').dumps(__import__('powerline.lint.markedjson').lint.markedjson.load(open({:?}, 'rb'))[0]))()",
+            tmpfile.to_string_lossy()
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => {
+                let _ = std::fs::remove_file(&tmpfile);
+                return;
+            }
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let expected: serde_json::Value =
+            serde_json::from_str(expected_json).expect("expected JSON malformed");
+        assert_eq!(py_value, expected, "Python load({}) fixture drift", payload);
+
+        let (rs_value, had_err) = powerliners::lint::markedjson::load(&tmpfile);
+        let _ = std::fs::remove_file(&tmpfile);
+        assert!(!had_err, "Rust load({}) had error", payload);
+        assert_eq!(
+            rs_value.expect("Rust load returned None"),
+            expected,
+            "Rust load({}) value mismatch",
+            payload
+        );
+    }
+}
+
+#[test]
 fn parity_markedjson_load_primitives_through_disk() {
     if !python_available() {
         return;
