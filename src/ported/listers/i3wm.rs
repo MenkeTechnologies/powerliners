@@ -42,14 +42,23 @@ pub fn output_lister(
     pl: &(),
     segment_info: &Map<String, Value>,
 ) -> Vec<(Map<String, Value>, Map<String, Value>)> {
-    // py:13-20  for output in get_connected_xrandr_outputs(pl): yield (updated(...), {...})
+    // py:9   @requires_segment_info
+    // py:10  def output_lister(pl, segment_info):
+    // py:11-12  docstring
+    // py:14  return (
+    // py:15  (
+    // py:16  updated(segment_info, output=output['name']),
+    // py:17  {
+    // py:18  'draw_inner_divider': None
+    // py:19  }
+    // py:20  )
+    // py:21  for output in get_connected_xrandr_outputs(pl)
+    // py:22  )
     get_connected_xrandr_outputs(pl)
         .into_iter()
         .map(|output| {
-            // py:15  updated(segment_info, output=output['name'])
             let mut info = segment_info.clone();
             info.insert("output".to_string(), Value::String(output.name));
-            // py:17  {'draw_inner_divider': None}
             let mut second = Map::new();
             second.insert("draw_inner_divider".to_string(), Value::Null);
             (info, second)
@@ -82,7 +91,11 @@ pub fn workspace_lister(
     only_show: Option<&[&str]>,
     output: Option<&str>,
 ) -> Vec<(Map<String, Value>, Map<String, Value>)> {
-    // py:43-44  if output == None: output = output or segment_info.get('output')
+    // py:25  @requires_segment_info
+    // py:26  def workspace_lister(pl, segment_info, only_show=None, output=None):
+    // py:27-44  docstring
+    // py:46  if output == None:
+    // py:47  output = output or segment_info.get('output')
     let output = output.map(String::from).or_else(|| {
         segment_info
             .get("output")
@@ -90,8 +103,21 @@ pub fn workspace_lister(
             .map(String::from)
     });
 
-    // Without a live i3 connection there are no workspaces.
-    // Callers needing tested behaviour go through workspace_lister_for.
+    // py:49  return (
+    // py:50  (
+    // py:51  updated(
+    // py:52  segment_info,
+    // py:53  output=w.output,
+    // py:54  workspace=w,
+    // py:55  ),
+    // py:56  {
+    // py:57  'draw_inner_divider': None
+    // py:58  }
+    // py:59  )
+    // py:60  for w in get_i3_connection().get_workspaces()
+    // py:61  if (((not only_show or any(getattr(w, typ) for typ in only_show))
+    // py:62  and (not output or w.output == output)))
+    // py:63  )
     workspace_lister_for(segment_info, &[], only_show, output.as_deref())
 }
 

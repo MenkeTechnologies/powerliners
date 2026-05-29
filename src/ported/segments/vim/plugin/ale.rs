@@ -26,11 +26,40 @@ pub fn ale(
     _err_format: &str,
     _warn_format: &str,
 ) -> Option<Vec<Value>> {
-    // py:24  if not (vim_global_exists('ale_enabled') and ...): return None
+    // py:13  @requires_segment_info
+    // py:14  def ale(segment_info, pl, err_format='ERR: ln {first_line} ({num}) ', warn_format='WARN: ln {first_line} ({num}) '):
+    // py:15-24  docstring
+    // py:25  if not (vim_global_exists('ale_enabled') and int(vim.eval('g:ale_enabled'))):
     if !vim_global_exists("ale_enabled") {
+        // py:26  return None
         return None;
     }
-    // py:25-44  has_errors loop — stub returns None (no vim).
+    // py:27  has_errors = int(vim.eval('ale#statusline#Count(' + str(segment_info['bufnr']) + ').total'))
+    // py:28  if not has_errors:
+    // py:29  return
+    // py:30  error = None
+    // py:31  warning = None
+    // py:32  errors_count = 0
+    // py:33  warnings_count = 0
+    // py:34  for issue in vim.eval('ale#engine#GetLoclist(' + str(segment_info['bufnr']) + ')'):
+    // py:35  if issue['type'] == 'E':
+    // py:36  error = error or issue
+    // py:37  errors_count += 1
+    // py:38  elif issue['type'] == 'W':
+    // py:39  warning = warning or issue
+    // py:40  warnings_count += 1
+    // py:41  segments = []
+    // py:42  if error:
+    // py:43  segments.append({
+    // py:44  'contents': err_format.format(first_line=error['lnum'], num=errors_count),
+    // py:45  'highlight_groups': ['ale:error', 'error'],
+    // py:46  })
+    // py:47  if warning:
+    // py:48  segments.append({
+    // py:49  'contents': warn_format.format(first_line=warning['lnum'], num=warnings_count),
+    // py:50  'highlight_groups': ['ale:warning', 'warning'],
+    // py:51  })
+    // py:52  return segments
     None
 }
 

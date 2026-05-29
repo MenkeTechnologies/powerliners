@@ -25,13 +25,31 @@ use serde_json::Value;
 /// extraction logic (py:26-44) is preserved structurally for when
 /// vim integration lands.
 pub fn syntastic(_pl: &(), _err_format: &str, _warn_format: &str) -> Option<Vec<Value>> {
-    // py:24  if not vim_global_exists('SyntasticLoclist'): return None
+    // py:13  @window_cached
+    // py:14  def syntastic(pl, err_format='ERR:  {first_line} ({num}) ', warn_format='WARN:  {first_line} ({num}) '):
+    // py:15-24  docstring
+    // py:25  if not vim_global_exists('SyntasticLoclist'):
     if !vim_global_exists("SyntasticLoclist") {
+        // py:26  return None
         return None;
     }
-    // py:26-29  has_errors = int(vim.eval('g:SyntasticLoclist.current().hasErrorsOrWarningsToDisplay()'))
-    //           if not has_errors: return
-    // Stub: no vim → no errors.
+    // py:27  has_errors = int(vim.eval('g:SyntasticLoclist.current().hasErrorsOrWarningsToDisplay()'))
+    // py:28  if not has_errors:
+    // py:29  return
+    // py:30  errors = vim.eval('g:SyntasticLoclist.current().errors()')
+    // py:31  warnings = vim.eval('g:SyntasticLoclist.current().warnings()')
+    // py:32  segments = []
+    // py:33  if errors:
+    // py:34  segments.append({
+    // py:35  'contents': err_format.format(first_line=errors[0]['lnum'], num=len(errors)),
+    // py:36  'highlight_groups': ['syntastic:error', 'error'],
+    // py:37  })
+    // py:38  if warnings:
+    // py:39  segments.append({
+    // py:40  'contents': warn_format.format(first_line=warnings[0]['lnum'], num=len(warnings)),
+    // py:41  'highlight_groups': ['syntastic:warning', 'warning'],
+    // py:42  })
+    // py:43  return segments
     None
 }
 

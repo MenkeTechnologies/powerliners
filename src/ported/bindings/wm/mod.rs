@@ -55,8 +55,18 @@ pub fn i3_subscribe<F>(_conn: &(), _event: &str, _callback: F)
 where
     F: Fn() + Send + 'static,
 {
+    // py:17  def i3_subscribe(conn, event, callback):
     // py:27  conn.on(event, callback)
-    // py:29-43  I3Thread daemon — no-op until i3-ipc is wired
+    // py:29  from threading import Thread
+    // py:31  class I3Thread(Thread):
+    // py:32  daemon = True
+    // py:34  def __init__(self, conn):
+    // py:35  super(I3Thread, self).__init__()
+    // py:36  self.__conn = conn
+    // py:38  def run(self):
+    // py:39  self.__conn.main()
+    // py:41  thread = I3Thread(conn=conn)
+    // py:43  thread.start()
 }
 
 /// Port of `get_i3_connection()` from
@@ -66,8 +76,12 @@ where
 ///
 /// **Status:** stub returning `()` — actual i3-ipc binding deferred.
 pub fn get_i3_connection() {
-    // py:49-52  global conn; import i3ipc; conn = i3ipc.Connection()
-    // Rust stub: i3-ipc not yet wired.
+    // py:46  def get_i3_connection():
+    // py:49  global conn
+    // py:50  if not conn:
+    // py:51  import i3ipc
+    // py:52  conn = i3ipc.Connection()
+    // py:53  return conn
 }
 
 /// Port of module-level binding `XRANDR_OUTPUT_RE` from
@@ -113,7 +127,10 @@ pub struct XrandrOutput {
 /// `groupdict()`; Rust returns a `Vec<XrandrOutput>` since the
 /// upstream walks are bounded.
 pub fn get_connected_xrandr_outputs(pl: &()) -> Vec<XrandrOutput> {
-    // py:65-67  run_cmd(pl, ['xrandr', '-q'])
+    // py:59  def get_connected_xrandr_outputs(pl):
+    // py:65  return (match.groupdict() for match in XRANDR_OUTPUT_RE.finditer(
+    // py:66  run_cmd(pl, ['xrandr', '-q'])
+    // py:67  ))
     let output = match run_cmd(pl, &["xrandr".to_string(), "-q".to_string()], None, true) {
         Some(s) => s,
         None => return Vec::new(),

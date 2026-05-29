@@ -42,14 +42,27 @@ pub mod vim;
 /// shape with default no-op implementations; class-based segments
 /// override as needed.
 pub trait Segment {
-    // py:13
+    // py:13  class Segment(object):
+    // py:14-24  docstring
+    // py:25  if sys.version_info < (3, 4):
+    // py:26  def argspecobjs(self):
+    // py:27  yield '__call__', self.__call__
+    // py:28  else:
+    // py:29  def argspecobjs(self):
+    // py:30  yield '__call__', self
+
     /// Port of `Segment.omitted_args()` from
     /// `powerline/segments/__init__.py:40`.
     ///
     /// Returns a tuple with indexes of omitted arguments.
     fn omitted_args(&self, _name: &str) -> Vec<usize> {
-        // py:40
-        Vec::new() // py:50  default `()`
+        // py:39  def omitted_args(self, name, method):
+        // py:40-48  docstring
+        // py:49  if isinstance(self.__call__, MethodType):
+        // py:50  return (0,)
+        // py:51  else:
+        // py:52  return ()
+        Vec::new()
     }
 
     /// Port of `Segment.additional_args()` from
@@ -57,8 +70,11 @@ pub trait Segment {
     ///
     /// Returns a list of `(additional argument name[, default value])` tuples.
     fn additional_args(&self) -> Vec<(String, Option<serde_json::Value>)> {
-        // py:53
-        Vec::new() // py:56
+        // py:54  @staticmethod
+        // py:55  def additional_args():
+        // py:56-57  docstring
+        // py:58  return ()
+        Vec::new()
     }
 }
 

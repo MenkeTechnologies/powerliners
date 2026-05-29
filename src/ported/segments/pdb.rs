@@ -33,6 +33,9 @@ pub struct PdbSegmentInfo {
 ///
 /// Displays line number that is next to be run.
 pub fn current_line(_pl: &(), segment_info: &PdbSegmentInfo) -> String {
+    // py:9  @requires_segment_info
+    // py:10  def current_line(pl, segment_info):
+    // py:11-12  docstring: 'Displays line number that is next to be run'
     // py:13  return str(segment_info['curframe'].f_lineno)
     segment_info.curframe.f_lineno.to_string()
 }
@@ -43,10 +46,14 @@ pub fn current_line(_pl: &(), segment_info: &PdbSegmentInfo) -> String {
 ///
 /// :param basename: If true only basename is displayed.
 pub fn current_file(_pl: &(), segment_info: &PdbSegmentInfo, basename: bool) -> String {
-    // py:22  filename = segment_info['curframe'].f_code.co_filename
+    // py:16  @requires_segment_info
+    // py:17  def current_file(pl, segment_info, basename=True):
+    // py:18-22  docstring
+    // py:23  filename = segment_info['curframe'].f_code.co_filename
     let filename = &segment_info.curframe.co_filename;
-    // py:23-24  if basename: filename = os.path.basename(filename)
+    // py:24  if basename:
     if basename {
+        // py:25  filename = os.path.basename(filename)
         Path::new(filename)
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
@@ -54,13 +61,17 @@ pub fn current_file(_pl: &(), segment_info: &PdbSegmentInfo, basename: bool) -> 
     } else {
         filename.clone()
     }
+    // py:26  return filename
 }
 
 /// Port of `current_code_name()` from `powerline/segments/pdb.py:28`.
 ///
 /// Displays name of the code object of the current frame.
 pub fn current_code_name(_pl: &(), segment_info: &PdbSegmentInfo) -> String {
-    // py:31  return segment_info['curframe'].f_code.co_name
+    // py:29  @requires_segment_info
+    // py:30  def current_code_name(pl, segment_info):
+    // py:31-32  docstring
+    // py:33  return segment_info['curframe'].f_code.co_name
     segment_info.curframe.co_name.clone()
 }
 
@@ -72,10 +83,14 @@ pub fn current_code_name(_pl: &(), segment_info: &PdbSegmentInfo) -> String {
 /// Currently it only gives module file name if code_name happens to be
 /// `<module>`.
 pub fn current_context(_pl: &(), segment_info: &PdbSegmentInfo) -> String {
-    // py:41  name = segment_info['curframe'].f_code.co_name
+    // py:36  @requires_segment_info
+    // py:37  def current_context(pl, segment_info):
+    // py:38-44  docstring
+    // py:45  name = segment_info['curframe'].f_code.co_name
     let name = &segment_info.curframe.co_name;
-    // py:42-43  if name == '<module>': name = os.path.basename(...)
+    // py:46  if name == '<module>':
     if name == "<module>" {
+        // py:47  name = os.path.basename(segment_info['curframe'].f_code.co_filename)
         Path::new(&segment_info.curframe.co_filename)
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
@@ -83,6 +98,7 @@ pub fn current_context(_pl: &(), segment_info: &PdbSegmentInfo) -> String {
     } else {
         name.clone()
     }
+    // py:48  return name
 }
 
 /// Port of `stack_depth()` from `powerline/segments/pdb.py:47`.
@@ -91,8 +107,11 @@ pub fn current_context(_pl: &(), segment_info: &PdbSegmentInfo) -> String {
 ///
 /// :param full_stack: If true then absolute depth is used.
 pub fn stack_depth(_pl: &(), segment_info: &PdbSegmentInfo, full_stack: bool) -> String {
-    // py:54-55  str(len(segment_info['pdb'].stack) - (0 if full_stack else
-    //               segment_info['initial_stack_length']))
+    // py:51  @requires_segment_info
+    // py:52  def stack_depth(pl, segment_info, full_stack=False):
+    // py:53-59  docstring
+    // py:60  return str(len(segment_info['pdb'].stack) - (
+    // py:61  0 if full_stack else segment_info['initial_stack_length']))
     let subtract = if full_stack {
         0
     } else {
