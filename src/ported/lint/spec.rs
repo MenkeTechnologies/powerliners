@@ -294,13 +294,12 @@ impl Spec {
     /// `powerline/lint/spec.py:574`.
     pub fn ident(mut self) -> Self {
         // py:574  def ident(self, msg_func=None):
-        // py:575  '''Describe value as being an identifier
-        // py:576  ...
-        // py:586  self.re('^[a-zA-Z_]\\w*$',
-        // py:587  msg_func=msg_func or (lambda value: 'value "{0}" is not an identifier'.format(value)))
-        // py:588  return self
+        // py:584-588  return self.re(r'^\w+(?::\w+)?$', msg_func=...)
+        // The pattern accepts BOTH bare identifiers (`foo`) and
+        // colon-separated ones (`foo:bar`) — powerline's colorscheme
+        // keys (e.g. `solarized:term`) depend on the colon form.
         self.ident_flag = true;
-        self.regex = Some(r"^[a-zA-Z_]\w*$".to_string());
+        self.regex = Some(r"^\w+(?::\w+)?$".to_string());
         self
     }
 
@@ -1078,7 +1077,10 @@ mod tests {
     fn spec_ident_sets_flag_and_regex() {
         let s = Spec::new().ident();
         assert!(s.ident_flag);
-        assert_eq!(s.regex.as_deref(), Some(r"^[a-zA-Z_]\w*$"));
+        // Matches Python upstream py:588: r'^\w+(?::\w+)?$'
+        // (accepts both 'foo' and 'foo:bar' identifier forms used by
+        // powerline colorscheme keys).
+        assert_eq!(s.regex.as_deref(), Some(r"^\w+(?::\w+)?$"));
     }
 
     #[test]
