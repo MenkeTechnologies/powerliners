@@ -2192,6 +2192,48 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_keyvaluesplit_splits_on_first_equals() {
+    if !python_available() {
+        return;
+    }
+    // keyvaluesplit('option=json_value') splits on the FIRST '=' and
+    // routes the value through parse_value. Verify:
+    //   'a=1'                    → ('a', 1)              JSON int
+    //   'key=value with spaces'  → ('key', 'value with spaces')   raw string
+    //   'a=b=c'                  → ('a', 'b=c')          extra '=' kept in value
+    //   '=value_only'            → ('', 'value_only')    empty key allowed
+    // (TypeError-raising cases like 'no_equals' covered separately.)
+    let cases: &[(&str, &str)] = &[
+        ("a=1", r#"["a",1]"#),
+        ("key=value with spaces", r#"["key","value with spaces"]"#),
+        ("a=b=c", r#"["a","b=c"]"#),
+        ("=value_only", r#"["","value_only"]"#),
+    ];
+    for (input, expected_json) in cases {
+        let py_expr = format!(
+            "__import__('json').dumps(list(__import__('powerline.lib.overrides', fromlist=['keyvaluesplit']).keyvaluesplit({:?})))",
+            input
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let expected: serde_json::Value =
+            serde_json::from_str(expected_json).expect("expected JSON malformed");
+        assert_eq!(py_value, expected, "Python fixture drift for {:?}", input);
+        let (rs_key, rs_val) =
+            powerliners::lib::overrides::keyvaluesplit(input).expect("Rust keyvaluesplit errored");
+        let rs_json = serde_json::Value::Array(vec![serde_json::Value::String(rs_key), rs_val]);
+        assert_eq!(
+            rs_json, expected,
+            "Rust keyvaluesplit({:?}) mismatch",
+            input
+        );
+    }
+}
+
+#[test]
 fn parity_parse_override_var_splits_and_nests() {
     if !python_available() {
         return;
