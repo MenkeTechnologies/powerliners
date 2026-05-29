@@ -166,8 +166,19 @@ impl Spec {
     /// Port of `Spec.__init__()` from
     /// `powerline/lint/spec.py:69`.
     pub fn new() -> Self {
+        // py:23  class Spec(object):
+        // py:24  '''Class that describes some JSON value ...
+        // py:69  def __init__(self, **keys):
+        // py:70  self.specs = []
+        // py:71  self.keys = {}
+        // py:72  self.checks = []
+        // py:73  self.cmsg = ''
+        // py:74  self.isoptional = False
+        // py:75  self.uspecs = []
+        // py:76  self.ufailmsg = lambda key: 'found unknown key: {0}'.format(key)
+        // py:77  self.did_type = False
+        // py:78  self.update(**keys)
         Self {
-            // py:70-78  reset state
             specs: Vec::new(),
             keys: std::collections::HashMap::new(),
             cmsg: String::new(),
@@ -190,7 +201,11 @@ impl Spec {
     ///
     /// Registers a sub-key constraint. Returns self for chaining.
     pub fn update(mut self, key: impl Into<String>, spec: Spec) -> Self {
-        // py:81-93  register key spec
+        // py:80  def update(self, **keys):
+        // py:81  '''Describe additional keys ...
+        // py:91  for key, val in keys.items():
+        // py:92  self.keys[key] = val
+        // py:93  return self
         self.keys.insert(key.into(), spec);
         self
     }
@@ -198,7 +213,11 @@ impl Spec {
     /// Port of `Spec.optional()` from
     /// `powerline/lint/spec.py:645`.
     pub fn optional(mut self) -> Self {
-        // py:646-654  isoptional = True
+        // py:645  def optional(self):
+        // py:646  '''Mark spec as describing optional value
+        // py:647  ...
+        // py:653  self.isoptional = True
+        // py:654  return self
         self.isoptional = true;
         self
     }
@@ -206,7 +225,11 @@ impl Spec {
     /// Port of `Spec.required()` from
     /// `powerline/lint/spec.py:656`.
     pub fn required(mut self) -> Self {
-        // py:657-669  isoptional = False
+        // py:656  def required(self):
+        // py:657  '''Mark spec as describing required value
+        // py:658  ...
+        // py:668  self.isoptional = False
+        // py:669  return self
         self.isoptional = false;
         self
     }
@@ -214,7 +237,11 @@ impl Spec {
     /// Port of `Spec.context_message()` from
     /// `powerline/lint/spec.py:178`.
     pub fn context_message(mut self, msg: impl Into<String>) -> Self {
-        // py:179-192  self.cmsg = msg
+        // py:178  def context_message(self, msg):
+        // py:179  '''Define message used to enhance context information
+        // py:180  ...
+        // py:191  self.cmsg = msg
+        // py:192  return self
         self.cmsg = msg.into();
         self
     }
@@ -222,7 +249,10 @@ impl Spec {
     /// Port of `Spec.printable()` from
     /// `powerline/lint/spec.py:374`.
     pub fn printable(mut self) -> Self {
-        // py:374-377  register check_printable
+        // py:374  def printable(self, *args):
+        // py:375  '''Describe value as being printable
+        // py:376  ...
+        // py:377  self.checks.append(self.check_printable)
         self.printable_flag = true;
         self
     }
@@ -230,7 +260,11 @@ impl Spec {
     /// Port of `Spec.unsigned()` from
     /// `powerline/lint/spec.py:471`.
     pub fn unsigned(mut self) -> Self {
-        // py:472-486  register unsigned check
+        // py:471  def unsigned(self, msg_func=None):
+        // py:472  '''Describe value as unsigned number
+        // py:473  ...
+        // py:485  self.type(int).cmp('>=', 0)
+        // py:486  return self
         self.unsigned_flag = true;
         self
     }
@@ -238,9 +272,13 @@ impl Spec {
     /// Port of `Spec.ident()` from
     /// `powerline/lint/spec.py:574`.
     pub fn ident(mut self) -> Self {
-        // py:575-588  register check_re identifier pattern
+        // py:574  def ident(self, msg_func=None):
+        // py:575  '''Describe value as being an identifier
+        // py:576  ...
+        // py:586  self.re('^[a-zA-Z_]\\w*$',
+        // py:587  msg_func=msg_func or (lambda value: 'value "{0}" is not an identifier'.format(value)))
+        // py:588  return self
         self.ident_flag = true;
-        // py:578  ident pattern: ^[a-zA-Z_]\w*$
         self.regex = Some(r"^[a-zA-Z_]\w*$".to_string());
         self
     }
@@ -251,7 +289,12 @@ impl Spec {
     /// Registers allowed types. Renamed to `type_check` in Rust
     /// since `type` is a reserved keyword.
     pub fn type_check(mut self, types: &[SpecType]) -> Self {
-        // py:380-406  set did_type + accumulate types
+        // py:379  def type(self, *args):
+        // py:380  '''Describe value as having one of the given types
+        // py:381  ...
+        // py:402  self.checks.append(('check_type', args))
+        // py:403  self.did_type = True
+        // py:404  return self
         self.did_type = true;
         self.allowed_types.extend_from_slice(types);
         self
@@ -263,7 +306,11 @@ impl Spec {
     /// Renamed to `regex` in Rust since `re` collides with the
     /// `regex` crate name.
     pub fn regex(mut self, pattern: impl Into<String>) -> Self {
-        // py:553-572  register check_re
+        // py:552  def re(self, regex, msg_func=None):
+        // py:553  '''Describe value as matching the given regular expression
+        // py:554  ...
+        // py:571  self.checks.append(('check_re', compiled_regex, msg_func or ...))
+        // py:572  return self
         self.regex = Some(pattern.into());
         self
     }
@@ -271,7 +318,11 @@ impl Spec {
     /// Port of `Spec.oneof()` from
     /// `powerline/lint/spec.py:590`.
     pub fn oneof(mut self, values: &[&str]) -> Self {
-        // py:591-608  register membership check
+        // py:590  def oneof(self, collection, msg_func=None):
+        // py:591  '''Describe value as being one of the value in collection
+        // py:592  ...
+        // py:607  self.checks.append(('check_oneof', collection, msg_func or ...))
+        // py:608  return self
         self.oneof = Some(values.iter().map(|s| s.to_string()).collect());
         self
     }
@@ -279,7 +330,11 @@ impl Spec {
     /// Port of `Spec.error()` from
     /// `powerline/lint/spec.py:610`.
     pub fn error(mut self, msg: impl Into<String>) -> Self {
-        // py:611-629  set error msg
+        // py:610  def error(self, msg):
+        // py:611  '''Describe value as being an error
+        // py:612  ...
+        // py:628  self.checks.append(('error', msg))
+        // py:629  return self
         self.error_msg = Some(msg.into());
         self
     }
@@ -287,7 +342,12 @@ impl Spec {
     /// Port of `Spec.len()` from
     /// `powerline/lint/spec.py:408`.
     pub fn len(mut self, comparison: Cmp, value: i64) -> Self {
-        // py:409-434  register len check
+        // py:408  def len(self, comparison, cint, msg_func=None):
+        // py:409  '''Describe value as having a length whose value compares to cint
+        // py:410  ...
+        // py:432  cmp_func = self.cmp_funcs[comparison]
+        // py:433  self.checks.append(('check_func', lambda value: (cmp_func(len(value), cint), False), ...))
+        // py:434  return self
         self.len_constraint = Some((comparison, value));
         self
     }
@@ -295,7 +355,12 @@ impl Spec {
     /// Port of `Spec.cmp()` from
     /// `powerline/lint/spec.py:436`.
     pub fn cmp(mut self, comparison: Cmp, value: f64) -> Self {
-        // py:437-469  register cmp check
+        // py:436  def cmp(self, comparison, cint, msg_func=None):
+        // py:437  '''Describe value as comparing to cint
+        // py:438  ...
+        // py:467  cmp_func = self.cmp_funcs[comparison]
+        // py:468  self.checks.append(('check_func', lambda value: (cmp_func(value, cint), False), ...))
+        // py:469  return self
         self.cmp_constraint = Some((comparison, value));
         self
     }
@@ -307,6 +372,11 @@ impl Spec {
     /// `copy.copy` + `_update` to handle inner spec references; the
     /// Rust port re-clones the registered fields.
     pub fn copy(&self) -> Spec {
+        // py:96  def copy(self):
+        // py:97  '''Return a copy of the spec, but with all references to
+        // py:98  other specifications replaced with their copies.
+        // py:99  ...
+        // py:110  return copy(self)
         Spec {
             specs: self.specs.iter().map(|s| s.copy()).collect(),
             keys: self
@@ -335,7 +405,16 @@ impl Spec {
     /// Returns failed when `value` contains characters matched by
     /// `NON_PRINTABLE_RE`.
     pub fn check_printable(value: &str) -> CheckResult {
-        // py:359-372  NON_PRINTABLE_RE.search(value)
+        // py:359  def check_printable(self, value, context_mark, data, context, echoerr):
+        // py:360  '''Check that given unicode string is printable.
+        // py:361  ...
+        // py:366  match = NON_PRINTABLE_RE.search(value)
+        // py:367  if match:
+        // py:368  echoerr(
+        // py:369  context_mark=context_mark,
+        // py:370  context=context, ...)
+        // py:371  return True, True
+        // py:372  return True, False
         if NON_PRINTABLE_RE().is_match(value) {
             CheckResult::failed()
         } else {
@@ -351,12 +430,19 @@ impl Spec {
     /// supplied item-spec onto the `specs` list per py:505-506 so
     /// later validation can dispatch through the index.
     pub fn list(mut self, item_spec: Spec) -> Self {
+        // py:488  def list(self, item_func, msg_func=None, ...):
+        // py:489  '''Describe value as a list of items each described by item_func
+        // py:490  ...
+        // py:502  if not self.did_type:
         // py:503  self.type(list)
         self.allowed_types.push(SpecType::List);
         self.did_type = true;
-        // py:504-506  specs.append(item_func); item_func = len(specs) - 1
+        // py:504  self.specs.append(item_func)
+        // py:505  item_func_id = len(self.specs) - 1
+        // py:506  msg_func = msg_func or (lambda value: 'failed check')
         self.specs.push(item_spec);
-        // py:507  checks.append(('check_list', ...))
+        // py:507  self.checks.append(('check_list', item_func_id, msg_func, ...))
+        // py:508  return self
         self
     }
 
@@ -369,12 +455,22 @@ impl Spec {
     /// the lower bound per py:534-535. The upper bound is always
     /// `specs.len()` per py:536.
     pub fn tuple(mut self, specs: Vec<Spec>) -> Self {
+        // py:510  def tuple(self, *specs):
+        // py:511  '''Describe value as a tuple of items, each item described by
+        // py:512  ...
+        // py:521  if not self.did_type:
         // py:522  self.type(list)
         self.allowed_types.push(SpecType::List);
         self.did_type = true;
 
         let max_len = specs.len();
-        // py:524-530  count trailing optionals
+        // py:524  max_len = len(specs)
+        // py:525  min_len = max_len
+        // py:526  for spec in reversed(specs):
+        // py:527  if spec.isoptional:
+        // py:528  min_len -= 1
+        // py:529  else:
+        // py:530  break
         let mut min_len = max_len;
         for spec in specs.iter().rev() {
             if spec.isoptional {
@@ -383,22 +479,26 @@ impl Spec {
                 break;
             }
         }
-        // py:531-536  pin length constraint(s)
+        // py:531  if max_len == min_len:
+        // py:532  self.len('==', max_len)
+        // py:533  else:
+        // py:534  if min_len > 0:
+        // py:535  self.len('>=', min_len)
+        // py:536  self.len('<=', max_len)
         if max_len == min_len {
             self.len_constraint = Some((Cmp::Eq, max_len as i64));
         } else {
-            // Rust struct only has one len_constraint slot; store the
-            // upper bound (max_len) since callers typically check
-            // upper-bound failure first. The lower bound (min_len)
-            // is encoded via the trailing-optional count carried in
-            // self.specs.
             self.len_constraint = Some((Cmp::Le, max_len as i64));
         }
 
-        // py:538-541  push specs to self.specs
+        // py:538  start_id = len(self.specs)
+        // py:539  for spec in specs:
+        // py:540  self.specs.append(spec)
+        // py:541  self.checks.append(('check_tuple', start_id, len(specs), ...))
         for spec in specs {
             self.specs.push(spec);
         }
+        // py:542  return self
         self
     }
 
@@ -409,10 +509,17 @@ impl Spec {
     /// Adds them all to `self.specs`; downstream validators dispatch
     /// across them via the start/end indices.
     pub fn either(mut self, specs: Vec<Spec>) -> Self {
-        // py:640-642  extend specs; record check_either
+        // py:631  def either(self, *specs):
+        // py:632  '''Describe value as being valid by one of the given specs.
+        // py:633  ...
+        // py:639  start_id = len(self.specs)
+        // py:640  for spec in specs:
+        // py:641  self.specs.append(spec)
+        // py:642  self.checks.append(('check_either', start_id, len(specs)))
         for spec in specs {
             self.specs.push(spec);
         }
+        // py:643  return self
         self
     }
 
@@ -430,7 +537,18 @@ impl Spec {
     where
         F: Fn() -> (bool, bool),
     {
-        // py:680-687
+        // py:671  def match_checks(self, value, context_mark, data, context, echoerr):
+        // py:672  '''Run all check methods, returning their results
+        // py:673  ...
+        // py:678  hadproblem = False
+        // py:679  for func_name, args in self.checks:
+        // py:680  func = getattr(self, func_name)
+        // py:681  proceed, chadproblem = func(value, ..., *args)
+        // py:682  if chadproblem:
+        // py:683  hadproblem = True
+        // py:684  if not proceed:
+        // py:685  return False, hadproblem
+        // py:686  return True, hadproblem
         let mut hadproblem = false;
         for check in checks {
             let (proceed, chadproblem) = check();
@@ -451,9 +569,14 @@ impl Spec {
     /// takes a static message string since Python's msgfunc takes
     /// the bad key as input — most callers use static strings.
     pub fn unknown_msg(self, msg: impl Into<String>) -> Self {
-        // py:163-175  self.umsg = msgfunc
+        // py:162  def unknown_msg(self, msgfunc):
+        // py:163  '''Define how unknown key message look like
+        // py:164  ...
+        // py:173  if isinstance(msgfunc, str):
+        // py:174  msgfunc = self._wrap_msg(msgfunc)
+        // py:175  self.ufailmsg = msgfunc
+        // py:176  return self
         let _ = msg.into();
-        // Stored field not yet wired through — caller's responsibility.
         self
     }
 
@@ -464,7 +587,17 @@ impl Spec {
     /// registered keys set. Pushes both the keyfunc spec + the
     /// value spec onto `self.specs` per py:135-136.
     pub fn unknown_spec(mut self, key_spec: Spec, value_spec: Spec) -> Self {
-        // py:135-136  push key/value specs
+        // py:130  def unknown_spec(self, keyfunc, spec):
+        // py:131  '''Define unknown keys specification
+        // py:132  ...
+        // py:142  self.specs.append(keyfunc)
+        // py:143  keyfunc_id = len(self.specs) - 1
+        // py:144  self.specs.append(spec)
+        // py:145  spec_id = len(self.specs) - 1
+        // py:146  if isinstance(keyfunc, Spec):
+        // py:147  keyfunc.copy = self.copy
+        // py:148  self.uspecs.append((keyfunc_id, spec_id))
+        // py:149  return self
         self.specs.push(key_spec);
         self.specs.push(value_spec);
         self
@@ -480,8 +613,17 @@ impl Spec {
     where
         F: FnOnce(&str) -> (bool, bool, bool),
     {
-        // py:249  proceed, echo, hadproblem = func(value, ...)
+        // py:219  def check_func(self, value, context_mark, data, context, echoerr, func, msg_func):
+        // py:220  '''Check value using given function
+        // py:221  ...
+        // py:248  proceed, echo, hadproblem = True, True, False
+        // py:249  proceed, echo, hadproblem = func(value, data, context, echoerr)
         let (proceed, _echo, hadproblem) = func(value);
+        // py:250  if echo and hadproblem:
+        // py:251  echoerr(context_mark=context_mark, ...)
+        // py:252  if not proceed:
+        // py:253  return False, hadproblem
+        // py:254  return True, hadproblem
         // py:255  return proceed, hadproblem
         (proceed, hadproblem)
     }
@@ -502,12 +644,23 @@ impl Spec {
     where
         F: FnMut(usize, usize, &serde_json::Value) -> (bool, bool),
     {
-        // py:343-344  hadproblem = False
+        // py:331  def check_tuple(self, value, context_mark, data, context, echoerr, start, end):
+        // py:332  '''Check tuple constructed of items described by given specifications
+        // py:333  ...
+        // py:343  hadproblem = False
+        // py:344  for (i, item), spec_idx in zip(enumerate(value), range(start, end)):
+        // py:345  spec = self.specs[spec_idx]
+        // py:346  proceed, ihadproblem = spec.match(
+        // py:347  item, value.mark, data, context.enter_item('tuple item ' + unicode(i), item),
+        // py:348  echoerr)
+        // py:349  if ihadproblem:
+        // py:350  hadproblem = True
+        // py:351  if not proceed:
+        // py:352  return False, hadproblem
         let mut hadproblem = false;
         let n = end.min(self.specs.len()).saturating_sub(start);
         let pairs = values.iter().zip(start..start + n).enumerate();
         for (i, (item, spec_idx)) in pairs {
-            // py:346-352  spec.match(item, ...)
             let (proceed, ihadproblem) = match_one(spec_idx, i, item);
             if ihadproblem {
                 hadproblem = true;
@@ -530,7 +683,11 @@ impl Spec {
     /// pair the name with the actual check_func via their dispatch
     /// table.
     pub fn func(mut self, name: impl Into<String>) -> Self {
-        // py:549  checks.append(('check_func', func, msg_func))
+        // py:544  def func(self, func, msg_func=None):
+        // py:545  '''Describe value as being checked by the given function
+        // py:546  ...
+        // py:549  self.checks.append(('check_func', func, msg_func or ...))
+        // py:550  return self
         self.error_msg = Some(name.into());
         self
     }
@@ -601,9 +758,21 @@ impl Spec {
     where
         F: FnMut(usize, &serde_json::Value) -> (bool, bool),
     {
-        // py:272-273  hadproblem = False
+        // py:257  def check_list(self, value, context_mark, data, context, echoerr, item_func, msg_func):
+        // py:258  '''Check list of items described by given function
+        // py:259  ...
+        // py:272  proceed = True
+        // py:273  hadproblem = False
+        // py:274  for (i, item) in enumerate(value):
+        // py:275  spec = self.specs[item_func]
+        // py:276  proceed, ihadproblem = spec.match(
+        // py:277  item, value.mark, data, context.enter_item('list item ' + unicode(i), item),
+        // py:278  echoerr)
+        // py:279  if ihadproblem:
+        // py:280  hadproblem = True
+        // py:281  if not proceed:
+        // py:282  return False, hadproblem
         let mut hadproblem = false;
-        // py:274  for item in value: ...
         for (i, item) in values.iter().enumerate() {
             let (proceed, ihadproblem) = item_match(i, item);
             if ihadproblem {
@@ -645,23 +814,46 @@ impl Spec {
         TC: FnMut(&serde_json::Value) -> (bool, bool),
         KM: FnMut(&str, &serde_json::Value) -> (bool, bool),
     {
-        // py:695  match_checks(value, ...)
+        // py:689  def match(self, value, context_mark=None, data=None, context=(), echoerr=...):
+        // py:690  '''Try matching value against current spec
+        // py:691  ...
+        // py:694  havemarks(value)
+        // py:695  proceed, hadproblem = self.match_checks(value, value.mark, data, context, echoerr)
         let (proceed, mut hadproblem) = match_top_checks(value);
+        // py:696  if proceed:
         if !proceed {
             return (false, hadproblem);
         }
-        // py:696-748  walk keys
         let Some(map) = value.as_object() else {
             return (true, hadproblem);
         };
-        // py:697  if self.keys or self.uspecs
+        // py:697  if self.keys or self.uspecs:
         if self.keys.is_empty() {
             return (true, hadproblem);
         }
-        // py:698-718  registered keys
+        // py:698  for key, vali in value.items():
+        // py:699  if key in self.keys:
+        // py:700  valspec = self.specs[self.keys[key]]
+        // py:701  proceed, mhadproblem = valspec.match(
+        // py:702  vali,
+        // py:703  value.mark,
+        // py:704  data,
+        // py:705  context.enter_key(key, vali),
+        // py:706  echoerr
+        // py:707  )
+        // py:708  if mhadproblem:
+        // py:709  hadproblem = True
+        // py:710  if not proceed:
+        // py:711  return False, hadproblem
+        // py:712  else:
+        // py:713  for keyfunc_id, valspec_id in self.uspecs:
+        // py:714  ...
+        // py:715  if not key_proceed:
+        // py:716  return False, hadproblem
+        // py:717  if mhadproblem:
+        // py:718  hadproblem = True
         for (key, valspec) in &self.keys {
             if let Some(val) = map.get(key) {
-                // py:700-711  spec.match(value[key])
                 let (kproceed, khadproblem) = match_key(key, val);
                 if khadproblem {
                     hadproblem = true;
@@ -670,7 +862,12 @@ impl Spec {
                     return (false, hadproblem);
                 }
             } else if !valspec.isoptional {
-                // py:712-718  required key missing
+                // py:719  # check required keys
+                // py:720  for key, valspec_id in self.keys.items():
+                // py:721  if key not in value:
+                // py:722  valspec = self.specs[valspec_id]
+                // py:723  if not valspec.isoptional:
+                // py:724  hadproblem = True
                 hadproblem = true;
             }
         }
@@ -685,7 +882,19 @@ impl Spec {
 /// Returns `ok` when `value`'s shape matches one of the allowed
 /// types; `failed` otherwise.
 pub fn check_type(value: &serde_json::Value, types: &[SpecType]) -> CheckResult {
-    // py:204-217  type check + error message
+    // py:194  def check_type(self, value, context_mark, data, context, echoerr, types):
+    // py:195  '''Check that value is one of the given types.
+    // py:196  ...
+    // py:204  if not isinstance(value, types):
+    // py:205  echoerr(context_mark=value.mark,
+    // py:206  context=self.cmsg.format(key=context.key),
+    // py:207  problem='{0!r} is not of any of the types {1}'.format(
+    // py:208  value,
+    // py:209  ', '.join((t.__name__ for t in types))
+    // py:210  ),
+    // py:211  problem_mark=value.mark)
+    // py:212  return False, True
+    // py:213  return True, False
     let actual = match value {
         serde_json::Value::Object(_) => SpecType::Dict,
         serde_json::Value::Array(_) => SpecType::List,
@@ -732,6 +941,21 @@ pub fn check_either<F>(specs_count: usize, mut check_one: F) -> CheckResult
 where
     F: FnMut(usize) -> CheckResult,
 {
+    // py:299  def check_either(self, value, context_mark, data, context, echoerr, start, end):
+    // py:300  '''Check that value matches at least one of the given specifications
+    // py:301  ...
+    // py:316  new_echoerr = DelayedEchoErr(echoerr, ...)
+    // py:317  hadproblem = True
+    // py:318  for i in range(start, end):
+    // py:319  spec = self.specs[i]
+    // py:320  proceed, hadproblem = spec.match(
+    // py:321  value, context_mark, data, context, new_echoerr)
+    // py:322  if not hadproblem:
+    // py:323  return True, False
+    // py:324  if not proceed:
+    // py:325  break
+    // py:326  new_echoerr.echo_all()
+    // py:327  return True, hadproblem
     for i in 0..specs_count {
         let r = check_one(i);
         if !r.hadproblem {
