@@ -982,3 +982,78 @@ fn parity_version_get_version_falls_back_to_constant() {
         powerliners::version::__version__
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// __init__.py — get_default_theme / DEFAULT_UPDATE_INTERVAL / LOG_KEYS
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_get_default_theme_unicode_branch() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "__import__('powerline', fromlist=['get_default_theme']).get_default_theme(True)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::get_default_theme(true);
+    assert_eq!(py, rs, "get_default_theme(True) mismatch");
+}
+
+#[test]
+fn parity_get_default_theme_ascii_branch() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "__import__('powerline', fromlist=['get_default_theme']).get_default_theme(False)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::get_default_theme(false);
+    assert_eq!(py, rs, "get_default_theme(False) mismatch");
+}
+
+#[test]
+fn parity_default_update_interval_constant() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "__import__('powerline', fromlist=['DEFAULT_UPDATE_INTERVAL']).DEFAULT_UPDATE_INTERVAL",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_int: u64 = py
+        .parse()
+        .unwrap_or_else(|_| panic!("Python returned non-int: {:?}", py));
+    let rs = powerliners::DEFAULT_UPDATE_INTERVAL;
+    assert_eq!(py_int, rs, "DEFAULT_UPDATE_INTERVAL mismatch");
+}
+
+#[test]
+fn parity_log_keys_set() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval("sorted(__import__('powerline', fromlist=['LOG_KEYS']).LOG_KEYS)") {
+        Some(v) => v,
+        None => return,
+    };
+    // Python repr of sorted list looks like: ['log_file', 'log_format', 'log_level', 'paths']
+    let mut rs_sorted: Vec<&str> = powerliners::LOG_KEYS().iter().copied().collect();
+    rs_sorted.sort();
+    let rs_repr = format!(
+        "[{}]",
+        rs_sorted
+            .iter()
+            .map(|k| format!("'{}'", k))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    assert_eq!(py, rs_repr, "LOG_KEYS set contents mismatch");
+}
