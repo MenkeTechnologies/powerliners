@@ -1506,3 +1506,29 @@ uses_check_env_vars
 # sys.exit(); Rust extracts as a fn returning the exit code
 # value so callers can route through any exit-handling strategy.
 uses_component_exit_code
+
+# bindings/vim/mod.rs::vim_environ_value_escape — extracts the
+# 4-step value-escape chain from VimEnviron.__setitem__ at
+# powerline/bindings/vim/__init__.py:406-409. Python embeds the
+# chained .replace() inline inside the vim.command() format string;
+# Rust extracts as a pure helper so each substitution order is
+# testable. Same inline-extraction pattern as
+# resolve_renderer_module.
+vim_environ_value_escape
+
+# bindings/vim/mod.rs::vim_environ_set_command — extracts the
+# `let $KEY="VALUE"` command-template wrapper from
+# VimEnviron.__setitem__ at
+# powerline/bindings/vim/__init__.py:402-411. Python invokes
+# vim.command() with the formatted string inline; Rust returns
+# the command-string so callers can route through any vim-RPC
+# layer (or test the format without a live vim).
+vim_environ_set_command
+
+# bindings/vim/mod.rs::vim_environ_get_expr — extracts the
+# `'$' + key` eval-expression construction from
+# VimEnviron.__getitem__ at
+# powerline/bindings/vim/__init__.py:394-395. Python passes the
+# formatted string directly to vim.eval(); Rust returns the
+# eval-expression so callers route through any vim-RPC dispatch.
+vim_environ_get_expr
