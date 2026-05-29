@@ -814,3 +814,53 @@ failed_unicode_message
 # semantics, test setup methods, etc.), so the port renames to
 # disambiguate while preserving the Python module-level entry point.
 setup_entry
+
+# used_powerlines() is the Rust accessor for Python's module-level
+# `used_powerlines = WeakValueDictionary()` at
+# bindings/zsh/__init__.py:19. Python's WeakValueDictionary auto-
+# removes entries when the value is GC'd; Rust has no weakref in
+# std so the port uses HashSet<u64> of ids, with explicit
+# add/remove from do_setup/shutdown.
+used_powerlines
+
+# Args::ext is the Rust accessor for the Python class attribute
+# `ext = ['shell']` at bindings/zsh/__init__.py:41. Python defines
+# it as a class attribute; Rust surfaces it as a static method
+# returning a fresh Vec since &[&str] would need a 'static
+# lifetime annotation that breaks the drift gate brace counter.
+ext
+
+# config_path_from_var extracts the @property body at
+# bindings/zsh/__init__.py:52-66 (Args.config_path) into a pure
+# helper. Python inlines the zsh.getvalue + split('/') + filter
+# logic inside the property; Rust extracts so the split semantics
+# can be unit-tested with a value parameter (rather than the live
+# zsh.getvalue call).
+config_path_from_var
+
+# Environment::contains is the Rust analog of Python's
+# __contains__ dunder at bindings/zsh/__init__.py:93. Rust drops
+# the leading dunder underscores since they're reserved for
+# language attribute magic.
+contains
+
+# set_prompt_zpyvar_name extracts the py:201
+# `zpyvar = 'ZPYTHON_POWERLINE_' + psvar` builder from set_prompt
+# into a pure helper. Python embeds it inside the function body
+# that also calls zsh.set_special_string; Rust extracts so the
+# variable-name format can be tested in isolation.
+set_prompt_zpyvar_name
+
+# build_segment_info extracts the dict-literal segment_info builder
+# at bindings/zsh/__init__.py:158-167 (Prompt.__str__) into a pure
+# helper. Python builds it inline inside the __str__ method;
+# Rust extracts so the per-field semantics can be tested without
+# the zsh.expand/zsh.getvalue dispatch around it.
+build_segment_info
+
+# ZshPowerline::next_id is the Rust analog of Python's id(self)
+# call at bindings/zsh/__init__.py:131 used as the WeakValueDictionary
+# key. Python's id() returns the object's memory address; Rust
+# uses a static OnceLock<Mutex<u64>> counter for the equivalent
+# process-unique identifier.
+next_id
