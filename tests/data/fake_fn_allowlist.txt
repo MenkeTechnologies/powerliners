@@ -237,3 +237,13 @@ bufferlister_for
 # factors it into a testable function so the geometry format string
 # `{w}x{h}+{x}+{y}` can be unit-tested without spawning subprocess.
 build_bar_command
+
+# Approved 2026-05-29: accessor fn for the module-level dict exit_codes
+# from powerline/segments/shell.py:24-28. Python builds it via:
+# `dict((k, v) for v, k in reversed(sorted(signal.__dict__.items()))
+#   if v.startswith('SIG') and not v.startswith('SIG_'))`
+# Rust exposes it as a match-fn over the cross-Unix signal number subset
+# (SIGHUP/SIGINT/SIGQUIT/SIGILL/SIGABRT/SIGFPE/SIGKILL/SIGSEGV/SIGPIPE/
+# SIGALRM/SIGTERM) — same observable mapping for all signals that
+# matter to a shell exit-code (status - 128) lookup.
+exit_codes
