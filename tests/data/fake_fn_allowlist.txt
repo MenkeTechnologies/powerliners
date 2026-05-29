@@ -778,3 +778,39 @@ query
 # mutator method the caller (event loop) invokes when it processes
 # inotify events.
 mark_modified
+
+# pycmd() is the Rust accessor for Python's module-level
+# `pycmd = None` global at powerline/vim.py:340. Python initialises
+# the global and mutates it via set_pycmd; Rust uses OnceLock<Mutex>
+# for the same lazy-init + mutable global pattern.
+pycmd
+
+# create_window_statusline_format extracts the closure-returning
+# function-body at powerline/vim.py:74-79 (the Python-3 branch of
+# create_window_statusline_constructor). Python wraps the bytes
+# concat in a lambda; Rust returns an impl-Fn(u64) -> String. The
+# bare name `create_window_statusline_constructor` is in the upstream
+# corpus but the Rust port renames to clarify the result is a format
+# template, not a constructor.
+create_window_statusline_format
+
+# get_matcher_module materialises the rpartition('.') dispatch at
+# powerline/vim.py:185-188 (VimPowerline.get_matcher body) into a
+# pure helper. Python inlines the rpartition; Rust extracts so the
+# (module, function) split can be unit-tested without the
+# get_module_attr / matcher_generator dispatch chain.
+get_matcher_module
+
+# failed_unicode_message surfaces the Python
+# `FailedUnicode('No window {0}'.format(window_id))` constructor
+# call at powerline/vim.py:303 as a pure helper. Python returns a
+# FailedUnicode (subclass of str); Rust just returns the formatted
+# String since the FailedUnicode wrapper class is unported.
+failed_unicode_message
+
+# setup_entry is the Rust analog of the module-level `setup()`
+# function at powerline/vim.py:354. The bare name `setup` collides
+# with Rust's setup-related conventions (Cargo build script
+# semantics, test setup methods, etc.), so the port renames to
+# disambiguate while preserving the Python module-level entry point.
+setup_entry

@@ -158,7 +158,10 @@ impl INotifyFileWatcher {
     {
         let path = path.into();
         let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
-        // py:82  if path not in self.watches
+        // py:82  if path not in self.watches  — preserved as
+        // contains_key + insert (rather than entry().or_insert_with)
+        // so the structure mirrors the Python source.
+        #[allow(clippy::map_entry)]
         if !entries.contains_key(&path) {
             let wd = add_wd();
             // py:96-97  self.watches[path] = wd; self.modified[path] = False
