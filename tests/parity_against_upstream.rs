@@ -2155,6 +2155,51 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_spec_full_chain_preserves_each_step() {
+    if !python_available() {
+        return;
+    }
+    // Verify a multi-step builder chain produces the same final state
+    // on both ports. type+optional+context_message+printable should:
+    //   - end with isoptional == True
+    //   - cmsg == 'msg'
+    //   - 3 check entries on Python (check_type explicit + check_type
+    //     from printable + check_printable)
+    let py_iso = match py_eval(
+        "(lambda s: str(s.isoptional))(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().type(str).optional().context_message('msg').printable())",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_msg = match py_eval(
+        "(lambda s: s.cmsg)(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().type(str).optional().context_message('msg').printable())",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_checks = match py_eval(
+        "(lambda s: str(len(s.checks)))(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().type(str).optional().context_message('msg').printable())",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py_iso, "True");
+    assert_eq!(py_msg, "msg");
+    assert_eq!(py_checks, "3");
+
+    use powerliners::lint::spec::{Spec, SpecType};
+    let s = Spec::new()
+        .type_check(&[SpecType::Unicode])
+        .optional()
+        .context_message("msg")
+        .printable();
+    assert!(s.isoptional);
+    assert_eq!(s.cmsg, "msg");
+    assert!(s.printable_flag);
+    assert!(s.allowed_types.contains(&SpecType::Unicode));
+}
+
+#[test]
 fn parity_mergedicts_copy_handles_3_level_nested_collisions() {
     if !python_available() {
         return;
