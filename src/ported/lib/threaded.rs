@@ -198,8 +198,16 @@ impl ThreadedSegment {
         // py:44  self.crashed_value = None
         // py:45  self.update_value = None
         // py:46  self.updated = False
+        let mut base = MultiRunnedThread::new();
+        // py:36  class-level override of MultiRunnedThread.daemon = True.
+        // The Python subclass shadows the base's True with False at the
+        // class level; that takes effect immediately on instance
+        // construction. Without this line, callers that read .daemon
+        // between new() and startup() would see True instead of the
+        // upstream-correct False.
+        base.daemon = false;
         Self {
-            base: MultiRunnedThread::new(),
+            base,
             min_sleep_time: 0.1,
             update_first: true,
             interval: 1.0,

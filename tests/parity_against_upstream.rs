@@ -1612,8 +1612,10 @@ fn parity_threaded_segment_daemon_override() {
     if !python_available() {
         return;
     }
-    // ThreadedSegment overrides MultiRunnedThread's daemon=True with False
-    // at py:36. Both ports must reflect this.
+    // ThreadedSegment overrides MultiRunnedThread.daemon=True with False
+    // at py:36. The Rust port's ThreadedSegment::new() now applies the
+    // same class-level override at construction time (was a divergence
+    // flagged in the previous /loop fire; fixed in this fire).
     let py = match py_eval(
         "__import__('powerline.lib.threaded', fromlist=['ThreadedSegment']).ThreadedSegment.daemon",
     ) {
@@ -1621,26 +1623,15 @@ fn parity_threaded_segment_daemon_override() {
         None => return,
     };
     let py_bool = py == "True";
-    // The Rust ThreadedSegment delegates daemon to its inner MultiRunnedThread
-    // base which is constructed with daemon=true. Per ThreadedSegment.startup()
-    // path the override is applied later when `use_daemon_threads` is wired
-    // (see startup() body in src/ported/lib/threaded.rs). Verify the
-    // class-attribute parity by checking the fresh constructor result
-    // matches the upstream's class-level override before startup.
     let rs = powerliners::lib::threaded::ThreadedSegment::new()
         .base
         .daemon;
-    // Both ports report a boolean; the upstream class attribute is False
-    // per py:36, so we expect py_bool == false. Rust's constructor still
-    // initialises daemon=true (matching MultiRunnedThread base), so the
-    // semantic is that startup() flips it. Document the divergence: the
-    // class-level OVERRIDE expectation (False) is what Python carries.
-    assert!(
-        !py_bool,
-        "Python ThreadedSegment.daemon class attribute should be False, got {}",
-        py_bool
+    assert_eq!(
+        py_bool, rs,
+        "ThreadedSegment.daemon mismatch: py={}, rs={}",
+        py_bool, rs
     );
-    let _ = rs; // observed flag may differ pre-startup; documented above.
+    assert!(!rs, "ThreadedSegment.daemon should be false after new()");
 }
 
 // ─────────────────────────────────────────────────────────────────────
