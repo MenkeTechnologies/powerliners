@@ -2155,6 +2155,56 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_colorscheme_cterm_to_hex_size_and_boundaries() {
+    if !python_available() {
+        return;
+    }
+    // Verify cterm_to_hex has 256 entries on both sides AND specific
+    // boundary entries match.
+    let py_size = match py_eval(
+        "len(__import__('powerline.colorscheme', fromlist=['cterm_to_hex']).cterm_to_hex)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_n: usize = py_size.parse().expect("Python returned non-int");
+    let rs_n = powerliners::colorscheme::cterm_to_hex.len();
+    assert_eq!(
+        py_n, rs_n,
+        "cterm_to_hex size mismatch: py={}, rs={}",
+        py_n, rs_n
+    );
+    assert_eq!(py_n, 256, "Python cterm_to_hex size should be 256");
+
+    // Boundary spot-checks
+    let cases: &[(usize, u64)] = &[
+        (0, 0x000000),
+        (16, 0x000000),
+        (231, 0xffffff),
+        (255, 0xeeeeee),
+    ];
+    let rs_table = powerliners::colorscheme::cterm_to_hex;
+    for &(idx, expected) in cases {
+        let expr = format!(
+            "__import__('powerline.colorscheme', fromlist=['cterm_to_hex']).cterm_to_hex[{}]",
+            idx
+        );
+        let py = match py_eval(&expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_n: u64 = py.parse().expect("Python returned non-int");
+        let rs_val = rs_table[idx];
+        assert_eq!(py_n, expected, "Python cterm[{}] changed", idx);
+        assert_eq!(
+            py_n, rs_val,
+            "cterm[{}] mismatch: py=0x{:X}, rs=0x{:X}",
+            idx, py_n, rs_val
+        );
+    }
+}
+
+#[test]
 fn parity_wthr_weather_conditions_codes_table_size() {
     if !python_available() {
         return;
