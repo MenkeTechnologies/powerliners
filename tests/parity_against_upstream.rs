@@ -2192,6 +2192,39 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_cterm_to_hex_full_256_entry_table() {
+    if !python_available() {
+        return;
+    }
+    // cterm_to_hex is a 256-entry lookup mapping cterm color index → RGB.
+    // Verify entry-by-entry parity with Python (rather than sampling) —
+    // guards against silent drift in any individual palette entry.
+    let py = match py_eval(
+        "__import__('json').dumps(list(__import__('powerline.colorscheme', fromlist=['cterm_to_hex']).cterm_to_hex))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let py_arr = py_value.as_array().expect("py value not array");
+    assert_eq!(py_arr.len(), 256, "Python cterm_to_hex length drift");
+    assert_eq!(
+        powerliners::colorscheme::cterm_to_hex.len(),
+        256,
+        "Rust cterm_to_hex length drift"
+    );
+    for (i, py_entry) in py_arr.iter().enumerate() {
+        let py_n = py_entry.as_u64().expect("py entry not int");
+        let rs_n = powerliners::colorscheme::cterm_to_hex[i];
+        assert_eq!(
+            py_n, rs_n,
+            "cterm_to_hex[{}] mismatch: py=0x{:06X} rs=0x{:06X}",
+            i, py_n, rs_n
+        );
+    }
+}
+
+#[test]
 fn parity_keyvaluesplit_splits_on_first_equals() {
     if !python_available() {
         return;
