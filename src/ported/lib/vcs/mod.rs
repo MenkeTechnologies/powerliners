@@ -37,29 +37,35 @@ use std::path::{Path, PathBuf};
 /// upstream's `yield` semantics). For the use case (finite walk up
 /// to mount point) eager collection is equivalent.
 pub fn generate_directories<P: AsRef<Path>>(path: P) -> Vec<PathBuf> {
+    // py:15  def generate_directories(path):
     let mut out: Vec<PathBuf> = Vec::new();
     let mut path = path.as_ref().to_path_buf();
+    // py:16  if os.path.isdir(path):
     if path.is_dir() {
-        // py:16
-        out.push(path.clone()); // py:17
+        // py:17  yield path
+        out.push(path.clone());
     }
+    // py:18  while True:
     loop {
-        // py:18
+        // py:19  if os.path.ismount(path):
         if is_mount(&path) {
-            // py:19
-            break; // py:20
+            // py:20  break
+            break;
         }
+        // py:21  old_path = path
         let old_path = path.clone();
         // py:22  path = os.path.dirname(path)
         path = match path.parent() {
             Some(p) => p.to_path_buf(),
             None => break,
         };
-        // py:23-24  if path == old_path or not path: break
+        // py:23  if path == old_path or not path:
+        // py:24  break
         if path == old_path || path.as_os_str().is_empty() {
             break;
         }
-        out.push(path.clone()); // py:25  yield path
+        // py:25  yield path
+        out.push(path.clone());
     }
     out
 }
@@ -104,12 +110,14 @@ use std::sync::{Mutex, OnceLock};
 /// Process-wide branch-name cache. Mirrors py:45
 /// `branch_name_cache = {}` keyed by config_file path.
 pub fn branch_name_cache() -> &'static Mutex<HashMap<String, String>> {
+    // py:48  branch_name_cache = {}
     static M: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
     M.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 /// Process-wide branch-lock. Mirrors py:46 `branch_lock = Lock()`.
 pub fn branch_lock() -> &'static Mutex<()> {
+    // py:49  branch_lock = Lock()
     static M: OnceLock<Mutex<()>> = OnceLock::new();
     M.get_or_init(|| Mutex::new(()))
 }
@@ -117,6 +125,7 @@ pub fn branch_lock() -> &'static Mutex<()> {
 /// Process-wide file-status lock. Mirrors py:47
 /// `file_status_lock = Lock()`.
 pub fn file_status_lock() -> &'static Mutex<()> {
+    // py:50  file_status_lock = Lock()
     static M: OnceLock<Mutex<()>> = OnceLock::new();
     M.get_or_init(|| Mutex::new(()))
 }
@@ -144,6 +153,11 @@ impl FileStatusCache {
     /// Port of `FileStatusCache.__init__()` from
     /// `powerline/lib/vcs/__init__.py:89`.
     pub fn new() -> Self {
+        // py:87  class FileStatusCache(dict):
+        // py:88  def __init__(self):
+        // py:89  self.dirstate_map = defaultdict(set)
+        // py:90  self.ignore_map = defaultdict(set)
+        // py:91  self.keypath_ignore_map = {}
         Self {
             statuses: HashMap::new(),
             dirstate_map: HashMap::new(),
@@ -164,15 +178,19 @@ impl FileStatusCache {
         ignore_file_name: &str,
         extra_ignore_files: &[String],
     ) {
-        // py:95-104  walk parents up to `directory`, collecting
-        // <parent>/<ignore_file_name>
+        // py:93  def update_maps(self, keypath, directory, dirstate_file, ignore_file_name, extra_ignore_files):
+        // py:94  parent = keypath
+        // py:95  ignore_files = set()
+        // py:96  while parent != directory:
         let mut ignore_files: HashSet<String> = HashSet::new();
         let mut parent = std::path::PathBuf::from(keypath);
         loop {
             if parent.to_string_lossy() == directory {
                 break;
             }
-            // py:97-100  nparent = dirname(keypath); if nparent == parent: break
+            // py:97  nparent = os.path.dirname(keypath)
+            // py:98  if nparent == parent:
+            // py:99  break
             let nparent = match parent.parent() {
                 Some(p) => p.to_path_buf(),
                 None => break,
@@ -180,27 +198,30 @@ impl FileStatusCache {
             if nparent == parent {
                 break;
             }
+            // py:100  parent = nparent
             parent = nparent;
             // py:101  ignore_files.add(join(parent, ignore_file_name))
             let mut ignore = parent.clone();
             ignore.push(ignore_file_name);
             ignore_files.insert(ignore.to_string_lossy().to_string());
         }
-        // py:102-103  extra_ignore_files
+        // py:102  for f in extra_ignore_files:
+        // py:103  ignore_files.add(f)
         for f in extra_ignore_files {
             ignore_files.insert(f.clone());
         }
-        // py:105  self.keypath_ignore_map[keypath] = ignore_files
+        // py:104  self.keypath_ignore_map[keypath] = ignore_files
         self.keypath_ignore_map
             .insert(keypath.to_string(), ignore_files.clone());
-        // py:106-107  ignore_map[ignf].add(keypath)
+        // py:105  for ignf in ignore_files:
+        // py:106  self.ignore_map[ignf].add(keypath)
         for ignf in &ignore_files {
             self.ignore_map
                 .entry(ignf.clone())
                 .or_default()
                 .insert(keypath.to_string());
         }
-        // py:108  dirstate_map[dirstate_file].add(keypath)
+        // py:107  self.dirstate_map[dirstate_file].add(keypath)
         self.dirstate_map
             .entry(dirstate_file.to_string())
             .or_default()
@@ -213,7 +234,9 @@ impl FileStatusCache {
     /// Removes cached statuses for every keypath that depends on the
     /// supplied dirstate or ignore file.
     pub fn invalidate(&mut self, dirstate_file: Option<&str>, ignore_file: Option<&str>) {
-        // py:111-112  dirstate_file path
+        // py:109  def invalidate(self, dirstate_file=None, ignore_file=None):
+        // py:110  for keypath in self.dirstate_map[dirstate_file]:
+        // py:111  self.pop(keypath, None)
         if let Some(d) = dirstate_file {
             if let Some(keypaths) = self.dirstate_map.get(d).cloned() {
                 for keypath in keypaths {
@@ -221,7 +244,8 @@ impl FileStatusCache {
                 }
             }
         }
-        // py:113-114  ignore_file path
+        // py:112  for keypath in self.ignore_map[ignore_file]:
+        // py:113  self.pop(keypath, None)
         if let Some(i) = ignore_file {
             if let Some(keypaths) = self.ignore_map.get(i).cloned() {
                 for keypath in keypaths {
@@ -236,7 +260,9 @@ impl FileStatusCache {
     ///
     /// Returns the ignore-file set tracked for `keypath`.
     pub fn ignore_files(&self, keypath: &str) -> HashSet<String> {
-        // py:117-118  yield from keypath_ignore_map[keypath]
+        // py:115  def ignore_files(self, keypath):
+        // py:116  for ignf in self.keypath_ignore_map[keypath]:
+        // py:117  yield ignf
         self.keypath_ignore_map
             .get(keypath)
             .cloned()
@@ -247,6 +273,7 @@ impl FileStatusCache {
 /// Process-wide `file_status_cache` global from
 /// `powerline/lib/vcs/__init__.py:121`.
 pub fn file_status_cache() -> &'static Mutex<FileStatusCache> {
+    // py:120  file_status_cache = FileStatusCache()
     static M: OnceLock<Mutex<FileStatusCache>> = OnceLock::new();
     M.get_or_init(|| Mutex::new(FileStatusCache::new()))
 }
@@ -268,6 +295,10 @@ impl TreeStatusCache {
     /// Port of `TreeStatusCache.__init__()` from
     /// `powerline/lib/vcs/__init__.py:190`.
     pub fn new() -> Self {
+        // py:185  class TreeStatusCache(dict):
+        // py:186  def __init__(self, pl):
+        // py:187  self.tw = create_tree_watcher(pl)
+        // py:188  self.pl = pl
         Self {
             statuses: HashMap::new(),
         }
@@ -282,7 +313,11 @@ impl TreeStatusCache {
     where
         F: FnOnce() -> Option<String>,
     {
-        // py:196-199  ans = self.get(key, self); if ans is self: ans = status()
+        // py:190  def cache_and_get(self, key, status):
+        // py:191  ans = self.get(key, self)
+        // py:192  if ans is self:
+        // py:193  ans = self[key] = status()
+        // py:194  return ans
         if let Some(v) = self.statuses.get(key) {
             return v.clone();
         }
@@ -307,17 +342,21 @@ impl TreeStatusCache {
         F: FnOnce() -> Result<bool, std::io::Error>,
         S: FnOnce() -> Option<String>,
     {
-        // py:202-208  if tw(key): self.pop(key); except OSError: warn
+        // py:196  def __call__(self, repo):
+        // py:197  key = repo.directory
+        // py:198  try:
+        // py:199  if self.tw(key, ignore_event=getattr(repo, 'ignore_event', None)):
+        // py:200  self.pop(key, None)
+        // py:201  except OSError as e:
+        // py:202  self.pl.warn('Failed to check {0} for changes, with error: {1}', key, str(e))
         match tw_changed_fn() {
             Ok(true) => {
                 self.statuses.remove(repo_directory);
             }
             Ok(false) => {}
-            Err(_) => {
-                // py:206-207  pl.warn(...) — Rust port omits the log
-            }
+            Err(_) => {}
         }
-        // py:209  return self.cache_and_get(key, repo.status)
+        // py:203  return self.cache_and_get(key, repo.status)
         self.cache_and_get(repo_directory, status_fn)
     }
 }
@@ -325,6 +364,7 @@ impl TreeStatusCache {
 /// Process-wide `_tree_status_cache` from
 /// `powerline/lib/vcs/__init__.py:212`.
 pub fn tree_status_cache() -> &'static Mutex<TreeStatusCache> {
+    // py:206  _tree_status_cache = None
     static M: OnceLock<Mutex<TreeStatusCache>> = OnceLock::new();
     M.get_or_init(|| Mutex::new(TreeStatusCache::new()))
 }
@@ -341,22 +381,39 @@ pub fn get_branch_name<F>(config_file: &str, changed: bool, mut get_func: F) -> 
 where
     F: FnMut() -> String,
 {
-    // py:51-53  with branch_lock: ...
+    // py:53  def get_branch_name(directory, config_file, get_func, create_watcher):
+    // py:54  global branch_name_cache
+    // py:55  with branch_lock:
     let _g = branch_lock().lock().unwrap_or_else(|e| e.into_inner());
     let mut cache = branch_name_cache()
         .lock()
         .unwrap_or_else(|e| e.into_inner());
-    // py:62-66  changed path
+    // py:56  # Check if the repo directory was moved/deleted
+    // py:57  fw = branch_watcher(create_watcher)
+    // py:58  is_watched = fw.is_watching(directory)
+    // py:59  try:
+    // py:60  changed = fw(directory)
+    // py:61  except OSError as e:
+    // py:62  if getattr(e, 'errno', None) != errno.ENOENT:
+    // py:63  raise
+    // py:64  changed = True
+    // py:65  if changed:
     if changed {
-        // py:62  branch_name_cache.pop(config_file, None)
-        // py:84  branch_name_cache[config_file] = get_func(...)
+        // py:66  branch_name_cache.pop(config_file, None)
+        // py:81  if changed:
+        // py:82  # Config file has changed or was not tracked
+        // py:83  branch_name_cache[config_file] = out_u(get_func(directory, config_file))
         let fresh = get_func();
         cache.insert(config_file.to_string(), fresh);
     } else if !cache.contains_key(config_file) {
-        // py:80  if config_file not in branch_name_cache: get_func
+        // py:71  else:
+        // py:72  # Check if the config file has changed
+        // py:79  if config_file not in branch_name_cache:
+        // py:80  branch_name_cache[config_file] = out_u(get_func(directory, config_file))
         let fresh = get_func();
         cache.insert(config_file.to_string(), fresh);
     }
+    // py:84  return branch_name_cache[config_file]
     cache[config_file].clone()
 }
 
@@ -439,10 +496,21 @@ pub fn guess_vcs_at_directory<P: AsRef<Path>>(directory: P) -> Option<(&'static 
 /// constructor; the Rust port surfaces the discovery step so callers
 /// can hand the detected directory to whichever per-VCS port lands.
 pub fn guess<P: AsRef<Path>>(path: P) -> Option<(&'static str, PathBuf)> {
+    // py:229  def guess(path, create_watcher):
     // py:230  for directory in generate_directories(path):
     let dirs = generate_directories(path);
     for directory in &dirs {
-        // py:231-241  per-VCS check
+        // py:231  for vcs, vcs_dir, check in (vcs_props_bytes if isinstance(path, bytes) else vcs_props):
+        // py:232  repo_dir = os.path.join(directory, vcs_dir)
+        // py:233  if check(repo_dir):
+        // py:234  if os.path.isdir(repo_dir) and not os.access(repo_dir, os.X_OK):
+        // py:235  continue
+        // py:236  try:
+        // py:237  if vcs not in globals():
+        // py:238  globals()[vcs] = getattr(__import__(str('powerline.lib.vcs'), fromlist=[str(vcs)]), str(vcs))
+        // py:239  return globals()[vcs].Repository(directory, create_watcher)
+        // py:240  except:
+        // py:241  pass
         if let Some(found) = guess_vcs_at_directory(directory) {
             return Some(found);
         }
@@ -460,6 +528,12 @@ pub fn guess<P: AsRef<Path>>(path: P) -> Option<(&'static str, PathBuf)> {
 /// of a OnceLock since the caller's watcher type isn't reachable
 /// here.
 pub fn file_watcher_initialised() -> bool {
+    // py:28  _file_watcher = None
+    // py:31  def file_watcher(create_watcher):
+    // py:32  global _file_watcher
+    // py:33  if _file_watcher is None:
+    // py:34  _file_watcher = create_watcher()
+    // py:35  return _file_watcher
     static W: OnceLock<()> = OnceLock::new();
     W.get().is_some()
 }
@@ -469,6 +543,12 @@ pub fn file_watcher_initialised() -> bool {
 ///
 /// Same shape as [`file_watcher_initialised`].
 pub fn branch_watcher_initialised() -> bool {
+    // py:38  _branch_watcher = None
+    // py:41  def branch_watcher(create_watcher):
+    // py:42  global _branch_watcher
+    // py:43  if _branch_watcher is None:
+    // py:44  _branch_watcher = create_watcher()
+    // py:45  return _branch_watcher
     static W: OnceLock<()> = OnceLock::new();
     W.get().is_some()
 }
@@ -483,7 +563,11 @@ where
     F: FnOnce() -> Result<bool, std::io::Error>,
     S: FnOnce() -> Option<String>,
 {
-    // py:216-219  initialise + delegate to TreeStatusCache.__call__
+    // py:209  def tree_status(repo, pl):
+    // py:210  global _tree_status_cache
+    // py:211  if _tree_status_cache is None:
+    // py:212  _tree_status_cache = TreeStatusCache(pl)
+    // py:213  return _tree_status_cache(repo)
     let mut cache = tree_status_cache()
         .lock()
         .unwrap_or_else(|e| e.into_inner());

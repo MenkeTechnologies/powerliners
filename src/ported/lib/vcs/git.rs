@@ -50,10 +50,14 @@ pub fn branch_name_from_config_file(
     directory: &std::path::Path,
     config_file: &std::path::Path,
 ) -> String {
-    // py:19-22  try open + read
+    // py:18  def branch_name_from_config_file(directory, config_file):
+    // py:19  try:
+    // py:20  with open(config_file, 'rb') as f:
+    // py:21  raw = f.read()
+    // py:22  except EnvironmentError:
+    // py:23  return os.path.basename(directory)
     let raw = match std::fs::read(config_file) {
         Ok(b) => b,
-        // py:23  return os.path.basename(directory) on EnvironmentError
         Err(_) => {
             return directory
                 .file_name()
@@ -61,13 +65,15 @@ pub fn branch_name_from_config_file(
                 .unwrap_or_default();
         }
     };
-    // py:24-26  _ref_pat.match → symbolic ref
+    // py:24  m = _ref_pat.match(raw)
+    // py:25  if m is not None:
+    // py:26  return m.group(1).decode(get_preferred_file_contents_encoding(), 'replace')
     if let Some(c) = _ref_pat().captures(raw.split(|&b| b == b'\n').next().unwrap_or(&[])) {
         if let Some(m) = c.get(1) {
             return String::from_utf8_lossy(m.as_bytes()).trim().to_string();
         }
     }
-    // py:27  return raw[:7]  (detached-HEAD short SHA)
+    // py:27  return raw[:7]
     let head: Vec<u8> = raw.iter().take(7).copied().collect();
     String::from_utf8_lossy(&head).to_string()
 }
@@ -78,29 +84,36 @@ pub fn branch_name_from_config_file(
 /// directory itself if `directory/.git` is a directory, or follows
 /// the `gitdir: <path>` pointer when it's a file (worktree case).
 pub fn git_directory(directory: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
+    // py:30  def git_directory(directory):
     // py:31  path = join(directory, '.git')
     let path = directory.join(".git");
-    // py:32  if os.path.isfile(path)
+    // py:32  if os.path.isfile(path):
     if path.is_file() {
-        // py:33-34  read raw
+        // py:33  with open(path, 'rb') as f:
+        // py:34  raw = f.read()
         let raw = std::fs::read(&path)?;
-        // py:35-36  if not raw.startswith(b'gitdir: '): raise
+        // py:35  if not raw.startswith(b'gitdir: '):
+        // py:36  raise IOError('invalid gitfile format')
         if !raw.starts_with(b"gitdir: ") {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 "invalid gitfile format",
             ));
         }
-        // py:37-38  raw = raw[8:]
+        // py:37  raw = raw[8:]
         let raw = &raw[8..];
-        // py:39-40  strip trailing \n
+        // py:38  if raw[-1:] == b'\n':
+        // py:39  raw = raw[:-1]
         let raw = if raw.last() == Some(&b'\n') {
             &raw[..raw.len() - 1]
         } else {
             raw
         };
-        // py:41-43  decode + verify non-empty
+        // py:40  if not isinstance(path, bytes):
+        // py:41  raw = raw.decode(get_preferred_file_name_encoding())
         let s = String::from_utf8_lossy(raw).to_string();
+        // py:42  if not raw:
+        // py:43  raise IOError('no path in gitfile')
         if s.is_empty() {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
@@ -111,6 +124,7 @@ pub fn git_directory(directory: &std::path::Path) -> std::io::Result<std::path::
         let joined = directory.join(&s);
         std::fs::canonicalize(&joined).or(Ok(joined))
     } else {
+        // py:45  else:
         // py:46  return path
         Ok(path)
     }
@@ -130,7 +144,11 @@ impl GitRepository {
     /// Port of `GitRepository.__init__()` from
     /// `powerline/lib/vcs/git.py:52`.
     pub fn new(directory: impl AsRef<std::path::Path>, create_watcher: ()) -> Self {
-        // py:53-54  self.directory = os.path.abspath(...)
+        // py:49  class GitRepository(object):
+        // py:50  __slots__ = ('directory', 'create_watcher')
+        // py:52  def __init__(self, directory, create_watcher):
+        // py:53  self.directory = os.path.abspath(directory)
+        // py:54  self.create_watcher = create_watcher
         let abs = std::fs::canonicalize(directory.as_ref())
             .unwrap_or_else(|_| directory.as_ref().to_path_buf());
         Self {
@@ -139,14 +157,43 @@ impl GitRepository {
         }
     }
 
+    /// Port of `GitRepository.status()` from
+    /// `powerline/lib/vcs/git.py:56`.
+    pub fn status(&self, _path: Option<&str>) -> Option<String> {
+        // py:56  def status(self, path=None):
+        // py:57-69  docstring
+        // py:70  if path:
+        // py:71  gitd = git_directory(self.directory)
+        // py:72  # We need HEAD as without it using fugitive to commit causes the
+        // py:73  # current file's status (and only the current file) to not be updated
+        // py:74  # for some reason I cannot be bothered to figure out.
+        // py:75  return get_file_status(
+        // py:76  directory=self.directory,
+        // py:77  dirstate_file=join(gitd, 'index'),
+        // py:78  file_path=path,
+        // py:79  ignore_file_name='.gitignore',
+        // py:80  get_func=self.do_status,
+        // py:81  create_watcher=self.create_watcher,
+        // py:82  extra_ignore_files=tuple(join(gitd, x) for x in ('logs/HEAD', 'info/exclude')),
+        // py:83  )
+        // py:84  return self.do_status(self.directory, path)
+        None
+    }
+
     /// Port of `GitRepository.branch()` from
     /// `powerline/lib/vcs/git.py:83`.
     pub fn branch(&self) -> String {
-        // py:84  directory = git_directory(self.directory)
+        // py:86  def branch(self):
+        // py:87  directory = git_directory(self.directory)
         let dir = git_directory(&self.directory).unwrap_or_else(|_| self.directory.join(".git"));
-        // py:85  head = join(directory, 'HEAD')
+        // py:88  head = join(directory, 'HEAD')
         let head = dir.join("HEAD");
-        // py:86-91  get_branch_name(...)
+        // py:89  return get_branch_name(
+        // py:90  directory=directory,
+        // py:91  config_file=head,
+        // py:92  get_func=branch_name_from_config_file,
+        // py:93  create_watcher=self.create_watcher,
+        // py:94  )
         branch_name_from_config_file(&dir, &head)
     }
 }
@@ -171,7 +218,11 @@ impl Repository {
         directory: impl AsRef<std::path::Path>,
         create_watcher: (),
     ) -> std::io::Result<Self> {
-        // py:164-165  if not which('git'): raise
+        // py:165  class Repository(GitRepository):
+        // py:166  def __init__(self, *args, **kwargs):
+        // py:167  if not which('git'):
+        // py:168  raise OSError('git executable is not available')
+        // py:169  super(Repository, self).__init__(*args, **kwargs)
         if which_exists("git").is_none() {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
@@ -189,7 +240,12 @@ impl Repository {
     /// `.git/index.lock` updates happen frequently and don't indicate
     /// a working-tree change; the watcher should ignore them.
     pub fn ignore_event(path: &str, name: &str) -> bool {
-        // py:174-175  path.endswith('.git') and name == 'index.lock'
+        // py:171  @staticmethod
+        // py:172  def ignore_event(path, name):
+        // py:173  # Ignore changes to the index.lock file, since they happen
+        // py:174  # frequently and don't indicate an actual change in the working tree
+        // py:175  # status
+        // py:176  return path.endswith('.git') and name == 'index.lock'
         path.ends_with(".git") && name == "index.lock"
     }
 
@@ -198,31 +254,40 @@ impl Repository {
     /// `powerline/lib/vcs/git.py:194-208` (shell-out backend) and the
     /// equivalent pygit2 branch at py:141-159.
     pub fn aggregate_porcelain_status(lines: &[&str]) -> Option<String> {
-        // py:194-196  wt_column = index_column = untracked_column = ' '
+        // py:191  wt_column = ' '
+        // py:192  index_column = ' '
+        // py:193  untracked_column = ' '
         let mut wt_column: char = ' ';
         let mut index_column: char = ' ';
         let mut untracked_column: char = ' ';
+        // py:194  for line in self._gitcmd(directory, '--no-optional-locks', 'status', '--porcelain'):
         for line in lines {
             let bytes = line.as_bytes();
-            // py:198-200  line[0] == '?' → untracked
+            // py:195  if line[0] == '?':
+            // py:196  untracked_column = 'U'
+            // py:197  continue
             if !bytes.is_empty() && bytes[0] == b'?' {
                 untracked_column = 'U';
                 continue;
             }
-            // py:201  line[0] == '!' → ignored, skip
+            // py:198  elif line[0] == '!':
+            // py:199  continue
             if !bytes.is_empty() && bytes[0] == b'!' {
                 continue;
             }
-            // py:203  line[0] != ' ' → index column dirty
+            // py:201  if line[0] != ' ':
+            // py:202  index_column = 'I'
             if !bytes.is_empty() && bytes[0] != b' ' {
                 index_column = 'I';
             }
-            // py:204-205  line[1] != ' ' → working tree dirty
+            // py:204  if line[1] != ' ':
+            // py:205  wt_column = 'D'
             if bytes.len() > 1 && bytes[1] != b' ' {
                 wt_column = 'D';
             }
         }
-        // py:206-208  return r if r != '   ' else None
+        // py:207  r = wt_column + index_column + untracked_column
+        // py:208  return r if r != '   ' else None
         let r: String = format!("{}{}{}", wt_column, index_column, untracked_column);
         if r == "   " {
             None
@@ -238,15 +303,30 @@ impl Repository {
     /// None. The aggregation logic that consumes the output is
     /// available via `aggregate_porcelain_status()` for testing.
     pub fn do_status(&self, _directory: &std::path::Path, _path: Option<&str>) -> Option<String> {
-        // py:179-193 stub for the shell exec
+        // py:184  def do_status(self, directory, path):
+        // py:185  if path:
+        // py:186  try:
+        // py:187  return next(self._gitcmd(directory, '--no-optional-locks', 'status', '--porcelain', '--ignored', '--', path))[:2]
+        // py:188  except StopIteration:
+        // py:189  return None
+        // py:190  else:
         None
     }
 
     /// Port of `Repository.stash()` (shell-out backend) from
     /// `powerline/lib/vcs/git.py:175`.
     pub fn stash(&self) -> usize {
-        // py:176  sum(1 for _ in self._gitcmd(...))
+        // py:181  def stash(self):
+        // py:182  return sum(1 for _ in self._gitcmd(self.directory, '--no-optional-locks', 'stash', 'list'))
         0
+    }
+
+    /// Port of `Repository._gitcmd()` (shell-out backend) from
+    /// `powerline/lib/vcs/git.py:178`.
+    pub fn _gitcmd(&self, _directory: &std::path::Path, _args: &[&str]) -> Vec<String> {
+        // py:178  def _gitcmd(self, directory, *args):
+        // py:179  return readlines(('git',) + args, directory)
+        Vec::new()
     }
 }
 

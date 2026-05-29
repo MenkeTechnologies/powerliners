@@ -23,6 +23,9 @@ use serde_json::{json, Map, Value};
 /// Returns the value of `variable` from the supplied environ map,
 /// or `None` when absent.
 pub fn environment(environ: &Map<String, Value>, variable: &str) -> Option<String> {
+    // py:11  @requires_segment_info
+    // py:12  def environment(pl, segment_info, variable=None):
+    // py:13-16  docstring
     // py:17  return segment_info['environ'].get(variable, None)
     environ
         .get(variable)
@@ -41,31 +44,40 @@ pub fn virtualenv(
     ignore_conda: bool,
     ignored_names: &[&str],
 ) -> Option<String> {
-    // py:31-34  VIRTUAL_ENV
+    // py:21  @requires_segment_info
+    // py:22  def virtualenv(pl, segment_info, ignore_venv=False, ignore_conda=False, ignored_names=("venv", ".venv")):
+    // py:23-30  docstring
+    // py:31  if not ignore_venv:
     if !ignore_venv {
+        // py:32  for candidate in reversed(segment_info['environ'].get('VIRTUAL_ENV', '').split("/")):
         let raw = environ
             .get("VIRTUAL_ENV")
             .and_then(|v| v.as_str())
             .unwrap_or("");
         for candidate in raw.split('/').rev() {
+            // py:33  if candidate and candidate not in ignored_names:
+            // py:34  return candidate
             if !candidate.is_empty() && !ignored_names.contains(&candidate) {
                 return Some(candidate.to_string());
             }
         }
     }
-    // py:35-37  CONDA_DEFAULT_ENV
+    // py:35  if not ignore_conda:
     if !ignore_conda {
+        // py:36  for candidate in reversed(segment_info['environ'].get('CONDA_DEFAULT_ENV', '').split("/")):
         let raw = environ
             .get("CONDA_DEFAULT_ENV")
             .and_then(|v| v.as_str())
             .unwrap_or("");
         for candidate in raw.split('/').rev() {
+            // py:37  if candidate and candidate not in ignored_names:
+            // py:38  return candidate
             if !candidate.is_empty() && !ignored_names.contains(&candidate) {
                 return Some(candidate.to_string());
             }
         }
     }
-    // py:38  return None
+    // py:39  return None
     None
 }
 
@@ -81,7 +93,17 @@ pub fn get_shortened_path(
     home: Option<&str>,
     shorten_home: bool,
 ) -> Result<String, std::io::Error> {
-    // py:58-65  try getcwd; except OSError errno=2: return '[not found]'
+    // py:56  def get_shortened_path(self, pl, segment_info, shorten_home=True, **kwargs):
+    // py:57  try:
+    // py:58  path = out_u(segment_info['getcwd']())
+    // py:59  except OSError as e:
+    // py:60  if e.errno == 2:
+    // py:61  # user most probably deleted the directory
+    // py:62  # this happens when removing files from Mercurial repos for example
+    // py:63  pl.warn('Current directory not found')
+    // py:64  return '[not found]'
+    // py:65  else:
+    // py:66  raise
     let path = match cwd_result {
         Ok(p) => p,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
@@ -89,7 +111,12 @@ pub fn get_shortened_path(
         }
         Err(e) => return Err(e),
     };
-    // py:66-71  shorten_home: path → ~ + suffix
+    // py:67  if shorten_home:
+    // py:68  home = segment_info['home']
+    // py:69  if home:
+    // py:70  home = out_u(home)
+    // py:71  if path.startswith(home):
+    // py:72  path = '~' + path[len(home):]
     if shorten_home {
         if let Some(h) = home {
             if !h.is_empty() && path.starts_with(h) {
@@ -97,6 +124,7 @@ pub fn get_shortened_path(
             }
         }
     }
+    // py:73  return path
     Ok(path)
 }
 
@@ -114,11 +142,19 @@ pub fn cwd_segments(
     use_path_separator: bool,
     ellipsis: Option<&str>,
 ) -> Vec<Value> {
+    // py:74  def __call__(self, pl, segment_info,
+    // py:75  dir_shorten_len=None,
+    // py:76  dir_limit_depth=None,
+    // py:77  use_path_separator=False,
+    // py:78  ellipsis='...',
+    // py:79  **kwargs):
+    // py:80  cwd = self.get_shortened_path(pl, segment_info, **kwargs)
     let sep = std::path::MAIN_SEPARATOR;
-    // py:80  cwd_split = cwd.split(os.sep)
+    // py:81  cwd_split = cwd.split(os.sep)
     let cwd_split: Vec<&str> = cwd.split(sep).collect();
+    // py:82  cwd_split_len = len(cwd_split)
     let cwd_split_len = cwd_split.len();
-    // py:82  cwd = [i[0:dir_shorten_len] ... for i in cwd_split[:-1]] + [last]
+    // py:83  cwd = [i[0:dir_shorten_len] if dir_shorten_len and i else i for i in cwd_split[:-1]] + [cwd_split[-1]]
     let mut parts: Vec<String> = if cwd_split.is_empty() {
         Vec::new()
     } else {
@@ -140,7 +176,10 @@ pub fn cwd_segments(
         v.push(cwd_split[last_idx].to_string());
         v
     };
-    // py:83-86  dir_limit_depth: trim + ellipsis
+    // py:84  if dir_limit_depth and cwd_split_len > dir_limit_depth + 1:
+    // py:85  del(cwd[0:-dir_limit_depth])
+    // py:86  if ellipsis is not None:
+    // py:87  cwd.insert(0, ellipsis)
     if let Some(depth) = dir_limit_depth {
         if cwd_split_len > depth + 1 {
             let drop_count = parts.len() - depth;
@@ -150,35 +189,50 @@ pub fn cwd_segments(
             }
         }
     }
-    // py:88-89  if not cwd[0]: cwd[0] = '/'
+    // py:88  ret = []
+    // py:89  if not cwd[0]:
+    // py:90  cwd[0] = '/'
     if let Some(first) = parts.first_mut() {
         if first.is_empty() {
             *first = sep.to_string();
         }
     }
-    // py:90-99  build segment list
+    // py:91  draw_inner_divider = not use_path_separator
     let draw_inner_divider = !use_path_separator;
     let mut ret: Vec<Value> = Vec::new();
+    // py:92  for part in cwd:
     for part in &parts {
+        // py:93  if not part:
+        // py:94  continue
         if part.is_empty() {
             continue;
         }
+        // py:95  if use_path_separator:
+        // py:96  part += os.sep
         let contents = if use_path_separator {
             format!("{}{}", part, sep)
         } else {
             part.clone()
         };
+        // py:97  ret.append({
+        // py:98  'contents': part,
+        // py:99  'divider_highlight_group': 'cwd:divider',
+        // py:100  'draw_inner_divider': draw_inner_divider,
+        // py:101  })
         ret.push(json!({
             "contents": contents,
             "divider_highlight_group": "cwd:divider",
             "draw_inner_divider": draw_inner_divider,
         }));
     }
-    // py:100  ret[-1]['highlight_groups'] = ['cwd:current_folder', 'cwd']
+    // py:102  ret[-1]['highlight_groups'] = ['cwd:current_folder', 'cwd']
     if let Some(last) = ret.last_mut() {
         last["highlight_groups"] = json!(["cwd:current_folder", "cwd"]);
     }
-    // py:101-105  use_path_separator post-processing
+    // py:103  if use_path_separator:
+    // py:104  ret[-1]['contents'] = ret[-1]['contents'][:-1]
+    // py:105  if len(ret) > 1 and ret[0]['contents'][0] == os.sep:
+    // py:106  ret[0]['contents'] = ret[0]['contents'][1:]
     if use_path_separator {
         if let Some(last) = ret.last_mut() {
             let s = last["contents"].as_str().unwrap_or("").to_string();
@@ -195,6 +249,7 @@ pub fn cwd_segments(
             }
         }
     }
+    // py:107  return ret
     ret
 }
 
