@@ -1439,3 +1439,31 @@ segment_getter_name
 # requires a `matches!` macro or method. is_none mirrors Option's
 # is_none semantically and is idiomatic at call sites.
 is_none
+
+# segments/i3wm.rs::priority_sort_workspaces — extracts the
+# priority-prefix loop from inside sort_ws() at
+# powerline/segments/i3wm.py:129-132. Python defines sort_ws as a
+# closure inside workspaces(); Rust pulls the priority-ordering body
+# to a standalone fn so the natural-key + priority-prefix passes are
+# independently testable. natural_key (also extracted) takes the
+# fn name `natural_key` which exists in the docs.
+priority_sort_workspaces
+
+# segments/i3wm.rs::workspace_default_format — extracts the
+# inline `format = '{stripped_name}' if strip else '{name}'`
+# default-keyword resolution at
+# powerline/segments/i3wm.py:207-208 (inside workspace()). Python
+# computes the default inside the body; Rust extracts as a const-
+# returning helper so the strip-vs-default mapping is independently
+# testable. Same inline-default-extraction pattern as
+# resolve_renderer_module.
+workspace_default_format
+
+# segments/i3wm.rs::scratchpad_entry — extracts the per-window
+# entry-builder from the scratchpad() comprehension at
+# powerline/segments/i3wm.py:286-292. Python builds the segment
+# dict inline inside the list comprehension; Rust extracts as a
+# named fn taking the scratchpad_state + flags so the dict shape
+# (contents + highlight_groups) can be tested without an i3ipc
+# connection. Returns None for state=='none' per py:292.
+scratchpad_entry

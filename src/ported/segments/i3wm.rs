@@ -250,6 +250,135 @@ pub fn active_window_contents(title: &str, window_class: &str, cutoff: usize) ->
     }
 }
 
+/// Port of the inline natural-sort key from
+/// `powerline/segments/i3wm.py:125-127` (defined inside
+/// `sort_ws()`).
+///
+/// Python:
+/// ```python
+/// def natural_key(ws):
+///     str = ws.name
+///     return [int(s) if s.isdigit() else s for s in re.split(r'(\d+)', str)]
+/// ```
+///
+/// Splits a workspace name into alternating digit/non-digit chunks
+/// so that "ws10" sorts after "ws2". Rust port returns a Vec of
+/// owned strings since we can't return a Python-style mixed
+/// `[int|str]` list; callers compare lexicographically with
+/// numeric ordering preserved by zero-padding digit groups.
+pub fn natural_key(name: &str) -> Vec<String> {
+    // py:125-127  re.split(r'(\d+)', name)
+    static R: OnceLock<Regex> = OnceLock::new();
+    let re = R.get_or_init(|| Regex::new(r"(\d+)").unwrap());
+    let mut out: Vec<String> = Vec::new();
+    let mut last_end = 0;
+    for m in re.find_iter(name) {
+        if m.start() > last_end {
+            out.push(name[last_end..m.start()].to_string());
+        }
+        // Digit groups: zero-pad to width 10 so lex compare matches numeric.
+        out.push(format!("{:0>10}", m.as_str()));
+        last_end = m.end();
+    }
+    if last_end < name.len() {
+        out.push(name[last_end..].to_string());
+    }
+    out
+}
+
+/// Port of `sort_ws()` priority-prefix logic from
+/// `powerline/segments/i3wm.py:129-132`.
+///
+/// Reorders `workspaces` so that any names in `priority_names`
+/// appear first in the listed order, with remaining workspaces
+/// following in their original relative order.
+pub fn priority_sort_workspaces(workspaces: &[String], priority_names: &[String]) -> Vec<String> {
+    let mut result: Vec<String> = Vec::new();
+    // py:130-131  for n in priority_workspaces: append matches in order
+    for priority in priority_names {
+        for w in workspaces {
+            if w == priority {
+                result.push(w.clone());
+            }
+        }
+    }
+    // py:132  result + [w for w in ws if not w.name in priority_workspaces]
+    for w in workspaces {
+        if !priority_names.contains(w) {
+            result.push(w.clone());
+        }
+    }
+    result
+}
+
+/// Port of the `format` keyword default at
+/// `powerline/segments/i3wm.py:207-208` (inside `workspace()`).
+///
+/// Python:
+/// ```python
+/// if format == None:
+///     format = '{stripped_name}' if strip else '{name}'
+/// ```
+pub fn workspace_default_format(strip: bool) -> &'static str {
+    // py:207-208
+    if strip {
+        "{stripped_name}"
+    } else {
+        "{name}"
+    }
+}
+
+/// Port of `scratchpad()` per-window entry builder from
+/// `powerline/segments/i3wm.py:286-292`.
+///
+/// Returns the segment dict for one scratchpad window:
+/// `{'contents': icons[state] (defaulting to 'changed'),
+///   'highlight_groups': scratchpad_groups(w)}`.
+/// Returns None when the window's scratchpad_state is `'none'`
+/// per py:292.
+pub fn scratchpad_entry(
+    scratchpad_state: &str,
+    flags: &ScratchpadFlags,
+    icons: &Map<String, Value>,
+) -> Option<Value> {
+    // py:292  if w.scratchpad_state != 'none'
+    if scratchpad_state == "none" {
+        return None;
+    }
+    // py:288  icons.get(w.scratchpad_state, icons['changed'])
+    let contents = icons
+        .get(scratchpad_state)
+        .and_then(|v| v.as_str())
+        .map(String::from)
+        .or_else(|| {
+            icons
+                .get("changed")
+                .and_then(|v| v.as_str())
+                .map(String::from)
+        })
+        .unwrap_or_default();
+    // py:289  scratchpad_groups(w)
+    let groups: Vec<Value> = scratchpad_groups(flags)
+        .into_iter()
+        .map(Value::String)
+        .collect();
+    Some(json!({
+        "contents": contents,
+        "highlight_groups": groups,
+    }))
+}
+
+/// Port of `active_window()` segment from
+/// `powerline/segments/i3wm.py:295-302`.
+///
+/// Wraps `active_window_contents` into the segment-shape result
+/// expected by the segment dispatcher. Returns the contents (or
+/// window_class fallback) as a plain string per py:302.
+pub fn active_window(title: &str, window_class: &str, cutoff: usize) -> String {
+    // py:295-302
+    active_window_contents(title, window_class, cutoff)
+}
+
 /// Builder for one entry of the workspace segment output. Mirrors
 /// the `format.format(name=..., stripped_name=..., number=..., icon=...,
 /// multi_icon=...)` call inside the `workspaces` segment (py:140-150).
@@ -608,5 +737,143 @@ mod tests {
         // strip=3 → skip leading 3 chars
         let e = build_workspace_entry("{name}", "1: web", 1, &c, &icons, 3);
         assert_eq!(e["contents"], "web");
+    }
+
+    #[test]
+    fn natural_key_orders_digits_numerically() {
+        // py:125-127  digits should sort numerically not lexicographically
+        let k2 = natural_key("ws2");
+        let k10 = natural_key("ws10");
+        assert!(k2 < k10);
+    }
+
+    #[test]
+    fn natural_key_handles_pure_digits() {
+        let k1 = natural_key("1");
+        let k10 = natural_key("10");
+        assert!(k1 < k10);
+    }
+
+    #[test]
+    fn natural_key_handles_no_digits() {
+        let k = natural_key("web");
+        assert_eq!(k, vec!["web".to_string()]);
+    }
+
+    #[test]
+    fn natural_key_alternating_chunks() {
+        let k = natural_key("ws10:dev");
+        // chunks: "ws", "10", ":dev"
+        assert_eq!(k.len(), 3);
+        assert_eq!(k[0], "ws");
+        assert_eq!(k[2], ":dev");
+        // digit chunk zero-padded
+        assert!(k[1].ends_with("10"));
+    }
+
+    #[test]
+    fn priority_sort_workspaces_puts_priority_names_first() {
+        // py:130-132
+        let ws = vec![
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+        ];
+        let priority = vec!["c".to_string(), "a".to_string()];
+        let r = priority_sort_workspaces(&ws, &priority);
+        assert_eq!(r, vec!["c", "a", "b", "d"]);
+    }
+
+    #[test]
+    fn priority_sort_workspaces_empty_priority_preserves_order() {
+        let ws = vec!["x".to_string(), "y".to_string(), "z".to_string()];
+        let r = priority_sort_workspaces(&ws, &[]);
+        assert_eq!(r, vec!["x", "y", "z"]);
+    }
+
+    #[test]
+    fn priority_sort_workspaces_priority_not_in_list_is_skipped() {
+        let ws = vec!["a".to_string(), "b".to_string()];
+        let priority = vec!["missing".to_string()];
+        let r = priority_sort_workspaces(&ws, &priority);
+        assert_eq!(r, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn workspace_default_format_strip_returns_stripped_name() {
+        // py:208
+        assert_eq!(workspace_default_format(true), "{stripped_name}");
+    }
+
+    #[test]
+    fn workspace_default_format_no_strip_returns_name() {
+        assert_eq!(workspace_default_format(false), "{name}");
+    }
+
+    #[test]
+    fn scratchpad_entry_none_state_returns_none() {
+        // py:292  if w.scratchpad_state != 'none'
+        let flags = ScratchpadFlags {
+            urgent: false,
+            first_node_focused: true,
+            workspace_name: "1".to_string(),
+        };
+        let icons = scratchpad_icons();
+        assert!(scratchpad_entry("none", &flags, &icons).is_none());
+    }
+
+    #[test]
+    fn scratchpad_entry_known_state_uses_matching_icon() {
+        // py:288  icons.get(state)
+        let flags = ScratchpadFlags {
+            urgent: false,
+            first_node_focused: false,
+            workspace_name: "__i3_scratch".to_string(),
+        };
+        let icons = scratchpad_icons();
+        let entry = scratchpad_entry("fresh", &flags, &icons).unwrap();
+        assert_eq!(entry["contents"], "O");
+    }
+
+    #[test]
+    fn scratchpad_entry_unknown_state_falls_back_to_changed_icon() {
+        // py:288  icons.get(state, icons['changed'])
+        let flags = ScratchpadFlags {
+            urgent: false,
+            first_node_focused: false,
+            workspace_name: "__i3_scratch".to_string(),
+        };
+        let icons = scratchpad_icons();
+        let entry = scratchpad_entry("bogus_state", &flags, &icons).unwrap();
+        assert_eq!(entry["contents"], "X");
+    }
+
+    #[test]
+    fn scratchpad_entry_emits_highlight_groups_from_flags() {
+        // py:289
+        let flags = ScratchpadFlags {
+            urgent: true,
+            first_node_focused: false,
+            workspace_name: "__i3_scratch".to_string(),
+        };
+        let icons = scratchpad_icons();
+        let entry = scratchpad_entry("changed", &flags, &icons).unwrap();
+        let groups = entry["highlight_groups"].as_array().unwrap();
+        let strs: Vec<&str> = groups.iter().filter_map(|v| v.as_str()).collect();
+        assert!(strs.contains(&"scratchpad:urgent"));
+        assert!(strs.contains(&"scratchpad"));
+    }
+
+    #[test]
+    fn active_window_returns_title_under_cutoff() {
+        // py:295-302
+        assert_eq!(active_window("short", "Class", 100), "short");
+    }
+
+    #[test]
+    fn active_window_returns_class_when_title_exceeds_cutoff() {
+        let long_title = "a".repeat(200);
+        assert_eq!(active_window(&long_title, "MyClass", 100), "MyClass");
     }
 }
