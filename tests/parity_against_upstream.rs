@@ -2192,6 +2192,38 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_updated_returns_new_dict_without_mutating_source() {
+    if !python_available() {
+        return;
+    }
+    // updated(d, **kwargs) returns a copy of d with kwargs applied via
+    // d.copy().update(**kwargs). Verify Rust port:
+    //   - source dict stays untouched
+    //   - overriding keys win
+    //   - empty source works
+    let py = match py_eval(
+        "(lambda d, upd: __import__('json').dumps({'orig': d, 'result': __import__('powerline.lib.dict', fromlist=['updated']).updated(d, **upd)}, sort_keys=True))({'a': 1, 'b': 2}, {'a': 99, 'c': 3})",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+
+    use serde_json::json;
+    let d_orig = json!({"a": 1, "b": 2}).as_object().unwrap().clone();
+    let upd = json!({"a": 99, "c": 3}).as_object().unwrap().clone();
+    let result = powerliners::lib::dict::updated(&d_orig, upd);
+    let combined = json!({
+        "orig": serde_json::Value::Object(d_orig),
+        "result": serde_json::Value::Object(result),
+    });
+    assert_eq!(
+        py_value, combined,
+        "updated() output / source-mutation mismatch"
+    );
+}
+
+#[test]
 fn parity_surrogate_pair_to_character_full_range() {
     if !python_available() {
         return;
