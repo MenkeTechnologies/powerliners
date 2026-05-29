@@ -83,14 +83,12 @@ pub fn workspace_lister(
     output: Option<&str>,
 ) -> Vec<(Map<String, Value>, Map<String, Value>)> {
     // py:43-44  if output == None: output = output or segment_info.get('output')
-    let output = output
-        .map(String::from)
-        .or_else(|| {
-            segment_info
-                .get("output")
-                .and_then(|v| v.as_str())
-                .map(String::from)
-        });
+    let output = output.map(String::from).or_else(|| {
+        segment_info
+            .get("output")
+            .and_then(|v| v.as_str())
+            .map(String::from)
+    });
 
     // Without a live i3 connection there are no workspaces.
     // Callers needing tested behaviour go through workspace_lister_for.
