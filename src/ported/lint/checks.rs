@@ -1048,7 +1048,10 @@ pub fn check_highlight_groups(hl_groups: &[&str], available_groups: &HashSet<&st
 /// dict-lookups via list concatenation (py:191-194). The Rust port
 /// surfaces it as a free fn over `&serde_json::Map` so callers can
 /// reuse the list-or-empty pattern.
-pub fn listed_key(d: &serde_json::Map<String, serde_json::Value>, k: &str) -> Vec<serde_json::Value> {
+pub fn listed_key(
+    d: &serde_json::Map<String, serde_json::Value>,
+    k: &str,
+) -> Vec<serde_json::Value> {
     // py:178  def listed_key(d, k):
     // py:179  try:
     // py:180  return [d[k]]

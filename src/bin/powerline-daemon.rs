@@ -1137,11 +1137,7 @@ fn ad_last_pipe_status(args: &Map<String, Value>, info: &Map<String, Value>) -> 
         .and_then(|v| v.as_object())
         .and_then(|o| o.get("last_pipe_status"))
         .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .map(|v| v.as_i64().unwrap_or(0) as i32)
-                .collect()
-        })
+        .map(|arr| arr.iter().map(|v| v.as_i64().unwrap_or(0) as i32).collect())
         .unwrap_or_default();
     let seg_info = ShellSegmentInfo {
         last_pipe_status: lps_vec,
@@ -1202,7 +1198,11 @@ fn ad_virtualenv(args: &Map<String, Value>, info: &Map<String, Value>) -> Option
     let ignored: Vec<String> = args
         .get("ignored_names")
         .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_else(|| vec!["venv".to_string(), ".venv".to_string()]);
     let ignored_refs: Vec<&str> = ignored.iter().map(String::as_str).collect();
     let v = virtualenv(&environ, ignore_venv, ignore_conda, &ignored_refs)?;
@@ -1272,9 +1272,7 @@ fn ad_fuzzy_time(args: &Map<String, Value>, _info: &Map<String, Value>) -> Optio
 }
 
 fn ad_weather(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
-    use powerliners::ported::segments::common::wthr::{
-        compute_state, render_one, weather_key,
-    };
+    use powerliners::ported::segments::common::wthr::{compute_state, render_one, weather_key};
     let location_query = args
         .get("location_query")
         .and_then(|v| v.as_str())
@@ -1604,7 +1602,10 @@ const ADAPTERS: &[(&str, AdapterFn)] = &[
     ("powerline.segments.common.players.mocp", ad_mocp),
     ("powerline.segments.common.players.rhythmbox", ad_rhythmbox),
     ("powerline.segments.common.players.itunes", ad_itunes),
-    ("powerline.segments.common.players.clementine", ad_clementine),
+    (
+        "powerline.segments.common.players.clementine",
+        ad_clementine,
+    ),
     (
         "powerline.segments.common.players.dbus_player",
         ad_dbus_player,

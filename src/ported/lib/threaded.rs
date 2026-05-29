@@ -1246,18 +1246,10 @@ mod tests {
     fn kw_threaded_render_returns_cached_state_when_present() {
         // py:197 + py:216  cached → render_one
         let mut queries = std::collections::HashMap::new();
-        queries.insert(
-            "k1".to_string(),
-            (0.0_f64, Some("cached".to_string())),
-        );
-        let result = KwThreadedSegment::render(
-            &queries,
-            "k1",
-            true,
-            false,
-            false,
-            |_, _| panic!("should not be called when cached"),
-        );
+        queries.insert("k1".to_string(), (0.0_f64, Some("cached".to_string())));
+        let result = KwThreadedSegment::render(&queries, "k1", true, false, false, |_, _| {
+            panic!("should not be called when cached")
+        });
         assert_eq!(result, Some("cached".to_string()));
     }
 
@@ -1329,15 +1321,11 @@ mod tests {
         let new_queries = vec!["k1".to_string(), "k2".to_string()];
         let calls = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
         let calls_c = calls.clone();
-        let (updates, _crashed) = KwThreadedSegment::update(
-            &old,
-            &new_queries,
-            60.0,
-            move |_crashed, updates, key| {
+        let (updates, _crashed) =
+            KwThreadedSegment::update(&old, &new_queries, 60.0, move |_crashed, updates, key| {
                 calls_c.lock().unwrap().push(key.to_string());
                 updates.insert(key.to_string(), (1.0, Some(format!("v_{key}"))));
-            },
-        );
+            });
         let mut got = calls.lock().unwrap().clone();
         got.sort();
         assert_eq!(got, vec!["k1".to_string(), "k2".to_string()]);

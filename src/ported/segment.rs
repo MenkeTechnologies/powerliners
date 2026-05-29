@@ -453,7 +453,10 @@ where
     } else {
         // py:268  else:
         // py:269  module = 'powerline.selectors.' + ext
-        (format!("powerline.selectors.{}", ext), function_name.to_string())
+        (
+            format!("powerline.selectors.{}", ext),
+            function_name.to_string(),
+        )
     };
     // py:270  function = get_module_attr(module, function_name, prefix='segment_generator/selector_function')
     // py:271  if not function:
@@ -876,7 +879,10 @@ where
     }
     // py:327-331  contents, _contents_func, module, function_name, name = get_segment_info(...)
     let (function_name, module, name) = if segment_type == "string" {
-        let n = segment.get("name").and_then(|v| v.as_str()).map(String::from);
+        let n = segment
+            .get("name")
+            .and_then(|v| v.as_str())
+            .map(String::from);
         (String::new(), String::new(), n)
     } else {
         let raw = segment.get("function").and_then(|v| v.as_str())?;
@@ -887,7 +893,10 @@ where
         if !get_module_attr(&m, &fname) {
             return None;
         }
-        let n = segment.get("name").and_then(|v| v.as_str()).map(String::from);
+        let n = segment
+            .get("name")
+            .and_then(|v| v.as_str())
+            .map(String::from);
         (fname, m, n)
     };
 
@@ -918,10 +927,7 @@ where
         Value::Array(highlight_groups),
     );
     out.insert("side".to_string(), Value::String(side.to_string()));
-    out.insert(
-        "module".to_string(),
-        Value::String(module),
-    );
+    out.insert("module".to_string(), Value::String(module));
     Some(out)
 }
 
@@ -1342,12 +1348,7 @@ impl AttrFunc {
 /// `func` + `args` from the outer scope. The Rust port surfaces it as
 /// a free fn taking the underlying call as a closure so the fallback
 /// path is independently testable.
-pub fn expand_func<F>(
-    pl: &(),
-    amount: usize,
-    segment: &Map<String, Value>,
-    call_func: F,
-) -> String
+pub fn expand_func<F>(pl: &(), amount: usize, segment: &Map<String, Value>, call_func: F) -> String
 where
     F: FnOnce() -> Result<String, String>,
 {
@@ -1690,13 +1691,8 @@ mod tests {
     #[test]
     fn get_selector_resolves_dotted_function_name() {
         // py:266-267  rpartition('.') split
-        let r = get_selector("foo.bar.baz", "shell", |m, f| {
-            m == "foo.bar" && f == "baz"
-        });
-        assert_eq!(
-            r,
-            Some(("foo.bar".to_string(), "baz".to_string()))
-        );
+        let r = get_selector("foo.bar.baz", "shell", |m, f| m == "foo.bar" && f == "baz");
+        assert_eq!(r, Some(("foo.bar".to_string(), "baz".to_string())));
     }
 
     #[test]
@@ -1806,7 +1802,10 @@ mod tests {
     fn get_returns_none_when_display_false() {
         // py:333  display=false gate
         let mut seg = Map::new();
-        seg.insert("function".to_string(), json!("powerline.segments.shell.mode"));
+        seg.insert(
+            "function".to_string(),
+            json!("powerline.segments.shell.mode"),
+        );
         seg.insert("display".to_string(), json!(false));
         let r = get(&seg, "right", "powerline.segments", |_, _| true);
         assert!(r.is_none());

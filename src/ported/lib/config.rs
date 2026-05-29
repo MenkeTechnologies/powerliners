@@ -909,7 +909,9 @@ mod tests {
         let mut cl = ConfigLoader::new(false);
         let p = std::path::PathBuf::from("/tmp/zz_pwl_test_a.json");
         cl.register(42, &p);
-        let called = std::sync::Arc::new(std::sync::Mutex::new(Vec::<(u64, std::path::PathBuf)>::new()));
+        let called = std::sync::Arc::new(std::sync::Mutex::new(
+            Vec::<(u64, std::path::PathBuf)>::new(),
+        ));
         let loaded = std::sync::Arc::new(std::sync::Mutex::new(Vec::<std::path::PathBuf>::new()));
         let called_c = called.clone();
         let loaded_c = loaded.clone();

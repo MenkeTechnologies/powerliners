@@ -689,8 +689,7 @@ mod tests {
         // py:99  '?' * strwidth(object[start:end])
         let object = "abc";
         let strwidth = |s: &str| s.chars().count();
-        let (replacement, new_end) =
-            powerline_encode_strwidth_error(strwidth, object, 0, 3);
+        let (replacement, new_end) = powerline_encode_strwidth_error(strwidth, object, 0, 3);
         assert_eq!(replacement, "???");
         assert_eq!(new_end, 3);
     }

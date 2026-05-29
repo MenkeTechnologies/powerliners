@@ -364,10 +364,7 @@ impl VimRenderer {
         };
         // py:97-99  inject (window, window_id, winnr, mode, is_tabline)
         if let Some(w) = window {
-            segment_info.insert(
-                "window".to_string(),
-                serde_json::Value::Number(w.into()),
-            );
+            segment_info.insert("window".to_string(), serde_json::Value::Number(w.into()));
         }
         if let Some(wid) = window_id {
             segment_info.insert(
@@ -376,10 +373,7 @@ impl VimRenderer {
             );
         }
         if let Some(n) = winnr {
-            segment_info.insert(
-                "winnr".to_string(),
-                serde_json::Value::Number(n.into()),
-            );
+            segment_info.insert("winnr".to_string(), serde_json::Value::Number(n.into()));
         }
         segment_info.insert("mode".to_string(), serde_json::Value::String(mode));
         segment_info.insert(
@@ -887,7 +881,8 @@ mod tests {
     fn render_returns_nc_mode_when_not_current_window() {
         // py:95-96  if window is not vim.current.window → mode = 'nc'
         let base = serde_json::Map::new();
-        let result = VimRenderer::render(&base, Some(1), Some(42), Some(2), false, false, Some("n"));
+        let result =
+            VimRenderer::render(&base, Some(1), Some(42), Some(2), false, false, Some("n"));
         assert_eq!(
             result.get("mode"),
             Some(&serde_json::Value::String("nc".to_string()))
@@ -898,7 +893,8 @@ mod tests {
     fn render_uses_supplied_mode_for_current_window() {
         // py:92-94  if window is vim.current.window → mode = vim_mode()
         let base = serde_json::Map::new();
-        let result = VimRenderer::render(&base, Some(1), Some(42), Some(2), false, true, Some("INS"));
+        let result =
+            VimRenderer::render(&base, Some(1), Some(42), Some(2), false, true, Some("INS"));
         assert_eq!(
             result.get("mode"),
             Some(&serde_json::Value::String("INS".to_string()))

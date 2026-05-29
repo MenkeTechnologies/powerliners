@@ -568,7 +568,10 @@ mod tests {
             },
             |m, mode| {
                 let mut out = m.clone();
-                out.insert("mode".to_string(), serde_json::Value::String(mode.to_string()));
+                out.insert(
+                    "mode".to_string(),
+                    serde_json::Value::String(mode.to_string()),
+                );
                 out
             },
         );

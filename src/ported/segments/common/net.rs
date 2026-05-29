@@ -475,7 +475,10 @@ pub fn key(interface: &str) -> String {
 ///     don't have to unwrap the JSON shape.
 pub fn compute_state(
     interface: &str,
-    interfaces: &mut std::collections::HashMap<String, (Option<(f64, (u64, u64))>, Option<(f64, (u64, u64))>)>,
+    interfaces: &mut std::collections::HashMap<
+        String,
+        (Option<(f64, (u64, u64))>, Option<(f64, (u64, u64))>),
+    >,
     proc_route_content: Option<&str>,
 ) -> Option<(Option<(f64, (u64, u64))>, Option<(f64, (u64, u64))>)> {
     use crate::ported::lib::monotonic::monotonic;
@@ -1126,11 +1129,7 @@ mod tests {
     fn compute_state_explicit_interface_skips_route_walk() {
         // py:203  interface != 'auto' → no route walk
         let mut interfaces = std::collections::HashMap::new();
-        let result = compute_state(
-            "nonexistent_iface_zz",
-            &mut interfaces,
-            None,
-        );
+        let result = compute_state("nonexistent_iface_zz", &mut interfaces, None);
         // First call yields (prev=None, last=None) since _get_bytes
         // returns None for the synthetic interface on non-Linux.
         assert!(result.is_some());

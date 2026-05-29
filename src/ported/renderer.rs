@@ -523,9 +523,7 @@ impl Renderer {
         // py:591  def hlstyle(fg=None, bg=None, attrs=None, **kwargs):
         // py:592-597  docstring
         // py:598  raise NotImplementedError
-        unimplemented!(
-            "Renderer.hlstyle is abstract; concrete renderers must override (py:598)"
-        )
+        unimplemented!("Renderer.hlstyle is abstract; concrete renderers must override (py:598)")
     }
 
     /// Returns `hlstyle(fg, bg, attrs) + (contents or '')` per

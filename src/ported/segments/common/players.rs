@@ -142,7 +142,10 @@ pub fn argspecobjs() -> Vec<(String, String)> {
     // py:62  def argspecobjs(self):
     // py:63-64  for ret in super().argspecobjs(): yield ret
     // py:65  yield 'get_player_status', self.get_player_status
-    vec![("get_player_status".to_string(), "get_player_status".to_string())]
+    vec![(
+        "get_player_status".to_string(),
+        "get_player_status".to_string(),
+    )]
 }
 
 /// Port of `PlayerSegment.omitted_args()` from

@@ -434,7 +434,14 @@ pub fn echoerr<W: std::io::Write>(
     // py:158  stream.write('\n')
     stream.write_all(b"\n")?;
     // py:159  stream.write((format_error(**kwargs) + '\n').encode(...))
-    let formatted = format_error(context, context_mark, problem, problem_mark, description, indent);
+    let formatted = format_error(
+        context,
+        context_mark,
+        problem,
+        problem_mark,
+        description,
+        indent,
+    );
     stream.write_all(formatted.as_bytes())?;
     stream.write_all(b"\n")?;
     Ok(())
@@ -1002,16 +1009,7 @@ mod tests {
     fn echoerr_writes_newline_problem_newline() {
         // py:156-164  '\n' + format_error(...) + '\n'
         let mut buf: Vec<u8> = Vec::new();
-        echoerr(
-            &mut buf,
-            None,
-            None,
-            Some("disk full"),
-            None,
-            None,
-            0,
-        )
-        .unwrap();
+        echoerr(&mut buf, None, None, Some("disk full"), None, None, 0).unwrap();
         let s = String::from_utf8(buf).unwrap();
         assert!(s.starts_with('\n'));
         assert!(s.contains("disk full"));

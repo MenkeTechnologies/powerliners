@@ -1413,7 +1413,10 @@ impl Powerline {
                 );
                 new_options.insert(
                     "ambiwidth".into(),
-                    new_common.get("ambiwidth").cloned().unwrap_or(Value::from(1)),
+                    new_common
+                        .get("ambiwidth")
+                        .cloned()
+                        .unwrap_or(Value::from(1)),
                 );
                 let additional_escapes = new_common
                     .get("additional_escapes")
@@ -1430,18 +1433,11 @@ impl Powerline {
                 // theme_kwargs scaffold per py:607-613
                 let mut theme_kwargs: Map<String, Value> = Map::new();
                 theme_kwargs.insert("ext".into(), Value::String(self.ext.clone()));
-                theme_kwargs.insert(
-                    "common_config".into(),
-                    Value::Object(new_common.clone()),
-                );
+                theme_kwargs.insert("common_config".into(), Value::Object(new_common.clone()));
                 theme_kwargs.insert("run_once".into(), Value::Bool(self.run_once));
                 new_options.insert("theme_kwargs".into(), Value::Object(theme_kwargs));
 
-                crate::ported::lib::dict::mergedicts(
-                    &mut self.renderer_options,
-                    new_options,
-                    true,
-                );
+                crate::ported::lib::dict::mergedicts(&mut self.renderer_options, new_options, true);
 
                 self.prev_common_config = Some(new_common.clone());
             }
@@ -1489,18 +1485,15 @@ impl Powerline {
                     .and_then(|c| c.get("colorscheme"))
                     .and_then(|v| v.as_str());
                 let new_cs = ext_config.get("colorscheme").and_then(|v| v.as_str());
-                load_colorscheme = load_colorscheme
-                    || self.prev_ext_config.is_none()
-                    || prev_cs != new_cs;
+                load_colorscheme =
+                    load_colorscheme || self.prev_ext_config.is_none() || prev_cs != new_cs;
                 let prev_th = self
                     .prev_ext_config
                     .as_ref()
                     .and_then(|c| c.get("theme"))
                     .and_then(|v| v.as_str());
                 let new_th = ext_config.get("theme").and_then(|v| v.as_str());
-                load_theme = load_theme
-                    || self.prev_ext_config.is_none()
-                    || prev_th != new_th;
+                load_theme = load_theme || self.prev_ext_config.is_none() || prev_th != new_th;
                 // py:654  self.update_interval = ext_config.get('update_interval', 2)
                 self.update_interval = ext_config
                     .get("update_interval")
@@ -1512,8 +1505,11 @@ impl Powerline {
 
         // py:660  create_renderer = load_colors or load_colorscheme or load_theme or
         //                          common_config_differs or ext_config_differs
-        let need_renderer =
-            load_colors || load_colorscheme || load_theme || common_config_differs || ext_config_differs;
+        let need_renderer = load_colors
+            || load_colorscheme
+            || load_theme
+            || common_config_differs
+            || ext_config_differs;
 
         // py:662-664  load colors.json
         if load_colors {
@@ -1545,17 +1541,14 @@ impl Powerline {
                     .get("colorscheme")
                     .and_then(|v| v.as_str())
                     .unwrap_or("default");
-                let (levels, _ignore) =
-                    Self::load_colorscheme_config_levels(&self.ext, cs_name);
+                let (levels, _ignore) = Self::load_colorscheme_config_levels(&self.ext, cs_name);
                 let mut cs_config: Map<String, Value> = Map::new();
                 for level in &levels {
                     if let Ok(matches) = _find_config_files(&self.config_search_paths, level) {
                         if let Some(p) = matches.first() {
                             if let Ok(v) = crate::ported::lib::config::load_json_config(p) {
                                 if let Some(o) = v.as_object().cloned() {
-                                    crate::ported::lib::dict::mergedicts(
-                                        &mut cs_config, o, true,
-                                    );
+                                    crate::ported::lib::dict::mergedicts(&mut cs_config, o, true);
                                 }
                             }
                         }
@@ -1587,7 +1580,9 @@ impl Powerline {
                             if let Ok(v) = crate::ported::lib::config::load_json_config(p) {
                                 if let Some(o) = v.as_object().cloned() {
                                     crate::ported::lib::dict::mergedicts(
-                                        &mut theme_config, o, true,
+                                        &mut theme_config,
+                                        o,
+                                        true,
                                     );
                                 }
                             }
@@ -2155,9 +2150,8 @@ mod powerline_class_tests {
         // py:600-614  on first successful load_main, renderer_options
         // gains term_truecolor/term_escape_style/ambiwidth/tmux_escape/
         // screen_escape + theme_kwargs.
-        let fixture =
-            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("tests/data/e2e/scenario_hostname");
+        let fixture = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/data/e2e/scenario_hostname");
         if !fixture.is_dir() {
             return;
         }
@@ -2193,29 +2187,24 @@ mod powerline_class_tests {
         // py:679-686  factory closure receives renderer_options and
         // returns the concrete renderer's serialized form.
         let mut p = Powerline::init("tmux", None, false, false);
-        p.renderer_options.insert(
-            "term_truecolor".to_string(),
-            serde_json::Value::Bool(true),
-        );
+        p.renderer_options
+            .insert("term_truecolor".to_string(), serde_json::Value::Bool(true));
         let r = p.instantiate_renderer(|opts| {
             // Return a probe Value the caller can read back to verify
             // the factory received the published options.
             let mut out = serde_json::Map::new();
-            out.insert(
-                "ran".to_string(),
-                serde_json::Value::Bool(true),
-            );
+            out.insert("ran".to_string(), serde_json::Value::Bool(true));
             out.insert(
                 "saw_truecolor".to_string(),
-                opts.get("term_truecolor").cloned().unwrap_or(serde_json::Value::Null),
+                opts.get("term_truecolor")
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null),
             );
             Some(serde_json::Value::Object(out))
         });
         assert!(r.is_ok(), "factory call should succeed: {r:?}");
         assert_eq!(
-            p.renderer
-                .get("saw_truecolor")
-                .and_then(|v| v.as_bool()),
+            p.renderer.get("saw_truecolor").and_then(|v| v.as_bool()),
             Some(true)
         );
     }
@@ -2235,9 +2224,8 @@ mod powerline_class_tests {
 
     #[test]
     fn powerline_create_renderer_caches_prev_common_config() {
-        let fixture =
-            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("tests/data/e2e/scenario_hostname");
+        let fixture = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/data/e2e/scenario_hostname");
         if !fixture.is_dir() {
             return;
         }

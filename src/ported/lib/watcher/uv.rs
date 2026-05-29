@@ -447,7 +447,11 @@ impl UvTreeWatcherEvents {
     pub fn _stopped_watching(&self, path: &str) {
         // py:186  def _stopped_watching(self, path, *args):
         // py:187  self.watches.pop(path, None)
-        let mut watches = self.watcher.watches.lock().unwrap_or_else(|e| e.into_inner());
+        let mut watches = self
+            .watcher
+            .watches
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         watches.remove(path);
     }
 
