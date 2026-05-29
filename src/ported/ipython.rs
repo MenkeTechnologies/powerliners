@@ -129,7 +129,12 @@ impl IPythonPowerline {
     /// Returns the pinned (ext, use_daemon_threads) values the
     /// Python source passes to `super().init()`.
     pub fn init() -> (&'static str, bool) {
-        // py:36-40  super().init('ipython', use_daemon_threads=True, ...)
+        // py:35  def init(self, **kwargs):
+        // py:36  super(IPythonPowerline, self).init(
+        // py:37  'ipython',
+        // py:38  use_daemon_threads=True,
+        // py:39  **kwargs
+        // py:40  )
         ("ipython", true)
     }
 
@@ -139,8 +144,11 @@ impl IPythonPowerline {
     /// Returns `self.config_paths` if set, else `None` (base
     /// fallback is the caller's responsibility).
     pub fn get_config_paths(&self) -> Option<&[String]> {
-        // py:43-46  if self.config_paths: return self.config_paths
-        //           else: return super().get_config_paths()
+        // py:42  def get_config_paths(self):
+        // py:43  if self.config_paths:
+        // py:44  return self.config_paths
+        // py:45  else:
+        // py:46  return super(IPythonPowerline, self).get_config_paths()
         if self.config_paths.is_empty() {
             None
         } else {
@@ -170,21 +178,27 @@ impl IPythonPowerline {
     /// Port of `IPythonPowerline.load_main_config()` from
     /// `powerline/ipython.py:51`.
     pub fn load_main_config(&self, base: &mut Map<String, Value>) {
-        // py:52  r = super().load_main_config()  (caller-supplied)
-        // py:53-54  if self.config_overrides: mergedicts(r, ...)
+        // py:51  def load_main_config(self):
+        // py:52  r = super(IPythonPowerline, self).load_main_config()
+        // py:53  if self.config_overrides:
+        // py:54  mergedicts(r, self.config_overrides)
         if let Some(overlay) = &self.config_overrides {
             mergedicts(base, overlay.clone(), false);
         }
+        // py:55  return r
     }
 
     /// Port of `IPythonPowerline.load_theme_config()` from
     /// `powerline/ipython.py:57`.
     pub fn load_theme_config(&self, name: &str, base: &mut Map<String, Value>) {
-        // py:58  r = super().load_theme_config(name)  (caller-supplied)
-        // py:59-60  if name in self.theme_overrides: mergedicts(r, theme_overrides[name])
+        // py:57  def load_theme_config(self, name):
+        // py:58  r = super(IPythonPowerline, self).load_theme_config(name)
+        // py:59  if name in self.theme_overrides:
+        // py:60  mergedicts(r, self.theme_overrides[name])
         if let Some(overlay) = self.theme_overrides.get(name).and_then(|v| v.as_object()) {
             mergedicts(base, overlay.clone(), false);
         }
+        // py:61  return r
     }
 
     /// Port of `IPythonPowerline.do_setup()` from
