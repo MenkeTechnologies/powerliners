@@ -2192,6 +2192,45 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_mark_to_string_walks_old_mark_chain() {
+    if !python_available() {
+        return;
+    }
+    // When self.old_mark is set, to_string() walks the chain, indenting
+    // each successive ancestor by 4 more spaces and prefixing it with
+    // '\n  which replaced value\n'.
+    let py = match py_eval(
+        "(lambda M: (lambda m1, m2: (m1.set_old_mark(m2), m1.to_string())[1])(M('file1', 0, 0, 'a', 0), M('file2', 5, 5, 'bcd', 1)))(__import__('powerline.lint.markedjson.error', fromlist=['Mark']).Mark)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let expected = "  in \"file1\", line 1, column 1:\n    a\n    ^\n  which replaced value\n      in \"file2\", line 6, column 6:\n        bcd\n         ^";
+    assert_eq!(py.as_str(), expected, "Python old-chain fixture drift");
+
+    let mut m1 = powerliners::lint::markedjson::error::RichMark::new(
+        "file1",
+        0,
+        0,
+        Some("a".chars().collect()),
+        0,
+    );
+    let m2 = powerliners::lint::markedjson::error::RichMark::new(
+        "file2",
+        5,
+        5,
+        Some("bcd".chars().collect()),
+        1,
+    );
+    m1.set_old_mark(m2).expect("set_old_mark");
+    let rs = m1.to_string_marked(0, "in ", true);
+    assert_eq!(
+        rs, expected,
+        "Rust Mark.to_string_marked old-chain output mismatch"
+    );
+}
+
+#[test]
 fn parity_mark_to_string_default_indent_and_head_text() {
     if !python_available() {
         return;
