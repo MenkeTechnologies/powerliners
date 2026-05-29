@@ -17,7 +17,7 @@
 //!   - `compute_divider_widths(get_divider)` per-side hard/soft widths
 //!
 //! The full `render` / `do_render` / `_render_length` /
-//! `_prepare_segments` segment-pipeline implementations are heavy
+//! `__prepare_segments` segment-pipeline implementations are heavy
 //! enough to deserve their own port pass; only the structural pieces
 //! are covered here.
 
@@ -232,7 +232,7 @@ where
 /// `powerline/renderer.py:103`.
 ///
 /// Holds the base renderer state. The render-pipeline methods
-/// (`render`/`do_render`/`_render_segments`/`_prepare_segments`)
+/// (`render`/`do_render`/`_render_segments`/`__prepare_segments`)
 /// are heavy enough to deserve their own port pass; this struct
 /// surfaces the constructor + the `segment_info` / `width_data` /
 /// `character_translations` state.
@@ -245,6 +245,14 @@ pub struct Renderer {
     pub character_translations: HashMap<char, String>,
     /// Python: `self.width_data` per py:177-184.
     pub width_data: HashMap<char, u8>,
+    /// Python: `self.theme` — the default Theme used by get_theme
+    /// when there's no local-theme match per py:208.
+    pub theme: Value,
+    /// Records shutdown-call order. Used in lieu of the
+    /// `Theme.shutdown()` side effect since the Theme class isn't
+    /// yet wired through Rust. Same pattern as the IPython/Shell/Vim
+    /// renderer ports.
+    pub shutdown_called: std::sync::Mutex<Vec<String>>,
 }
 
 impl Renderer {
@@ -269,6 +277,123 @@ impl Renderer {
             local_themes,
             character_translations,
             width_data: width_data(ambiwidth),
+            theme: Value::Null,
+            shutdown_called: std::sync::Mutex::new(Vec::new()),
+        }
+    }
+
+    /// Port of `Renderer.get_theme()` from
+    /// `powerline/renderer.py:198-208`.
+    ///
+    /// Base implementation returns `self.theme` per py:208. Subclasses
+    /// (e.g. VimRenderer, ShellRenderer, IPythonRenderer) override to
+    /// dispatch through `local_themes`. The `matcher_info` param is
+    /// preserved for parity but ignored at this level per py:205-206.
+    pub fn get_theme(&self, _matcher_info: Option<&Value>) -> Value {
+        // py:208  return self.theme
+        self.theme.clone()
+    }
+
+    /// Port of `Renderer.shutdown()` from
+    /// `powerline/renderer.py:210-215`.
+    ///
+    /// Records `"theme"` in the shutdown_called log to mirror the
+    /// `self.theme.shutdown()` side effect per py:215. Subclasses
+    /// extend this to walk local_themes (see IPythonRenderer /
+    /// ShellRenderer / VimRenderer ports).
+    pub fn shutdown(&self) {
+        // py:215  self.theme.shutdown()
+        let mut log = self
+            .shutdown_called
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        log.push("theme".to_string());
+    }
+
+    /// Port of `Renderer.escape()` from
+    /// `powerline/renderer.py:586-589`.
+    ///
+    /// Python: `string.translate(self.character_translations)`.
+    /// Rust port walks each char and substitutes from the translation
+    /// table when present; non-translated chars pass through.
+    pub fn escape(&self, string: &str) -> String {
+        // py:589  return string.translate(self.character_translations)
+        let mut out = String::with_capacity(string.len());
+        for c in string.chars() {
+            match self.character_translations.get(&c) {
+                Some(replacement) => out.push_str(replacement),
+                None => out.push(c),
+            }
+        }
+        out
+    }
+
+    /// Port of `Renderer.hl()` from
+    /// `powerline/renderer.py:600-606`.
+    ///
+    /// Returns `hlstyle(fg, bg, attrs) + (contents or '')` per
+    /// py:606. The Rust port takes `hlstyle_fn` as a closure since
+    /// the base Python `hlstyle` raises NotImplementedError at
+    /// py:598; concrete renderers (ShellRenderer, VimRenderer)
+    /// provide the implementation.
+    pub fn hl(contents: Option<&str>, hlstyle_output: &str) -> String {
+        // py:606  return self.hlstyle(...) + (contents or '')
+        format!("{}{}", hlstyle_output, contents.unwrap_or(""))
+    }
+
+    /// Port of `Renderer.__prepare_segments()` from
+    /// `powerline/renderer.py:412-422`.
+    ///
+    /// For each segment: translates non-printable chars in
+    /// `contents` per py:415-416. When `calculate_contents_len` is
+    /// true, sets `_contents_len` from `literal_contents[0]` if
+    /// `literal_contents[1]` is truthy, else from `strwidth(contents)`.
+    pub fn _prepare_segments(segments: &mut [Value], calculate_contents_len: bool) {
+        // py:415-416  translate_np(contents)
+        for segment in segments.iter_mut() {
+            if let Some(obj) = segment.as_object_mut() {
+                if let Some(contents) = obj.get("contents").and_then(|v| v.as_str()) {
+                    let translated = translate_np(contents);
+                    obj.insert("contents".to_string(), Value::String(translated));
+                }
+            }
+        }
+        // py:417-422  calculate contents_len
+        if calculate_contents_len {
+            for segment in segments.iter_mut() {
+                if let Some(obj) = segment.as_object_mut() {
+                    // py:419-420  if literal_contents[1]: contents_len = literal_contents[0]
+                    let literal = obj
+                        .get("literal_contents")
+                        .and_then(|v| v.as_array())
+                        .cloned();
+                    let contents_len = if let Some(lit) = literal {
+                        let has_literal = lit
+                            .get(1)
+                            .and_then(|v| v.as_str())
+                            .map(|s| !s.is_empty())
+                            .unwrap_or(false);
+                        if has_literal {
+                            lit.first().and_then(|v| v.as_u64()).unwrap_or(0) as usize
+                        } else {
+                            // py:422  strwidth(contents)
+                            obj.get("contents")
+                                .and_then(|v| v.as_str())
+                                .map(strwidth)
+                                .unwrap_or(0)
+                        }
+                    } else {
+                        obj.get("contents")
+                            .and_then(|v| v.as_str())
+                            .map(strwidth)
+                            .unwrap_or(0)
+                    };
+                    obj.insert(
+                        "_contents_len".to_string(),
+                        Value::from(contents_len as u64),
+                    );
+                }
+            }
         }
     }
 
@@ -592,5 +717,127 @@ mod tests {
         extra.insert("environ".to_string(), Value::Object(env));
         let info = r.get_segment_info(Some(extra), None);
         assert_eq!(info.get("getcwd"), Some(&Value::String("/my/cwd".into())));
+    }
+
+    #[test]
+    fn get_theme_returns_self_theme() {
+        // py:208
+        let mut r = Renderer::new(Map::new(), Map::new(), 1);
+        r.theme = serde_json::json!({"name": "default"});
+        let t = r.get_theme(None);
+        assert_eq!(t["name"], "default");
+    }
+
+    #[test]
+    fn get_theme_ignores_matcher_info() {
+        // py:205-206  matcher_info: Unused
+        let mut r = Renderer::new(Map::new(), Map::new(), 1);
+        r.theme = serde_json::json!({"name": "default"});
+        let info = serde_json::json!({"foo": "bar"});
+        let t = r.get_theme(Some(&info));
+        assert_eq!(t["name"], "default");
+    }
+
+    #[test]
+    fn shutdown_records_theme() {
+        // py:215
+        let r = Renderer::new(Map::new(), Map::new(), 1);
+        r.shutdown();
+        let log = r.shutdown_called.lock().unwrap();
+        assert_eq!(*log, vec!["theme".to_string()]);
+    }
+
+    #[test]
+    fn escape_translates_chars_via_character_translations() {
+        // py:586-589
+        let mut r = Renderer::new(Map::new(), Map::new(), 1);
+        r.character_translations.clear();
+        r.character_translations.insert('%', "%%".to_string());
+        assert_eq!(r.escape("100% done"), "100%% done");
+    }
+
+    #[test]
+    fn escape_passes_untranslated_chars_through() {
+        let r = Renderer::new(Map::new(), Map::new(), 1);
+        // Default character_translations only has ' ' → NBSP
+        let s = "abc";
+        assert_eq!(r.escape(s), "abc");
+    }
+
+    #[test]
+    fn escape_default_translates_space_to_nbsp() {
+        // py:171  character_translations[' '] = NBSP
+        let r = Renderer::new(Map::new(), Map::new(), 1);
+        let result = r.escape("hi there");
+        assert!(result.contains('\u{a0}'));
+        assert!(!result.contains(' '));
+    }
+
+    #[test]
+    fn escape_use_non_breaking_spaces_false_keeps_spaces() {
+        // py:167-171  when use_non_breaking_spaces is false, no
+        // entry for ' ' in character_translations
+        let mut theme_config = Map::new();
+        theme_config.insert("use_non_breaking_spaces".to_string(), Value::Bool(false));
+        let r = Renderer::new(theme_config, Map::new(), 1);
+        assert_eq!(r.escape("hi there"), "hi there");
+    }
+
+    #[test]
+    fn hl_concatenates_hlstyle_output_and_contents() {
+        // py:606  return self.hlstyle(...) + (contents or '')
+        let result = Renderer::hl(Some("text"), "\x1b[1m");
+        assert_eq!(result, "\x1b[1mtext");
+    }
+
+    #[test]
+    fn hl_none_contents_becomes_empty_string() {
+        // py:606  contents or ''
+        let result = Renderer::hl(None, "\x1b[1m");
+        assert_eq!(result, "\x1b[1m");
+    }
+
+    #[test]
+    fn _prepare_segments_translates_non_printable_contents() {
+        // py:415-416
+        let mut segments: Vec<Value> = vec![serde_json::json!({
+            "contents": "hello\x01world",
+        })];
+        Renderer::_prepare_segments(&mut segments, false);
+        // \x01 is a control char that translate_np replaces with "^A"
+        let c = segments[0]["contents"].as_str().unwrap();
+        assert!(!c.contains('\x01'));
+    }
+
+    #[test]
+    fn _prepare_segments_calculates_contents_len_from_strwidth_when_no_literal() {
+        // py:421-422
+        let mut segments: Vec<Value> = vec![serde_json::json!({
+            "contents": "hello",
+            "literal_contents": [0, ""],
+        })];
+        Renderer::_prepare_segments(&mut segments, true);
+        assert_eq!(segments[0]["_contents_len"], 5);
+    }
+
+    #[test]
+    fn _prepare_segments_uses_literal_contents_len_when_literal_non_empty() {
+        // py:419-420
+        let mut segments: Vec<Value> = vec![serde_json::json!({
+            "contents": "ignored",
+            "literal_contents": [42, "raw text"],
+        })];
+        Renderer::_prepare_segments(&mut segments, true);
+        assert_eq!(segments[0]["_contents_len"], 42);
+    }
+
+    #[test]
+    fn _prepare_segments_skips_contents_len_when_not_requested() {
+        let mut segments: Vec<Value> = vec![serde_json::json!({
+            "contents": "hello",
+            "literal_contents": [0, ""],
+        })];
+        Renderer::_prepare_segments(&mut segments, false);
+        assert!(segments[0].get("_contents_len").is_none());
     }
 }
