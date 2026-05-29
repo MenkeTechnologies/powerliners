@@ -69,9 +69,164 @@ pub fn date(_pl: &(), format: &str, istime: bool, _timezone: Option<&str>) -> Ve
     })]
 }
 
-// `fuzzy_time()` (py:40-) ports separately — large hour/minute string
-// table + special-case handling for noon/midnight + nbsp + unicode
-// text translation. Out of scope for this pass.
+/// Port of `UNICODE_TEXT_TRANSLATION` from
+/// `powerline/segments/common/time.py:40-43`.
+///
+/// Maps ASCII apostrophe (`'`) → right single quotation mark
+/// (U+2019) and ASCII hyphen-minus (`-`) → hyphen (U+2010).
+pub fn unicode_text_translate(s: &str) -> String {
+    // py:41-42
+    s.replace('\'', "\u{2019}").replace('-', "\u{2010}")
+}
+
+/// Default `hour_str` list per `fuzzy_time` keyword default at
+/// `powerline/segments/common/time.py:46-47`.
+///
+/// 12 entries starting with "twelve" (midnight) per py:71-72.
+pub fn fuzzy_time_default_hour_str() -> Vec<&'static str> {
+    vec![
+        // py:46-47
+        "twelve", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+        "eleven",
+    ]
+}
+
+/// Default `minute_str` mapping per `fuzzy_time` keyword default at
+/// `powerline/segments/common/time.py:47-50`.
+///
+/// Maps 5-minute increments (0..=55 stepped by 5) to format strings
+/// containing `{hour_str}` interpolation. Note 30 splits the hour:
+/// minutes 0..=30 use "past <hour>", 35..=55 use "to <hour+1>".
+pub fn fuzzy_time_default_minute_str() -> std::collections::HashMap<u32, &'static str> {
+    let mut m = std::collections::HashMap::new();
+    // py:48-50
+    m.insert(0, "{hour_str} o'clock");
+    m.insert(5, "five past {hour_str}");
+    m.insert(10, "ten past {hour_str}");
+    m.insert(15, "quarter past {hour_str}");
+    m.insert(20, "twenty past {hour_str}");
+    m.insert(25, "twenty-five past {hour_str}");
+    m.insert(30, "half past {hour_str}");
+    m.insert(35, "twenty-five to {hour_str}");
+    m.insert(40, "twenty to {hour_str}");
+    m.insert(45, "quarter to {hour_str}");
+    m.insert(50, "ten to {hour_str}");
+    m.insert(55, "five to {hour_str}");
+    m
+}
+
+/// Default `special_case_str` mapping per `fuzzy_time` keyword
+/// default at `powerline/segments/common/time.py:51-58`.
+///
+/// Keys are `(hour, minute)` pairs; values are display strings.
+/// Used for midnight/noon and the surrounding minute boundaries.
+pub fn fuzzy_time_default_special_cases() -> std::collections::HashMap<(u32, u32), &'static str> {
+    let mut m = std::collections::HashMap::new();
+    // py:51-58
+    m.insert((23, 58), "round about midnight");
+    m.insert((23, 59), "round about midnight");
+    m.insert((0, 0), "midnight");
+    m.insert((0, 1), "round about midnight");
+    m.insert((0, 2), "round about midnight");
+    m.insert((12, 0), "noon");
+    m
+}
+
+/// Port of `fuzzy_time()` value-computation core from
+/// `powerline/segments/common/time.py:101-122`.
+///
+/// `hour` and `minute` are the resolved 24-hour clock values; the
+/// timezone resolution at py:83-87 is the caller's responsibility.
+///
+/// Returns the fuzzy-time string ("quarter past six", "noon", etc.).
+/// Applies unicode_text_translate when `unicode_text=true` per
+/// py:95-96/119-120.
+pub fn fuzzy_time_compute(
+    hour: u32,
+    minute: u32,
+    hour_str: &[&str],
+    minute_str: &std::collections::HashMap<u32, &str>,
+    special_cases: &std::collections::HashMap<(u32, u32), &str>,
+    unicode_text: bool,
+) -> String {
+    // py:93-99  special_case_str[(hour, minute)]
+    if let Some(s) = special_cases.get(&(hour, minute)) {
+        if unicode_text {
+            return unicode_text_translate(s);
+        }
+        return s.to_string();
+    }
+    // py:101-104  rounding up to next hour when minute >= 32
+    let mut h = hour;
+    if minute >= 32 {
+        h += 1;
+    }
+    // py:104  hour = hour % len(hour_str)
+    let h = (h as usize) % hour_str.len();
+    // py:106-116  find closest minute_str key to current minute
+    let mut min_dis: u32 = 100;
+    let mut min_pos: u32 = 0;
+    let mut keys: Vec<u32> = minute_str.keys().copied().collect();
+    keys.sort();
+    for &mn in &keys {
+        let dis = if minute >= mn {
+            minute - mn
+        } else {
+            mn - minute
+        };
+        if dis < min_dis {
+            min_dis = dis;
+            min_pos = mn;
+        }
+    }
+    // py:117  minute_str[str(min_pos)].format(hour_str=hour_str[hour])
+    let template = minute_str.get(&min_pos).copied().unwrap_or("");
+    let result = template.replace("{hour_str}", hour_str[h]);
+    // py:119-120  unicode_text replacement
+    if unicode_text {
+        unicode_text_translate(&result)
+    } else {
+        result
+    }
+}
+
+/// Port of `fuzzy_time()` from
+/// `powerline/segments/common/time.py:46-122`.
+///
+/// Reads the current local time and dispatches to `fuzzy_time_compute`.
+/// The `_format` parameter is preserved at py:62-63 (unused in Python).
+pub fn fuzzy_time(
+    _format: Option<&str>,
+    unicode_text: bool,
+    _timezone: Option<&str>,
+    hour_str: Option<&[&str]>,
+    minute_str: Option<&std::collections::HashMap<u32, &str>>,
+    special_cases: Option<&std::collections::HashMap<(u32, u32), &str>>,
+) -> String {
+    // py:83-86  tz dispatch (timezone arg deferred — system localtime only)
+    // py:88  now = datetime.now(tz)
+    let ts = unsafe { libc::time(std::ptr::null_mut()) };
+    let mut tm: libc::tm = unsafe { std::mem::zeroed() };
+    let p = unsafe { libc::localtime_r(&ts, &mut tm) };
+    if p.is_null() {
+        return String::new();
+    }
+    let hour = tm.tm_hour as u32;
+    let minute = tm.tm_min as u32;
+
+    // Resolve the optional keyword args to defaults per py:46-58
+    let default_hour = fuzzy_time_default_hour_str();
+    let h: &[&str] = hour_str.unwrap_or(&default_hour);
+
+    let default_minute = fuzzy_time_default_minute_str();
+    let m_ref: &std::collections::HashMap<u32, &str> = minute_str.unwrap_or(&default_minute);
+
+    let default_special = fuzzy_time_default_special_cases();
+    let s_ref: &std::collections::HashMap<(u32, u32), &str> =
+        special_cases.unwrap_or(&default_special);
+
+    fuzzy_time_compute(hour, minute, h, m_ref, s_ref, unicode_text)
+}
 
 #[cfg(test)]
 mod tests {
@@ -136,5 +291,161 @@ mod tests {
         // Just verify the call succeeds and returns 10 chars for %Y-%m-%d.
         let s = format_strftime("%Y-%m-%d", 0);
         assert_eq!(s.len(), 10);
+    }
+
+    #[test]
+    fn unicode_text_translate_replaces_apostrophe_and_hyphen() {
+        // py:40-43
+        assert_eq!(unicode_text_translate("o'clock"), "o\u{2019}clock");
+        assert_eq!(unicode_text_translate("twenty-five"), "twenty\u{2010}five");
+    }
+
+    #[test]
+    fn unicode_text_translate_no_op_on_plain_text() {
+        assert_eq!(unicode_text_translate("noon"), "noon");
+    }
+
+    #[test]
+    fn fuzzy_time_default_hour_str_has_12_entries() {
+        // py:46-47
+        let h = fuzzy_time_default_hour_str();
+        assert_eq!(h.len(), 12);
+        assert_eq!(h[0], "twelve");
+        assert_eq!(h[11], "eleven");
+    }
+
+    #[test]
+    fn fuzzy_time_default_minute_str_has_12_entries() {
+        // py:48-50  0..=55 stepped by 5
+        let m = fuzzy_time_default_minute_str();
+        assert_eq!(m.len(), 12);
+        for key in [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] {
+            assert!(m.contains_key(&key));
+        }
+    }
+
+    #[test]
+    fn fuzzy_time_default_minute_str_quarter_past() {
+        let m = fuzzy_time_default_minute_str();
+        assert_eq!(*m.get(&15).unwrap(), "quarter past {hour_str}");
+    }
+
+    #[test]
+    fn fuzzy_time_default_special_cases_includes_noon_and_midnight() {
+        // py:51-58
+        let s = fuzzy_time_default_special_cases();
+        assert_eq!(*s.get(&(0, 0)).unwrap(), "midnight");
+        assert_eq!(*s.get(&(12, 0)).unwrap(), "noon");
+        assert_eq!(*s.get(&(23, 58)).unwrap(), "round about midnight");
+    }
+
+    #[test]
+    fn fuzzy_time_compute_quarter_past_six() {
+        // 6:15 → "quarter past six"
+        let h = fuzzy_time_default_hour_str();
+        let m = fuzzy_time_default_minute_str();
+        let s = fuzzy_time_default_special_cases();
+        assert_eq!(
+            fuzzy_time_compute(6, 15, &h, &m, &s, false),
+            "quarter past six"
+        );
+    }
+
+    #[test]
+    fn fuzzy_time_compute_o_clock() {
+        // 3:00 → "three o'clock"
+        let h = fuzzy_time_default_hour_str();
+        let m = fuzzy_time_default_minute_str();
+        let s = fuzzy_time_default_special_cases();
+        assert_eq!(fuzzy_time_compute(3, 0, &h, &m, &s, false), "three o'clock");
+    }
+
+    #[test]
+    fn fuzzy_time_compute_special_case_noon() {
+        // py:93-99
+        let h = fuzzy_time_default_hour_str();
+        let m = fuzzy_time_default_minute_str();
+        let s = fuzzy_time_default_special_cases();
+        assert_eq!(fuzzy_time_compute(12, 0, &h, &m, &s, false), "noon");
+    }
+
+    #[test]
+    fn fuzzy_time_compute_special_case_midnight() {
+        let h = fuzzy_time_default_hour_str();
+        let m = fuzzy_time_default_minute_str();
+        let s = fuzzy_time_default_special_cases();
+        assert_eq!(fuzzy_time_compute(0, 0, &h, &m, &s, false), "midnight");
+    }
+
+    #[test]
+    fn fuzzy_time_compute_special_case_round_about_midnight() {
+        let h = fuzzy_time_default_hour_str();
+        let m = fuzzy_time_default_minute_str();
+        let s = fuzzy_time_default_special_cases();
+        assert_eq!(
+            fuzzy_time_compute(23, 59, &h, &m, &s, false),
+            "round about midnight"
+        );
+    }
+
+    #[test]
+    fn fuzzy_time_compute_rounds_up_after_32() {
+        // py:101-104  if minute >= 32: hour += 1
+        // 5:40 → "twenty to six"
+        let h = fuzzy_time_default_hour_str();
+        let m = fuzzy_time_default_minute_str();
+        let s = fuzzy_time_default_special_cases();
+        assert_eq!(
+            fuzzy_time_compute(5, 40, &h, &m, &s, false),
+            "twenty to six"
+        );
+    }
+
+    #[test]
+    fn fuzzy_time_compute_unicode_text_translates_apostrophe() {
+        // py:119-120
+        let h = fuzzy_time_default_hour_str();
+        let m = fuzzy_time_default_minute_str();
+        let s = fuzzy_time_default_special_cases();
+        let r = fuzzy_time_compute(3, 0, &h, &m, &s, true);
+        assert_eq!(r, "three o\u{2019}clock");
+    }
+
+    #[test]
+    fn fuzzy_time_compute_unicode_text_translates_hyphen_in_special() {
+        let h = fuzzy_time_default_hour_str();
+        let m = fuzzy_time_default_minute_str();
+        let mut s = std::collections::HashMap::new();
+        s.insert((10, 10), "ten-thirty");
+        let r = fuzzy_time_compute(10, 10, &h, &m, &s, true);
+        assert!(r.contains('\u{2010}'));
+    }
+
+    #[test]
+    fn fuzzy_time_compute_modulo_24_hour_wraps_to_12_label() {
+        // 18:00 → hour 18 % 12 = 6 → "six o'clock"
+        let h = fuzzy_time_default_hour_str();
+        let m = fuzzy_time_default_minute_str();
+        let s = fuzzy_time_default_special_cases();
+        assert_eq!(fuzzy_time_compute(18, 0, &h, &m, &s, false), "six o'clock");
+    }
+
+    #[test]
+    fn fuzzy_time_compute_closest_minute_for_unaligned_input() {
+        // 6:13 → closest is 15 (dist=2) vs 10 (dist=3) → "quarter past six"
+        let h = fuzzy_time_default_hour_str();
+        let m = fuzzy_time_default_minute_str();
+        let s = fuzzy_time_default_special_cases();
+        assert_eq!(
+            fuzzy_time_compute(6, 13, &h, &m, &s, false),
+            "quarter past six"
+        );
+    }
+
+    #[test]
+    fn fuzzy_time_smoke_test_uses_localtime() {
+        // Verify the wrapper succeeds and returns non-empty string.
+        let r = fuzzy_time(None, false, None, None, None, None);
+        assert!(!r.is_empty());
     }
 }

@@ -1286,3 +1286,30 @@ load_colorscheme_config_levels
 # pattern for powerline/__init__.py:821-823 (the theme variant).
 # Python builds the tuple inline; Rust extracts as a pure helper.
 load_theme_config_levels
+
+# segments/common/time.rs::unicode_text_translate — the Python source
+# at powerline/segments/common/time.py:40-43 defines a static
+# UNICODE_TEXT_TRANSLATION dict + calls str.translate(...). Rust has
+# no equivalent str.translate; the helper applies the same two char
+# substitutions inline. Used by fuzzy_time per py:96 / py:120.
+unicode_text_translate
+
+# segments/common/time.rs::fuzzy_time_default_hour_str /
+# fuzzy_time_default_minute_str / fuzzy_time_default_special_cases —
+# the Python source embeds the default values directly as keyword
+# argument defaults in the fuzzy_time() signature at py:46-58. Rust
+# has no Python-style mutable-default-arg pattern; defaults are
+# extracted to standalone fns so they can be referenced at call sites
+# without re-typing each one. Same name-prefixed-with-fn-name pattern
+# used by other ports.
+fuzzy_time_default_hour_str
+fuzzy_time_default_minute_str
+fuzzy_time_default_special_cases
+
+# segments/common/time.rs::fuzzy_time_compute — extracts the
+# value-computation core of fuzzy_time at py:93-122 (special-case
+# lookup → rounding → closest-minute → format) so the algorithm is
+# unit-testable without going through the libc::localtime_r I/O
+# layer. fuzzy_time itself remains as the wrapper that reads
+# localtime and dispatches to fuzzy_time_compute.
+fuzzy_time_compute
