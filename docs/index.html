@@ -171,10 +171,11 @@
     <p class="tutorial-subtitle">A Rust port of Python's <a href="https://github.com/powerline/powerline">powerline-status</a> — the canonical statusline / prompt renderer used by tmux, zsh, bash, vim, ipython. The Python implementation pays a ~100 ms interpreter-startup tax on every render; powerliners is a single static binary with sub-millisecond startup.</p>
 
     <div class="stat-row">
-      <div class="stat-card"><div class="n">624</div><div class="l">upstream py fns</div></div>
-      <div class="stat-card"><div class="n">5</div><div class="l">target hosts</div></div>
+      <div class="stat-card"><div class="n">134/137</div><div class="l">files at DONE tier</div></div>
+      <div class="stat-card"><div class="n">1,879</div><div class="l">lib tests passing</div></div>
+      <div class="stat-card"><div class="n">631</div><div class="l">upstream py fns</div></div>
       <div class="stat-card"><div class="n">0</div><div class="l">python runtime deps</div></div>
-      <div class="stat-card"><div class="n">v0.0.3</div><div class="l">current tag</div></div>
+      <div class="stat-card"><div class="n">v0.0.7</div><div class="l">current tag</div></div>
     </div>
 
     <section class="tutorial-section">
@@ -215,7 +216,7 @@
 
     <section class="tutorial-section">
       <h2>Port discipline</h2>
-      <p>Every fn name landed in <code>src/ported/</code> must exist in upstream powerline Python source. Enforced by <code>tests/ported_fn_names_match_py.rs</code> against <code>docs/powerline_py_functions.txt</code> (currently 624 names extracted from <a href="https://github.com/powerline/powerline">github.com/powerline/powerline</a>). Maintainer-approved Rust-only exemptions live in <code>tests/data/fake_fn_allowlist.txt</code>.</p>
+      <p>Every fn name landed in <code>src/ported/</code> must exist in upstream powerline Python source. Enforced by <code>tests/ported_fn_names_match_py.rs</code> against <code>docs/powerline_py_functions.txt</code> (currently 631 names extracted from <a href="https://github.com/powerline/powerline">github.com/powerline/powerline</a>). Maintainer-approved Rust-only exemptions live in <code>tests/data/fake_fn_allowlist.txt</code>.</p>
       <pre># regenerate the upstream allowlist
 ./scripts/regen_py_functions.sh
 
