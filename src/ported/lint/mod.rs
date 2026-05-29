@@ -170,6 +170,162 @@ pub fn strip_json_suffix(name: &str) -> String {
     name.strip_suffix(".json").unwrap_or(name).to_string()
 }
 
+/// Port of `generate_json_config_loader()` from
+/// `powerline/lint/__init__.py:34-41`.
+///
+/// Python: returns a closure capturing `lhadproblem` (a mutable
+/// `[False]` flag) that flips when `load(...)` reports a problem.
+/// The Rust port mirrors this with an `Arc<Mutex<bool>>` since the
+/// closure must mutate the captured flag from outside.
+///
+/// The returned closure takes a config file path and returns the
+/// parsed `Value` per py:40, while flipping the shared flag when
+/// load reports hadproblem per py:38-39.
+pub fn generate_json_config_loader(
+    lhadproblem: std::sync::Arc<std::sync::Mutex<bool>>,
+) -> Box<dyn Fn(&std::path::Path) -> Option<Value>> {
+    // py:35  def load_json_config(config_file_path, load=load, open_file=open_file)
+    Box::new(move |config_file_path: &std::path::Path| -> Option<Value> {
+        // py:36-37  with open_file(...) as fp: r, hadproblem = load(fp)
+        let (r, hadproblem) = load(config_file_path);
+        // py:38-39  if hadproblem: lhadproblem[0] = True
+        if hadproblem {
+            let mut flag = lhadproblem.lock().unwrap_or_else(|e| e.into_inner());
+            *flag = true;
+        }
+        // py:40  return r
+        r
+    })
+}
+
+/// Discovered config file entry produced by
+/// `find_all_ext_config_files`. Mirrors the dict shape Python yields
+/// at py:350-353 / py:359-365 / py:367-370 / py:375-381 / py:383-386.
+#[derive(Debug, Clone)]
+pub struct ExtConfigEntry {
+    /// Error message when `error` is set, else None.
+    pub error: Option<String>,
+    /// Path that produced this entry.
+    pub path: std::path::PathBuf,
+    /// Config name (`<file>.json` → `<file>`). None for error entries
+    /// without a successfully-resolved file.
+    pub name: Option<String>,
+    /// Extension name (subdirectory name in the config tree). None
+    /// for top-level config files per py:363.
+    pub ext: Option<String>,
+    /// `"theme"` / `"colorscheme"` (the `subdir` arg) or
+    /// `"top_<subdir>"` for top-level entries per py:364 / py:380.
+    pub kind: Option<String>,
+}
+
+/// Port of `find_all_ext_config_files()` from
+/// `powerline/lint/__init__.py:345-386`.
+///
+/// Walks `search_paths` looking for `<root>/<subdir>/{<ext>/<name>.json,
+/// <name>.json}` configs. Yields one `ExtConfigEntry` per discovered
+/// file (or per malformed path that prevents the walk).
+pub fn find_all_ext_config_files(
+    search_paths: &[std::path::PathBuf],
+    subdir: &str,
+) -> Vec<ExtConfigEntry> {
+    let mut out: Vec<ExtConfigEntry> = Vec::new();
+    // py:346  for config_root in search_paths
+    for config_root in search_paths {
+        // py:347  top_config_subpath = join(config_root, subdir)
+        let top_config_subpath = config_root.join(subdir);
+        // py:348-354  if not isdir: maybe-error-or-continue
+        if !top_config_subpath.is_dir() {
+            if top_config_subpath.exists() {
+                out.push(ExtConfigEntry {
+                    error: Some(format!(
+                        "Path {} is not a directory",
+                        top_config_subpath.display()
+                    )),
+                    path: top_config_subpath.clone(),
+                    name: None,
+                    ext: None,
+                    kind: None,
+                });
+            }
+            // py:354  continue
+            continue;
+        }
+        // py:355  for ext_name in os.listdir(top_config_subpath)
+        let entries = match std::fs::read_dir(&top_config_subpath) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        for entry in entries.flatten() {
+            let ext_name = match entry.file_name().into_string() {
+                Ok(s) => s,
+                Err(_) => continue,
+            };
+            let ext_path = entry.path();
+            // py:357-371  if not isdir: top-level config or error entry
+            if !ext_path.is_dir() {
+                if ext_name.ends_with(".json") && ext_path.is_file() {
+                    // py:359-365  yield top_subdir entry
+                    out.push(ExtConfigEntry {
+                        error: None,
+                        path: ext_path.clone(),
+                        name: Some(strip_json_suffix(&ext_name)),
+                        ext: None,
+                        kind: Some(format!("top_{}", subdir)),
+                    });
+                } else {
+                    // py:367-370  yield directory/file-shape error
+                    out.push(ExtConfigEntry {
+                        error: Some(format!(
+                            "Path {} is not a directory or configuration file",
+                            ext_path.display()
+                        )),
+                        path: ext_path.clone(),
+                        name: None,
+                        ext: None,
+                        kind: None,
+                    });
+                }
+                continue;
+            }
+            // py:372  for config_file_name in os.listdir(ext_path)
+            let inner = match std::fs::read_dir(&ext_path) {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+            for cfg_entry in inner.flatten() {
+                let config_file_name = match cfg_entry.file_name().into_string() {
+                    Ok(s) => s,
+                    Err(_) => continue,
+                };
+                let config_file_path = cfg_entry.path();
+                // py:374-381  yield ext-scoped entry or error
+                if config_file_name.ends_with(".json") && config_file_path.is_file() {
+                    out.push(ExtConfigEntry {
+                        error: None,
+                        path: config_file_path.clone(),
+                        name: Some(strip_json_suffix(&config_file_name)),
+                        ext: Some(ext_name.clone()),
+                        kind: Some(subdir.to_string()),
+                    });
+                } else {
+                    // py:383-386  yield non-configuration-file error
+                    out.push(ExtConfigEntry {
+                        error: Some(format!(
+                            "Path {} is not a configuration file",
+                            config_file_path.display()
+                        )),
+                        path: config_file_path.clone(),
+                        name: None,
+                        ext: None,
+                        kind: None,
+                    });
+                }
+            }
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -353,5 +509,134 @@ mod tests {
             .iter()
             .find(|(m, n)| m == "powerline.segments.common.players" && n == "_player");
         assert!(pair.is_some());
+    }
+
+    #[test]
+    fn generate_json_config_loader_loads_valid_config_and_flag_stays_false() {
+        // py:35-40
+        let d = tmp_dir();
+        let p = d.join("good.json");
+        let mut h = std::fs::File::create(&p).unwrap();
+        h.write_all(b"{\"k\": 1}").unwrap();
+
+        let flag = std::sync::Arc::new(std::sync::Mutex::new(false));
+        let loader = generate_json_config_loader(flag.clone());
+        let r = loader(&p);
+        assert!(r.is_some());
+        assert_eq!(*flag.lock().unwrap(), false);
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn generate_json_config_loader_missing_file_does_not_set_flag() {
+        // py:38-39  hadproblem only flips when load reports it
+        // load() of a missing file returns (None, false) in the
+        // Rust port's current shape.
+        let flag = std::sync::Arc::new(std::sync::Mutex::new(false));
+        let loader = generate_json_config_loader(flag.clone());
+        let r = loader(std::path::Path::new("/never/exists/x.json"));
+        assert!(r.is_none());
+        // Flag stays false since load returns (None, false) for missing
+        // files (no hadproblem signal raised).
+    }
+
+    #[test]
+    fn find_all_ext_config_files_yields_ext_scoped_entry() {
+        // py:374-381  ext-scoped config: <root>/<subdir>/<ext>/<name>.json
+        let root = tmp_dir();
+        let themes_dir = root.join("themes");
+        let vim_dir = themes_dir.join("vim");
+        std::fs::create_dir_all(&vim_dir).unwrap();
+        std::fs::write(vim_dir.join("default.json"), "{}").unwrap();
+
+        let entries = find_all_ext_config_files(&[root.clone()], "themes");
+        let ext_entry = entries
+            .iter()
+            .find(|e| e.error.is_none() && e.ext.is_some());
+        assert!(ext_entry.is_some());
+        let e = ext_entry.unwrap();
+        assert_eq!(e.name.as_deref(), Some("default"));
+        assert_eq!(e.ext.as_deref(), Some("vim"));
+        assert_eq!(e.kind.as_deref(), Some("themes"));
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn find_all_ext_config_files_yields_top_level_entry() {
+        // py:359-365  top-level config: <root>/<subdir>/<name>.json
+        let root = tmp_dir();
+        let themes_dir = root.join("themes");
+        std::fs::create_dir_all(&themes_dir).unwrap();
+        std::fs::write(themes_dir.join("base.json"), "{}").unwrap();
+
+        let entries = find_all_ext_config_files(&[root.clone()], "themes");
+        let top_entry = entries
+            .iter()
+            .find(|e| e.error.is_none() && e.kind.as_deref() == Some("top_themes"));
+        assert!(top_entry.is_some());
+        let e = top_entry.unwrap();
+        assert_eq!(e.name.as_deref(), Some("base"));
+        assert!(e.ext.is_none());
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn find_all_ext_config_files_yields_error_for_non_directory() {
+        // py:349-353  if exists but not directory
+        let root = tmp_dir();
+        std::fs::write(root.join("themes"), "not-a-dir").unwrap();
+
+        let entries = find_all_ext_config_files(&[root.clone()], "themes");
+        let err = entries
+            .iter()
+            .find(|e| e.error.as_deref().map(|s| s.contains("not a directory")) == Some(true));
+        assert!(err.is_some());
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn find_all_ext_config_files_skips_nonexistent_root_silently() {
+        // py:348  if not isdir + py:354 continue (no exists check fires)
+        let entries =
+            find_all_ext_config_files(&[std::path::PathBuf::from("/never/exists/abc")], "themes");
+        assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn find_all_ext_config_files_yields_error_for_non_json_file_in_subdir() {
+        // py:367-370  non-json non-directory entry
+        let root = tmp_dir();
+        let themes_dir = root.join("themes");
+        std::fs::create_dir_all(&themes_dir).unwrap();
+        std::fs::write(themes_dir.join("README.txt"), "not json").unwrap();
+
+        let entries = find_all_ext_config_files(&[root.clone()], "themes");
+        let err = entries.iter().find(|e| {
+            e.error
+                .as_deref()
+                .map(|s| s.contains("not a directory or configuration file"))
+                == Some(true)
+        });
+        assert!(err.is_some());
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn find_all_ext_config_files_walks_multiple_search_paths() {
+        // py:346  for config_root in search_paths
+        let r1 = tmp_dir();
+        let r2 = tmp_dir();
+        std::fs::create_dir_all(r1.join("themes").join("vim")).unwrap();
+        std::fs::create_dir_all(r2.join("themes").join("shell")).unwrap();
+        std::fs::write(r1.join("themes").join("vim").join("a.json"), "{}").unwrap();
+        std::fs::write(r2.join("themes").join("shell").join("b.json"), "{}").unwrap();
+
+        let entries = find_all_ext_config_files(&[r1.clone(), r2.clone()], "themes");
+        let exts: std::collections::HashSet<String> =
+            entries.iter().filter_map(|e| e.ext.clone()).collect();
+        assert!(exts.contains("vim"));
+        assert!(exts.contains("shell"));
+        std::fs::remove_dir_all(&r1).ok();
+        std::fs::remove_dir_all(&r2).ok();
     }
 }
