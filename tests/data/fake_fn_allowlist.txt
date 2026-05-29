@@ -938,3 +938,29 @@ type_check
 # `regex` to disambiguate while preserving the chainable-builder
 # call site shape.
 regex
+
+# generic_keys() / type_keys() / required_keys() / highlight_keys()
+# are Rust accessors for the Python module-level set/dict constants
+# at powerline/lint/checks.py:24-43. Python initialises them at
+# import time; Rust uses OnceLock for the same lazy single-init
+# pattern.
+generic_keys
+type_keys
+required_keys
+highlight_keys
+
+# LintResult::warned is a constructor on the Rust LintResult struct
+# (Rust analog of Python's (proceed, echo, hadproblem) tuple
+# returned by check_* helpers at lint/checks.py:684). Python
+# returns the tuple inline; Rust extracts to constructor methods so
+# callers don't repeat the boolean pattern. ok/failed live in
+# CheckResult/LintResult under their own allowlist entry already
+# (from lint/spec.rs).
+warned
+
+# common_names() is the Rust accessor for the Python module-level
+# `common_names = defaultdict(set)` at lint/checks.py:755. Python
+# initialises and mutates the defaultdict at import time; Rust
+# uses OnceLock<Mutex<HashMap>> for the equivalent thread-safe
+# mutable global pattern.
+common_names
