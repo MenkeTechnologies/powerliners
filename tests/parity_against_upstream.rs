@@ -2192,6 +2192,60 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_out_u_str_and_bytes_passthrough() {
+    if !python_available() {
+        return;
+    }
+    // out_u(s) returns:
+    //   str   → s unchanged
+    //   bytes → decoded under get_preferred_output_encoding()
+    // For UTF-8 inputs both produce the same Unicode string.
+    let cases_str: &[&str] = &["hello", "héllo →", ""];
+    let cases_bytes: &[&[u8]] = &[b"hello", "café".as_bytes(), b""];
+    for input in cases_str {
+        let py_expr = format!(
+            "__import__('powerline.lib.unicode', fromlist=['out_u']).out_u({:?})",
+            input
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = powerliners::lib::unicode::out_u_str(input);
+        assert_eq!(py.trim(), rs, "out_u_str({:?}) mismatch", input);
+    }
+    for input in cases_bytes {
+        // Pass bytes via repr to round-trip safely through Python source.
+        let py_expr = format!(
+            "__import__('powerline.lib.unicode', fromlist=['out_u']).out_u({})",
+            python_bytes_literal(input)
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = powerliners::lib::unicode::out_u_bytes(input);
+        assert_eq!(py.trim(), rs, "out_u_bytes({:?}) mismatch", input);
+    }
+}
+
+/// Helper: build a Python `b'...'` literal from arbitrary bytes for
+/// safe embedding in `py_eval` source.
+fn python_bytes_literal(b: &[u8]) -> String {
+    let mut s = String::from("b'");
+    for byte in b {
+        match *byte {
+            b'\\' => s.push_str("\\\\"),
+            b'\'' => s.push_str("\\'"),
+            0x20..=0x7E => s.push(*byte as char),
+            other => s.push_str(&format!("\\x{:02x}", other)),
+        }
+    }
+    s.push('\'');
+    s
+}
+
+#[test]
 fn parity_threaded_segment_default_state() {
     if !python_available() {
         return;
