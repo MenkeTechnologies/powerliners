@@ -2192,6 +2192,54 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_mergedicts_3_level_recursive_merge() {
+    if !python_available() {
+        return;
+    }
+    // Verify mergedicts recurses through 3 dict levels and at each level:
+    //   - new keys from d2 added
+    //   - overlapping non-dict values: d2 wins
+    //   - overlapping dict values: recurse
+    let py = match py_eval(
+        "(lambda d1, d2: (__import__('powerline.lib.dict', fromlist=['mergedicts']).mergedicts(d1, d2), __import__('json').dumps(d1, sort_keys=True))[1])({'a': 1, 'nested': {'x': 1, 'y': 2, 'deeper': {'k': 'old'}}}, {'b': 3, 'nested': {'y': 99, 'z': 4, 'deeper': {'k': 'new', 'extra': 7}}})",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+
+    use serde_json::json;
+    let mut d1 = json!({
+        "a": 1,
+        "nested": {
+            "x": 1,
+            "y": 2,
+            "deeper": {"k": "old"}
+        }
+    })
+    .as_object()
+    .unwrap()
+    .clone();
+    let d2 = json!({
+        "b": 3,
+        "nested": {
+            "y": 99,
+            "z": 4,
+            "deeper": {"k": "new", "extra": 7}
+        }
+    })
+    .as_object()
+    .unwrap()
+    .clone();
+    powerliners::lib::dict::mergedicts(&mut d1, d2, true);
+    assert_eq!(
+        py_value,
+        serde_json::Value::Object(d1),
+        "mergedicts 3-level recursive merge mismatch"
+    );
+}
+
+#[test]
 fn parity_clear_special_values_walks_nested_dicts() {
     if !python_available() {
         return;
