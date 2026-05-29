@@ -2192,6 +2192,61 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_get_unicode_writer_writes_to_buffer() {
+    if !python_available() {
+        return;
+    }
+    // get_unicode_writer returns a writer fn that encodes str as bytes
+    // and forwards to the underlying stream. Verify byte-identical
+    // output for ASCII + UTF-8 multi-byte inputs.
+    use std::io::Write;
+    use std::sync::{Arc, Mutex};
+
+    struct LockWriter(Arc<Mutex<Vec<u8>>>);
+    impl Write for LockWriter {
+        fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().write(b)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.0.lock().unwrap().flush()
+        }
+    }
+
+    let cases: &[&str] = &["hello", "héllo →", "", "tab\there"];
+    for input in cases {
+        let py_expr = format!(
+            "(lambda s, w: (w({:?}), s.getvalue())[1])(__import__('io').StringIO(), __import__('powerline.lib.encoding', fromlist=['get_unicode_writer']).get_unicode_writer(__import__('io').StringIO() and (lambda s: s)(__import__('io').StringIO()), 'utf-8', 'replace'))",
+            input
+        );
+        let py_simple = py_eval(&format!(
+            "(lambda s: (__import__('powerline.lib.encoding', fromlist=['get_unicode_writer']).get_unicode_writer(s, 'utf-8', 'replace')({:?}), s.getvalue())[1])(__import__('io').StringIO())",
+            input
+        ));
+        let _ = py_expr;
+        let py = match py_simple {
+            Some(v) => v,
+            None => return,
+        };
+
+        let buf: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(Vec::new()));
+        let mut writer = powerliners::lib::encoding::get_unicode_writer(
+            LockWriter(buf.clone()),
+            None,
+            "replace",
+        );
+        writer(input).expect("Rust writer call failed");
+        let rs_bytes = buf.lock().unwrap().clone();
+        let rs_str = String::from_utf8(rs_bytes).expect("Rust output not UTF-8");
+        assert_eq!(
+            py.as_str(),
+            &rs_str,
+            "get_unicode_writer({:?}) parity mismatch",
+            input
+        );
+    }
+}
+
+#[test]
 fn parity_markedjson_mark_set_old_mark_chains_successfully() {
     if !python_available() {
         return;
