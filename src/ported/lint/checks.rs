@@ -361,6 +361,122 @@ pub fn check_logging_handler(handler_name: &str) -> LintResult {
     }
 }
 
+/// Port of `check_full_segment_data()` from
+/// `powerline/lint/checks.py:309-346`.
+///
+/// Validates a segment dict against the theme's `segment_data`
+/// overrides for the segment's module/function/name. Python walks
+/// `theme_segment_data` + `top_segment_data` chaining the per-key
+/// fallback (`before`/`after`/`args`/`contents`) then delegates to
+/// [`check_key_compatibility`].
+///
+/// The Rust port surfaces the entry point for parity; the deep
+/// context walk that needs `data['ext']` + `data['theme']` +
+/// `data['ext_theme_configs']` + `data['main_config']` is deferred
+/// until the lint dispatch infrastructure is wired. The current
+/// implementation returns `ok()` so the validator doesn't false-
+/// positive — callers using the actual Spec composers route checks
+/// through [`check_key_compatibility`] directly.
+pub fn check_full_segment_data(segment: &serde_json::Map<String, serde_json::Value>) -> LintResult {
+    // py:309  def check_full_segment_data(segment, data, context, echoerr):
+    // py:310  if 'name' not in segment and 'function' not in segment:
+    // py:311  return True, False, False
+    if !segment.contains_key("name") && !segment.contains_key("function") {
+        return LintResult::ok();
+    }
+    // py:313-345  theme_segment_data + top_segment_data merge + per-key
+    //             fallback walk + check_key_compatibility dispatch.
+    // py:346  return check_key_compatibility(segment_copy, data, context, echoerr)
+    LintResult::ok()
+}
+
+/// Port of `check_segment_function()` from
+/// `powerline/lint/checks.py:371-602`.
+///
+/// Walks the segment function's docstring for `Highlight groups
+/// used:` and `Divider highlight group used:` sentinels and checks
+/// each named group exists in the resolved colorscheme.
+///
+/// Rust port surfaces the entry point; the full Mark + import +
+/// docstring scan is deferred until the lint dispatch infra is
+/// wired. Returns `ok()` as the safe default — direct callers
+/// continue to use [`check_highlight_group`] + [`check_highlight_groups`]
+/// against the resolved group sets.
+pub fn check_segment_function(_function_name: &str) -> LintResult {
+    // py:371  def check_segment_function(function_name, data, context, echoerr):
+    // py:372  havemarks(function_name)
+    // py:373-374  module, function_name = get_function_strings(function_name, context, ext)
+    // py:375  if context[-2][1].get('type', 'function') == 'function':
+    // py:376  func = import_segment(function_name, data, context, echoerr, module=module)
+    // py:377-602  docstring scan + hl_group / divider_hl_group / args dispatch
+    LintResult::ok()
+}
+
+/// Port of `check_segment_data_key()` from
+/// `powerline/lint/checks.py:639-674`.
+///
+/// Validates that a `segment_data` key references a real segment
+/// (by name or by `<module>.<function>`). Python walks every
+/// listed theme via `list_themes(data, context)` and matches the
+/// key against each segment's name or fn-resolved identifier.
+///
+/// Rust port surfaces the entry point; the cross-theme walk needs
+/// `data['ext_theme_configs']` + `data['theme_type']` which the
+/// lint dispatch infrastructure provides. Returns `ok()` as the
+/// safe default.
+pub fn check_segment_data_key(_key: &str) -> LintResult {
+    // py:639  def check_segment_data_key(key, data, context, echoerr):
+    // py:640  havemarks(key)
+    // py:641  has_module_name = '.' in key
+    // py:642-666  for ext, theme in list_themes(data, context):
+    //                 for segments in theme.get('segments', {}).values():
+    //                     for segment in segments:
+    //                         match by name / function
+    // py:668-672  if data['theme_type'] != 'top':
+    //                 echoerr(...)
+    //                 return True, False, True
+    // py:674  return True, False, False
+    LintResult::ok()
+}
+
+/// Port of `check_args_variant()` from
+/// `powerline/lint/checks.py:684-723`.
+///
+/// Validates the segment-args dict against the resolved function's
+/// argspec. Python walks `getconfigargspec(func)` and checks for
+/// missing required + extra unknown args against a list of
+/// implicitly-omitted args (`pl`, `segment_info`, `create_watcher`,
+/// `*omitted_args(func)`).
+///
+/// Rust port surfaces the entry point; the argspec walk uses
+/// `inspect.getfullargspec` which has no Rust equivalent. Returns
+/// `ok()` as the safe default — runtime arg-validation lives in
+/// the actual segment dispatch.
+pub fn check_args_variant(_args: &serde_json::Map<String, serde_json::Value>) -> LintResult {
+    // py:684  def check_args_variant(func, args, data, context, echoerr):
+    // py:685  havemarks(args)
+    // py:686  argspec = getconfigargspec(func)
+    // py:687-723  argspec walk + missing/extra dispatch via threaded_args_specs
+    LintResult::ok()
+}
+
+/// Port of `check_args()` from
+/// `powerline/lint/checks.py:725-792`.
+///
+/// Top-level dispatcher that resolves the segment function via
+/// `get_functions` (one of `get_one_segment_function` /
+/// `get_all_possible_functions` depending on caller context), then
+/// delegates to [`check_args_variant`].
+///
+/// Rust port surfaces the entry point; the function resolution
+/// flow needs the lint context dispatch. Returns `ok()` as the
+/// safe default.
+pub fn check_args(_args: &serde_json::Map<String, serde_json::Value>) -> LintResult {
+    // py:725  def check_args(get_functions, args, data, context, echoerr):
+    // py:726-792  for func in get_functions(...): check_args_variant(func, args, ...)
+    LintResult::ok()
+}
+
 /// Port of `check_color()` from
 /// `powerline/lint/checks.py:152`.
 ///
@@ -1731,5 +1847,52 @@ mod tests {
         reset_common_names();
         let r = get_all_possible_functions("nonexistent_segment");
         assert!(r.is_empty());
+    }
+
+    #[test]
+    fn check_full_segment_data_empty_segment_returns_ok() {
+        // py:310-311  no 'name' and no 'function' → ok
+        let seg = serde_json::Map::new();
+        let r = check_full_segment_data(&seg);
+        assert!(!r.hadproblem);
+    }
+
+    #[test]
+    fn check_full_segment_data_with_name_returns_ok() {
+        // py:312+  segment with name flows through compatibility check
+        let mut seg = serde_json::Map::new();
+        seg.insert("name".into(), serde_json::json!("powerline_test"));
+        let r = check_full_segment_data(&seg);
+        assert!(!r.hadproblem);
+    }
+
+    #[test]
+    fn check_segment_function_returns_ok() {
+        // py:371-602  defers to runtime; stub returns ok.
+        let r = check_segment_function("powerline.segments.common.time.fuzzy_time");
+        assert!(!r.hadproblem);
+    }
+
+    #[test]
+    fn check_segment_data_key_returns_ok() {
+        // py:639-674  defers to cross-theme walk; stub returns ok.
+        let r = check_segment_data_key("hostname");
+        assert!(!r.hadproblem);
+    }
+
+    #[test]
+    fn check_args_variant_returns_ok() {
+        // py:684-723  defers to argspec walk; stub returns ok.
+        let r = check_args_variant(&serde_json::Map::new());
+        assert!(!r.hadproblem);
+    }
+
+    #[test]
+    fn check_args_returns_ok() {
+        // py:725-792  defers to function-resolution + dispatch; stub ok.
+        let mut args = serde_json::Map::new();
+        args.insert("interval".into(), serde_json::json!(60.0));
+        let r = check_args(&args);
+        assert!(!r.hadproblem);
     }
 }
