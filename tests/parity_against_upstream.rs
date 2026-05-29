@@ -2192,6 +2192,51 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_resolver_default_tags_match() {
+    if !python_available() {
+        return;
+    }
+    // Resolver.DEFAULT_{SCALAR,SEQUENCE,MAPPING}_TAG class constants
+    // are the canonical YAML tag URIs used when a node has no
+    // explicit tag. Drift would break tag-driven dispatch in
+    // construct_object — pin the 3 strings exactly.
+    let cases: &[(&str, &str, &str)] = &[
+        (
+            "DEFAULT_SCALAR_TAG",
+            "tag:yaml.org,2002:str",
+            powerliners::lint::markedjson::resolver::DEFAULT_SCALAR_TAG,
+        ),
+        (
+            "DEFAULT_SEQUENCE_TAG",
+            "tag:yaml.org,2002:seq",
+            powerliners::lint::markedjson::resolver::DEFAULT_SEQUENCE_TAG,
+        ),
+        (
+            "DEFAULT_MAPPING_TAG",
+            "tag:yaml.org,2002:map",
+            powerliners::lint::markedjson::resolver::DEFAULT_MAPPING_TAG,
+        ),
+    ];
+    for (name, expected, rs_const) in cases {
+        let py_expr = format!(
+            "__import__('powerline.lint.markedjson.resolver', fromlist=['Resolver']).Resolver.{}",
+            name
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(
+            py.as_str(),
+            *expected,
+            "Python Resolver.{} fixture drift",
+            name
+        );
+        assert_eq!(*rs_const, *expected, "Rust {} const mismatch", name);
+    }
+}
+
+#[test]
 fn parity_markedjson_load_nested_and_unicode() {
     if !python_available() {
         return;
