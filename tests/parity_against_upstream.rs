@@ -2192,6 +2192,44 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_load_json_config_roundtrip_through_disk() {
+    if !python_available() {
+        return;
+    }
+    // load_json_config reads a JSON file and returns the parsed
+    // structure. Verify both ports parse identical input identically.
+    // Write a fixture file, then load with both ports, then compare.
+    let payload = r#"{"a": 1, "b": [2, 3], "c": {"nested": true}}"#;
+    let tmpfile = std::env::temp_dir().join(format!(
+        "powerliners_parity_load_{}.json",
+        std::process::id()
+    ));
+    std::fs::write(&tmpfile, payload).expect("failed to write fixture");
+
+    let py_expr = format!(
+        "__import__('json').dumps(__import__('powerline.lib.config', fromlist=['load_json_config']).load_json_config({:?}), sort_keys=True)",
+        tmpfile.to_string_lossy()
+    );
+    let py = match py_eval(&py_expr) {
+        Some(v) => v,
+        None => {
+            let _ = std::fs::remove_file(&tmpfile);
+            return;
+        }
+    };
+
+    let rs =
+        powerliners::lib::config::load_json_config(&tmpfile).expect("Rust load_json_config failed");
+    let _ = std::fs::remove_file(&tmpfile);
+
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON output malformed");
+    assert_eq!(
+        py_value, rs,
+        "load_json_config disk-roundtrip parity mismatch"
+    );
+}
+
+#[test]
 fn parity_failed_unicode_preserves_message_payload() {
     if !python_available() {
         return;
