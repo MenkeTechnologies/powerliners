@@ -967,12 +967,7 @@ fn classify_attrs(v: &Value) -> AttrsChoice {
 /// fg: return ''" check and the three-state fg/bg semantics. Used by
 /// both the `hl_fn` and `hlstyle_fn` closures so the bin shim emits
 /// byte-for-byte parity with upstream Python.
-fn render_hlstyle(
-    tmux: &TmuxRenderer,
-    fg: &Value,
-    bg: &Value,
-    attrs: &Value,
-) -> String {
+fn render_hlstyle(tmux: &TmuxRenderer, fg: &Value, bg: &Value, attrs: &Value) -> String {
     let fc = classify_color(fg);
     let bc = classify_color(bg);
     let ac = classify_attrs(attrs);
@@ -1016,12 +1011,10 @@ fn render_hlstyle(
     match ac {
         AttrsChoice::None => {}
         AttrsChoice::AllOff => parts.extend(
-            powerliners::ported::renderers::tmux::attrs_to_tmux_attrs(None)
-                .into_iter(),
+            powerliners::ported::renderers::tmux::attrs_to_tmux_attrs(None),
         ),
         AttrsChoice::Flag(flag) => parts.extend(
-            powerliners::ported::renderers::tmux::attrs_to_tmux_attrs(Some(flag))
-                .into_iter(),
+            powerliners::ported::renderers::tmux::attrs_to_tmux_attrs(Some(flag)),
         ),
     }
     // py:65  return '#[' + ','.join(tmux_attrs) + ']'
@@ -1098,11 +1091,10 @@ fn main() {
             let style = render_hlstyle(&tmux_for_hl, fg, bg, attrs);
             format!("{}{}", style, contents.unwrap_or(""))
         };
-        let hlstyle_fn = move |fg: &Value,
-                               bg: &Value,
-                               attrs: &Value,
-                               _hl_args: &Map<String, Value>|
-              -> String { render_hlstyle(&tmux_for_hlstyle, fg, bg, attrs) };
+        let hlstyle_fn =
+            move |fg: &Value, bg: &Value, attrs: &Value, _hl_args: &Map<String, Value>| -> String {
+                render_hlstyle(&tmux_for_hlstyle, fg, bg, attrs)
+            };
 
         let contents_func = |id: &str,
                              _pl: &(),

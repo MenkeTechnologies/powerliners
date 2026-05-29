@@ -111,8 +111,11 @@ fn start_daemon(scenario: &str) -> DaemonHandle {
         .spawn()
         .expect("spawn powerline-daemon");
 
-    // Wait for the daemon to listen.
-    let deadline = Instant::now() + Duration::from_secs(3);
+    // Wait for the daemon to listen. CI runners (Ubuntu cold-start, no
+    // page cache for the freshly-linked binary + first-run config-cascade
+    // JSON parse) routinely take 5–8 s before the socket binds; macOS dev
+    // hits ~200 ms. Budget generously so CI is deterministic.
+    let deadline = Instant::now() + Duration::from_secs(15);
     while Instant::now() < deadline {
         if let Ok(probe) = UnixStream::connect(&socket) {
             // Connect-only probe; close without sending anything so we

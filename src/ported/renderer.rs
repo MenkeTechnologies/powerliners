@@ -922,10 +922,7 @@ impl Renderer {
                 let mut diff = current_width as i64 - width as i64;
                 let mut consumed = 0usize;
                 for victim in &drop_order {
-                    let seg_len = victim
-                        .get("_len")
-                        .and_then(|v| v.as_i64())
-                        .unwrap_or(0);
+                    let seg_len = victim.get("_len").and_then(|v| v.as_i64()).unwrap_or(0);
                     if let Some(pos) = segments.iter().position(|s| s == victim) {
                         segments.remove(pos);
                     }

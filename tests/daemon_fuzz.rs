@@ -71,7 +71,7 @@ impl Drop for DaemonHandle {
 
 fn start_daemon(scenario: &str, tag: &str) -> DaemonHandle {
     let socket = unique_socket(tag);
-    let child = Command::new(daemon_binary())
+    let mut child = Command::new(daemon_binary())
         .arg("--foreground")
         .arg("--socket")
         .arg(&socket)
@@ -80,7 +80,9 @@ fn start_daemon(scenario: &str, tag: &str) -> DaemonHandle {
         .stderr(Stdio::null())
         .spawn()
         .expect("spawn powerline-daemon");
-    let deadline = Instant::now() + Duration::from_secs(3);
+    // CI runners need longer than macOS dev to bind — see e2e helper for
+    // why 15 s is the right budget.
+    let deadline = Instant::now() + Duration::from_secs(15);
     while Instant::now() < deadline {
         if let Ok(probe) = UnixStream::connect(&socket) {
             let _ = probe.shutdown(std::net::Shutdown::Both);
@@ -88,6 +90,8 @@ fn start_daemon(scenario: &str, tag: &str) -> DaemonHandle {
         }
         std::thread::sleep(Duration::from_millis(25));
     }
+    let _ = child.kill();
+    let _ = child.wait();
     panic!("daemon never became ready");
 }
 
