@@ -1583,6 +1583,75 @@ fn parity_surrogate_pair_to_character() {
 // ─────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────
+// pdb.py — PDBPowerline init() pinned kwargs
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_pdb_powerline_init_ext_and_renderer_module() {
+    if !python_available() {
+        return;
+    }
+    let py_source = match py_eval(
+        "__import__('inspect').getsource(__import__('powerline.pdb', fromlist=['PDBPowerline']).PDBPowerline.init)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert!(
+        py_source.contains("ext='pdb'"),
+        "Python PDBPowerline.init source missing ext='pdb'\nsource:\n{}",
+        py_source
+    );
+    assert!(
+        py_source.contains("renderer_module='pdb'"),
+        "Python PDBPowerline.init source missing renderer_module='pdb'\nsource:\n{}",
+        py_source
+    );
+    let (rs_ext, rs_renderer) = powerliners::ported::pdb::PDBPowerline::init();
+    assert_eq!(rs_ext, "pdb", "Rust PDBPowerline init() ext != 'pdb'");
+    assert_eq!(
+        rs_renderer, "pdb",
+        "Rust PDBPowerline init() renderer_module != 'pdb'"
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// ipython.py — IPythonPowerline init() pinned kwargs
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_ipython_powerline_init_ext_and_daemon_threads() {
+    if !python_available() {
+        return;
+    }
+    let py_source = match py_eval(
+        "__import__('inspect').getsource(__import__('powerline.ipython', fromlist=['IPythonPowerline']).IPythonPowerline.init)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert!(
+        py_source.contains("'ipython'"),
+        "Python IPythonPowerline.init source missing 'ipython' positional ext arg\nsource:\n{}",
+        py_source
+    );
+    assert!(
+        py_source.contains("use_daemon_threads=True"),
+        "Python IPythonPowerline.init source missing use_daemon_threads=True\nsource:\n{}",
+        py_source
+    );
+    let (rs_ext, rs_daemon) = powerliners::ported::ipython::IPythonPowerline::init();
+    assert_eq!(
+        rs_ext, "ipython",
+        "Rust IPythonPowerline init() ext != 'ipython'"
+    );
+    assert!(
+        rs_daemon,
+        "Rust IPythonPowerline init() use_daemon_threads != true"
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // lemonbar.py — LemonbarPowerline class consts
 // ─────────────────────────────────────────────────────────────────────
 
