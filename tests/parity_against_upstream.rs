@@ -2192,6 +2192,39 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_failed_unicode_preserves_message_payload() {
+    if !python_available() {
+        return;
+    }
+    // FailedUnicode is a unicode/str subclass that wraps a message
+    // string. Python: str(FailedUnicode('boom')) == 'boom'.
+    // Rust: FailedUnicode("boom").0 == "boom" (newtype around String).
+    //
+    // Verify the message payload round-trips identically across both
+    // ports for ASCII, Unicode, and empty inputs.
+    let cases: &[&str] = &["boom", "héllo →", "", "multi\nline", "  spaces  "];
+    for input in cases {
+        let py_expr = format!(
+            "str(__import__('powerline.lib.unicode', fromlist=['FailedUnicode']).FailedUnicode({:?}))",
+            input
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        // Python `print(str(FailedUnicode('multi\nline')))` emits the
+        // literal newline; strip only the print()'s trailing newline.
+        let py_payload = py.as_str();
+        let f = powerliners::lib::unicode::FailedUnicode::new(*input);
+        assert_eq!(
+            py_payload, &f.0,
+            "FailedUnicode({:?}) payload mismatch: py={:?}, rs={:?}",
+            input, py_payload, f.0
+        );
+    }
+}
+
+#[test]
 fn parity_out_u_str_and_bytes_passthrough() {
     if !python_available() {
         return;
