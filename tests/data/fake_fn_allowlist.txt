@@ -352,3 +352,26 @@ marked_any_to_json
 # enum, so projecting that identifier requires an explicit helper
 # rather than attribute access.
 composed_id
+
+# AnyToken accessor methods (token_kind / token_start_mark /
+# token_end_mark / token_id) project per-variant fields out of the
+# Rust AnyToken sum. Python uses class references + duck-typed
+# attribute access (`token.start_mark`, `token.id`, etc.) which
+# resolves polymorphically over the upstream Token class hierarchy.
+# Rust port uses an enum and so requires explicit projection
+# accessors. The `token_` prefix avoids collision with composer.rs
+# AnyEvent's `.kind()`/`.start_mark()` accessors already in the
+# allowlist.
+token_kind
+token_start_mark
+token_end_mark
+token_id
+
+# Parser::dispatch_state is the Rust analog of Python's
+# `self.state()` bound-method-pointer dispatch (py:31, 41-43, 48-50
+# in parser.py). Python stores a method reference in self.state and
+# invokes via direct call; Rust port stores a State enum and
+# dispatches via a match table inside dispatch_state. The function
+# itself doesn't exist in upstream — it materialises the indirection
+# Python gets for free from method-as-value semantics.
+dispatch_state
