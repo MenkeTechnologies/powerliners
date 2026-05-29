@@ -41,7 +41,8 @@ impl KshPromptRenderer {
     ///     return '\001\r' + super().render(*args, **kwargs)
     /// ```
     pub fn render_prefix() -> &'static str {
-        // py:16  '\001\r' + super().render(...)
+        // py:15  def render(self, *args, **kwargs):
+        // py:16  return '\001\r' + super(KshPromptRenderer, self).render(*args, **kwargs)
         "\x01\r"
     }
 
