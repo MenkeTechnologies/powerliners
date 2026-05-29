@@ -1139,3 +1139,114 @@ fn parity_bash_renderer_escape_markers() {
         "BashPromptRenderer",
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// lint/markedjson/nodes.py — Node subclass `id` class attributes
+// lint/markedjson/tokens.py — Token subclass `id` class attributes
+// ─────────────────────────────────────────────────────────────────────
+
+fn parity_node_or_token_id(py_module: &str, py_class: &str, rs_id: &str) {
+    if !python_available() {
+        return;
+    }
+    let expr = format!(
+        "__import__('{}', fromlist=['{}']).{}.id",
+        py_module, py_class, py_class
+    );
+    let py = match py_eval(&expr) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, rs_id, "{}.id mismatch", py_class);
+}
+
+#[test]
+fn parity_scalar_node_id() {
+    parity_node_or_token_id(
+        "powerline.lint.markedjson.nodes",
+        "ScalarNode",
+        powerliners::lint::markedjson::nodes::ScalarNode::ID,
+    );
+}
+
+#[test]
+fn parity_sequence_node_id() {
+    parity_node_or_token_id(
+        "powerline.lint.markedjson.nodes",
+        "SequenceNode",
+        powerliners::lint::markedjson::nodes::SequenceNode::ID,
+    );
+}
+
+#[test]
+fn parity_mapping_node_id() {
+    parity_node_or_token_id(
+        "powerline.lint.markedjson.nodes",
+        "MappingNode",
+        powerliners::lint::markedjson::nodes::MappingNode::ID,
+    );
+}
+
+#[test]
+fn parity_stream_start_token_id() {
+    parity_node_or_token_id(
+        "powerline.lint.markedjson.tokens",
+        "StreamStartToken",
+        powerliners::lint::markedjson::tokens::StreamStartToken::ID,
+    );
+}
+
+#[test]
+fn parity_stream_end_token_id() {
+    parity_node_or_token_id(
+        "powerline.lint.markedjson.tokens",
+        "StreamEndToken",
+        powerliners::lint::markedjson::tokens::StreamEndToken::ID,
+    );
+}
+
+#[test]
+fn parity_flow_sequence_start_token_id() {
+    parity_node_or_token_id(
+        "powerline.lint.markedjson.tokens",
+        "FlowSequenceStartToken",
+        powerliners::lint::markedjson::tokens::FlowSequenceStartToken::ID,
+    );
+}
+
+#[test]
+fn parity_flow_mapping_start_token_id() {
+    parity_node_or_token_id(
+        "powerline.lint.markedjson.tokens",
+        "FlowMappingStartToken",
+        powerliners::lint::markedjson::tokens::FlowMappingStartToken::ID,
+    );
+}
+
+#[test]
+fn parity_key_value_flow_entry_token_ids() {
+    parity_node_or_token_id(
+        "powerline.lint.markedjson.tokens",
+        "KeyToken",
+        powerliners::lint::markedjson::tokens::KeyToken::ID,
+    );
+    parity_node_or_token_id(
+        "powerline.lint.markedjson.tokens",
+        "ValueToken",
+        powerliners::lint::markedjson::tokens::ValueToken::ID,
+    );
+    parity_node_or_token_id(
+        "powerline.lint.markedjson.tokens",
+        "FlowEntryToken",
+        powerliners::lint::markedjson::tokens::FlowEntryToken::ID,
+    );
+}
+
+#[test]
+fn parity_scalar_token_id() {
+    parity_node_or_token_id(
+        "powerline.lint.markedjson.tokens",
+        "ScalarToken",
+        powerliners::lint::markedjson::tokens::ScalarToken::ID,
+    );
+}
