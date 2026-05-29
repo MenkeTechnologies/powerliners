@@ -2155,6 +2155,39 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_mergedicts_copy_handles_3_level_nested_collisions() {
+    if !python_available() {
+        return;
+    }
+    // Verify mergedicts_copy handles 3-level nested dict collisions:
+    // d2 wins on leaf values, intermediate dicts merge recursively, and
+    // d1's non-overlapping keys survive intact.
+    let py = match py_eval(
+        "(lambda r: __import__('json').dumps(r, sort_keys=True))(__import__('powerline.lib.dict', fromlist=['mergedicts_copy']).mergedicts_copy({'a': 1, 'nested': {'x': {'p': 1, 'q': 2}, 'y': 10}}, {'b': 2, 'nested': {'x': {'p': 99, 'r': 3}, 'z': 20}}))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+
+    use serde_json::json;
+    let d1 = json!({"a": 1, "nested": {"x": {"p": 1, "q": 2}, "y": 10}})
+        .as_object()
+        .unwrap()
+        .clone();
+    let d2 = json!({"b": 2, "nested": {"x": {"p": 99, "r": 3}, "z": 20}})
+        .as_object()
+        .unwrap()
+        .clone();
+    let r = powerliners::lib::dict::mergedicts_copy(&d1, d2);
+    assert_eq!(
+        py_value,
+        serde_json::Value::Object(r),
+        "3-level nested mergedicts_copy mismatch"
+    );
+}
+
+#[test]
 fn parity_parsedotval_5_level_nested_keys() {
     if !python_available() {
         return;
