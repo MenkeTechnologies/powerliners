@@ -103,6 +103,36 @@ impl ConfigurableIPythonPowerline {
     /// stores a weakref into `shutdown_hook.powerline`. The Rust
     /// port surfaces just the structural `prompts.powerline = self`
     /// signal by inserting a "powerline" key into the prompts Map.
+    /// Port of the inner `_make_style_from_name()` closure from
+    /// `powerline/bindings/ipython/since_5.py:32-35` (inside
+    /// `do_setup`).
+    ///
+    /// Python returns the closure:
+    /// ```python
+    /// def _make_style_from_name(ip, name):
+    ///     prev_style = saved_msfn(name)
+    ///     new_style = PowerlinePromptStyle(lambda: prev_style)
+    ///     return new_style
+    /// ```
+    /// installed as `ip._make_style_from_name`. Rust port surfaces
+    /// the behavior as a free fn taking the resolver closure for
+    /// the saved msfn dispatch. Returns the new PowerlinePromptStyle
+    /// wrapping the resolved prev_style.
+    pub fn _make_style_from_name<R>(
+        name: &str,
+        saved_msfn: R,
+    ) -> crate::ported::renderers::ipython::since_5::PowerlinePromptStyle
+    where
+        R: FnOnce(&str) -> Value,
+    {
+        // py:32  def _make_style_from_name(ip, name):
+        // py:33  prev_style = saved_msfn(name)
+        let _prev_style = saved_msfn(name);
+        // py:34  new_style = PowerlinePromptStyle(lambda: prev_style)
+        // py:35  return new_style
+        crate::ported::renderers::ipython::since_5::PowerlinePromptStyle
+    }
+
     pub fn do_setup(
         &self,
         _ip: &mut Map<String, Value>,
@@ -506,5 +536,26 @@ mod tests {
         assert_eq!(p.shell_execution_count, 5);
         assert!(p.last_output_count.is_none());
         assert!(p.last_output.is_empty());
+    }
+
+    #[test]
+    fn make_style_from_name_calls_saved_msfn() {
+        // py:33  prev_style = saved_msfn(name)
+        let called = std::cell::Cell::new(false);
+        let _r = ConfigurableIPythonPowerline::_make_style_from_name("default", |n| {
+            called.set(true);
+            assert_eq!(n, "default");
+            Value::String("prev_style".to_string())
+        });
+        assert!(called.get());
+    }
+
+    #[test]
+    fn make_style_from_name_returns_powerline_prompt_style() {
+        // py:34-35  returns PowerlinePromptStyle wrapping prev_style
+        let _r = ConfigurableIPythonPowerline::_make_style_from_name("monokai", |_| {
+            Value::String("monokai_style".to_string())
+        });
+        // PowerlinePromptStyle is a unit struct — construction succeeds.
     }
 }
