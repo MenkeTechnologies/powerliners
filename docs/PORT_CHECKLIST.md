@@ -106,7 +106,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/lint/inspect.py` ↔ `src/ported/lint/inspect.rs` | 76 | 2 | 0 | 0 | 67 | 3 | 59 |
 | [x] | `powerline/segments/common/time.py` ↔ `src/ported/segments/common/time.rs` | 96 | 2 | 0 | 0 | 311 | 4 | 65 |
 | [x] | `powerline/bindings/pdb/__init__.py` ↔ `src/ported/bindings/pdb/mod.rs` | 139 | 2 | 0 | 0 | 40 | 3 | 88 |
-| [x] | `powerline/segments/common/sys.py` ↔ `src/ported/segments/common/sys.rs` | 148 | 2 | 0 | 0 | 311 | 5 | 89 |
+| [x] | `powerline/segments/common/sys.py` ↔ `src/ported/segments/common/sys.rs` | 148 | 2 | 0 | 0 | 364 | 10 | 104 |
 | [x] | `powerline/matchers/vim/__init__.py` ↔ `src/ported/matchers/vim/mod.rs` | 10 | 3 | 0 | 0 | 69 | 3 | 7 |
 | [x] | `powerline/renderers/ipython/__init__.py` ↔ `src/ported/renderers/ipython/mod.rs` | 28 | 0 | 1 | 3 | 152 | 4 | 16 |
 | [x] | `powerline/lib/memoize.py` ↔ `src/ported/lib/memoize.rs` | 30 | 1 | 1 | 2 | 129 | 5 | 28 |

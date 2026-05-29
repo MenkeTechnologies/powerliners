@@ -145,6 +145,65 @@ pub fn system_load(
 }
 
 /// Port of `CPULoadPercentSegment.render()` from
+/// Port of `CPULoadPercentSegment.update()` from
+/// `powerline/segments/common/sys.py:82-83` (psutil branch).
+///
+/// Python returns `psutil.cpu_percent(interval=None)` — the
+/// instantaneous CPU percent since the previous call. Rust port
+/// can't reach psutil; takes the already-measured value and
+/// returns it (parity surface for the ThreadedSegment update
+/// dispatch).
+pub fn update(measured_cpu_percent: f64) -> f64 {
+    // py:82  def update(self, old_cpu):
+    // py:83  return psutil.cpu_percent(interval=None)
+    measured_cpu_percent
+}
+
+/// Port of `CPULoadPercentSegment.run()` from
+/// `powerline/segments/common/sys.py:85-90` (psutil branch).
+///
+/// Python loops `psutil.cpu_percent(interval=self.interval)`
+/// updating self.update_value until shutdown_event fires. Rust
+/// port takes the measurement closure + shutdown probe so callers
+/// route through their own sampler.
+pub fn run<M, S>(mut measure: M, is_shutdown: S)
+where
+    M: FnMut() -> Result<f64, String>,
+    S: Fn() -> bool,
+{
+    // py:85  def run(self):
+    // py:86  while not self.shutdown_event.is_set():
+    while !is_shutdown() {
+        // py:87  try: self.update_value = psutil.cpu_percent(interval=self.interval)
+        // py:88-90  except Exception as e: self.exception('...')
+        let _ = measure();
+    }
+}
+
+/// Port of `CPULoadPercentSegment.startup()` from
+/// `powerline/segments/common/sys.py:103-104` (no-psutil branch).
+///
+/// Python `@staticmethod def startup(**kwargs): pass` —
+/// documented no-op. Rust port keeps the same shape.
+pub fn startup() {
+    // py:103  @staticmethod
+    // py:104  def startup(**kwargs): pass
+}
+
+/// Port of `CPULoadPercentSegment.start()` from
+/// `powerline/segments/common/sys.py:107-108` (no-psutil branch).
+pub fn start() {
+    // py:107  @staticmethod
+    // py:108  def start(): pass
+}
+
+/// Port of `CPULoadPercentSegment.shutdown()` from
+/// `powerline/segments/common/sys.py:111-112` (no-psutil branch).
+pub fn shutdown() {
+    // py:111  @staticmethod
+    // py:112  def shutdown(): pass
+}
+
 /// `powerline/segments/common/sys.py:92`.
 ///
 /// Public alias `render` rather than `cpu_load_percent_render` to match
@@ -489,5 +548,46 @@ mod tests {
         if let Some(result) = system_load(&(), "{avg:.1f}", 1e9, 2e9, false, true) {
             assert_eq!(result[0]["gradient_level"], 0.0);
         }
+    }
+
+    #[test]
+    fn update_returns_supplied_cpu_percent() {
+        // py:82-83  psutil branch — returns measured value
+        assert_eq!(update(42.5), 42.5);
+        assert_eq!(update(0.0), 0.0);
+        assert_eq!(update(100.0), 100.0);
+    }
+
+    #[test]
+    fn run_terminates_when_shutdown_returns_true() {
+        // py:85-90  loop exits when shutdown_event.is_set()
+        let count = std::sync::Arc::new(std::sync::Mutex::new(0u32));
+        let count_c = count.clone();
+        let shutdown_after_n = std::sync::Arc::new(std::sync::Mutex::new(3u32));
+        let shutdown_clone = shutdown_after_n.clone();
+        run(
+            move || {
+                *count_c.lock().unwrap() += 1;
+                Ok(50.0)
+            },
+            move || {
+                let mut n = shutdown_clone.lock().unwrap();
+                if *n == 0 {
+                    true
+                } else {
+                    *n -= 1;
+                    false
+                }
+            },
+        );
+        assert_eq!(*count.lock().unwrap(), 3);
+    }
+
+    #[test]
+    fn startup_start_shutdown_are_documented_no_ops() {
+        // py:103-112  no-psutil branch — all no-ops
+        startup();
+        start();
+        shutdown();
     }
 }
