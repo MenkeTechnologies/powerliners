@@ -2192,6 +2192,48 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_shell_readlines_subprocess_line_split() {
+    if !python_available() {
+        return;
+    }
+    // readlines(cmd, cwd) runs cmd and yields stdout split by newlines.
+    // Pin canonical case (newline-terminated output) + empty output.
+    let cases: &[(&str, &[&str])] = &[
+        ("echo one; echo two; echo three", &["one", "two", "three"]),
+        ("true", &[]),
+        ("printf 'a\\nb\\nc\\n'", &["a", "b", "c"]),
+    ];
+    for (cmd_str, expected) in cases {
+        let py_expr = format!(
+            "__import__('json').dumps(list(__import__('powerline.lib.shell', fromlist=['readlines']).readlines(['/bin/sh', '-c', {:?}], '/tmp')))",
+            cmd_str
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let py_lines: Vec<&str> = py_value
+            .as_array()
+            .expect("py array")
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        assert_eq!(
+            py_lines, *expected,
+            "Python readlines fixture drift for {:?}",
+            cmd_str
+        );
+
+        let rs_cmd: Vec<String> =
+            vec!["/bin/sh".to_string(), "-c".to_string(), cmd_str.to_string()];
+        let rs_lines = powerliners::lib::shell::readlines(&rs_cmd, std::path::Path::new("/tmp"));
+        let rs_refs: Vec<&str> = rs_lines.iter().map(|s| s.as_str()).collect();
+        assert_eq!(rs_refs, *expected, "Rust readlines({:?}) mismatch", cmd_str);
+    }
+}
+
+#[test]
 fn parity_tointiter_byte_iteration_parity() {
     if !python_available() {
         return;
