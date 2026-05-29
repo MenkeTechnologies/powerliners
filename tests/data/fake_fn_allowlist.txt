@@ -321,3 +321,18 @@ resolver_singleton
 # for instance state, so the constructor calls the helper to populate
 # the per-instance resolver table.
 register_defaults
+
+# ComposedNode::node and ComposedNode::start_mark are accessors on
+# the Rust ComposedNode sum type (enum wrapping ScalarNode /
+# SequenceNode / MappingNode) that the composer uses to descend into
+# the shared Node base. Python doesn't need these because the three
+# node classes share a Python base class; Rust uses an enum and so
+# needs explicit projection accessors.
+node
+start_mark
+
+# AnyEvent::kind returns the EventKind discriminant for an AnyEvent
+# sum-type instance. Python check_event(*choices) passes class
+# references and uses isinstance(); the Rust trait passes EventKind
+# values and uses an enum match, so .kind() is the projection.
+kind
