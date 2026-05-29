@@ -508,6 +508,26 @@ impl Renderer {
     /// Port of `Renderer.hl()` from
     /// `powerline/renderer.py:600-606`.
     ///
+    /// Port of `Renderer.hlstyle()` from
+    /// `powerline/renderer.py:591-598`.
+    ///
+    /// Abstract method on the Python base class — subclasses
+    /// (TmuxRenderer, ShellRenderer, VimRenderer, …) override.
+    /// Python raises `NotImplementedError`; the Rust port panics
+    /// with the same message so a missing override surfaces at
+    /// runtime rather than silently returning an empty string.
+    ///
+    /// Concrete renderers must NOT call this — they should call
+    /// their own `hlstyle` method directly.
+    pub fn hlstyle(_fg: Option<u16>, _bg: Option<u16>, _attrs: Option<u32>) -> String {
+        // py:591  def hlstyle(fg=None, bg=None, attrs=None, **kwargs):
+        // py:592-597  docstring
+        // py:598  raise NotImplementedError
+        unimplemented!(
+            "Renderer.hlstyle is abstract; concrete renderers must override (py:598)"
+        )
+    }
+
     /// Returns `hlstyle(fg, bg, attrs) + (contents or '')` per
     /// py:606. The Rust port takes `hlstyle_fn` as a closure since
     /// the base Python `hlstyle` raises NotImplementedError at

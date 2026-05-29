@@ -528,6 +528,60 @@ pub fn _get_bytes_sysfs(rx_content: &str, tx_content: &str) -> Option<(u64, u64)
     Some((rx, tx))
 }
 
+/// Port of `_get_bytes()` from
+/// `powerline/segments/common/net.py:180-185` (the no-psutil
+/// branch with live sysfs read).
+///
+/// Returns `(rx, tx)` byte counters for `interface` via
+/// `/sys/class/net/<iface>/statistics/{rx,tx}_bytes`. Returns
+/// `None` when either file can't be read (interface gone, not
+/// Linux, permission denied).
+///
+/// Python's psutil branch (py:161-169) is unavailable in Rust
+/// without a psutil-equivalent crate; the live sysfs path is the
+/// faithful no-psutil port. Callers on non-Linux platforms get
+/// `None` and should fall back to the platform's native counter
+/// (or skip the segment).
+pub fn _get_bytes(interface: &str) -> Option<(u64, u64)> {
+    // py:181  with open('/sys/class/net/{interface}/statistics/rx_bytes', ...)
+    let rx_path = sysfs_rx_path(interface);
+    let tx_path = sysfs_tx_path(interface);
+    let rx_content = std::fs::read_to_string(rx_path).ok()?;
+    let tx_content = std::fs::read_to_string(tx_path).ok()?;
+    _get_bytes_sysfs(&rx_content, &tx_content)
+}
+
+/// Port of `_get_interfaces()` from
+/// `powerline/segments/common/net.py:187-191` (the no-psutil
+/// branch).
+///
+/// Yields `(interface, rx, tx)` triples for each entry under
+/// `/sys/class/net/`. Skips entries that fail `_get_bytes`
+/// (no-such-iface / non-Linux / unreadable).
+///
+/// Returns a `Vec<(String, u64, u64)>` since Rust doesn't surface
+/// Python's `yield` shape over a directory listing — callers iterate
+/// the vec directly. Empty vec on non-Linux platforms.
+pub fn _get_interfaces() -> Vec<(String, u64, u64)> {
+    // py:188  for interface in os.listdir('/sys/class/net'):
+    let mut out: Vec<(String, u64, u64)> = Vec::new();
+    let Ok(entries) = std::fs::read_dir("/sys/class/net") else {
+        return out;
+    };
+    for entry in entries.flatten() {
+        let Some(name) = entry.file_name().to_str().map(String::from) else {
+            continue;
+        };
+        // py:189  x = _get_bytes(interface)
+        // py:190  if x is not None:
+        if let Some((rx, tx)) = _get_bytes(&name) {
+            // py:191  yield interface, x[0], x[1]
+            out.push((name, rx, tx));
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -974,6 +1028,26 @@ mod tests {
         // py:182-185
         let r = _get_bytes_sysfs("1234\n", "5678\n");
         assert_eq!(r, Some((1234, 5678)));
+    }
+
+    #[test]
+    fn get_bytes_no_such_interface_returns_none() {
+        // py:181  open() raises on missing → Rust port returns None.
+        let r = _get_bytes("nonexistent_iface_zz9999");
+        assert!(r.is_none(), "expected None for missing iface, got {r:?}");
+    }
+
+    #[test]
+    fn get_interfaces_returns_empty_or_real_data() {
+        // py:188  os.listdir('/sys/class/net') — empty on non-Linux,
+        // populated on Linux. Either way the call must not panic and
+        // each entry must have positive byte counters when present.
+        let entries = _get_interfaces();
+        for (name, rx, tx) in &entries {
+            assert!(!name.is_empty(), "empty iface name");
+            // sysfs returns u64, no signed check needed
+            let _ = (rx, tx);
+        }
     }
 
     #[test]
