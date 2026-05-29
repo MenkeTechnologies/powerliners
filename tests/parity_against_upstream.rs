@@ -2192,6 +2192,83 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_colorscheme_get_gradient_picks_and_falls_back() {
+    if !python_available() {
+        return;
+    }
+    // get_gradient(name, level) — py:62-66:
+    //   if name in gradients: tuple of pick_gradient_value(each list, level)
+    //   else: self.colors[name]   (fallthrough for direct color lookup)
+    //
+    // Verify across:
+    //   level 0.0     → (cterm_list[0], hex_list[0])
+    //   level 50.0    → middle
+    //   level 100.0   → endpoint
+    //   non-gradient name → falls through to colors[name]
+    let cs_config = r#"{"groups": {}, "mode_translations": {}}"#;
+    let colors_config = r#"{
+        "colors": {"green": [2, "aaff44"]},
+        "gradients": {"g1": [[1, 2, 3, 4], ["ff0000", "00ff00", "0000ff", "ffff00"]]}
+    }"#;
+
+    let cs_map: serde_json::Map<String, serde_json::Value> =
+        serde_json::from_str(cs_config).unwrap();
+    let col_map: serde_json::Map<String, serde_json::Value> =
+        serde_json::from_str(colors_config).unwrap();
+    let c = powerliners::colorscheme::Colorscheme::new(&cs_map, &col_map);
+
+    let cases: &[(&str, f64, i64, u64)] = &[
+        ("g1", 0.0, 1, 0xFF0000),
+        ("g1", 50.0, 3, 0x0000FF),
+        ("g1", 100.0, 4, 0xFFFF00),
+        ("green", 0.0, 2, 0xAAFF44),
+    ];
+    for (name, level, expected_cterm, expected_hex) in cases {
+        let py_expr = format!(
+            "(lambda c: __import__('json').dumps(list(c.get_gradient({:?}, {}))))(__import__('powerline.colorscheme', fromlist=['Colorscheme']).Colorscheme({cs}, {col}))",
+            name, level,
+            cs = cs_config, col = colors_config
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_pair: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let py_arr = py_pair.as_array().expect("py tuple→array");
+        assert_eq!(
+            py_arr[0].as_i64(),
+            Some(*expected_cterm),
+            "Python fixture cterm drift for {} @ {}",
+            name,
+            level
+        );
+        assert_eq!(
+            py_arr[1].as_u64(),
+            Some(*expected_hex),
+            "Python fixture hex drift for {} @ {}",
+            name,
+            level
+        );
+        let rs = c.get_gradient(name, *level);
+        let rs_arr = rs.as_array().expect("rs result not array");
+        assert_eq!(
+            rs_arr[0].as_i64(),
+            Some(*expected_cterm),
+            "Rust cterm mismatch for {} @ {}",
+            name,
+            level
+        );
+        assert_eq!(
+            rs_arr[1].as_u64(),
+            Some(*expected_hex),
+            "Rust hex mismatch for {} @ {}",
+            name,
+            level
+        );
+    }
+}
+
+#[test]
 fn parity_colorscheme_init_parses_colors_and_gradients() {
     if !python_available() {
         return;
