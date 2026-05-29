@@ -1583,6 +1583,98 @@ fn parity_surrogate_pair_to_character() {
 // ─────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────
+// renderer.py — np_control_character_translations dict
+//   (maps 0x00-0x1F → '^@', '^A', ..., '^_')
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_renderer_np_control_character_translations() {
+    if !python_available() {
+        return;
+    }
+    // Spot-check 5 representative codepoints across the 0x00-0x1F range.
+    // Python: dict where (i, '^' + chr(i + 0x40)) so 0x00→'^@', 0x09→'^I', etc.
+    let cases: &[(u32, &str)] = &[
+        (0x00, "^@"),
+        (0x09, "^I"), // tab
+        (0x0A, "^J"), // newline
+        (0x10, "^P"),
+        (0x1F, "^_"),
+    ];
+    let rs_table = powerliners::ported::renderer::np_control_character_translations();
+    for &(cp, expected) in cases {
+        let expr = format!(
+            "__import__('powerline.renderer', fromlist=['np_control_character_translations']).np_control_character_translations[{}]",
+            cp
+        );
+        let py = match py_eval(&expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(
+            py, expected,
+            "py disagrees with hand-written expected for cp 0x{:02X}",
+            cp
+        );
+        let rs_val = rs_table
+            .get(&char::from_u32(cp).unwrap())
+            .map(|s| s.as_str())
+            .unwrap_or("<missing>");
+        assert_eq!(
+            py, rs_val,
+            "np_control_character_translations[0x{:02X}] mismatch: py={:?}, rs={:?}",
+            cp, py, rs_val
+        );
+    }
+    // Verify table size: Python uses range(0x20) → 32 entries.
+    let py_len = match py_eval(
+        "len(__import__('powerline.renderer', fromlist=['np_control_character_translations']).np_control_character_translations)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py_len, "32", "Python table size != 32");
+    assert_eq!(rs_table.len(), 32, "Rust table size != 32");
+}
+
+#[test]
+fn parity_renderer_np_invalid_character_translations() {
+    if !python_available() {
+        return;
+    }
+    // Python: range(0xDC80, 0xDD00) → 128 entries, each mapped to
+    // '<{0:02x}>'.format(cp - 0xDC00).
+    // So 0xDC80 → '<80>', 0xDCFF → '<ff>', 0xDD00-1 → '<ff>' (table end is exclusive)
+    let cases: &[(u32, &str)] = &[(0xDC80, "<80>"), (0xDCA9, "<a9>"), (0xDCFF, "<ff>")];
+    let rs_table = powerliners::ported::renderer::np_invalid_character_translations();
+    for &(cp, expected) in cases {
+        let expr = format!(
+            "__import__('powerline.renderer', fromlist=['np_invalid_character_translations']).np_invalid_character_translations[{}]",
+            cp
+        );
+        let py = match py_eval(&expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(py, expected, "py disagrees with expected for cp 0x{:X}", cp);
+        let rs_val = rs_table.get(&cp).map(|s| s.as_str()).unwrap_or("<missing>");
+        assert_eq!(
+            py, rs_val,
+            "np_invalid_character_translations[0x{:X}] mismatch: py={:?}, rs={:?}",
+            cp, py, rs_val
+        );
+    }
+    let py_len = match py_eval(
+        "len(__import__('powerline.renderer', fromlist=['np_invalid_character_translations']).np_invalid_character_translations)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py_len, "128", "Python table size != 128 (0xDC80..0xDD00)");
+    assert_eq!(rs_table.len(), 128, "Rust table size != 128");
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // segments/i3wm.py — WORKSPACE_REGEX pattern + format_name + WS_ICONS
 // ─────────────────────────────────────────────────────────────────────
 
