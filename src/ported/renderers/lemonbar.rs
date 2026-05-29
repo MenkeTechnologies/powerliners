@@ -112,8 +112,7 @@ impl LemonbarRenderer {
         // py:46  if not matcher_info or matcher_info not in self.local_themes:
         // py:47  return self.theme
         let mi = match matcher_info {
-            None => return default_theme,
-            Some(s) if s.is_empty() => return default_theme,
+            None | Some("") => return default_theme,
             Some(s) => s,
         };
         if !local_themes.contains_key(mi) {

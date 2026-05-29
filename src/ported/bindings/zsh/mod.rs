@@ -87,12 +87,12 @@ pub fn get_var_config(value: Option<Value>) -> Option<Map<String, Value>> {
                 parsedotval_tuple(k, &v_str)
             })
             .collect();
-        return mergeargs(pairs.into_iter(), false);
+        return mergeargs(pairs, false);
     }
     // py:31  elif isinstance(val, (unicode, str, bytes)):
     // py:32  return mergeargs(parse_override_var(u(val)))
     if let Some(s) = v.as_str() {
-        return mergeargs(parse_override_var(s).into_iter(), false);
+        return mergeargs(parse_override_var(s), false);
     }
     // py:33  else:
     // py:34  return None

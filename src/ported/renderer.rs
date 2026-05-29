@@ -6,7 +6,7 @@
 //! (`hl`/`hlstyle`/`character_translations`). Surfaces:
 //!   - `NBSP` constant
 //!   - `np_control_character_translations()` — 0x00-0x1F → "^@"-"^_"
-//!   - `np_invalid_character_translations()` — 0xDC80-0xDCFF → "<80>"-"<FF>"
+//!   - `np_invalid_character_translations()` — 0xDC80-0xDCFF → `"<80>"`-`"<FF>"`
 //!   - `np_invalid_character_re()` — unpaired-surrogate regex
 //!   - `np_character_translations()` — union for UCS-4
 //!   - `translate_np(s)` — non-printable translation
@@ -616,11 +616,11 @@ impl Renderer {
     /// Port of `Renderer.get_segment_info()` from
     /// `powerline/renderer.py:216`.
     ///
-    /// Merges `segment_info` over the base `Renderer::segment_info()`
-    /// + sets `mode`. When `PWD` is present, replaces `getcwd` with a
-    /// `Value::String(pwd)` (Rust port can't replicate Python's
-    /// lambda-closure getcwd; the caller derives the cwd from the
-    /// returned segment_info instead).
+    /// Merges `segment_info` over the base `Renderer::segment_info()` +
+    /// sets `mode`. When `PWD` is present, replaces `getcwd` with a
+    /// `Value::String(pwd)` (Rust port can't replicate Python's lambda-
+    /// closure getcwd; the caller derives the cwd from the returned
+    /// segment_info instead).
     pub fn get_segment_info(
         &self,
         segment_info: Option<Map<String, Value>>,

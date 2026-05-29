@@ -18,7 +18,7 @@
 //!   - All five classes as structs
 //!   - `PowerlinePromptManager.render()` data-shape unpacking
 //!   - The `'reload'` line-arg validation in PowerlineMagics
-//!   - `old_prompt_manager` module-level snapshot via OnceLock<Mutex>
+//!   - `old_prompt_manager` module-level snapshot via `OnceLock<Mutex>`
 //!
 //! The actual IPython runtime calls (`ip.prompt_manager`,
 //! `ip.hooks.shutdown_hook.add`, `ip.register_magics`, `TryNext`,
@@ -41,7 +41,7 @@ use std::sync::{Mutex, OnceLock};
 /// `powerline/bindings/ipython/post_0_11.py:36`.
 ///
 /// Python: `old_prompt_manager = None` until `do_setup` snapshots
-/// the live `ip.prompt_manager`. Rust uses OnceLock<Mutex<Option>>
+/// the live `ip.prompt_manager`. Rust uses `OnceLock<Mutex<Option>>`
 /// for the same lazy-snapshot pattern.
 pub fn old_prompt_manager() -> &'static Mutex<Option<Value>> {
     static M: OnceLock<Mutex<Option<Value>>> = OnceLock::new();

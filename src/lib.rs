@@ -1,4 +1,10 @@
 // vim:fileencoding=utf-8:noet
+// Faithful 1:1 port: many `// py:NNN`-cited types are deliberately complex
+// to mirror Python signatures (e.g. `Box<dyn Fn(&str) -> (String, usize)>`
+// ports a closure factory). Type aliases would diverge from the upstream
+// shape that reviewers compare against.
+#![allow(clippy::type_complexity)]
+
 //! # powerliners — 1:1 Rust port of [powerline/powerline](https://github.com/powerline/powerline).
 //!
 //! See `docs/PORT.md` for the full porting doctrine. Summary:

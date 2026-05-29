@@ -313,8 +313,8 @@ impl ShellRenderer {
         // py:124  else:
         // py:125  ansi += [38, 5, fg[0]]
         if let Some(f) = fg {
-            if term_truecolor && f.truecolor.is_some() {
-                let (r, g, b) = int_to_rgb(f.truecolor.unwrap());
+            if let (true, Some(tc)) = (term_truecolor, f.truecolor) {
+                let (r, g, b) = int_to_rgb(tc);
                 ansi.extend_from_slice(&[38, 2, r as u32, g as u32, b as u32]);
             } else {
                 ansi.extend_from_slice(&[38, 5, f.cterm as u32]);
@@ -329,8 +329,8 @@ impl ShellRenderer {
         // py:132  else:
         // py:133  ansi += [48, 5, bg[0]]
         if let Some(b) = bg {
-            if term_truecolor && b.truecolor.is_some() {
-                let (r, g, bl) = int_to_rgb(b.truecolor.unwrap());
+            if let (true, Some(tc)) = (term_truecolor, b.truecolor) {
+                let (r, g, bl) = int_to_rgb(tc);
                 ansi.extend_from_slice(&[48, 2, r as u32, g as u32, bl as u32]);
             } else {
                 ansi.extend_from_slice(&[48, 5, b.cterm as u32]);

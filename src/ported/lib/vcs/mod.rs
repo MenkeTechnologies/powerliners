@@ -753,7 +753,7 @@ mod tests {
             .insert("/repo".to_string(), Some("D ".to_string()));
         let r = c.call(
             "/repo",
-            || Err(std::io::Error::new(std::io::ErrorKind::Other, "x")),
+            || Err(std::io::Error::other("x")),
             || Some(" U".to_string()),
         );
         assert_eq!(r, Some("D ".to_string()));

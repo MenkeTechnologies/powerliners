@@ -109,7 +109,7 @@ pub fn fuzzy_time_default_hour_str() -> Vec<&'static str> {
 ///
 /// Maps 5-minute increments (0..=55 stepped by 5) to format strings
 /// containing `{hour_str}` interpolation. Note 30 splits the hour:
-/// minutes 0..=30 use "past <hour>", 35..=55 use "to <hour+1>".
+/// minutes 0..=30 use `"past <hour>"`, 35..=55 use `"to <hour+1>"`.
 pub fn fuzzy_time_default_minute_str() -> std::collections::HashMap<u32, &'static str> {
     let mut m = std::collections::HashMap::new();
     // py:48-50
@@ -202,11 +202,7 @@ pub fn fuzzy_time_compute(
         // py:114  elif now.minute < mn and mn - now.minute < min_dis:
         // py:115  min_dis = mn - now.minute
         // py:116  min_pos = mn
-        let dis = if minute >= mn {
-            minute - mn
-        } else {
-            mn - minute
-        };
+        let dis = minute.abs_diff(mn);
         if dis < min_dis {
             min_dis = dis;
             min_pos = mn;

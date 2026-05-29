@@ -1209,6 +1209,93 @@ check_existing
 # File handle.
 cleanup_lockfile
 
+# powerline-daemon:73-85 start_wm(args, environ, cwd, is_daemon, state)
+# idempotent thread spawner for wm.* extensions. Rust port keeps
+# the same signature, with the wm_threads[wm_name] dispatch replaced
+# by an injected spawn_wm_fn closure since bindings/wm.py isn't
+# ported yet.
+start_wm
+
+# powerline-daemon:147-165 do_read(conn, timeout=2.0) reads from a
+# client conn until the buffer ends with \0\0 or the timeout elapses.
+# Returns None on timeout/error. Rust port preserves the same name,
+# uses libc::poll instead of select.select.
+do_read
+
+# powerline-daemon:168-172 do_write(conn, result) sends result on
+# the conn, swallowing all exceptions. Rust port wraps write_all in
+# eintr_retry_call.
+do_write
+
+# powerline-daemon:203-212 get_answer(req, is_daemon, argparser, state)
+# parses request, runs finish_args, and dispatches to render or
+# start_wm. Rust port keeps the name and adds the two injected
+# closures (render_fn, spawn_wm_fn) that the script uses to wire the
+# Powerline class + wm_threads registry.
+get_answer
+
+# powerline-daemon:215-259 do_one(sock, read_sockets, write_sockets,
+# result_map, is_daemon, argparser, state) — one iteration of the
+# select event loop. Rust port collapses the (sock, read_set,
+# write_set, result_map) tuple into a single HashMap<RawFd, Conn>
+# but preserves the same name + Python control flow.
+do_one
+
+# powerline-daemon:295-317 main_loop(sock, is_daemon) drives do_one
+# until SystemExit. Rust port preserves the name, adds the two
+# render/wm injected closures since the Python original closes over
+# the module-level wm_threads + ShellPowerline.
+main_loop
+
+# powerline-daemon:320-352 daemonize(stdin, stdout, stderr) double-
+# forks, setsid, chdir /, umask 0, dup2 stdio to /dev/null. Rust
+# port preserves the name and uses libc::fork/setsid/umask directly.
+daemonize
+
+# Rust-only helper extracted from powerline-daemon:346-351 (the
+# stdio redirect block inside daemonize). Python inlines the three
+# `open(devnull) + dup2` calls; Rust extracts to redirect_std_to_devnull
+# so the daemonize body stays readable.
+redirect_std_to_devnull
+
+# powerline-daemon:401-419 lockpidfile(pidfile) — open + fcntl
+# LOCK_EX|LOCK_NB + write pid + fsync + signal(SIGTERM, cleanup).
+# Rust port preserves the name; returns Some(PidLock) RAII guard
+# instead of the raw fd Python returns, since Drop is the
+# atexit.register analog.
+lockpidfile
+
+# Rust-only helper for main_loop. Python uses the implicit
+# KeyboardInterrupt → SystemExit(0) path inside `try: while True:
+# do_one(...) except KeyboardInterrupt: raise SystemExit(0)`. Rust
+# has no KeyboardInterrupt; install_sigint_flag wires a libc::signal
+# handler that flips an Arc<AtomicBool>, polled by main_loop. Pure
+# wiring helper, no Python analog by name.
+install_sigint_flag
+
+# Rust-only helper for the daemon binary entry — Python's argparse
+# does this dispatching automatically via `parser.parse_args()`.
+# parse_daemon_argv decodes the daemon CLI flags (-q/-s/-k/-f/-r)
+# without pulling in a full argparse port. Distinct from the
+# main-command argv decoder below.
+parse_daemon_argv
+
+# Rust-only helper. Python's daemon uses `parser.parse_args(args)`
+# at sh:196, where `parser` is the full main-command argparser
+# constructed at sh:301 via NonInteractiveArgParser. Until that
+# argparse port lands, parse_client_argv decodes the positional +
+# flag forms the daemon sees in practice (powerline tmux right -R
+# pane_id=%0, powerline shell left -w 80 -r .zsh).
+parse_client_argv
+
+# Rust-only helper for do_read. Python uses select.select((conn,),
+# (), (conn,), timeout) at sh:153; the Rust port factors that one-fd
+# poll out into poll_readable so do_read stays readable. The
+# behavior follows Python's select semantics: POLLHUP is folded
+# into "readable" (peer-close with pending data), POLLERR /
+# POLLNVAL are genuine errors.
+poll_readable
+
 # powerline-release.py:18 OVERLAY_BRANCH_FORMAT template constant.
 # Python uses str.format(); Rust exposes as fn taking the version
 # string for clarity (Rust has no format-string-as-data

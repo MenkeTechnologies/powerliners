@@ -99,6 +99,8 @@ pub struct Args {
     pub config_path: Option<Vec<String>>,
     /// Python: `args.ext` — list of one entry like `["shell"]` or `["wm.dwm"]`.
     pub ext: Vec<String>,
+    /// Python: `args.renderer_module` — `-r/--renderer-module MODULE`.
+    pub renderer_module: Option<String>,
     /// Python: `args.side` — "left", "right", "above", "aboveleft", or None.
     pub side: Option<String>,
     /// Python: `args.width`.
@@ -496,7 +498,10 @@ where
             }
         }
         // py:181  args.side = args.side[len('above'):]
-        let new_side = side["above".len()..].to_string();
+        let new_side = side
+            .strip_prefix("above")
+            .unwrap_or(side.as_str())
+            .to_string();
         args.side = if new_side.is_empty() {
             None
         } else {

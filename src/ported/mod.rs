@@ -1836,7 +1836,7 @@ mod powerline_class_tests {
         std::fs::write(&f, r#"{"key": "value"}"#).unwrap();
 
         let d_clone = d.clone();
-        let finder = move |p: &str| _find_config_files(&[d_clone.clone()], p);
+        let finder = move |p: &str| _find_config_files(std::slice::from_ref(&d_clone), p);
         let result = load_config("config", finder, |p| {
             let raw = std::fs::read_to_string(p).map_err(|e| e.to_string())?;
             let v: Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
@@ -2056,7 +2056,7 @@ mod powerline_class_tests {
         let d_clone = d.clone();
         let r = Powerline::load_config_instance(
             "test",
-            move |p| _find_config_files(&[d_clone.clone()], p),
+            move |p| _find_config_files(std::slice::from_ref(&d_clone), p),
             |p| {
                 let raw = std::fs::read_to_string(p).map_err(|e| e.to_string())?;
                 let v: Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
