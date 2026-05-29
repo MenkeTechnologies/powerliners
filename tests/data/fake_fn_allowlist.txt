@@ -452,3 +452,26 @@ aggregate_short_status
 # Python inlines this inside _status when path is provided; Rust
 # extracts for the same testability reason as aggregate_short_status.
 extract_file_status
+
+# _ref_pat() accessor for the Python module-level
+# `_ref_pat = re.compile(...)` constant at lib/vcs/git.py:15.
+# Python initialises module-level regex at import time;
+# Rust uses OnceLock for the same lazy single-init pattern.
+_ref_pat
+
+# Repository::aggregate_porcelain_status extracts the
+# wt_column/index_column/untracked_column aggregation loop at
+# lib/vcs/git.py:194-208 (shell-out backend) and the equivalent
+# py:141-159 pygit2 branch. Python inlines the loop inside
+# do_status; Rust extracts so the line→aggregate mapping can be
+# unit-tested without needing the git shell-out (which is stubbed
+# in this port pass).
+aggregate_porcelain_status
+
+# which_exists is a private $PATH lookup helper. Python uses
+# powerline.lib.shell.which (py:12 import). Rust port can't yet
+# call the unported shell module so this duplicates the
+# functionality locally — when lib/shell.rs gains which(), this
+# will move there. Allowlist entry captures the
+# scaffolding-helper status.
+which_exists
