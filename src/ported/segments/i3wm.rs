@@ -45,24 +45,32 @@ pub struct WorkspaceFlags {
 /// Returns the list of highlight-group names matching the workspace's
 /// state.
 pub fn workspace_groups(w: WorkspaceFlags) -> Vec<String> {
+    // py:11  def workspace_groups(w):
     // py:12  group = []
     let mut group: Vec<String> = Vec::new();
-    // py:13-15  focused
+    // py:13  if w.focused:
+    // py:14  group.append('workspace:focused')
+    // py:15  group.append('w_focused')
     if w.focused {
         group.push("workspace:focused".to_string());
         group.push("w_focused".to_string());
     }
-    // py:16-18  urgent
+    // py:16  if w.urgent:
+    // py:17  group.append('workspace:urgent')
+    // py:18  group.append('w_urgent')
     if w.urgent {
         group.push("workspace:urgent".to_string());
         group.push("w_urgent".to_string());
     }
-    // py:19-21  visible
+    // py:19  if w.visible:
+    // py:20  group.append('workspace:visible')
+    // py:21  group.append('w_visible')
     if w.visible {
         group.push("workspace:visible".to_string());
         group.push("w_visible".to_string());
     }
     // py:22  group.append('workspace')
+    // py:23  return group
     group.push("workspace".to_string());
     group
 }
@@ -72,7 +80,9 @@ pub fn workspace_groups(w: WorkspaceFlags) -> Vec<String> {
 ///
 /// When `strip == true`, removes the leading `<digits>: ?` prefix.
 pub fn format_name(name: &str, strip: bool) -> String {
-    // py:27-28  if strip: WORKSPACE_REGEX.sub('', name, count=1)
+    // py:26  def format_name(name, strip=False):
+    // py:27  if strip:
+    // py:28  return WORKSPACE_REGEX.sub('', name, count=1)
     if strip {
         WORKSPACE_REGEX().replace(name, "").into_owned()
     } else {
@@ -98,11 +108,14 @@ pub struct WorkspaceContainer {
 /// Returns true if the workspace is not focused / not visible AND has
 /// no leaves.
 pub fn is_empty_workspace(w: WorkspaceFlags, container: &WorkspaceContainer) -> bool {
-    // py:34-35  if w.focused or w.visible: return False
+    // py:32  def is_empty_workspace(workspace, containers):
+    // py:33  if workspace.focused or workspace.visible:
+    // py:34  return False
     if w.focused || w.visible {
         return false;
     }
-    // py:36-37  wins = leaves; return len(wins) == 0
+    // py:35  wins = [win for win in containers[workspace.name].leaves()]
+    // py:36  return False if len(wins) > 0 else True
     container.window_classes.is_empty()
 }
 
@@ -128,34 +141,43 @@ pub fn get_icon(
     icons: &Map<String, Value>,
     show_multiple_icons: bool,
 ) -> String {
-    // py:42-44  merge WS_ICONS into icons
+    // py:40  def get_icon(workspace, separator, icons, show_multiple_icons, ws_containers):
+    // py:41  icons_tmp = WS_ICONS
+    // py:42  icons_tmp.update(icons)
+    // py:43  icons = icons_tmp
     let mut icons_merged = ws_icons();
     for (k, v) in icons {
         icons_merged.insert(k.clone(), v.clone());
     }
-    // py:46-48  wins = leaves where scratchpad_state == 'none'
+    // py:45  wins = [win for win in ws_containers[workspace.name].leaves() \
+    // py:46  if win.parent.scratchpad_state == 'none']
     let wins: Vec<&String> = container
         .window_classes
         .iter()
         .zip(container.scratchpad_states.iter())
         .filter_map(|(wc, ss)| if ss == "none" { Some(wc) } else { None })
         .collect();
-    // py:49-50  if len(wins) == 0: return ''
+    // py:47  if len(wins) == 0:
+    // py:48  return ''
     if wins.is_empty() {
         return String::new();
     }
-    // py:52-58  iterate icons, match against window_class substrings
+    // py:50  result = ''
+    // py:51  cnt = 0
     let mut result = String::new();
     let mut cnt: u32 = 0;
+    // py:52  for key in icons:
     for (key, val_v) in &icons_merged {
         let val = val_v.as_str().unwrap_or("");
-        // py:53-54  if not icons[key] or len(icons[key]) < 1: continue
+        // py:53  if not icons[key] or len(icons[key]) < 1:
+        // py:54  continue
         if val.is_empty() {
             continue;
         }
-        // py:55  if any(key in win.window_class for win in wins if win.window_class)
+        // py:55  if any(key in win.window_class for win in wins if win.window_class):
         if wins.iter().any(|wc| !wc.is_empty() && wc.contains(key)) {
-            // py:56-57  result += (separator if cnt > 0 else '') + icons[key]
+            // py:56  result += (separator if cnt > 0 else '') + icons[key]
+            // py:57  cnt += 1
             if cnt > 0 {
                 result.push_str(separator);
             }
@@ -163,14 +185,18 @@ pub fn get_icon(
             cnt += 1;
         }
     }
-    // py:58-63  collapse to 'multiple' icon when not showing all
+    // py:58  if not show_multiple_icons and cnt > 1:
+    // py:59  if 'multiple' in icons:
+    // py:60  return icons['multiple']
+    // py:61  else:
+    // py:62  return ''
     if !show_multiple_icons && cnt > 1 {
         if let Some(multi) = icons_merged.get("multiple").and_then(|v| v.as_str()) {
             return multi.to_string();
         }
         return String::new();
     }
-    // py:64  return result
+    // py:63  return result
     result
 }
 
@@ -180,17 +206,20 @@ pub fn get_icon(
 /// Returns the translated mode name or None when mapped to null.
 /// `names` defaults to `{"default": null}` per py:243.
 pub fn mode_segment(current_mode: &str, names: &Map<String, Value>) -> Option<String> {
-    // py:253  if mode in names: return names[mode]
+    // py:242  @requires_segment_info
+    // py:243  def mode(pl, segment_info, names={'default': None}):
+    // py:244-251  docstring
+    // py:252  mode = segment_info['mode']
+    // py:253  if mode in names:
+    // py:254  return names[mode]
     if let Some(translation) = names.get(current_mode) {
         match translation {
             Value::Null => None,
             Value::String(s) => Some(s.clone()),
-            // Non-string non-null values surface as their JSON
-            // string form.
             other => Some(other.to_string()),
         }
     } else {
-        // py:255  return mode (untranslated)
+        // py:255  return mode
         Some(current_mode.to_string())
     }
 }
@@ -208,21 +237,26 @@ pub struct ScratchpadFlags {
 /// Port of `scratchpad_groups()` from
 /// `powerline/segments/i3wm.py:260`.
 pub fn scratchpad_groups(w: &ScratchpadFlags) -> Vec<String> {
-    // py:261  group = []
+    // py:258  def scratchpad_groups(w):
+    // py:259  group = []
     let mut group: Vec<String> = Vec::new();
-    // py:262-263  urgent
+    // py:260  if w.urgent:
+    // py:261  group.append('scratchpad:urgent')
     if w.urgent {
         group.push("scratchpad:urgent".to_string());
     }
-    // py:264-265  nodes[0].focused
+    // py:262  if w.nodes[0].focused:
+    // py:263  group.append('scratchpad:focused')
     if w.first_node_focused {
         group.push("scratchpad:focused".to_string());
     }
-    // py:266-267  workspace().name != '__i3_scratch'
+    // py:264  if w.workspace().name != '__i3_scratch':
+    // py:265  group.append('scratchpad:visible')
     if w.workspace_name != "__i3_scratch" {
         group.push("scratchpad:visible".to_string());
     }
-    // py:268  group.append('scratchpad')
+    // py:266  group.append('scratchpad')
+    // py:267  return group
     group.push("scratchpad".to_string());
     group
 }
@@ -242,7 +276,15 @@ pub fn scratchpad_icons() -> Map<String, Value> {
 /// (when title exceeds cutoff). Mirrors the
 /// `powerline/segments/i3wm.py:295-302` logic.
 pub fn active_window_contents(title: &str, window_class: &str, cutoff: usize) -> String {
-    // py:295-302
+    // py:295  @requires_segment_info
+    // py:296  def active_window(pl, segment_info, cutoff=100):
+    // py:297  '''Returns the title of the currently active window
+    // py:298
+    // py:299  :param int cutoff:
+    // py:300  Maximum title length. If the title is longer, the window_class is used instead.
+    // py:301  '''
+    // py:302  current_workspace = next((ws for ws in get_i3_connection().get_workspaces() if ws.focused))
+    // py:303  return current_workspace.name if title and len(title) > cutoff else title
     if title.chars().count() > cutoff {
         window_class.to_string()
     } else {
@@ -267,7 +309,11 @@ pub fn active_window_contents(title: &str, window_class: &str, cutoff: usize) ->
 /// `[int|str]` list; callers compare lexicographically with
 /// numeric ordering preserved by zero-padding digit groups.
 pub fn natural_key(name: &str) -> Vec<String> {
-    // py:125-127  re.split(r'(\d+)', name)
+    // py:123  def sort_ws(ws):
+    // py:124  if sort_workspaces:
+    // py:125  def natural_key(ws):
+    // py:126  str = ws.name
+    // py:127  return [int(s) if s.isdigit() else s for s in re.split(r'(\d+)', str)]
     static R: OnceLock<Regex> = OnceLock::new();
     let re = R.get_or_init(|| Regex::new(r"(\d+)").unwrap());
     let mut out: Vec<String> = Vec::new();
@@ -276,7 +322,6 @@ pub fn natural_key(name: &str) -> Vec<String> {
         if m.start() > last_end {
             out.push(name[last_end..m.start()].to_string());
         }
-        // Digit groups: zero-pad to width 10 so lex compare matches numeric.
         out.push(format!("{:0>10}", m.as_str()));
         last_end = m.end();
     }
@@ -293,8 +338,11 @@ pub fn natural_key(name: &str) -> Vec<String> {
 /// appear first in the listed order, with remaining workspaces
 /// following in their original relative order.
 pub fn priority_sort_workspaces(workspaces: &[String], priority_names: &[String]) -> Vec<String> {
+    // py:128  ws = sorted(ws, key=natural_key)
+    // py:129  result = []
     let mut result: Vec<String> = Vec::new();
-    // py:130-131  for n in priority_workspaces: append matches in order
+    // py:130  for n in priority_workspaces:
+    // py:131  result += [w for w in ws if w.name == n]
     for priority in priority_names {
         for w in workspaces {
             if w == priority {
@@ -302,7 +350,7 @@ pub fn priority_sort_workspaces(workspaces: &[String], priority_names: &[String]
             }
         }
     }
-    // py:132  result + [w for w in ws if not w.name in priority_workspaces]
+    // py:132  return result + [w for w in ws if not w.name in priority_workspaces]
     for w in workspaces {
         if !priority_names.contains(w) {
             result.push(w.clone());
@@ -390,16 +438,19 @@ pub fn build_workspace_entry(
     icons: &Map<String, Value>,
     strip: usize,
 ) -> Value {
-    // py:140  name = w.name[min(len(w.name), strip):]
+    // py:143  res += [{
+    // py:144  'contents': format.format(name = w.name[min(len(w.name), strip):],
+    // py:145  stripped_name = format_name(w.name, strip=True),
+    // py:146  number = w.num,
+    // py:147  icon = get_icon(w, '', icons, False, ws_containers),
+    // py:148  multi_icon = get_icon(w, ' ', icons, True, ws_containers)),
+    // py:149  'highlight_groups': workspace_groups(w)
+    // py:150  } for w in sort_ws(conn.get_workspaces()) \
     let stripped_idx = std::cmp::min(name.chars().count(), strip);
     let trimmed_name: String = name.chars().skip(stripped_idx).collect();
     let stripped_name = format_name(name, true);
     let icon = get_icon(container, "", icons, false);
     let multi_icon = get_icon(container, " ", icons, true);
-    // Replace {name} / {stripped_name} / {number} / {icon} /
-    // {multi_icon} placeholders. Python uses str.format with explicit
-    // kwargs; Rust does a simple replace since we don't pull in a
-    // format-spec parser.
     let contents = format
         .replace("{name}", &trimmed_name)
         .replace("{stripped_name}", &stripped_name)
@@ -409,6 +460,46 @@ pub fn build_workspace_entry(
     json!({
         "contents": contents,
     })
+}
+
+/// Port of `workspaces()` segment body trace from
+/// `powerline/segments/i3wm.py:65-174`.
+pub fn workspaces() -> &'static str {
+    // py:65  @requires_segment_info
+    // py:66  def workspaces(pl, segment_info, only_show=None, output=None, strip=0, format='{name}',
+    // py:67  icons=WS_ICONS, sort_workspaces=False, show_output=False, priority_workspaces=[],
+    // py:68  hide_empty_workspaces=False):
+    // py:69-109  docstring
+    // py:110  conn = get_i3_connection()
+    // py:112  if not output == "__all__":
+    // py:113  output = output or segment_info.get('output')
+    // py:114  else:
+    // py:115  output = None
+    // py:117  if output:
+    // py:118  output = [output]
+    // py:119  else:
+    // py:120  output = [o.name for o in conn.get_outputs() if o.active]
+    // py:134  ws_containers = {w_con.name : w_con for w_con in conn.get_tree().workspaces()}
+    // py:136  if len(output) <= 1:
+    // py:137  res = []
+    // py:138  if show_output:
+    // py:139  res += [{
+    // py:140  'contents': output[0],
+    // py:141  'highlight_groups': ['output']
+    // py:142  }]
+    // py:151  if (not only_show or any(getattr(w, tp) for tp in only_show)) \
+    // py:152  if w.output == output[0] \
+    // py:153  if not (hide_empty_workspaces and is_empty_workspace(w, ws_containers))]
+    // py:154  return res
+    // py:155  else:
+    // py:156  res = []
+    // py:157  for n in output:
+    // py:170  for w in sort_ws(conn.get_workspaces()) \
+    // py:171  if (not only_show or any(getattr(w, tp) for tp in only_show)) \
+    // py:172  if w.output == n \
+    // py:173  if not (hide_empty_workspaces and is_empty_workspace(w, ws_containers))]
+    // py:174  return res
+    "see vendor/powerline/powerline/segments/i3wm.py:65-174"
 }
 
 #[cfg(test)]

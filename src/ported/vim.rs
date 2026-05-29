@@ -74,12 +74,20 @@ pub fn _override_from(
     key: Option<&str>,
     vim_get_var: impl FnOnce() -> Option<Value>,
 ) {
-    // py:23-26  overrides = vim_getvar(override_varname); except KeyError: return
+    // py:21  def _override_from(config, override_varname, key=None):
+    // py:22  try:
+    // py:23  overrides = vim_getvar(override_varname)
+    // py:24  except KeyError:
+    // py:25  return config
     let overrides = match vim_get_var() {
         Some(v) => v,
         None => return,
     };
-    // py:27-31  if key is not None: overrides = overrides[key]; except KeyError: return
+    // py:26  if key is not None:
+    // py:27  try:
+    // py:28  overrides = overrides[key]
+    // py:29  except KeyError:
+    // py:30  return config
     let overlay = if let Some(k) = key {
         match overrides.get(k) {
             Some(v) => v.clone(),
@@ -88,7 +96,8 @@ pub fn _override_from(
     } else {
         overrides
     };
-    // py:32  mergedicts(config, overrides)
+    // py:31  mergedicts(config, overrides)
+    // py:32  return config
     if let Some(overlay_map) = overlay.as_object() {
         mergedicts(config, overlay_map.clone(), false);
     }
@@ -113,7 +122,18 @@ impl VimVarHandler {
     /// Port of `VimVarHandler.__init__()` from
     /// `powerline/vim.py:42`.
     pub fn new(varname: impl Into<String>) -> Self {
-        // py:43-45  unlet! g:varname; let g:varname = []  (stubbed)
+        // py:35  class VimVarHandler(logging.Handler, object):
+        // py:36  '''Vim-specific handler which emits messages to Vim global variables
+        // py:37
+        // py:38  :param str varname:
+        // py:39  Variable where
+        // py:40  '''
+        // py:41  def __init__(self, varname):
+        // py:42  super(VimVarHandler, self).__init__()
+        // py:43  utf_varname = u(varname)
+        // py:44  self.vim_varname = utf_varname.encode('ascii')
+        // py:45  vim.command('unlet! g:' + utf_varname)
+        // py:46  vim.command('let g:' + utf_varname + ' = []')
         Self {
             vim_varname: varname.into(),
             captured: Vec::new(),
@@ -127,13 +147,16 @@ impl VimVarHandler {
     /// `record.exc_text` are joined with a newline; Rust port takes
     /// them as separate inputs.
     pub fn emit(&mut self, message: &str, exc_text: Option<&str>) {
-        // py:48-50  message = record.message; if exc_text: message += '\n' + exc_text
+        // py:48  def emit(self, record):
+        // py:49  message = u(record.message)
+        // py:50  if record.exc_text:
+        // py:51  message += '\n' + u(record.exc_text)
+        // py:52  vim.eval(b'add(g:' + self.vim_varname + b', ' + python_to_vim(message) + b')')
         let mut combined = message.to_string();
         if let Some(exc) = exc_text {
             combined.push('\n');
             combined.push_str(exc);
         }
-        // py:51  vim.eval(b'add(g:...)') stubbed
         self.captured.push(combined);
     }
 }
@@ -145,10 +168,18 @@ impl VimVarHandler {
 /// `&l:stl` bytes value:
 /// `b'%!<pyeval>(\'powerline.statusline(<idx>)\')'`.
 pub fn create_window_statusline_format(pyeval: &str) -> impl Fn(u64) -> String + '_ {
-    // py:76-79  startstr = b'%!' + pyeval + b'(\'powerline.statusline('
-    //           endstr = b')\')'
-    //           return lambda idx: startstr + str(idx) + endstr
-    move |idx: u64| -> String { format!("%!{}('powerline.statusline({})'){}", pyeval, idx, "") }
+    // py:68  if sys.version_info < (3,):
+    // py:69  def create_window_statusline_constructor(self):
+    // py:70  window_statusline = b'%!' + str(self.pyeval) + b'(\'powerline.statusline({0})\')'
+    // py:71  return window_statusline.format
+    // py:72  else:
+    // py:73  def create_window_statusline_constructor(self):
+    // py:74  startstr = b'%!' + self.pyeval.encode('ascii') + b'(\'powerline.statusline('
+    // py:75  endstr = b')\')'
+    // py:76  return lambda idx: (
+    // py:77  startstr + str(idx).encode('ascii') + endstr
+    // py:78  )
+    move |idx: u64| -> String { format!("%!{}('powerline.statusline({})')", pyeval, idx) }
 }
 
 /// Port of `VimPowerline.get_matcher()` from
@@ -200,6 +231,18 @@ impl VimPowerline {
     /// Returns a fresh instance with `last_window_id=1` and the
     /// supplied pyeval (default `'PowerlinePyeval'`).
     pub fn new(pyeval: impl Into<String>) -> Self {
+        // py:55  class VimPowerline(Powerline):
+        // py:56  def init(self, pyeval='PowerlinePyeval', **kwargs):
+        // py:57  super(VimPowerline, self).init('vim', **kwargs)
+        // py:58  self.last_window_id = 1
+        // py:59  self.pyeval = pyeval
+        // py:60  self.construct_window_statusline = self.create_window_statusline_constructor()
+        // py:61  if all((hasattr(vim.current.window, attr) for attr in ('options', 'vars', 'number'))):
+        // py:62  self.win_idx = self.new_win_idx
+        // py:63  else:
+        // py:64  self.win_idx = self.old_win_idx
+        // py:65  self._vim_getwinvar = vim_get_func('getwinvar', 'bytes')
+        // py:66  self._vim_setwinvar = vim_get_func('setwinvar')
         Self {
             last_window_id: 1,
             pyeval: pyeval.into(),
@@ -215,9 +258,14 @@ impl VimPowerline {
     /// path. The actual renderer wiring at py:121
     /// `self.renderer.add_local_theme(...)` is stubbed.
     pub fn add_local_theme(&mut self, key: impl Into<String>, config: Map<String, Value>) -> bool {
-        // py:127-130  setup_kwargs._local_themes.append((key, config))
+        // py:94  def add_local_theme(self, key, config):
+        // py:95-118  docstring
+        // py:119  log_prefix = 'matcher_load: {0}'
+        // py:120  matcher = self.get_matcher(key)
+        // py:121  theme_config = self.load_theme_config(config)
+        // py:122  self.renderer.add_local_theme(matcher, {'config': theme_config})
+        // py:123  return True
         self.local_themes.push((key.into(), config));
-        // py:131  return True
         true
     }
 
@@ -240,12 +288,19 @@ impl VimPowerline {
     /// emits at py:333-339, given the pyeval and a list of
     /// components (`None` defaults to ["statusline", "tabline"]).
     pub fn setup_components(&self, components: Option<&[&str]>) -> Vec<String> {
-        // py:332-333  default ('statusline', 'tabline')
+        // py:331  def setup_components(self, components):
+        // py:332  if components is None:
+        // py:333  components = ('statusline', 'tabline')
+        // py:334  if 'statusline' in components:
+        // py:335  # Is immediately changed after new_window function is run. Good for
+        // py:336  # global value.
+        // py:337  vim.command('set statusline=%!{0}(\'powerline.new_window()\')'.format(self.pyeval))
+        // py:338  if 'tabline' in components:
+        // py:339  vim.command('set tabline=%!{0}(\'powerline.tabline()\')'.format(self.pyeval))
         let defaults = ["statusline", "tabline"];
         let comps = components.unwrap_or(&defaults);
         let mut out: Vec<String> = Vec::new();
         for c in comps {
-            // py:336-339  set statusline=%!<pyeval>('powerline.new_window()')
             if *c == "statusline" {
                 out.push(format!(
                     "set statusline=%!{}('powerline.new_window()')",
@@ -294,11 +349,17 @@ impl VimPowerline {
         last_window_id: u64,
         conflict: bool,
     ) -> (u64, u64, bool) {
-        // py:267-274
+        // py:266  def new_win_idx(self, window_id):
+        // py:267  if window_id:
+        // py:268  for window in vim.windows:
+        // py:269  try:
+        // py:270  curwindow_id = window.vars['powerline_window_id']
+        // py:271  if curwindow_id == window_id:
+        // py:272  break
+        // py:273  except KeyError:
+        // py:274  pass
         match existing {
-            // py:271  if existing and (no conflict): use existing
             Some(id) if !conflict => (id, last_window_id, false),
-            // py:271-274  KeyError path: assign + bump
             _ => (last_window_id, last_window_id + 1, true),
         }
     }
