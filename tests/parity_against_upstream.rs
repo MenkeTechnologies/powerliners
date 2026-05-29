@@ -2192,6 +2192,77 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_marked_int_and_float_value_preserved() {
+    if !python_available() {
+        return;
+    }
+    // MarkedInt + MarkedFloat preserve numeric value + mark across
+    // gen_marked_value dispatch. Verify negative + zero + typical
+    // values.
+    let int_cases: &[i64] = &[42, -7, 0, 1_000_000];
+    let float_cases: &[f64] = &[3.14, -0.5, 0.0, 1e10];
+
+    for v in int_cases {
+        let py_expr = format!(
+            "(lambda m: __import__('json').dumps([m.value, list(m.mark)]))(__import__('powerline.lint.markedjson.markedvalue', fromlist=['gen_marked_value']).gen_marked_value({}, ('cfg', 5, 10)))",
+            v
+        );
+        let py = match py_eval(&py_expr) {
+            Some(s) => s,
+            None => return,
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let py_arr = py_value.as_array().expect("py array");
+        assert_eq!(py_arr[0].as_i64(), Some(*v), "Python int value drift");
+
+        use powerliners::lint::markedjson::markedvalue::MarkedInt;
+        use powerliners::lint::markedjson::nodes::Mark;
+        let mi = MarkedInt::new(
+            *v,
+            Mark {
+                line: 5,
+                column: 10,
+            },
+        );
+        assert_eq!(mi.value, *v);
+        assert_eq!(mi.mark.line, 5);
+        assert_eq!(mi.mark.column, 10);
+    }
+
+    for v in float_cases {
+        let py_expr = format!(
+            "(lambda m: __import__('json').dumps([m.value, list(m.mark)]))(__import__('powerline.lint.markedjson.markedvalue', fromlist=['gen_marked_value']).gen_marked_value({}, ('cfg', 5, 10)))",
+            v
+        );
+        let py = match py_eval(&py_expr) {
+            Some(s) => s,
+            None => return,
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let py_arr = py_value.as_array().expect("py array");
+        let py_f = py_arr[0].as_f64().expect("py float");
+        assert!(
+            (py_f - v).abs() < 1e-9,
+            "Python float value drift: {} vs {}",
+            py_f,
+            v
+        );
+
+        use powerliners::lint::markedjson::markedvalue::MarkedFloat;
+        use powerliners::lint::markedjson::nodes::Mark;
+        let mf = MarkedFloat::new(
+            *v,
+            Mark {
+                line: 5,
+                column: 10,
+            },
+        );
+        assert!((mf.value - v).abs() < 1e-9, "Rust float value drift");
+        assert_eq!(mf.mark.line, 5);
+    }
+}
+
+#[test]
 fn parity_markedjson_marked_unicode_value_and_mark_preserved() {
     if !python_available() {
         return;
