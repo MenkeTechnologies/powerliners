@@ -2192,6 +2192,39 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_spec_len_appends_check_only_no_type() {
+    if !python_available() {
+        return;
+    }
+    // Spec.len(comparison, cint) appends a SINGLE check_func — NOT a
+    // type check. (Distinct from cmp() which calls self.type() first.)
+    // Pin both ports across 3 comparison operators.
+    for op in ["lt", "ge", "gt"] {
+        let py_expr = format!(
+            "len(__import__('powerline.lint.spec', fromlist=['Spec']).Spec().len({:?}, 10).checks)",
+            op
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_count: usize = py.trim().parse().expect("py returned non-integer");
+        assert_eq!(
+            py_count, 1,
+            "Python Spec().len({:?}, 10).checks length should be 1",
+            op
+        );
+    }
+    use powerliners::lint::spec::{Cmp, Spec};
+    let s = Spec::default().len(Cmp::Lt, 10);
+    let (rs_op, rs_val) = s
+        .len_constraint
+        .expect("Rust Spec::len should set len_constraint");
+    assert_eq!(rs_op, Cmp::Lt);
+    assert_eq!(rs_val, 10);
+}
+
+#[test]
 fn parity_spec_cmp_chains_type_and_check() {
     if !python_available() {
         return;
