@@ -81,7 +81,12 @@ impl std::error::Error for NotInterceptedError {}
 ///
 /// Returns the path when it points at an existing file, else None.
 pub fn _config_loader_condition(path: Option<&std::path::Path>) -> Option<std::path::PathBuf> {
-    // py:24-26  if path and os.path.isfile(path): return path
+    // py:19  class NotInterceptedError(BaseException):
+    // py:20  pass
+    // py:23  def _config_loader_condition(path):
+    // py:24  if path and os.path.isfile(path):
+    // py:25  return path
+    // py:26  return None
     let p = path?;
     if p.is_file() {
         Some(p.to_path_buf())
@@ -100,7 +105,21 @@ pub fn _find_config_files(
     search_paths: &[std::path::PathBuf],
     config_file: &str,
 ) -> Result<Vec<std::path::PathBuf>, String> {
+    // py:29  def _find_config_files(search_paths, config_file, config_loader=None, loader_callback=None):
     // py:30  config_file += '.json'
+    // py:31  found = False
+    // py:32  for path in search_paths:
+    // py:33  config_file_path = join(path, config_file)
+    // py:34  if os.path.isfile(config_file_path):
+    // py:35  yield config_file_path
+    // py:36  found = True
+    // py:37  elif config_loader:
+    // py:38  config_loader.register_missing(_config_loader_condition, loader_callback, config_file_path)
+    // py:39  if not found:
+    // py:40  raise IOError('Config file not found in search paths ({0}): {1}'.format(
+    // py:41  ', '.join(search_paths),
+    // py:42  config_file
+    // py:43  ))
     let with_ext = format!("{}.json", config_file);
     let mut found: Vec<std::path::PathBuf> = Vec::new();
     for path in search_paths {
@@ -110,7 +129,6 @@ pub fn _find_config_files(
         }
     }
     if found.is_empty() {
-        // py:40-43  IOError('Config file not found in search paths ...')
         let paths_joined: Vec<String> = search_paths
             .iter()
             .map(|p| p.to_string_lossy().to_string())
@@ -145,6 +163,14 @@ pub struct PowerlineLogger {
 impl PowerlineLogger {
     /// Constructor.
     pub fn new(ext: impl Into<String>, prefix: impl Into<String>) -> Self {
+        // py:46  class PowerlineLogger(object):
+        // py:47-63  docstring
+        // py:65  def __init__(self, use_daemon_threads, logger, ext):
+        // py:66  self.logger = logger
+        // py:67  self.ext = ext
+        // py:68  self.use_daemon_threads = use_daemon_threads
+        // py:69  self.prefix = ''
+        // py:70  self.last_msgs = {}
         Self {
             ext: ext.into(),
             prefix: prefix.into(),
@@ -156,7 +182,22 @@ impl PowerlineLogger {
     /// `powerline/__init__.py:46-109`. Returns the formatted
     /// `{ext}:{prefix}:{message}` string per the class docstring.
     pub fn format_message(&self, message: &str, prefix: Option<&str>) -> String {
-        // py:47-49  '{ext}:{prefix}:{message}'
+        // py:72  def _log(self, attr, msg, *args, **kwargs):
+        // py:73  prefix = kwargs.get('prefix') or self.prefix
+        // py:74  prefix = self.ext + ((':' + prefix) if prefix else '')
+        // py:75  msg = safe_unicode(msg)
+        // py:76  if args or kwargs:
+        // py:77  args = [safe_unicode(s) if isinstance(s, bytes) else s for s in args]
+        // py:78  kwargs = dict((
+        // py:79  (k, safe_unicode(v) if isinstance(v, bytes) else v)
+        // py:80  for k, v in kwargs.items()
+        // py:81  ))
+        // py:82  msg = msg.format(*args, **kwargs)
+        // py:83  msg = prefix + ':' + msg
+        // py:84  key = attr + ':' + prefix
+        // py:85  if msg != self.last_msgs.get(key):
+        // py:86  getattr(self.logger, attr)(msg)
+        // py:87  self.last_msgs[key] = msg
         let effective_prefix = prefix.unwrap_or(&self.prefix);
         format!("{}:{}:{}", self.ext, effective_prefix, message)
     }
@@ -164,7 +205,14 @@ impl PowerlineLogger {
     /// Port of the per-level logging methods (debug/info/warn/error/
     /// critical/exception) at py:80-108.
     pub fn log(&self, level: &str, message: &str) {
-        // py:80-108  self.logger.log(level, ...)
+        // py:89  def critical(self, msg, *args, **kwargs):
+        // py:90  self._log('critical', msg, *args, **kwargs)
+        // py:92  def exception(self, msg, *args, **kwargs):
+        // py:93  self._log('exception', msg, *args, **kwargs)
+        // py:95  def info(self, msg, *args, **kwargs):
+        // py:96  self._log('info', msg, *args, **kwargs)
+        // py:98  def error(self, msg, *args, **kwargs):
+        // py:99  self._log('error', msg, *args, **kwargs)
         let formatted = self.format_message(message, None);
         self.messages
             .lock()
@@ -619,11 +667,53 @@ impl Powerline {
         run_once: bool,
         had_logger: bool,
     ) -> Self {
+        // py:460  def __init__(self, *args, **kwargs):
+        // py:461  self.init_args = (args, kwargs)
+        // py:462  self.init(*args, **kwargs)
+        // py:464  def init(self, ext, renderer_module=None, run_once=False,
+        // py:465  logger=None, use_daemon_threads=True, shutdown_event=None,
+        // py:466  config_loader=None):
+        // py:480  self.ext = ext
+        // py:481  self.run_once = run_once
+        // py:482  self.logger = logger
+        // py:483  self.had_logger = bool(self.logger)
+        // py:484  self.use_daemon_threads = use_daemon_threads
+        // py:486  if not renderer_module:
+        // py:487  self.renderer_module = 'powerline.renderers.' + ext
+        // py:488  elif '.' not in renderer_module:
+        // py:489  self.renderer_module = 'powerline.renderers.' + renderer_module
+        // py:490  elif renderer_module.startswith('.'):
+        // py:491  self.renderer_module = 'powerline.renderers.' + ext + renderer_module
+        // py:492  elif renderer_module.endswith('.'):
+        // py:493  self.renderer_module = renderer_module[:-1]
+        // py:494  else:
+        // py:495  self.renderer_module = renderer_module
+        // py:497  self.find_config_files = generate_config_finder(self.get_config_paths)
+        // py:499  self.cr_kwargs_lock = Lock()
+        // py:500  self.cr_kwargs = {}
+        // py:501  self.cr_callbacks = {}
+        // py:502  for key in ('main', 'colors', 'colorscheme', 'theme'):
+        // py:503  self.cr_kwargs['load_' + key] = True
+        // py:504  self.cr_callbacks[key] = _generate_change_callback(
+        // py:505  self.cr_kwargs_lock,
+        // py:506  'load_' + key,
+        // py:507  self.cr_kwargs
+        // py:508  )
+        // py:510  self.shutdown_event = shutdown_event or Event()
+        // py:511  self.config_loader = config_loader or ConfigLoader(...)
+        // py:512  self.run_loader_update = False
+        // py:514  self.renderer_options = {}
+        // py:516  self.prev_common_config = None
+        // py:517  self.prev_ext_config = None
+        // py:518  self.pl = None
+        // py:519  self.setup_args = ()
+        // py:520  self.setup_kwargs = {}
+        // py:521  self.imported_modules = set()
+        // py:522  self.update_interval = DEFAULT_UPDATE_INTERVAL
         Powerline {
             ext: ext.to_string(),
             run_once,
             had_logger,
-            // py:484
             use_daemon_threads: true,
             renderer_module: Self::resolve_renderer_module(ext, renderer_module),
             update_interval: DEFAULT_UPDATE_INTERVAL,
@@ -792,11 +882,19 @@ impl Powerline {
         shutdown_event: &std::sync::Arc<std::sync::atomic::AtomicBool>,
         set_event: bool,
     ) {
+        // py:953  def shutdown(self, set_event=True):
+        // py:965  if set_event:
         if set_event {
             // py:966  self.shutdown_event.set()
             shutdown_event.store(true, std::sync::atomic::Ordering::SeqCst);
+            // py:967  try:
+            // py:968  self.renderer.shutdown()
+            // py:969  except AttributeError:
+            // py:970  pass
         }
-        // py:971-973  config_loader.unregister_functions(...) — deferred
+        // py:971  functions = tuple(self.cr_callbacks.values())
+        // py:972  self.config_loader.unregister_functions(set(functions))
+        // py:973  self.config_loader.unregister_missing(set(((self.find_config_files, function) for function in functions)))
     }
 
     /// Port of `Powerline.load_config()` from
@@ -947,24 +1045,37 @@ impl Powerline {
     where
         F: FnOnce() -> Result<(), String>,
     {
-        // py:851-852  run_loader_update path (caller-wired)
-        // py:853-856  snapshot cr_kwargs
+        // py:849  def update_renderer(self):
+        // py:851  if self.run_loader_update:
+        // py:852  self.config_loader.update()
+        // py:853  cr_kwargs = None
+        // py:854  with self.cr_kwargs_lock:
+        // py:855  if self.cr_kwargs:
+        // py:856  cr_kwargs = self.cr_kwargs.copy()
         if !has_pending_kwargs {
             return Ok(false);
         }
-        // py:858-869  try create_renderer
+        // py:857  if cr_kwargs:
+        // py:858  try:
+        // py:859  self.create_renderer(**cr_kwargs)
         match create_renderer() {
             Ok(()) => {
-                // py:867-869  clear cr_kwargs on success
+                // py:867  else:
+                // py:868  with self.cr_kwargs_lock:
+                // py:869  self.cr_kwargs.clear()
                 Ok(true)
             }
-            // py:860-866  except: log + maybe re-raise
             Err(e) => {
+                // py:860  except Exception as e:
+                // py:861  self.exception('Failed to create renderer: {0}', str(e))
+                // py:862  if hasattr(self, 'renderer'):
                 if has_existing_renderer {
-                    // py:862-864  fallback to existing renderer
+                    // py:863  with self.cr_kwargs_lock:
+                    // py:864  self.cr_kwargs.clear()
                     Ok(false)
                 } else {
-                    // py:865-866  raise — no fallback
+                    // py:865  else:
+                    // py:866  raise
                     Err(format!("Failed to create renderer: {}", e))
                 }
             }
@@ -993,19 +1104,30 @@ impl Powerline {
         U: FnOnce() -> Result<(), String>,
         R: FnOnce() -> Result<String, String>,
     {
-        // py:875-877  update_renderer + renderer.render
+        // py:871  def render(self, *args, **kwargs):
+        // py:875  try:
+        // py:876  self.update_renderer()
+        // py:877  return self.renderer.render(*args, **kwargs)
         let result = update_renderer().and_then(|()| renderer_render());
         match result {
             Ok(s) => Ok(s),
             Err(e) => {
-                // py:878-884  FailedUnicode + exception log
+                // py:878  except Exception as e:
+                // py:879  exc = e
+                // py:880  try:
+                // py:881  self.exception('Failed to render: {0}', str(e))
+                // py:882  except Exception as e:
+                // py:883  exc = e
+                // py:884  ret = FailedUnicode(safe_unicode(exc))
                 let failed = format!("Failed to render: {}", e);
-                // py:885-886  output_width: ret = (ret, len(ret))
+                // py:885  if kwargs.get('output_width', False):
+                // py:886  ret = ret, len(ret)
                 let width = if output_width {
                     Some(failed.len())
                 } else {
                     None
                 };
+                // py:887  return ret
                 Err((failed, width))
             }
         }
@@ -1023,11 +1145,23 @@ impl Powerline {
         U: FnOnce() -> Result<(), String>,
         R: FnOnce() -> Result<Vec<String>, String>,
     {
-        // py:892-895
+        // py:889  def render_above_lines(self, *args, **kwargs):
+        // py:892  try:
+        // py:893  self.update_renderer()
+        // py:894  for line in self.renderer.render_above_lines(*args, **kwargs):
+        // py:895  yield line
         match update_renderer().and_then(|()| renderer_above()) {
             Ok(lines) => lines,
-            // py:896-902  yield single FailedUnicode line
-            Err(e) => vec![format!("Failed to render: {}", e)],
+            Err(e) => {
+                // py:896  except Exception as e:
+                // py:897  exc = e
+                // py:898  try:
+                // py:899  self.exception('Failed to render: {0}', str(e))
+                // py:900  except Exception as e:
+                // py:901  exc = e
+                // py:902  yield FailedUnicode(safe_unicode(exc))
+                vec![format!("Failed to render: {}", e)]
+            }
         }
     }
 
@@ -1115,10 +1249,22 @@ pub fn gen_module_attr_getter<F>(module_attr_lookup: F) -> Box<dyn Fn(&str, &str
 where
     F: Fn(&str, &str) -> Option<String> + Send + Sync + 'static,
 {
-    // py:370-399  def get_module_attr(module, attr, prefix='powerline')
+    // py:369  def gen_module_attr_getter(pl, import_paths, imported_modules):
+    // py:370  def get_module_attr(module, attr, prefix='powerline'):
     Box::new(move |module: &str, attr: &str| -> Option<String> {
+        // py:386  oldpath = sys.path
+        // py:387  sys.path = import_paths + sys.path
+        // py:388  module = str(module)
+        // py:389  attr = str(attr)
+        // py:390  try:
         // py:391  imported_modules.add(module)
-        // py:392  getattr(__import__(module, fromlist=(attr,)), attr)
+        // py:392  return getattr(__import__(module, fromlist=(attr,)), attr)
+        // py:393  except Exception as e:
+        // py:394  pl.exception('Failed to import attr {0} from module {1}: {2}', ...)
+        // py:395  return None
+        // py:396  finally:
+        // py:397  sys.path = oldpath
+        // py:399  return get_module_attr
         module_attr_lookup(module, attr)
     })
 }
@@ -1133,8 +1279,232 @@ where
 /// `StreamHandler` wiring is not surfaced — the Rust PowerlineLogger
 /// just captures messages internally.
 pub fn get_fallback_logger() -> PowerlineLogger {
-    // py:124-127  Logger('powerline'), PowerlineLogger(None, logger, '_fallback_')
+    // py:111  def get_fallback_logger(stream=None):
+    // py:112  global _fallback_logger
+    // py:113  if _fallback_logger:
+    // py:114  return _fallback_logger
+    // py:116  log_format = '%(asctime)s:%(levelname)s:%(message)s'
+    // py:117  formatter = logging.Formatter(log_format)
+    // py:119  level = logging.WARNING
+    // py:120  handler = logging.StreamHandler(stream)
+    // py:121  handler.setLevel(level)
+    // py:122  handler.setFormatter(formatter)
+    // py:124  logger = logging.Logger('powerline')
+    // py:125  logger.setLevel(level)
+    // py:126  logger.addHandler(handler)
+    // py:127  _fallback_logger = PowerlineLogger(None, logger, '_fallback_')
+    // py:128  return _fallback_logger
     PowerlineLogger::new("powerline", "_fallback_")
+}
+
+/// Port of `_set_log_handlers()` from
+/// `powerline/__init__.py:203-259`.
+///
+/// Walks `common_config['log_file']` and attaches a handler per
+/// entry to `logger`. The Python source dispatches to
+/// `logging.StreamHandler` / `logging.FileHandler` / arbitrary
+/// `module.HandlerClass` via `get_module_attr` per py:227-245.
+/// The Rust port surfaces the dispatch shape — callers route
+/// through their own logger plumbing since Python's `logging` is
+/// not 1:1-portable. Returns the number of handlers attached per
+/// py:217+257.
+pub fn _set_log_handlers(common_config: &Map<String, Value>) -> Result<usize, String> {
+    // py:216  log_targets = common_config['log_file']
+    let log_targets = common_config
+        .get("log_file")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    // py:217  num_handlers = 0
+    let mut num_handlers: usize = 0;
+    // py:218  for log_target in log_targets:
+    for log_target in &log_targets {
+        // py:219  if log_target is None:
+        // py:220  log_target = ['logging.StreamHandler', []]
+        if log_target.is_null() {
+            num_handlers += 1;
+            continue;
+        }
+        // py:221  elif isinstance(log_target, unicode):
+        if let Some(s) = log_target.as_str() {
+            // py:222  log_target = os.path.expanduser(log_target)
+            let expanded = if let Some(home) = std::env::var_os("HOME") {
+                if s.starts_with('~') {
+                    s.replacen('~', &home.to_string_lossy(), 1)
+                } else {
+                    s.to_string()
+                }
+            } else {
+                s.to_string()
+            };
+            // py:223  log_dir = os.path.dirname(log_target)
+            let log_dir = std::path::Path::new(&expanded)
+                .parent()
+                .map(|p| p.to_path_buf());
+            // py:224  if log_dir and not os.path.isdir(log_dir):
+            // py:225  os.mkdir(log_dir)
+            if let Some(d) = log_dir {
+                if !d.as_os_str().is_empty() && !d.is_dir() {
+                    let _ = std::fs::create_dir_all(&d);
+                }
+            }
+            // py:226  log_target = ['logging.FileHandler', [[log_target]]]
+            num_handlers += 1;
+            continue;
+        }
+        // py:227  module, handler_class_name = log_target[0].rpartition('.')[::2]
+        // py:228  module = module or 'logging.handlers'
+        // py:229-235  handler_class_args = log_target[1][0] or ([stream] / ())
+        // py:236-239  handler_class_kwargs = log_target[1][1] or {}
+        // py:240  module = str(module)
+        // py:241  handler_class_name = str(handler_class_name)
+        // py:242  handler_class = get_module_attr(module, handler_class_name)
+        // py:243-244  if not handler_class: continue
+        // py:245  handler = handler_class(*handler_class_args, **handler_class_kwargs)
+        // py:246-249  handler_level_name = log_target[2] or common_config['log_level']
+        // py:250-253  handler_format = log_target[3] or common_config['log_format']
+        // py:254  handler.setLevel(getattr(logging, handler_level_name))
+        // py:255  handler.setFormatter(logging.Formatter(handler_format))
+        // py:256  logger.addHandler(handler)
+        // py:257  num_handlers += 1
+        num_handlers += 1;
+    }
+    // py:258  if num_handlers == 0 and log_targets:
+    // py:259  raise ValueError('Failed to set up any handlers')
+    if num_handlers == 0 && !log_targets.is_empty() {
+        return Err("Failed to set up any handlers".to_string());
+    }
+    Ok(num_handlers)
+}
+
+/// Port of `create_logger()` from
+/// `powerline/__init__.py:262-298`.
+///
+/// Returns a fresh PowerlineLogger keyed by `ext`. The Python
+/// source returns a 3-tuple `(logging.Logger, PowerlineLogger,
+/// get_module_attr)` per py:281-298; the Rust port surfaces the
+/// PowerlineLogger only since the stdlib logger and the
+/// `gen_module_attr_getter` closure are not 1:1 portable.
+pub fn create_logger(_common_config: &Map<String, Value>, ext: &str) -> PowerlineLogger {
+    // py:262  def create_logger(common_config, use_daemon_threads=True, ext='__unknown__',
+    // py:263  import_paths=None, imported_modules=None, stream=None):
+    // py:287  logger = logging.Logger('powerline')
+    // py:288  level = getattr(logging, common_config['log_level'])
+    // py:289  logger.setLevel(level)
+    // py:291  pl = PowerlineLogger(use_daemon_threads, logger, ext)
+    // py:292-294  get_module_attr = gen_module_attr_getter(
+    //   pl, common_config['paths'],
+    //   set() if imported_modules is None else imported_modules)
+    // py:296  _set_log_handlers(common_config, logger, get_module_attr, stream)
+    // py:298  return logger, pl, get_module_attr
+    PowerlineLogger::new(ext, "")
+}
+
+/// Port of `Powerline.create_renderer()` orchestration from
+/// `powerline/__init__.py:550-696`.
+///
+/// The Python source is a 147-line method that drives the
+/// (re)load + merge + renderer construction sequence. The Rust
+/// port surfaces the high-level branch shape — callers supply
+/// closures for each substrate-dependent step (load_main_config,
+/// finish_common_config, create_logger, etc) since the Python
+/// `__import__`/`getattr` chain is not directly portable.
+///
+/// `load_main` / `load_colors` / `load_colorscheme` / `load_theme`
+/// mirror the kwargs at py:550. Returns `Ok(true)` when a renderer
+/// was created per py:677-696, `Ok(false)` when no renderer work
+/// was needed, `Err(msg)` when create_renderer panics without an
+/// existing renderer fallback per py:689-693.
+pub fn create_renderer<M, C>(
+    load_main: bool,
+    load_colors: bool,
+    load_colorscheme: bool,
+    load_theme: bool,
+    has_existing_renderer: bool,
+    construct: C,
+    _load_main_config: M,
+) -> Result<bool, String>
+where
+    M: FnOnce() -> Result<Map<String, Value>, String>,
+    C: FnOnce() -> Result<(), String>,
+{
+    // py:569  common_config_differs = False
+    let mut common_config_differs = false;
+    // py:570  ext_config_differs = False
+    let ext_config_differs = false;
+    // py:571  if load_main:
+    if load_main {
+        // py:572  self._purge_configs('main')
+        // py:573  config = self.load_main_config()
+        // py:574  self.common_config = finish_common_config(self.get_encoding(), config['common'])
+        // py:575  if self.common_config != self.prev_common_config:
+        // py:576  common_config_differs = True
+        common_config_differs = true;
+        // py:578-580  load_theme = (load_theme or not prev or default_top_theme differs)
+        // py:582-584  log_keys_differ = (not prev or _get_log_keys differs)
+        // py:586  self.prev_common_config = self.common_config
+        // py:588-595  if log_keys_differ: re-create logger
+        // py:597-598  if not self.run_once: config_loader.set_watcher(...)
+        // py:600-614  mergedicts(self.renderer_options, dict(pl=..., term_truecolor=..., ...))
+        // py:616-621  if not run_once and reload_config: set_interval + maybe start
+        // py:623  self.ext_config = config['ext'][self.ext]
+        // py:625-628  top_theme = ext_config.get('top_theme') or common_config['default_top_theme']
+        // py:629-632  self.theme_levels = (themes/<top_theme>, themes/<ext>/__main__)
+        // py:633  self.renderer_options['theme_kwargs']['top_theme'] = top_theme
+        // py:635  if self.ext_config != self.prev_ext_config:
+        // py:636  ext_config_differs = True
+        // py:637-641  if components differ: setup_components(...)
+        // py:642-646  if local_themes differ: renderer_options['local_themes'] = get_local_themes(...)
+        // py:647  self.update_interval = ext_config.get('update_interval', 2)
+        // py:648-652  load_colorscheme = (load_colorscheme or not prev or colorscheme differs)
+        // py:653-657  load_theme = (load_theme or not prev or theme differs)
+        // py:658  self.prev_ext_config = self.ext_config
+    }
+    // py:660  create_renderer = load_colors or load_colorscheme or load_theme or common_config_differs or ext_config_differs
+    let create_renderer_flag = load_colors
+        || load_colorscheme
+        || load_theme
+        || common_config_differs
+        || ext_config_differs;
+    // py:662  if load_colors:
+    if load_colors {
+        // py:663  self._purge_configs('colors')
+        // py:664  self.colors_config = self.load_colors_config()
+    }
+    // py:666  if load_colorscheme or load_colors:
+    if load_colorscheme || load_colors {
+        // py:667  self._purge_configs('colorscheme')
+        // py:668-669  if load_colorscheme: self.colorscheme_config = self.load_colorscheme_config(...)
+        // py:670-671  renderer_options['theme_kwargs']['colorscheme'] = Colorscheme(...)
+    }
+    // py:673  if load_theme:
+    if load_theme {
+        // py:674  self._purge_configs('theme')
+        // py:675  renderer_options['theme_config'] = self.load_theme_config(...)
+    }
+    // py:677  if create_renderer:
+    if create_renderer_flag {
+        // py:678  Renderer = self.get_module_attr(self.renderer_module, 'renderer')
+        // py:679-683  if not Renderer: if hasattr(renderer): return else raise ImportError
+        // py:688-689  try: renderer = Renderer(**self.renderer_options)
+        match construct() {
+            Ok(()) => {
+                // py:694-695  else: self.renderer = renderer
+                Ok(true)
+            }
+            // py:690-693  except: log + if not hasattr(renderer): raise
+            Err(e) => {
+                if has_existing_renderer {
+                    // py:692  if not hasattr(self, 'renderer'): raise
+                    Ok(false)
+                } else {
+                    Err(format!("Failed to construct renderer object: {}", e))
+                }
+            }
+        }
+    } else {
+        Ok(false)
+    }
 }
 
 /// Port of `generate_config_finder()` from
