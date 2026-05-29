@@ -2192,6 +2192,69 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_lint_updated_with_config_merges_load_result() {
+    if !python_available() {
+        return;
+    }
+    // updated_with_config(d) — py:335-342:
+    //   load_json_file(d['path']) → (hadproblem, config, error)
+    //   d.update(hadproblem=..., config=..., error=...)
+    //
+    // Verify:
+    //   - hadproblem/config/error keys added
+    //   - existing keys (e.g. 'something') preserved
+    let tmpfile = std::env::temp_dir().join(format!(
+        "powerliners_parity_uwc_{}.json",
+        std::process::id()
+    ));
+    std::fs::write(&tmpfile, r#"{"a": 1}"#).expect("write fixture");
+
+    let py_expr = format!(
+        "(lambda d: __import__('json').dumps({{'keys': sorted(d.keys()), 'hadproblem': d['hadproblem'], 'config': dict(d['config']) if d['config'] else None, 'error': d['error'], 'something': d['something']}}, sort_keys=True))(__import__('powerline.lint').lint.updated_with_config({{'path': {:?}, 'something': 'else'}}))",
+        tmpfile.to_string_lossy()
+    );
+    let py = match py_eval(&py_expr) {
+        Some(v) => v,
+        None => {
+            let _ = std::fs::remove_file(&tmpfile);
+            return;
+        }
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let py_keys = py_value["keys"].as_array().expect("py keys");
+    let py_key_strs: Vec<&str> = py_keys.iter().filter_map(|v| v.as_str()).collect();
+    assert_eq!(
+        py_key_strs,
+        vec!["config", "error", "hadproblem", "path", "something"],
+        "Python dict.keys() drift"
+    );
+    assert_eq!(py_value["hadproblem"].as_bool(), Some(false));
+    assert_eq!(py_value["config"], serde_json::json!({"a": 1}));
+    assert!(py_value["error"].is_null());
+    assert_eq!(py_value["something"].as_str(), Some("else"));
+
+    let mut d = serde_json::Map::from_iter(vec![
+        (
+            "path".to_string(),
+            serde_json::Value::String(tmpfile.to_string_lossy().into_owned()),
+        ),
+        (
+            "something".to_string(),
+            serde_json::Value::String("else".to_string()),
+        ),
+    ]);
+    powerliners::lint::updated_with_config(&mut d);
+    let _ = std::fs::remove_file(&tmpfile);
+    assert!(d.contains_key("hadproblem"));
+    assert!(d.contains_key("config"));
+    assert!(d.contains_key("path"));
+    assert!(d.contains_key("something"));
+    assert_eq!(d["hadproblem"].as_bool(), Some(false));
+    assert_eq!(d["config"], serde_json::json!({"a": 1}));
+    assert_eq!(d["something"].as_str(), Some("else"));
+}
+
+#[test]
 fn parity_lint_load_json_file_valid_and_missing() {
     if !python_available() {
         return;
