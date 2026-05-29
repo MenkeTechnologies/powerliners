@@ -135,6 +135,17 @@ impl VimRenderer {
     /// Port of `VimRenderer.__init__()` from
     /// `powerline/renderers/vim.py:35`.
     pub fn new() -> Self {
+        // py:35  def __init__(self, *args, **kwargs):
+        // py:36  if not hasattr(vim, 'strwidth'):
+        // py:37  # Hope nobody want to change this at runtime
+        // py:38  if vim.eval('&ambiwidth') == 'double':
+        // py:39  kwargs = dict(**kwargs)
+        // py:40  kwargs['ambigious'] = 2
+        // py:41  super(VimRenderer, self).__init__(*args, **kwargs)
+        // py:42  self.hl_groups = {}
+        // py:43  self.prev_highlight = None
+        // py:44  self.strwidth_error_name = register_strwidth_error(self.strwidth)
+        // py:45  self.encoding = get_vim_encoding()
         Self {
             hl_groups: HashMap::new(),
             prev_highlight: None,
@@ -384,7 +395,15 @@ impl VimRenderer {
         // here preserves intent.
         #[allow(clippy::map_entry)]
         if !self.hl_groups.contains_key(&key) {
-            // py:142-151  build hl_group dict
+            // py:145  if not (fg, bg, attrs) in self.hl_groups:
+            // py:146  hl_group = {
+            // py:147  'ctermfg': 'NONE',
+            // py:148  'guifg': None,
+            // py:149  'ctermbg': 'NONE',
+            // py:150  'guibg': None,
+            // py:151  'attrs': ['NONE'],
+            // py:152  'name': '',
+            // py:153  }
             let mut g = HlGroup {
                 ctermfg: "NONE".to_string(),
                 guifg: None,
@@ -393,27 +412,46 @@ impl VimRenderer {
                 attrs: vec!["NONE".to_string()],
                 name: String::new(),
             };
-            // py:152-154  fg
+            // py:154  if fg is not None and fg is not False:
+            // py:155  hl_group['ctermfg'] = fg[0]
+            // py:156  hl_group['guifg'] = fg[1]
             if let Some(f) = fg {
                 g.ctermfg = f.cterm.to_string();
                 g.guifg = f.truecolor;
             }
-            // py:155-156  bg
+            // py:157  if bg is not None and bg is not False:
+            // py:158  hl_group['ctermbg'] = bg[0]
+            // py:159  hl_group['guibg'] = bg[1]
             if let Some(b) = bg {
                 g.ctermbg = b.cterm.to_string();
                 g.guibg = b.truecolor;
             }
-            // py:157-163  attrs
+            // py:160  if attrs:
+            // py:161  hl_group['attrs'] = []
+            // py:162  if attrs & ATTR_BOLD:
+            // py:163  hl_group['attrs'].append('bold')
+            // py:164  if attrs & ATTR_ITALIC:
+            // py:165  hl_group['attrs'].append('italic')
+            // py:166  if attrs & ATTR_UNDERLINE:
+            // py:167  hl_group['attrs'].append('underline')
             if attrs != 0 {
                 g.attrs = Self::attrs_to_hi_attrs(attrs);
             }
-            // py:165-172  synthetic name
+            // py:168  hl_group['name'] = (
+            // py:169  'Pl_'
+            // py:170  + str(hl_group['ctermfg']) + '_'
+            // py:171  + str(hl_group['guifg']) + '_'
+            // py:172  + str(hl_group['ctermbg']) + '_'
+            // py:173  + str(hl_group['guibg']) + '_'
+            // py:174  + ''.join(hl_group['attrs'])
+            // py:175  )
             g.name = Self::build_group_name(&g);
-            // py:174-181  issue vim command (deferred via commands buffer)
+            // py:176  self.hl_groups[(fg, bg, attrs)] = hl_group
+            // py:177  vim.command('hi {group} ctermfg={ctermfg} guifg={guifg} ...'.format(...))
             commands.push(g.vim_command());
             self.hl_groups.insert(key, g);
         }
-        // py:182  '%#' + name + '#'
+        // py:185  return '%#' + self.hl_groups[(fg, bg, attrs)]['name'] + '#'
         format!("%#{}#", self.hl_groups[&key].name)
     }
 }
