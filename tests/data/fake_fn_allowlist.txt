@@ -1422,3 +1422,20 @@ get_matched_theme_cached
 # unported gen_segment_getter. Same inline-extraction pattern as
 # resolve_renderer_module and other body-extracted helpers.
 apply_cursor_space
+
+# segment.rs::segment_getter_name — extracts the `segment_getters`
+# module-level dict at powerline/segment.py:78-82 into a fn that
+# returns the resolver name for each segment type. Python uses the
+# dict as a lookup table; Rust returns the resolver name as a
+# &'static str so callers can match on it without runtime fn pointer
+# coercion. Same module-level-dict-as-fn pattern as TMUX_ACTIONS
+# and SHELL_ACTIONS in commands/config.
+segment_getter_name
+
+# segment.rs::AttrFunc::is_none — convenience helper to test the
+# AttrFunc::None variant returned by get_attr_func at
+# powerline/segment.py:88-89 (`except AttributeError: return None`).
+# Python's None check is a simple `is None` test; Rust's enum
+# requires a `matches!` macro or method. is_none mirrors Option's
+# is_none semantically and is idiomatic at call sites.
+is_none

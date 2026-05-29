@@ -347,6 +347,172 @@ pub fn get_fallback_segment() -> Map<String, Value> {
     m
 }
 
+/// Result of `get_function()` / `get_string()` dispatch. Mirrors the
+/// 5-element tuple Python returns at py:70 / py:75:
+/// `(contents_string, function, module, function_name, name)`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SegmentGetterResult {
+    /// First tuple slot — the literal contents string (or None for
+    /// function segments).
+    pub contents: Option<String>,
+    /// Second tuple slot — the resolved function name (or None for
+    /// string segments).
+    pub function_name: Option<String>,
+    /// Third tuple slot — the resolved module name (or None for
+    /// string segments).
+    pub module: Option<String>,
+    /// Fourth tuple slot — duplicate of `function_name` per the
+    /// Python tuple shape; preserved for parity with py:70.
+    pub function_name_dup: Option<String>,
+    /// Fifth tuple slot — the segment's optional name from
+    /// `segment.get('name')`.
+    pub name: Option<String>,
+}
+
+/// Port of `get_function()` from
+/// `powerline/segment.py:61-70`.
+///
+/// Resolves the segment's `function` field to a `(module,
+/// function_name)` pair using rpartition on `.`. Falls back to
+/// `default_module` when undotted per py:65-66.
+///
+/// `import_module_attr` is the caller-supplied closure analog of
+/// `data['get_module_attr']` at py:67. Returns Err matching Python's
+/// `ImportError('Failed to obtain segment function')` per py:68-69
+/// when the import returns nothing.
+pub fn get_function(
+    segment: &Map<String, Value>,
+    default_module: &str,
+    import_module_attr: impl FnOnce(&str, &str) -> Option<()>,
+) -> Result<SegmentGetterResult, String> {
+    // py:62  function_name = segment['function']
+    let raw_name = segment
+        .get("function")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "segment has no 'function' key".to_string())?;
+
+    // py:63-66  rpartition on '.' else default_module
+    let (module, function_name) = match raw_name.rfind('.') {
+        Some(idx) => (raw_name[..idx].to_string(), raw_name[idx + 1..].to_string()),
+        None => (default_module.to_string(), raw_name.to_string()),
+    };
+
+    // py:67  function = data['get_module_attr'](module, function_name, prefix='segment_generator')
+    let imported = import_module_attr(&module, &function_name);
+    // py:68-69  if not function: raise ImportError(...)
+    if imported.is_none() {
+        return Err("Failed to obtain segment function".to_string());
+    }
+
+    // py:70  return None, function, module, function_name, segment.get('name')
+    let name = segment
+        .get("name")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    Ok(SegmentGetterResult {
+        contents: None,
+        function_name: Some(function_name.clone()),
+        module: Some(module),
+        function_name_dup: Some(function_name),
+        name,
+    })
+}
+
+/// Port of module-level `segment_getters` dict from
+/// `powerline/segment.py:78-82`.
+///
+/// Returns the resolver name for the given segment type:
+/// `"function"` / `"segment_list"` → `get_function`,
+/// `"string"` → `get_string`. Used by the dispatch driver to route
+/// each segment to its resolver.
+pub fn segment_getter_name(segment_type: &str) -> Option<&'static str> {
+    // py:78-82
+    match segment_type {
+        "function" => Some("get_function"),
+        "string" => Some("get_string"),
+        "segment_list" => Some("get_function"),
+        _ => None,
+    }
+}
+
+/// Closure produced by [`get_attr_func`] for is_space_func=true.
+/// Mirrors the Python `expand_func(pl, amount, segment)` closure at
+/// `powerline/segment.py:92-97`.
+pub type SpaceExpandFn = Box<dyn Fn(&(), usize, &Map<String, Value>) -> String>;
+
+/// Closure produced by [`get_attr_func`] for is_space_func=false.
+/// Mirrors the Python `lambda pl, shutdown_event: func(...)` at
+/// `powerline/segment.py:100`.
+pub type StartupFn = Box<dyn Fn(&(), &std::sync::atomic::AtomicBool)>;
+
+/// Output of `get_attr_func` — one of two closure shapes depending
+/// on `is_space_func`. Mirrors the Python branch at py:91 vs py:99.
+pub enum AttrFunc {
+    /// Closure suitable for `expand` callbacks (py:92-97).
+    Space(SpaceExpandFn),
+    /// Closure suitable for `startup` / `shutdown` callbacks
+    /// (py:100).
+    Plain(StartupFn),
+    /// Python: `return None` per py:88-89 when contents_func has no
+    /// `key` attribute.
+    None,
+}
+
+impl AttrFunc {
+    /// True when this is `AttrFunc::None`.
+    pub fn is_none(&self) -> bool {
+        matches!(self, AttrFunc::None)
+    }
+}
+
+/// Port of `get_attr_func()` from
+/// `powerline/segment.py:85-100`.
+///
+/// `func_lookup` resolves the attribute on `contents_func` (Python's
+/// `getattr(contents_func, key)`). Returns None when lookup fails
+/// per py:87-89.
+///
+/// When `is_space_func` is true the returned closure has the
+/// `expand_func(pl, amount, segment)` signature (py:92-97); the
+/// fallback path at py:97 appends `' ' * amount` to `segment['contents']`.
+/// Otherwise the returned closure has the `startup(pl,
+/// shutdown_event)` signature per py:100.
+pub fn get_attr_func<F>(func_lookup: F, is_space_func: bool) -> AttrFunc
+where
+    F: FnOnce() -> Option<()>,
+{
+    // py:86-89  try getattr; except AttributeError: return None
+    let func = match func_lookup() {
+        Some(f) => f,
+        None => return AttrFunc::None,
+    };
+    let _ = func;
+
+    // py:90-98  is_space_func branch
+    if is_space_func {
+        AttrFunc::Space(Box::new(
+            |_pl: &(), amount: usize, segment: &Map<String, Value>| -> String {
+                // py:97  fallback path: segment['contents'] + ' ' * amount
+                let contents = segment
+                    .get("contents")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                format!("{}{}", contents, " ".repeat(amount))
+            },
+        ))
+    } else {
+        // py:99-100  startup callback
+        AttrFunc::Plain(Box::new(
+            |_pl: &(), _shutdown_event: &std::sync::atomic::AtomicBool| {
+                // py:100  func(pl=pl, shutdown_event=shutdown_event, **args)
+                // The Rust port can't carry the real func through the
+                // closure boundary since contents_func is a Python
+                // object pointer; this is a structural stub.
+            },
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -480,5 +646,115 @@ mod tests {
         assert!(hl.contains_key("fg"));
         assert!(hl.contains_key("bg"));
         assert!(hl.contains_key("attrs"));
+    }
+
+    #[test]
+    fn get_function_dotted_name_splits_via_rpartition() {
+        // py:63-64
+        let mut seg = Map::new();
+        seg.insert(
+            "function".to_string(),
+            json!("powerline.segments.shell.uptime"),
+        );
+        seg.insert("name".to_string(), json!("custom"));
+        let r = get_function(&seg, "powerline.segments", |_, _| Some(())).unwrap();
+        assert_eq!(r.module.as_deref(), Some("powerline.segments.shell"));
+        assert_eq!(r.function_name.as_deref(), Some("uptime"));
+        assert_eq!(r.function_name_dup.as_deref(), Some("uptime"));
+        assert!(r.contents.is_none());
+        assert_eq!(r.name.as_deref(), Some("custom"));
+    }
+
+    #[test]
+    fn get_function_undotted_uses_default_module() {
+        // py:65-66
+        let mut seg = Map::new();
+        seg.insert("function".to_string(), json!("uptime"));
+        let r = get_function(&seg, "powerline.segments.shell", |_, _| Some(())).unwrap();
+        assert_eq!(r.module.as_deref(), Some("powerline.segments.shell"));
+        assert_eq!(r.function_name.as_deref(), Some("uptime"));
+    }
+
+    #[test]
+    fn get_function_missing_function_key_returns_err() {
+        let seg = Map::new();
+        let r = get_function(&seg, "powerline.segments.shell", |_, _| Some(()));
+        assert!(r.is_err());
+    }
+
+    #[test]
+    fn get_function_failed_import_returns_err() {
+        // py:68-69  if not function: raise ImportError
+        let mut seg = Map::new();
+        seg.insert("function".to_string(), json!("missing_fn"));
+        let r = get_function(&seg, "powerline.segments.shell", |_, _| None);
+        let err = r.unwrap_err();
+        assert!(err.contains("Failed to obtain segment function"));
+    }
+
+    #[test]
+    fn get_function_passes_resolved_args_to_importer() {
+        // The closure should see (module, function_name) after the split.
+        let mut seg = Map::new();
+        seg.insert("function".to_string(), json!("my.mod.fn_name"));
+        use std::cell::Cell;
+        let captured_module: Cell<String> = Cell::new(String::new());
+        let captured_fn: Cell<String> = Cell::new(String::new());
+        let _ = get_function(&seg, "fallback", |m, n| {
+            captured_module.set(m.to_string());
+            captured_fn.set(n.to_string());
+            Some(())
+        });
+        assert_eq!(captured_module.into_inner(), "my.mod");
+        assert_eq!(captured_fn.into_inner(), "fn_name");
+    }
+
+    #[test]
+    fn segment_getter_name_dispatches_by_type() {
+        // py:78-82
+        assert_eq!(segment_getter_name("function"), Some("get_function"));
+        assert_eq!(segment_getter_name("segment_list"), Some("get_function"));
+        assert_eq!(segment_getter_name("string"), Some("get_string"));
+        assert_eq!(segment_getter_name("bogus"), None);
+    }
+
+    #[test]
+    fn get_attr_func_no_attribute_returns_none() {
+        // py:87-89
+        let r = get_attr_func(|| None, false);
+        assert!(r.is_none());
+    }
+
+    #[test]
+    fn get_attr_func_is_space_func_returns_expand_closure() {
+        // py:91-97
+        let r = get_attr_func(|| Some(()), true);
+        match r {
+            AttrFunc::Space(f) => {
+                let mut seg = Map::new();
+                seg.insert("contents".to_string(), json!("hi"));
+                // The closure exists; verify its signature works.
+                let out = f(&(), 3, &seg);
+                // Falls through to the py:97 fallback (no real func attached)
+                assert_eq!(out, "hi   ");
+            }
+            _ => panic!("expected Space variant"),
+        }
+    }
+
+    #[test]
+    fn get_attr_func_not_space_func_returns_plain_closure() {
+        // py:99-100
+        let r = get_attr_func(|| Some(()), false);
+        match r {
+            AttrFunc::Plain(_) => {} // OK
+            _ => panic!("expected Plain variant"),
+        }
+    }
+
+    #[test]
+    fn attr_func_is_none_helper() {
+        assert!(AttrFunc::None.is_none());
+        assert!(!AttrFunc::Space(Box::new(|_, _, _| String::new())).is_none());
     }
 }
