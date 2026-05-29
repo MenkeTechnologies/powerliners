@@ -2155,6 +2155,29 @@ fn parity_spec_context_message_sets_cmsg() {
 // ─────────────────────────────────────────────────────────────────────
 
 #[test]
+fn parity_parsedotval_5_level_nested_keys() {
+    if !python_available() {
+        return;
+    }
+    // parsedotval recursively wraps a dotted-key string in nested
+    // dicts: 'a.b.c.d.e' = 'deep' → ('a', {'b': {'c': {'d': {'e': 'deep'}}}})
+    let py = match py_eval(
+        "(lambda r: __import__('json').dumps(r[1]))(__import__('powerline.lib.overrides', fromlist=['parsedotval']).parsedotval(('a.b.c.d.e', 'deep')))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let rs_pair = powerliners::lib::overrides::parsedotval_tuple("a.b.c.d.e", "deep");
+    assert_eq!(rs_pair.0, "a", "Rust outer key should be 'a'");
+    assert_eq!(
+        py_value, rs_pair.1,
+        "parsedotval 5-level nested value mismatch:\n  py: {}\n  rs: {}",
+        py_value, rs_pair.1
+    );
+}
+
+#[test]
 fn parity_mergeargs_iterates_kv_tuples() {
     if !python_available() {
         return;
