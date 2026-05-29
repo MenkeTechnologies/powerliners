@@ -1158,3 +1158,80 @@ into_string
 # the same name is used at call sites. Same pattern already approved
 # for CONFIG_FILE_NAME above.
 TMUX_VAR_RE
+
+# vendor/powerline/scripts/ entry-point ports
+#
+# The extractor scripts/extract_py_names.py only walks
+# vendor/powerline/powerline/ (the Python package). Standalone
+# scripts at vendor/powerline/scripts/ aren't scanned, so every
+# fn ported from those scripts is flagged here.
+
+# powerline-daemon:33 USE_FILESYSTEM module-level constant —
+# Rust exposes as fn returning bool since the value depends on
+# target_os which is a compile-time cfg, but we want callers to
+# use the same identifier as the Python source.
+USE_FILESYSTEM
+
+# powerline-daemon:65 HOME module-level constant —
+# Rust exposes as fn returning String since computing
+# os.path.expanduser('~') requires a process env read; same
+# identifier preserved for source parity with the Python.
+HOME
+
+# powerline-daemon:69-70 NonDaemonShellPowerline.get_log_handler
+# returns logging.StreamHandler(). Rust mirrors the method on the
+# placeholder marker struct so callers exercise the same shape.
+get_log_handler
+
+# powerline-daemon:137-144 eintr_retry_call(func, *args, **kwargs)
+# loops calling func and retries on EnvironmentError with EINTR.
+# Rust port loops the closure with io::ErrorKind::Interrupted.
+eintr_retry_call
+
+# powerline-daemon:175-190 safe_bytes(o, encoding) returns bytes
+# instance without throwing. Rust port collapses to &str.as_bytes()
+# since &str is always valid UTF-8.
+safe_bytes
+
+# powerline-daemon:374-385 kill_daemon(address) — connects to the
+# daemon's UNIX socket and sends EOF sentinel. Returns true if the
+# daemon was reachable. Same identifier preserved.
+kill_daemon
+
+# powerline-daemon:355-371 check_existing(address) — tries to bind
+# the socket; returns the bound socket (or None) on Python. Rust
+# returns bool since callers immediately re-bind in main_loop.
+check_existing
+
+# powerline-daemon:388-398 cleanup_lockfile(pidfile, fd, *args)
+# atexit + SIGTERM handler that unlinks the pidfile and closes
+# the fd. Rust port: unlink only; fd close happens via Drop on the
+# File handle.
+cleanup_lockfile
+
+# powerline-release.py:18 OVERLAY_BRANCH_FORMAT template constant.
+# Python uses str.format(); Rust exposes as fn taking the version
+# string for clarity (Rust has no format-string-as-data
+# equivalent without macro support).
+overlay_branch_format
+
+# powerline-release.py:21-48 parse_version(s) — parses either a
+# plain dotted version or a "+++"-style bump request.
+# Rust port takes the latest_version array as an explicit arg
+# since Python reads it via `check_output(['git', 'tag', '-l'])`.
+parse_version
+
+# powerline-release.py:62-65 setup_py_develop_filter(line, version)
+# rewrites the `\tbase_version = '...'` line. Pure functional.
+setup_py_develop_filter
+
+# powerline-release.py:68-73 setup_py_master_filter(line, version)
+# rewrites the `\tversion='...'` line and pins Development Status.
+# Pure functional.
+setup_py_master_filter
+
+# powerline-release.py:215-221 create_release(version, user, password,
+# run_stages) drives the release stages in order. Rust port mirrors
+# the signature; stage bodies are deferred (subprocess-heavy
+# maintenance helpers not part of the runtime path).
+create_release

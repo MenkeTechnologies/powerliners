@@ -48,6 +48,7 @@ pub mod matchers;
 pub mod pdb;
 pub mod renderer;
 pub mod renderers;
+pub mod scripts;
 pub mod segment;
 pub mod segments;
 pub mod selectors;
