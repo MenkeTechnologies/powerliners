@@ -2192,6 +2192,39 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_threaded_segment_default_state() {
+    if !python_available() {
+        return;
+    }
+    // ThreadedSegment default-constructed state (subclasses
+    // MultiRunnedThread but overrides class-level daemon=False):
+    //   interval     == 1
+    //   update_first == True
+    //   daemon       == False   (override of MultiRunnedThread.daemon=True)
+    let py = match py_eval(
+        "(lambda ts: __import__('json').dumps([ts.interval, ts.update_first, ts.daemon]))(__import__('powerline.lib.threaded', fromlist=['ThreadedSegment']).ThreadedSegment())",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    assert_eq!(
+        py_value,
+        serde_json::json!([1, true, false]),
+        "Python ThreadedSegment default state drift"
+    );
+
+    use powerliners::lib::threaded::ThreadedSegment;
+    let ts = ThreadedSegment::new();
+    assert!((ts.interval - 1.0).abs() < 1e-9);
+    assert!(ts.update_first);
+    assert!(
+        !ts.base.daemon,
+        "ThreadedSegment must override MultiRunnedThread.daemon to false"
+    );
+}
+
+#[test]
 fn parity_multi_runned_thread_default_state() {
     if !python_available() {
         return;
