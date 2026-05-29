@@ -143,3 +143,20 @@ priority
 # matches Python's `wm_threads['awesome']`.
 XRANDR_OUTPUT_RE
 wm_threads
+
+# Approved 2026-05-29: name() accessor on StrFunction enum in
+# powerline/commands/config.py:9-18. Python's `class StrFunction` has
+# a `__str__` method returning `self.name`. Rust enums can't define
+# `name()` as a method that mirrors Python's `__str__` AND also be in
+# the allowlist (`__str__` isn't a Python fn name; `name` is just an
+# attribute). The accessor mirrors Python's `self.name` attribute read
+# without inventing new identifier semantics. Also: TMUX_ACTIONS,
+# SHELL_ACTIONS, and the two action-lookup helpers
+# (tmux_action_from_name, shell_action_from_name) map onto Python's
+# module-level dict-based dispatch — Rust splits the lookup into named
+# fns since enum matching is fn-based rather than dict-based.
+name
+TMUX_ACTIONS
+SHELL_ACTIONS
+tmux_action_from_name
+shell_action_from_name
