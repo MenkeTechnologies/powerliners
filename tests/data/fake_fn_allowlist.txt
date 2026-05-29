@@ -571,3 +571,13 @@ rspace
 # language's own attr magic; `to_p_str` describes the body
 # behaviour (it builds and returns `self.p_str`).
 to_p_str
+
+# PowerlineTextBox::with_defaults() returns a fresh instance using
+# the default values from Python's keyword-argument signature at
+# bindings/qtile/widget.py:18 (timeout=2, text=b' ',
+# width=CALCULATED, side='right', update_interval=None). Python
+# supports calling `PowerlineTextBox()` with no args; Rust requires
+# explicit defaults, so this helper materialises them. The
+# `new()` constructor takes the full positional args matching the
+# upstream kwargs.
+with_defaults
