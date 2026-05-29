@@ -335,7 +335,7 @@ impl Theme {
     /// Port of `Theme.get_segments()` from
     /// `powerline/theme.py:126-182`.
     ///
-    /// Iterates self.segments[line][side], applies `display_condition`
+    /// Iterates `self.segments[line][side]`, applies `display_condition`
     /// and `process_segment` per segment, then walks the parsed result
     /// applying width/align per py:149-177. The `contents_func`
     /// closure is the caller-supplied dispatcher (Python looks it up
