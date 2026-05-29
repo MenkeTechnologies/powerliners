@@ -1,6 +1,6 @@
 [package]
 name = "powerliners"
-version = "0.0.8"
+version = "0.0.9"
 edition = "2021"
 description = "1:1 Rust port of powerline/powerline. The ultimate statusline/prompt utility."
 license = "MIT"
