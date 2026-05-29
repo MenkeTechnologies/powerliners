@@ -820,20 +820,12 @@ impl Renderer {
             // py:346  if output_width:
             if output_width {
                 // py:347  current_width = self._render_length(theme, segments, self.compute_divider_widths(theme))
-                let dw = compute_divider_widths(|s, k| {
-                    theme.get_divider(s, k).unwrap_or_default()
-                });
+                let dw = compute_divider_widths(|s, k| theme.get_divider(s, k).unwrap_or_default());
                 current_width = self._render_length(theme, &mut segments, &dw);
             }
             // py:348-351  return construct_returned_value(hl_join([s['_rendered_hl'] ...]) + hlstyle(**hl_args), ...)
-            let rendered = self._render_segments(
-                theme,
-                &mut segments,
-                &hl_args,
-                true,
-                hlstyle_fn,
-                hl_fn,
-            );
+            let rendered =
+                self._render_segments(theme, &mut segments, &hl_args, true, hlstyle_fn, hl_fn);
             let joined: String = rendered
                 .iter()
                 .filter_map(|s| s.get("_rendered_hl").and_then(|v| v.as_str()))
@@ -870,11 +862,7 @@ impl Renderer {
         let mut segments_priority: Vec<usize> = segments
             .iter()
             .enumerate()
-            .filter(|(_, s)| {
-                s.get("priority")
-                    .map(|v| !v.is_null())
-                    .unwrap_or(false)
-            })
+            .filter(|(_, s)| s.get("priority").map(|v| !v.is_null()).unwrap_or(false))
             .map(|(i, _)| i)
             .collect();
         segments_priority.sort_by(|a, b| {
@@ -893,11 +881,7 @@ impl Renderer {
         let no_priority_segments: Vec<usize> = segments
             .iter()
             .enumerate()
-            .filter(|(_, s)| {
-                s.get("priority")
-                    .map(|v| v.is_null())
-                    .unwrap_or(true)
-            })
+            .filter(|(_, s)| s.get("priority").map(|v| v.is_null()).unwrap_or(true))
             .map(|(i, _)| i)
             .collect();
 
@@ -956,8 +940,7 @@ impl Renderer {
                     if idx < segments.len() {
                         segments.remove(idx);
                     }
-                    current_width =
-                        self._render_length(theme, &mut segments, &divider_widths);
+                    current_width = self._render_length(theme, &mut segments, &divider_widths);
                     if current_width <= width {
                         break;
                     }
@@ -971,11 +954,7 @@ impl Renderer {
         let segments_spacers: Vec<usize> = segments
             .iter()
             .enumerate()
-            .filter(|(_, s)| {
-                s.get("expand")
-                    .map(|v| !v.is_null())
-                    .unwrap_or(false)
-            })
+            .filter(|(_, s)| s.get("expand").map(|v| !v.is_null()).unwrap_or(false))
             .map(|(i, _)| i)
             .collect();
         if !segments_spacers.is_empty() {
@@ -1015,14 +994,8 @@ impl Renderer {
         }
 
         // py:403-406  rendered_highlighted = hl_join([s['_rendered_hl'] for s in _render_segments(...)])
-        let rendered = self._render_segments(
-            theme,
-            &mut segments,
-            &hl_args,
-            true,
-            hlstyle_fn,
-            hl_fn,
-        );
+        let rendered =
+            self._render_segments(theme, &mut segments, &hl_args, true, hlstyle_fn, hl_fn);
         let mut rendered_highlighted: String = rendered
             .iter()
             .filter_map(|s| s.get("_rendered_hl").and_then(|v| v.as_str()))
@@ -1030,8 +1003,12 @@ impl Renderer {
             .concat();
         // py:407-408  if rendered_highlighted: rendered_highlighted += self.hlstyle(**hl_args)
         if !rendered_highlighted.is_empty() {
-            rendered_highlighted
-                .push_str(&hlstyle_fn(&Value::Null, &Value::Null, &Value::Null, &hl_args));
+            rendered_highlighted.push_str(&hlstyle_fn(
+                &Value::Null,
+                &Value::Null,
+                &Value::Null,
+                &hl_args,
+            ));
         }
         // py:410  return construct_returned_value(rendered_highlighted, segments, current_width, output_raw, output_width)
         let raw = if output_raw {
@@ -1083,13 +1060,27 @@ impl Renderer {
             .cloned()
             .unwrap_or(Value::Null);
         // py:431-438  first_segment = first segment with empty literal_contents[1]
-        let first_segment_idx = segments
-            .iter()
-            .position(|s| {let __l = s.get("literal_contents").and_then(|v|v.as_array()).and_then(|a|a.get(1)).and_then(|v|v.as_str()).map(|x|!x.is_empty()).unwrap_or(false); !__l});
+        let first_segment_idx = segments.iter().position(|s| {
+            let __l = s
+                .get("literal_contents")
+                .and_then(|v| v.as_array())
+                .and_then(|a| a.get(1))
+                .and_then(|v| v.as_str())
+                .map(|x| !x.is_empty())
+                .unwrap_or(false);
+            !__l
+        });
         // py:439-446  last_segment = last segment with empty literal_contents[1]
-        let last_segment_idx = segments
-            .iter()
-            .rposition(|s| {let __l = s.get("literal_contents").and_then(|v|v.as_array()).and_then(|a|a.get(1)).and_then(|v|v.as_str()).map(|x|!x.is_empty()).unwrap_or(false); !__l});
+        let last_segment_idx = segments.iter().rposition(|s| {
+            let __l = s
+                .get("literal_contents")
+                .and_then(|v| v.as_array())
+                .and_then(|a| a.get(1))
+                .and_then(|v| v.as_str())
+                .map(|x| !x.is_empty())
+                .unwrap_or(false);
+            !__l
+        });
         // py:447  for index, segment in enumerate(segments):
         for index in 0..segments.len() {
             // py:448  side = segment['side']
@@ -1104,13 +1095,29 @@ impl Renderer {
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0) as usize;
             // py:450  if not segment['literal_contents'][1]:
-            if {let __l = segments[index].get("literal_contents").and_then(|v|v.as_array()).and_then(|a|a.get(1)).and_then(|v|v.as_str()).map(|x|!x.is_empty()).unwrap_or(false); !__l} {
+            let lit_empty = !segments[index]
+                .get("literal_contents")
+                .and_then(|v| v.as_array())
+                .and_then(|a| a.get(1))
+                .and_then(|v| v.as_str())
+                .map(|x| !x.is_empty())
+                .unwrap_or(false);
+            if lit_empty {
                 // py:451-461  compare_segment
                 let compare_bg: Value = if side == "left" {
                     if Some(index) != last_segment_idx {
                         let nxt = segments[index + 1..]
                             .iter()
-                            .position(|s| {let __l = s.get("literal_contents").and_then(|v|v.as_array()).and_then(|a|a.get(1)).and_then(|v|v.as_str()).map(|x|!x.is_empty()).unwrap_or(false); !__l})
+                            .position(|s| {
+                                let __l = s
+                                    .get("literal_contents")
+                                    .and_then(|v| v.as_array())
+                                    .and_then(|a| a.get(1))
+                                    .and_then(|v| v.as_str())
+                                    .map(|x| !x.is_empty())
+                                    .unwrap_or(false);
+                                !__l
+                            })
                             .map(|p| p + index + 1);
                         match nxt {
                             Some(j) => segments[j]
@@ -1147,8 +1154,7 @@ impl Renderer {
                 // py:465-469  outer_padding
                 let is_first = Some(index) == first_segment_idx;
                 let is_last = Some(index) == last_segment_idx;
-                let outer_padding = if (side == "left" && is_first)
-                    || (side == "right" && is_last)
+                let outer_padding = if (side == "left" && is_first) || (side == "right" && is_last)
                 {
                     theme.outer_padding as usize
                 } else {
@@ -1157,7 +1163,7 @@ impl Renderer {
 
                 // py:471  draw_divider = segment['draw_' + divider_type + '_divider']
                 let draw_divider = segments[index]
-                    .get(&format!("draw_{}_divider", divider_type))
+                    .get(format!("draw_{}_divider", divider_type))
                     .and_then(|v| v.as_bool())
                     .unwrap_or(true);
 
@@ -1221,8 +1227,26 @@ impl Renderer {
             .cloned()
             .unwrap_or_default();
         // py:495-510  first_segment / last_segment scan
-        let first_segment_idx = segments.iter().position(|s| {let __l = s.get("literal_contents").and_then(|v|v.as_array()).and_then(|a|a.get(1)).and_then(|v|v.as_str()).map(|x|!x.is_empty()).unwrap_or(false); !__l});
-        let last_segment_idx = segments.iter().rposition(|s| {let __l = s.get("literal_contents").and_then(|v|v.as_array()).and_then(|a|a.get(1)).and_then(|v|v.as_str()).map(|x|!x.is_empty()).unwrap_or(false); !__l});
+        let first_segment_idx = segments.iter().position(|s| {
+            let __l = s
+                .get("literal_contents")
+                .and_then(|v| v.as_array())
+                .and_then(|a| a.get(1))
+                .and_then(|v| v.as_str())
+                .map(|x| !x.is_empty())
+                .unwrap_or(false);
+            !__l
+        });
+        let last_segment_idx = segments.iter().rposition(|s| {
+            let __l = s
+                .get("literal_contents")
+                .and_then(|v| v.as_array())
+                .and_then(|a| a.get(1))
+                .and_then(|v| v.as_str())
+                .map(|x| !x.is_empty())
+                .unwrap_or(false);
+            !__l
+        });
 
         // py:512  for index, segment in enumerate(segments):
         for index in 0..segments.len() {
@@ -1233,13 +1257,29 @@ impl Renderer {
                 .unwrap_or("left")
                 .to_string();
             // py:514  if not segment['literal_contents'][1]:
-            if {let __l = segments[index].get("literal_contents").and_then(|v|v.as_array()).and_then(|a|a.get(1)).and_then(|v|v.as_str()).map(|x|!x.is_empty()).unwrap_or(false); !__l} {
+            let lit_empty = !segments[index]
+                .get("literal_contents")
+                .and_then(|v| v.as_array())
+                .and_then(|a| a.get(1))
+                .and_then(|v| v.as_str())
+                .map(|x| !x.is_empty())
+                .unwrap_or(false);
+            if lit_empty {
                 // py:515-525  compare_segment
                 let compare_hl: Map<String, Value> = if side == "left" {
                     if Some(index) != last_segment_idx {
                         let nxt = segments[index + 1..]
                             .iter()
-                            .position(|s| {let __l = s.get("literal_contents").and_then(|v|v.as_array()).and_then(|a|a.get(1)).and_then(|v|v.as_str()).map(|x|!x.is_empty()).unwrap_or(false); !__l})
+                            .position(|s| {
+                                let __l = s
+                                    .get("literal_contents")
+                                    .and_then(|v| v.as_array())
+                                    .and_then(|a| a.get(1))
+                                    .and_then(|v| v.as_str())
+                                    .map(|x| !x.is_empty())
+                                    .unwrap_or(false);
+                                !__l
+                            })
                             .map(|p| p + index + 1);
                         match nxt {
                             Some(j) => segments[j]
@@ -1268,8 +1308,7 @@ impl Renderer {
                 // py:526-530  outer_padding
                 let is_first = Some(index) == first_segment_idx;
                 let is_last = Some(index) == last_segment_idx;
-                let outer_padding = if (side == "left" && is_first)
-                    || (side == "right" && is_last)
+                let outer_padding = if (side == "left" && is_first) || (side == "right" && is_last)
                 {
                     " ".repeat(theme.outer_padding as usize)
                 } else {
@@ -1296,7 +1335,7 @@ impl Renderer {
                 let mut contents_highlighted = String::new();
                 // py:536  draw_divider = segment['draw_' + divider_type + '_divider']
                 let draw_divider = segments[index]
-                    .get(&format!("draw_{}_divider", divider_type))
+                    .get(format!("draw_{}_divider", divider_type))
                     .and_then(|v| v.as_bool())
                     .unwrap_or(true);
 
@@ -1457,10 +1496,7 @@ impl Renderer {
                         &segment_hl_args,
                     );
                     if let Some(obj) = segments[index].as_object_mut() {
-                        obj.insert(
-                            "_rendered_raw".to_string(),
-                            Value::String(contents_raw),
-                        );
+                        obj.insert("_rendered_raw".to_string(), Value::String(contents_raw));
                         obj.insert(
                             "_rendered_hl".to_string(),
                             Value::String(contents_highlighted),
@@ -1489,21 +1525,16 @@ impl Renderer {
                     .unwrap_or("")
                     .to_string();
                 if let Some(obj) = segments[index].as_object_mut() {
-                    obj.insert(
-                        "_rendered_raw".to_string(),
-                        Value::String(" ".repeat(n)),
-                    );
+                    obj.insert("_rendered_raw".to_string(), Value::String(" ".repeat(n)));
                     obj.insert("_rendered_hl".to_string(), Value::String(lit));
                 }
             }
         }
         let _ = hlstyle_fn; // referenced only inside the literal/divider paths above
-        // py:584  yield segment — Rust returns the whole vec
+                            // py:584  yield segment — Rust returns the whole vec
         segments.to_vec()
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {

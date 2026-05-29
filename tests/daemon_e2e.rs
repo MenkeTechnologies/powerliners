@@ -99,7 +99,7 @@ fn start_daemon(scenario: &str) -> DaemonHandle {
     let socket = unique_socket();
     let bin = daemon_binary();
     let fixture = fixture_root(scenario);
-    let child = Command::new(&bin)
+    let mut child = Command::new(&bin)
         .arg("--foreground")
         .arg("--socket")
         .arg(&socket)
@@ -123,6 +123,10 @@ fn start_daemon(scenario: &str) -> DaemonHandle {
         }
         std::thread::sleep(Duration::from_millis(25));
     }
+    // Reap the spawned daemon before panicking so the test process doesn't
+    // leak a zombie when the bind fails.
+    let _ = child.kill();
+    let _ = child.wait();
     panic!("daemon never became ready on {}", socket.display());
 }
 
@@ -204,9 +208,8 @@ fn scenario_hostname_renders_local_hostname() {
     // Skip leading divider glyph(s) + non-breaking spaces — the
     // right-side render starts with a `` hard divider plus a NBSP.
     let trimmed = visible.trim_start_matches(|c: char| {
-        c.is_whitespace()
-            || c == '\u{a0}'
-            || ('\u{e000}'..='\u{f8ff}').contains(&c) // Private Use Area — powerline glyphs
+        c.is_whitespace() || c == '\u{a0}' || ('\u{e000}'..='\u{f8ff}').contains(&c)
+        // Private Use Area — powerline glyphs
     });
     assert!(
         trimmed

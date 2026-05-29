@@ -264,7 +264,12 @@ pub fn _get_uptime() -> Option<u64> {
     // py:136-144  psutil.boot_time() equivalent — sysctl kern.boottime
     // on darwin/BSD. The Rust port reads it via libc::sysctlbyname when
     // /proc/uptime is unavailable (mirrors the psutil fallback chain).
-    #[cfg(any(target_os = "macos", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+    #[cfg(any(
+        target_os = "macos",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ))]
     {
         if let Ok(name) = std::ffi::CString::new("kern.boottime") {
             let mut tv: [libc::time_t; 2] = [0, 0];
@@ -378,7 +383,9 @@ pub fn uptime(
                 // name — every fmt only references one of d/h/m/s.
                 let render = if spec == "d" || spec.is_empty() {
                     v.to_string()
-                } else if let Some(zero_pad) = spec.strip_prefix('0').and_then(|s| s.strip_suffix('d')) {
+                } else if let Some(zero_pad) =
+                    spec.strip_prefix('0').and_then(|s| s.strip_suffix('d'))
+                {
                     let width: usize = zero_pad.parse().unwrap_or(0);
                     format!("{:0width$}", v, width = width)
                 } else {

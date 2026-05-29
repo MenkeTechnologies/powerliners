@@ -21,16 +21,16 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::{Map, Value};
 
+use powerliners::ported::colorscheme::Colorscheme;
 use powerliners::ported::lib::config::load_json_config;
 use powerliners::ported::lib::dict::mergedicts;
+use powerliners::ported::renderer::{RenderReturn, Renderer};
+use powerliners::ported::renderers::tmux::{ColorSpec, TmuxRenderer};
 use powerliners::ported::scripts::powerline_daemon as daemon;
 use powerliners::ported::scripts::powerline_daemon::{RenderFn, SpawnWmFn};
-use powerliners::ported::{_find_config_files, get_config_paths};
-use powerliners::ported::colorscheme::Colorscheme;
-use powerliners::ported::renderer::{Renderer, RenderReturn};
-use powerliners::ported::renderers::tmux::{ColorSpec, TmuxRenderer};
 use powerliners::ported::segment::gen_segment_getter;
 use powerliners::ported::theme::Theme;
+use powerliners::ported::{_find_config_files, get_config_paths};
 
 /// Adapter signature for one built-in segment fn.
 /// Reads from `args` (segment kwargs) + `segment_info` (runtime env)
@@ -142,9 +142,7 @@ fn build_configs(ext: &str) -> Result<Configs, String> {
         ext,
         &Map::new(),
         vec![theme_json.clone()],
-        theme_json
-            .get("default_module")
-            .and_then(|v| v.as_str()),
+        theme_json.get("default_module").and_then(|v| v.as_str()),
         |module: &str, name: &str| {
             // Resolve known module.fn pairs to the adapter registry.
             adapter_id(module, name).is_some()
@@ -217,7 +215,10 @@ fn build_configs(ext: &str) -> Result<Configs, String> {
 /// Returns the canonical "module.name" form on match, None on miss.
 fn adapter_id(module: &str, name: &str) -> Option<&'static str> {
     let full = format!("{}.{}", module, name);
-    ADAPTERS.iter().find(|(k, _)| *k == full.as_str()).map(|(k, _)| *k)
+    ADAPTERS
+        .iter()
+        .find(|(k, _)| *k == full.as_str())
+        .map(|(k, _)| *k)
 }
 
 fn invoke_adapter(
@@ -438,10 +439,7 @@ fn ad_system_load(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opti
         .get("track_cpu_count")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    let short = args
-        .get("short")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let short = args.get("short").and_then(|v| v.as_bool()).unwrap_or(false);
     let _ = (threshold_good, threshold_bad, track_cpu_count, short);
     Some(Value::Array(system_load(
         &(),
@@ -632,10 +630,7 @@ fn ad_network_load(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opt
         .get("sent_format")
         .and_then(|v| v.as_str())
         .unwrap_or("UL {value:>8}");
-    let suffix = args
-        .get("suffix")
-        .and_then(|v| v.as_str())
-        .unwrap_or("B/s");
+    let suffix = args.get("suffix").and_then(|v| v.as_str()).unwrap_or("B/s");
     let si_prefix = args
         .get("si_prefix")
         .and_then(|v| v.as_bool())
@@ -649,7 +644,7 @@ fn ad_network_load(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opt
         .and_then(|v| v.as_f64())
         .unwrap_or(1_000_000.0);
     let _ = bytes; // already-rate values; render_one wants raw snapshots
-    // Re-snapshot to feed render_one: it needs (t1, (rx1,tx1)) and (t2, (rx2,tx2)).
+                   // Re-snapshot to feed render_one: it needs (t1, (rx1,tx1)) and (t2, (rx2,tx2)).
     #[cfg(target_os = "macos")]
     let (prev, last) = {
         let read = || -> Option<(f64, (u64, u64))> {
@@ -720,6 +715,10 @@ fn ad_network_load(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opt
     Some(Value::Array(chunks))
 }
 
+// `needless_return` allowed: the `return` keeps the macOS branch readable
+// alongside the `#[cfg(not(target_os = "macos"))] None` tail without
+// restructuring around the cfg gate.
+#[allow(clippy::needless_return)]
 fn ad_spotify(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
     // Darwin-only AppleScript probe.
     #[cfg(target_os = "macos")]
@@ -751,7 +750,9 @@ fn ad_spotify(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<
         })]));
     }
     #[cfg(not(target_os = "macos"))]
-    None
+    {
+        None
+    }
 }
 
 fn ad_branch(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value> {
@@ -786,7 +787,12 @@ fn ad_branch(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Val
         groups.insert(
             0,
             Value::String(
-                if dirty { "branch_dirty" } else { "branch_clean" }.to_string(),
+                if dirty {
+                    "branch_dirty"
+                } else {
+                    "branch_clean"
+                }
+                .to_string(),
             ),
         );
     }
@@ -831,10 +837,7 @@ fn ad_battery(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
         .get("format")
         .and_then(|v| v.as_str())
         .unwrap_or("{ac_state} {capacity:3.0%}");
-    let steps = args
-        .get("steps")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(5) as u32;
+    let steps = args.get("steps").and_then(|v| v.as_u64()).unwrap_or(5) as u32;
     let gamify = args
         .get("gamify")
         .and_then(|v| v.as_bool())
@@ -873,7 +876,10 @@ fn ad_battery(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
 const ADAPTERS: &[(&str, AdapterFn)] = &[
     ("powerline.segments.common.net.hostname", ad_hostname),
     ("powerline.segments.common.time.date", ad_date),
-    ("powerline.segments.common.sys.cpu_load_percent", ad_cpu_load_percent),
+    (
+        "powerline.segments.common.sys.cpu_load_percent",
+        ad_cpu_load_percent,
+    ),
     ("powerline.segments.common.sys.system_load", ad_system_load),
     ("powerline.segments.common.sys.uptime", ad_uptime),
     ("powerline.segments.common.net.external_ip", ad_external_ip),
@@ -882,7 +888,10 @@ const ADAPTERS: &[(&str, AdapterFn)] = &[
     ("powerline.segments.common.vcs.stash", ad_stash),
     ("powerline.segments.common.bat.battery", ad_battery),
     ("powerlinemem.mem_usage.mem_usage", ad_mem_usage),
-    ("powerline.segments.common.net.network_load", ad_network_load),
+    (
+        "powerline.segments.common.net.network_load",
+        ad_network_load,
+    ),
     ("powerline.segments.common.players.spotify", ad_spotify),
 ];
 
@@ -943,7 +952,10 @@ fn main() {
         }
         let mut segment_info: Map<String, Value> = Map::new();
         segment_info.insert("environ".to_string(), Value::Object(environ_map));
-        segment_info.insert("home".to_string(), Value::String(environ.get("HOME").cloned().unwrap_or_default()));
+        segment_info.insert(
+            "home".to_string(),
+            Value::String(environ.get("HOME").cloned().unwrap_or_default()),
+        );
         segment_info.insert("getcwd".to_string(), Value::String(cwd.to_string()));
 
         let tmux_for_hl = tmux_clone.clone();
@@ -961,23 +973,20 @@ fn main() {
             );
             format!("{}{}", style, contents.unwrap_or(""))
         };
-        let hlstyle_fn = move |fg: &Value,
-                               bg: &Value,
-                               attrs: &Value,
-                               _hl_args: &Map<String, Value>|
-              -> String {
-            tmux_for_hlstyle.hlstyle(
-                color_to_spec(fg),
-                color_to_spec(bg),
-                attrs.as_u64().map(|n| n as u32),
-            )
-        };
+        let hlstyle_fn =
+            move |fg: &Value, bg: &Value, attrs: &Value, _hl_args: &Map<String, Value>| -> String {
+                tmux_for_hlstyle.hlstyle(
+                    color_to_spec(fg),
+                    color_to_spec(bg),
+                    attrs.as_u64().map(|n| n as u32),
+                )
+            };
 
         let contents_func = |id: &str,
                              _pl: &(),
                              si: &Map<String, Value>,
                              args: &Map<String, Value>|
-              -> Option<Value> { invoke_adapter(id, args, si) };
+         -> Option<Value> { invoke_adapter(id, args, si) };
 
         let result = renderer_clone.render(
             None,

@@ -336,7 +336,7 @@ impl Theme {
     /// `powerline/theme.py:126-182`.
     ///
     /// Iterates self.segments[line][side], applies `display_condition`
-    /// + `process_segment` per segment, then walks the parsed result
+    /// and `process_segment` per segment, then walks the parsed result
     /// applying width/align per py:149-177. The `contents_func`
     /// closure is the caller-supplied dispatcher (Python looks it up
     /// as `segment['contents_func']`; Rust `Value` can't hold a
@@ -469,16 +469,12 @@ impl Theme {
                     .to_string();
                 // py:154-157  if width == 'auto' and expand is None: expand = expand_functions[align]
                 if width.as_str() == Some("auto")
-                    && obj
-                        .get("expand")
-                        .map(|v| v.is_null())
-                        .unwrap_or(true)
+                    && obj.get("expand").map(|v| v.is_null()).unwrap_or(true)
+                    && expand_functions(align.chars().next().unwrap_or('l')).is_some()
                 {
-                    if expand_functions(align.chars().next().unwrap_or('l')).is_some() {
-                        // The fn pointer can't be stored in Value; the renderer's
-                        // padding logic at do_render handles 'auto' width spacing.
-                        obj.insert("expand".to_string(), Value::String(align.clone()));
-                    }
+                    // The fn pointer can't be stored in Value; the renderer's
+                    // padding logic at do_render handles 'auto' width spacing.
+                    obj.insert("expand".to_string(), Value::String(align.clone()));
                 }
                 // py:159-165  segment['contents'] = before + contents + after
                 let before = obj
