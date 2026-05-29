@@ -2192,6 +2192,57 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_delayed_echoerr_init_indent_shift_with_message() {
+    if !python_available() {
+        return;
+    }
+    // DelayedEchoErr.__init__ — py:211-217:
+    //   indent_shift = 4 if (message or separator_message) else 0
+    //   self.indent = parent_echoerr.indent + indent_shift
+    //   self.errs = [[]]
+    //
+    // Verify 3 init scenarios:
+    //   parent=4, msg='outer', sep='sep'   → shift=4, indent=8
+    //   parent=2, msg='', sep=''           → shift=0, indent=2
+    //   parent=0, msg='only_message', sep='' → shift=4, indent=4
+    let cases: &[(u64, &str, &str, u64, u64)] = &[
+        (4, "outer", "sep", 4, 8),
+        (2, "", "", 0, 2),
+        (0, "only_message", "", 4, 4),
+    ];
+    for (parent_indent, msg, sep, expected_shift, expected_indent) in cases {
+        let py_expr = format!(
+            "(lambda EE, DEE: (lambda d: __import__('json').dumps([d.indent_shift, d.indent, len(d.errs)]))(DEE(EE(lambda **kw: None, object(), indent={parent}), message={msg:?}, separator_message={sep:?})))(__import__('powerline.lint.markedjson.error', fromlist=['EchoErr']).EchoErr, __import__('powerline.lint.markedjson.error', fromlist=['DelayedEchoErr']).DelayedEchoErr)",
+            parent = parent_indent, msg = msg, sep = sep
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        assert_eq!(
+            py_value,
+            serde_json::json!([*expected_shift, *expected_indent, 1]),
+            "Python DelayedEchoErr({}, {:?}, {:?}) fixture drift",
+            parent_indent,
+            msg,
+            sep
+        );
+
+        use powerliners::lint::markedjson::error::DelayedEchoErr;
+        let d = DelayedEchoErr::new(*parent_indent as usize, *msg, *sep);
+        assert_eq!(
+            d.indent_shift as u64, *expected_shift,
+            "Rust indent_shift mismatch for parent={}, msg={:?}, sep={:?}",
+            parent_indent, msg, sep
+        );
+        assert_eq!(d.indent as u64, *expected_indent, "Rust indent mismatch");
+        assert_eq!(d.errs.len(), 1, "Rust errs should start as [[]]");
+        assert!(d.errs[0].is_empty(), "first bucket should be empty");
+    }
+}
+
+#[test]
 fn parity_echoerr_call_defaults_indent_from_self() {
     if !python_available() {
         return;
