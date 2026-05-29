@@ -2192,6 +2192,55 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_parse_override_var_splits_and_nests() {
+    if !python_available() {
+        return;
+    }
+    // parse_override_var splits on ';' and feeds each segment to
+    // parsedotval. Returns iterable of (key, value) tuples. Verify:
+    //   - multi-segment split
+    //   - single dotted segment
+    //   - empty input
+    //   - mixed value types
+    let cases: &[(&str, &str)] = &[
+        ("a=1;b=2", r#"[["a",1],["b",2]]"#),
+        ("a.b=1", r#"[["a",{"b":1}]]"#),
+        ("", r#"[]"#),
+        (
+            "x=hello;y=world;z=42",
+            r#"[["x","hello"],["y","world"],["z",42]]"#,
+        ),
+    ];
+    for (input, expected_json) in cases {
+        let py_expr = format!(
+            "__import__('json').dumps(list(__import__('powerline.lib.overrides', fromlist=['parse_override_var']).parse_override_var({:?})))",
+            input
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let expected: serde_json::Value =
+            serde_json::from_str(expected_json).expect("expected JSON malformed");
+        assert_eq!(py_value, expected, "Python fixture drift for {:?}", input);
+        let rs_pairs = powerliners::lib::overrides::parse_override_var(input);
+        let rs_json = serde_json::to_value(
+            rs_pairs
+                .into_iter()
+                .map(|(k, v)| serde_json::json!([k, v]))
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+        assert_eq!(
+            rs_json, expected,
+            "Rust parse_override_var({:?}) mismatch",
+            input
+        );
+    }
+}
+
+#[test]
 fn parity_parsedotval_nests_dotted_keys() {
     if !python_available() {
         return;
