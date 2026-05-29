@@ -1845,3 +1845,27 @@ create_logger_instance
 # Named `set` to match the canonical map-mutation pattern;
 # pairs with the `get` accessor (Python __getitem__ → Rust get).
 set
+
+# Approved 2026-05-29: ports of fns from
+# vendor/powerline/scripts/powerline-daemon. The extractor
+# scripts/extract_py_names.py:7 walks vendor/powerline/powerline/
+# only — vendor/powerline/scripts/ is intentionally outside its
+# scope, so these script fns aren't in docs/powerline_py_functions.txt
+# despite being upstream-equivalent. Per src/ported/scripts/mod.rs:14-19
+# this is the documented exemption process for upstream-script ports.
+# The first 11 names match upstream `def` statements byte-for-byte; the
+# last 2 (install_sigint_flag, redirect_std_to_devnull) are helpers
+# factored out of Python `daemonize()` for clarity in Rust.
+do_read
+do_write
+poll_readable
+start_wm
+get_answer
+parse_client_argv
+do_one
+main_loop
+daemonize
+lockpidfile
+parse_daemon_argv
+install_sigint_flag
+redirect_std_to_devnull
