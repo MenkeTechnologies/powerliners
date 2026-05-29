@@ -39,19 +39,33 @@ use powerliners::ported::{_find_config_files, get_config_paths};
 type AdapterFn = fn(&Map<String, Value>, &Map<String, Value>) -> Option<Value>;
 
 fn search_paths() -> Vec<PathBuf> {
-    let mut paths: Vec<PathBuf> = Vec::new();
+    // Mirror upstream `ShellPowerline.get_config_paths`
+    // (powerline/shell.py:25-26): `return self.args.config_path or
+    // super().get_config_paths()`. When POWERLINE_CONFIG_PATHS is
+    // set it REPLACES the default cascade entirely — no bundled
+    // fallback. Test fixtures rely on this to pin a self-contained
+    // config tree.
     if let Ok(pcp) = std::env::var("POWERLINE_CONFIG_PATHS") {
-        for p in pcp.split(':').filter(|s| !s.is_empty()) {
-            paths.push(PathBuf::from(p));
+        let explicit: Vec<PathBuf> = pcp
+            .split(':')
+            .filter(|s| !s.is_empty())
+            .map(PathBuf::from)
+            .collect();
+        if !explicit.is_empty() {
+            return explicit;
         }
     }
-    paths.extend(get_config_paths());
+    // Default cascade: bundled `plugin_path` FIRST (py:152) so
+    // load_cascade uses it as the base, then XDG / user_home come
+    // AFTER so mergedicts(base, override) lets the user win.
+    let mut paths: Vec<PathBuf> = Vec::new();
     if let Some(manifest) = option_env!("CARGO_MANIFEST_DIR") {
         let bundled = PathBuf::from(manifest).join("vendor/powerline/powerline/config_files");
         if bundled.is_dir() {
             paths.push(bundled);
         }
     }
+    paths.extend(get_config_paths());
     paths
 }
 
@@ -63,11 +77,17 @@ fn load_one(name: &str, paths: &[PathBuf]) -> Option<Map<String, Value>> {
 }
 
 fn load_cascade(levels: &[String], paths: &[PathBuf]) -> Option<Map<String, Value>> {
+    // py:191-200  load_config: iterate ALL matches per level and merge
+    // them in find-order. Upstream `get_config_paths` puts bundled
+    // FIRST and user-config LAST, so later matches override earlier
+    // — exactly the user-overrides-bundled semantics. Earlier
+    // versions only loaded `matches.first()` which silently dropped
+    // bundled fallback groups (e.g. tmux/`window:current` highlight).
     let mut out: Map<String, Value> = Map::new();
     let mut loaded = 0u32;
     for level in levels {
         if let Ok(matches) = _find_config_files(paths, level) {
-            if let Some(p) = matches.first() {
+            for p in &matches {
                 if let Ok(v) = load_json_config(p) {
                     if let Some(o) = v.as_object().cloned() {
                         mergedicts(&mut out, o, true);
