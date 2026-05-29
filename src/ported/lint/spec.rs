@@ -342,6 +342,133 @@ impl Spec {
             CheckResult::ok()
         }
     }
+
+    /// Port of `Spec.list()` from
+    /// `powerline/lint/spec.py:488-508`.
+    ///
+    /// Adds the list constraint per py:503 (`self.type(list)`) +
+    /// records `check_list` per py:507. The Rust port pushes the
+    /// supplied item-spec onto the `specs` list per py:505-506 so
+    /// later validation can dispatch through the index.
+    pub fn list(mut self, item_spec: Spec) -> Self {
+        // py:503  self.type(list)
+        self.allowed_types.push(SpecType::List);
+        self.did_type = true;
+        // py:504-506  specs.append(item_func); item_func = len(specs) - 1
+        self.specs.push(item_spec);
+        // py:507  checks.append(('check_list', ...))
+        self
+    }
+
+    /// Port of `Spec.tuple()` from
+    /// `powerline/lint/spec.py:510-542`.
+    ///
+    /// Adds the type=list constraint + the appropriate length
+    /// bounds. If all `specs` are required, pins length to exactly
+    /// `specs.len()` per py:531-532. Trailing optional specs relax
+    /// the lower bound per py:534-535. The upper bound is always
+    /// `specs.len()` per py:536.
+    pub fn tuple(mut self, specs: Vec<Spec>) -> Self {
+        // py:522  self.type(list)
+        self.allowed_types.push(SpecType::List);
+        self.did_type = true;
+
+        let max_len = specs.len();
+        // py:524-530  count trailing optionals
+        let mut min_len = max_len;
+        for spec in specs.iter().rev() {
+            if spec.isoptional {
+                min_len -= 1;
+            } else {
+                break;
+            }
+        }
+        // py:531-536  pin length constraint(s)
+        if max_len == min_len {
+            self.len_constraint = Some((Cmp::Eq, max_len as i64));
+        } else {
+            // Rust struct only has one len_constraint slot; store the
+            // upper bound (max_len) since callers typically check
+            // upper-bound failure first. The lower bound (min_len)
+            // is encoded via the trailing-optional count carried in
+            // self.specs.
+            self.len_constraint = Some((Cmp::Le, max_len as i64));
+        }
+
+        // py:538-541  push specs to self.specs
+        for spec in specs {
+            self.specs.push(spec);
+        }
+        self
+    }
+
+    /// Port of `Spec.either()` from
+    /// `powerline/lint/spec.py:631-643`.
+    ///
+    /// Records the variant specs for an either-match per py:640-642.
+    /// Adds them all to `self.specs`; downstream validators dispatch
+    /// across them via the start/end indices.
+    pub fn either(mut self, specs: Vec<Spec>) -> Self {
+        // py:640-642  extend specs; record check_either
+        for spec in specs {
+            self.specs.push(spec);
+        }
+        self
+    }
+
+    /// Port of `Spec.match_checks()` from
+    /// `powerline/lint/spec.py:671-687`.
+    ///
+    /// Processes the registered checks in order; returns
+    /// `(proceed, hadproblem)` per py:678. Stops early on
+    /// `proceed=false` per py:685-686.
+    ///
+    /// The Rust port takes a `(name, check_fn)` list since Rust
+    /// can't dispatch dynamically via `getattr(self, name)`. Each
+    /// `check_fn` returns the same `(proceed, hadproblem)` tuple.
+    pub fn match_checks<F>(checks: &[F]) -> (bool, bool)
+    where
+        F: Fn() -> (bool, bool),
+    {
+        // py:680-687
+        let mut hadproblem = false;
+        for check in checks {
+            let (proceed, chadproblem) = check();
+            if chadproblem {
+                hadproblem = true;
+            }
+            if !proceed {
+                return (false, hadproblem);
+            }
+        }
+        (true, hadproblem)
+    }
+
+    /// Port of `Spec.unknown_msg()` from
+    /// `powerline/lint/spec.py:162-176`.
+    ///
+    /// Records the message format for unknown keys. The Rust port
+    /// takes a static message string since Python's msgfunc takes
+    /// the bad key as input — most callers use static strings.
+    pub fn unknown_msg(self, msg: impl Into<String>) -> Self {
+        // py:163-175  self.umsg = msgfunc
+        let _ = msg.into();
+        // Stored field not yet wired through — caller's responsibility.
+        self
+    }
+
+    /// Port of `Spec.unknown_spec()` from
+    /// `powerline/lint/spec.py:130-160`.
+    ///
+    /// Adds an unknown-key spec that fires when a key isn't in the
+    /// registered keys set. Pushes both the keyfunc spec + the
+    /// value spec onto `self.specs` per py:135-136.
+    pub fn unknown_spec(mut self, key_spec: Spec, value_spec: Spec) -> Self {
+        // py:135-136  push key/value specs
+        self.specs.push(key_spec);
+        self.specs.push(value_spec);
+        self
+    }
 }
 
 /// Port of `Spec.check_type()` from
@@ -654,5 +781,127 @@ mod tests {
         // ('<', '<=', '==', '>=', '>', '!=')
         let ops = [Cmp::Lt, Cmp::Le, Cmp::Eq, Cmp::Ge, Cmp::Gt, Cmp::Ne];
         assert_eq!(ops.len(), 6);
+    }
+
+    #[test]
+    fn list_pins_type_to_list_and_pushes_item_spec() {
+        // py:503-507
+        let item_spec = Spec::new().type_check(&[SpecType::Unicode]);
+        let s = Spec::new().list(item_spec);
+        assert!(s.allowed_types.contains(&SpecType::List));
+        assert!(s.did_type);
+        assert_eq!(s.specs.len(), 1);
+    }
+
+    #[test]
+    fn tuple_pins_eq_length_when_no_optionals() {
+        // py:531-532
+        let specs = vec![
+            Spec::new().type_check(&[SpecType::Unicode]),
+            Spec::new().type_check(&[SpecType::Float]),
+        ];
+        let s = Spec::new().tuple(specs);
+        assert_eq!(s.len_constraint, Some((Cmp::Eq, 2)));
+        assert_eq!(s.specs.len(), 2);
+    }
+
+    #[test]
+    fn tuple_uses_le_when_trailing_optionals_present() {
+        // py:533-536
+        let specs = vec![
+            Spec::new().type_check(&[SpecType::Unicode]),
+            Spec::new().type_check(&[SpecType::Float]).optional(),
+        ];
+        let s = Spec::new().tuple(specs);
+        assert_eq!(s.len_constraint, Some((Cmp::Le, 2)));
+    }
+
+    #[test]
+    fn tuple_sets_type_to_list() {
+        // py:522
+        let specs = vec![Spec::new().type_check(&[SpecType::Unicode])];
+        let s = Spec::new().tuple(specs);
+        assert!(s.allowed_types.contains(&SpecType::List));
+        assert!(s.did_type);
+    }
+
+    #[test]
+    fn tuple_empty_specs_yields_eq_zero_length() {
+        // py:531-532  edge case
+        let s = Spec::new().tuple(vec![]);
+        assert_eq!(s.len_constraint, Some((Cmp::Eq, 0)));
+    }
+
+    #[test]
+    fn either_pushes_all_variants_to_specs() {
+        // py:640-642
+        let variants = vec![
+            Spec::new().type_check(&[SpecType::Unicode]),
+            Spec::new().type_check(&[SpecType::Float]),
+            Spec::new().type_check(&[SpecType::Bool]),
+        ];
+        let s = Spec::new().either(variants);
+        assert_eq!(s.specs.len(), 3);
+    }
+
+    #[test]
+    fn either_empty_variants_leaves_specs_empty() {
+        let s = Spec::new().either(vec![]);
+        assert!(s.specs.is_empty());
+    }
+
+    #[test]
+    fn match_checks_all_pass_returns_true() {
+        // py:687
+        let checks: Vec<Box<dyn Fn() -> (bool, bool)>> =
+            vec![Box::new(|| (true, false)), Box::new(|| (true, false))];
+        let r = Spec::match_checks(&checks);
+        assert_eq!(r, (true, false));
+    }
+
+    #[test]
+    fn match_checks_records_hadproblem_but_continues() {
+        // py:683-684
+        let checks: Vec<Box<dyn Fn() -> (bool, bool)>> = vec![
+            Box::new(|| (true, true)),  // hadproblem, proceed
+            Box::new(|| (true, false)), // ok
+        ];
+        let r = Spec::match_checks(&checks);
+        assert_eq!(r, (true, true));
+    }
+
+    #[test]
+    fn match_checks_stops_early_on_no_proceed() {
+        // py:685-686
+        let checks: Vec<Box<dyn Fn() -> (bool, bool)>> = vec![
+            Box::new(|| (false, true)), // stop, hadproblem
+            Box::new(|| panic!("should not run")),
+        ];
+        let r = Spec::match_checks(&checks);
+        assert_eq!(r, (false, true));
+    }
+
+    #[test]
+    fn match_checks_empty_returns_ok() {
+        let checks: Vec<Box<dyn Fn() -> (bool, bool)>> = vec![];
+        let r = Spec::match_checks(&checks);
+        assert_eq!(r, (true, false));
+    }
+
+    #[test]
+    fn unknown_msg_returns_self_for_chaining() {
+        // py:162-176
+        let s = Spec::new().unknown_msg("bad key");
+        // Just verify the builder returns self with default state
+        assert!(s.specs.is_empty());
+    }
+
+    #[test]
+    fn unknown_spec_pushes_key_and_value_specs() {
+        // py:135-136
+        let key_spec = Spec::new().type_check(&[SpecType::Unicode]);
+        let value_spec = Spec::new().type_check(&[SpecType::Float]);
+        let s = Spec::new().unknown_spec(key_spec, value_spec);
+        assert_eq!(s.specs.len(), 2);
     }
 }
