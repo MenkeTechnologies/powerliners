@@ -138,10 +138,25 @@ pub struct ShellRenderer {
     pub term_truecolor: bool,
     /// Python class attribute: `term_escape_style = 'auto'` (py:84).
     pub term_escape_style: TermEscapeStyle,
+    /// Python instance attribute set by do_render at py:99-105.
+    /// Caches the resolved (non-Auto) style for hlstyle().
+    pub used_term_escape_style: TermEscapeStyle,
     /// Python class attribute: `tmux_escape = False` (py:85).
     pub tmux_escape: bool,
     /// Python class attribute: `screen_escape = False` (py:86).
     pub screen_escape: bool,
+    /// Python: `self.theme` (inherited from Renderer base) used by
+    /// `get_theme` at py:169.
+    pub theme: serde_json::Value,
+    /// Python: `self.local_themes` (inherited) — matcher_info → match
+    /// dict mapping per py:170-179.
+    pub local_themes: HashMap<String, serde_json::Map<String, serde_json::Value>>,
+    /// Python: `self.theme_config` (inherited) — passed as
+    /// main_theme_config to Theme construction at py:176.
+    pub theme_config: serde_json::Value,
+    /// Python: `self.theme_kwargs` (inherited) — splat into Theme
+    /// construction at py:177.
+    pub theme_kwargs: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Default for ShellRenderer {
@@ -159,9 +174,98 @@ impl ShellRenderer {
             escape_hl_end: String::new(),
             term_truecolor: false,
             term_escape_style: TermEscapeStyle::Auto,
+            used_term_escape_style: TermEscapeStyle::Xterm,
             tmux_escape: false,
             screen_escape: false,
+            theme: serde_json::Value::Null,
+            local_themes: HashMap::new(),
+            theme_config: serde_json::Value::Null,
+            theme_kwargs: serde_json::Map::new(),
         }
+    }
+
+    /// Port of `ShellRenderer.render()` from
+    /// `powerline/renderers/shell/__init__.py:90-96`.
+    ///
+    /// Pulls `segment_info['local_theme']` and returns it as the
+    /// matcher_info value that the super().render() call would
+    /// receive at py:93. The actual super().render() dispatch is
+    /// deferred since the parent Renderer's render isn't fully
+    /// threaded.
+    pub fn render_matcher_info(
+        segment_info: &serde_json::Map<String, serde_json::Value>,
+    ) -> Option<String> {
+        // py:91  local_theme = segment_info.get('local_theme')
+        segment_info
+            .get("local_theme")
+            .and_then(|v| v.as_str().map(String::from))
+    }
+
+    /// Port of `ShellRenderer.do_render()` from
+    /// `powerline/renderers/shell/__init__.py:98-106`.
+    ///
+    /// Resolves `used_term_escape_style` based on `term_escape_style`
+    /// and `segment_info['environ']['TERM']`. Mutates self per
+    /// py:101-105. The super().do_render dispatch (py:106) is deferred
+    /// to the Renderer port.
+    pub fn do_render_resolve_style(
+        &mut self,
+        segment_info: &serde_json::Map<String, serde_json::Value>,
+    ) {
+        // py:99  if self.term_escape_style == 'auto':
+        let resolved = if self.term_escape_style == TermEscapeStyle::Auto {
+            // py:100-103  $TERM dispatch
+            let term = segment_info
+                .get("environ")
+                .and_then(|e| e.as_object())
+                .and_then(|m| m.get("TERM"))
+                .and_then(|v| v.as_str());
+            if term == Some("fbterm") {
+                TermEscapeStyle::Fbterm
+            } else {
+                TermEscapeStyle::Xterm
+            }
+        } else {
+            // py:104-105  used = configured value
+            self.term_escape_style
+        };
+        self.used_term_escape_style = resolved;
+    }
+
+    /// Port of `ShellRenderer.get_theme()` from
+    /// `powerline/renderers/shell/__init__.py:167-179`.
+    ///
+    /// If `matcher_info` is empty, returns `self.theme` per py:168-169.
+    /// Otherwise resolves `local_themes[matcher_info]['theme']`,
+    /// constructing it lazily from config + theme_config +
+    /// theme_kwargs per py:173-179. Mirror of the IPython renderer
+    /// pattern.
+    pub fn get_theme(&mut self, matcher_info: Option<&str>) -> serde_json::Value {
+        // py:168-169  if not matcher_info: return self.theme
+        let m = match matcher_info {
+            Some(s) if !s.is_empty() => s,
+            _ => return self.theme.clone(),
+        };
+        // py:170-172  match['theme'] if present
+        let match_entry = match self.local_themes.get(m) {
+            Some(e) => e.clone(),
+            None => return serde_json::Value::Null,
+        };
+        if let Some(t) = match_entry.get("theme") {
+            return t.clone();
+        }
+        // py:174-179  Theme(theme_config=match['config'],
+        //                   main_theme_config=self.theme_config,
+        //                   **self.theme_kwargs)
+        let constructed = serde_json::json!({
+            "theme_config": match_entry.get("config").cloned().unwrap_or(serde_json::Value::Null),
+            "main_theme_config": self.theme_config.clone(),
+            "theme_kwargs": serde_json::Value::Object(self.theme_kwargs.clone()),
+        });
+        if let Some(e) = self.local_themes.get_mut(m) {
+            e.insert("theme".to_string(), constructed.clone());
+        }
+        constructed
     }
 
     /// Port of `ShellRenderer.hlstyle()` from
@@ -479,5 +583,131 @@ mod tests {
         assert!(s.starts_with("\x1bP"));
         assert!(s.ends_with("\x1b\\"));
         assert!(s.contains("\x1b\x1b["));
+    }
+
+    #[test]
+    fn render_matcher_info_pulls_local_theme() {
+        // py:91  segment_info.get('local_theme')
+        let mut info = Map::new();
+        info.insert("local_theme".to_string(), serde_json::json!("ipython"));
+        assert_eq!(
+            ShellRenderer::render_matcher_info(&info),
+            Some("ipython".to_string())
+        );
+    }
+
+    #[test]
+    fn render_matcher_info_returns_none_when_unset() {
+        let info = Map::new();
+        assert!(ShellRenderer::render_matcher_info(&info).is_none());
+    }
+
+    #[test]
+    fn do_render_resolve_style_auto_dispatches_fbterm() {
+        // py:99-103
+        let mut r = ShellRenderer::new();
+        let mut info = Map::new();
+        info.insert("environ".to_string(), serde_json::json!({"TERM": "fbterm"}));
+        r.do_render_resolve_style(&info);
+        assert_eq!(r.used_term_escape_style, TermEscapeStyle::Fbterm);
+    }
+
+    #[test]
+    fn do_render_resolve_style_auto_defaults_to_xterm() {
+        // py:101-103  TERM != 'fbterm' → xterm
+        let mut r = ShellRenderer::new();
+        let mut info = Map::new();
+        info.insert(
+            "environ".to_string(),
+            serde_json::json!({"TERM": "xterm-256color"}),
+        );
+        r.do_render_resolve_style(&info);
+        assert_eq!(r.used_term_escape_style, TermEscapeStyle::Xterm);
+    }
+
+    #[test]
+    fn do_render_resolve_style_pinned_value_passes_through() {
+        // py:104-105
+        let mut r = ShellRenderer::new();
+        r.term_escape_style = TermEscapeStyle::Fbterm;
+        let mut info = Map::new();
+        info.insert(
+            "environ".to_string(),
+            serde_json::json!({"TERM": "xterm-256color"}),
+        );
+        r.do_render_resolve_style(&info);
+        assert_eq!(r.used_term_escape_style, TermEscapeStyle::Fbterm);
+    }
+
+    #[test]
+    fn shell_renderer_get_theme_no_matcher_returns_self_theme() {
+        // py:168-169
+        let mut r = ShellRenderer::new();
+        r.theme = serde_json::json!({"name": "default"});
+        let t = r.get_theme(None);
+        assert_eq!(t["name"], "default");
+    }
+
+    #[test]
+    fn shell_renderer_get_theme_empty_string_returns_self_theme() {
+        // py:168  if not matcher_info → empty string is falsy
+        let mut r = ShellRenderer::new();
+        r.theme = serde_json::json!({"name": "default"});
+        let t = r.get_theme(Some(""));
+        assert_eq!(t["name"], "default");
+    }
+
+    #[test]
+    fn shell_renderer_get_theme_returns_existing_local_theme() {
+        // py:171-172
+        let mut r = ShellRenderer::new();
+        let mut entry = serde_json::Map::new();
+        entry.insert(
+            "theme".to_string(),
+            serde_json::json!({"name": "shell-out"}),
+        );
+        r.local_themes.insert("out".to_string(), entry);
+        let t = r.get_theme(Some("out"));
+        assert_eq!(t["name"], "shell-out");
+    }
+
+    #[test]
+    fn shell_renderer_get_theme_constructs_lazy_theme() {
+        // py:173-179
+        let mut r = ShellRenderer::new();
+        r.theme_config = serde_json::json!({"colorscheme": "default"});
+        r.theme_kwargs
+            .insert("extra".to_string(), serde_json::json!("kw_value"));
+        let mut entry = serde_json::Map::new();
+        entry.insert("config".to_string(), serde_json::json!({"segments": []}));
+        r.local_themes.insert("rewrite".to_string(), entry);
+
+        let t = r.get_theme(Some("rewrite"));
+        assert_eq!(t["theme_config"]["segments"], serde_json::json!([]));
+        assert_eq!(t["main_theme_config"]["colorscheme"], "default");
+        assert_eq!(t["theme_kwargs"]["extra"], "kw_value");
+    }
+
+    #[test]
+    fn shell_renderer_get_theme_caches_constructed_theme() {
+        // py:174  match['theme'] = Theme(...)
+        let mut r = ShellRenderer::new();
+        let mut entry = serde_json::Map::new();
+        entry.insert("config".to_string(), serde_json::json!({"a": 1}));
+        r.local_themes.insert("rewrite".to_string(), entry);
+
+        let _ = r.get_theme(Some("rewrite"));
+        let cached = r
+            .local_themes
+            .get("rewrite")
+            .and_then(|m| m.get("theme"))
+            .cloned();
+        assert!(cached.is_some(), "constructed theme not cached");
+    }
+
+    #[test]
+    fn shell_renderer_get_theme_missing_matcher_returns_null() {
+        let mut r = ShellRenderer::new();
+        assert_eq!(r.get_theme(Some("nonexistent")), serde_json::Value::Null);
     }
 }

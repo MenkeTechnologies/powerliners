@@ -1332,3 +1332,25 @@ binding_function_name
 # segment dispatcher can call it the same way Python does. The
 # underscore-prefixed name preserves the module-private convention.
 _geteuid
+
+# renderers/shell/mod.rs::ShellRenderer::render_matcher_info —
+# extracts the matcher_info pulling-from-segment-info logic from the
+# body of ShellRenderer.render at
+# powerline/renderers/shell/__init__.py:90-96. Python embeds the
+# pull inline before delegating to super().render(); Rust extracts to
+# a pure helper since the super().render() dispatch chain through the
+# Renderer base is deferred. This lets callers test the matcher_info
+# extraction independently. Same extraction-from-method-body pattern
+# already approved for resolve_renderer_module.
+render_matcher_info
+
+# renderers/shell/mod.rs::ShellRenderer::do_render_resolve_style —
+# extracts the used_term_escape_style resolution from
+# ShellRenderer.do_render at
+# powerline/renderers/shell/__init__.py:98-106. Python embeds the
+# branch chain (term_escape_style == 'auto' + $TERM dispatch) inline
+# before delegating to super().do_render(). Rust extracts the side
+# effect (mutating self.used_term_escape_style) to its own method so
+# it can be tested without the super dispatch substrate. Same
+# pattern as load_colorscheme_config_levels.
+do_render_resolve_style
