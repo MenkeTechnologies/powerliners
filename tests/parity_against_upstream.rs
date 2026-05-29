@@ -2192,6 +2192,50 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_marked_dict_copy_preserves_mark_and_value() {
+    if !python_available() {
+        return;
+    }
+    // MarkedDict.copy() — py:97-98:
+    //   return MarkedDict(super().copy(), self.mark)
+    // The copy carries the SAME mark + an INDEPENDENT dict body.
+    let py = match py_eval(
+        "(lambda m: __import__('json').dumps([list(m.mark), m.value]))(__import__('powerline.lint.markedjson.markedvalue', fromlist=['gen_marked_value']).gen_marked_value({'a': 1, 'b': 2}, ('cfg', 5, 10)).copy())",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let py_arr = py_value.as_array().expect("py array");
+    let py_mark = py_arr[0].as_array().expect("py mark");
+    assert_eq!(py_mark[0].as_str(), Some("cfg"));
+    assert_eq!(py_mark[1].as_i64(), Some(5));
+    assert_eq!(py_mark[2].as_i64(), Some(10));
+    let py_dict = py_arr[1].as_object().expect("py dict");
+    assert_eq!(py_dict.get("a").and_then(|v| v.as_i64()), Some(1));
+    assert_eq!(py_dict.get("b").and_then(|v| v.as_i64()), Some(2));
+
+    use powerliners::lint::markedjson::markedvalue::MarkedDict;
+    use powerliners::lint::markedjson::nodes::Mark;
+    let value = serde_json::Map::from_iter(vec![
+        ("a".to_string(), serde_json::Value::from(1)),
+        ("b".to_string(), serde_json::Value::from(2)),
+    ]);
+    let md = MarkedDict::new(
+        value,
+        Mark {
+            line: 5,
+            column: 10,
+        },
+    );
+    let copy = md.copy();
+    assert_eq!(copy.mark.line, 5);
+    assert_eq!(copy.mark.column, 10);
+    assert_eq!(copy.value.get("a").and_then(|v| v.as_i64()), Some(1));
+    assert_eq!(copy.value.get("b").and_then(|v| v.as_i64()), Some(2));
+}
+
+#[test]
 fn parity_markedjson_gen_marked_value_dispatches_on_type() {
     if !python_available() {
         return;
