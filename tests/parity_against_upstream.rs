@@ -2192,6 +2192,46 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_document_start_event_init_state() {
+    if !python_available() {
+        return;
+    }
+    // DocumentStartEvent.__init__(start_mark=None, end_mark=None,
+    //   explicit=None, version=None, tags=None) — py:55-60
+    let py = match py_eval(
+        "(lambda e: __import__('json').dumps([e.explicit, list(e.version) if e.version else None, dict(e.tags) if e.tags else None]))(__import__('powerline.lint.markedjson.events', fromlist=['DocumentStartEvent']).DocumentStartEvent(None, None, explicit=True, version=(1, 2), tags={'!': 'tag:yaml.org,2002:'}))",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let py_arr = py_value.as_array().expect("py array");
+    assert_eq!(py_arr[0].as_bool(), Some(true), "Python explicit drift");
+    let py_version = py_arr[1].as_array().expect("py version");
+    assert_eq!(py_version[0].as_i64(), Some(1));
+    assert_eq!(py_version[1].as_i64(), Some(2));
+    let py_tags = py_arr[2].as_object().expect("py tags");
+    assert_eq!(
+        py_tags.get("!").and_then(|v| v.as_str()),
+        Some("tag:yaml.org,2002:")
+    );
+
+    let e = powerliners::lint::markedjson::events::DocumentStartEvent::new(
+        None,
+        None,
+        Some(true),
+        Some((1, 2)),
+        Some(vec![("!".to_string(), "tag:yaml.org,2002:".to_string())]),
+    );
+    assert_eq!(e.explicit, Some(true));
+    assert_eq!(e.version, Some((1, 2)));
+    let tags = e.tags.expect("Rust tags missing");
+    assert_eq!(tags.len(), 1);
+    assert_eq!(tags[0].0, "!");
+    assert_eq!(tags[0].1, "tag:yaml.org,2002:");
+}
+
+#[test]
 fn parity_markedjson_collection_start_event_init_state() {
     if !python_available() {
         return;
