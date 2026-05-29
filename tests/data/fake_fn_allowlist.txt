@@ -1632,3 +1632,39 @@ ignore
 # in Python source but mirrors the thread-state probe pattern
 # used by file_watcher_initialised / branch_watcher_initialised.
 is_joined
+
+# vim.rs::VimPowerline::assign_window_id — extracts the per-
+# window id assignment logic from inside new_win_idx at
+# powerline/vim.py:266-274. Python embeds the (KeyError ? assign :
+# reuse) branch chain inside the new_win_idx for-loop body; Rust
+# pulls to a pure helper so the branch logic (existing+no_conflict,
+# no_existing, conflict-forces-reassign) is independently testable
+# without walking vim.windows. Same inline-extraction pattern as
+# resolve_renderer_module.
+assign_window_id
+
+# vim.rs::VimPowerline::tabline_fallback_window — extracts the
+# vim.current.window fallback tuple from tabline() body at
+# powerline/vim.py:310-317. Python builds the (window, window_id,
+# winnr) tuple inline before passing to render(is_tabline=True);
+# Rust pulls to a pure helper so the fallback id resolution
+# (existing-or-last-window-id) is independently testable.
+tabline_fallback_window
+
+# vim.rs::VimPowerline::do_pyeval_command — extracts the
+# `vim.command('return ' + json.dumps(...))` command-template
+# from do_pyeval body at powerline/vim.py:330. Python builds the
+# command inline with the json-encoded eval result; Rust returns
+# the command string so callers route through their vim-RPC
+# dispatch. The actual eval() at py:330 lives outside the Rust
+# port since the python runtime isn't reachable.
+do_pyeval_command
+
+# vim.rs::VimPowerline::statusline_no_window_message — extracts
+# the "No window N" FailedUnicode return from statusline() body
+# at powerline/vim.py:300-303. Python builds the FailedUnicode
+# inline at py:302; Rust pulls to a pure helper for testability.
+# Existing failed_unicode_message in this file builds the same
+# message for the per-window-id case; this fn handles the
+# Option<u64> shape including the None fallback to 0.
+statusline_no_window_message

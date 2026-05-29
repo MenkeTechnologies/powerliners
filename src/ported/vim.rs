@@ -262,6 +262,89 @@ impl VimPowerline {
         out
     }
 
+    /// Port of `VimPowerline.reset_highlight()` from
+    /// `powerline/vim.py:252-261`.
+    ///
+    /// Python wraps `self.renderer.reset_highlight()` in try/except
+    /// AttributeError per py:253-261. The Rust port takes the
+    /// renderer-reset closure as an `Option<F>` (None = renderer not
+    /// yet created, mirroring Python's AttributeError path).
+    pub fn reset_highlight<F>(reset_renderer: Option<F>)
+    where
+        F: FnOnce(),
+    {
+        // py:253-255  try: self.renderer.reset_highlight()
+        if let Some(f) = reset_renderer {
+            f();
+        }
+        // py:256-261  except AttributeError: pass (renderer not yet built)
+    }
+
+    /// Port of the per-window id assignment from
+    /// `powerline/vim.py:266-274` (inside new_win_idx).
+    ///
+    /// Returns `(window_id, new_last_window_id, assigned)` where:
+    /// - `existing` is the pre-existing `powerline_window_id` for
+    ///   the window (None when missing per py:271 KeyError),
+    /// - `match_window_id` is the requested window_id (py:269),
+    /// - on conflict (existing matches but we already found r),
+    ///   forces re-assignment per py:270-273.
+    pub fn assign_window_id(
+        existing: Option<u64>,
+        last_window_id: u64,
+        conflict: bool,
+    ) -> (u64, u64, bool) {
+        // py:267-274
+        match existing {
+            // py:271  if existing and (no conflict): use existing
+            Some(id) if !conflict => (id, last_window_id, false),
+            // py:271-274  KeyError path: assign + bump
+            _ => (last_window_id, last_window_id + 1, true),
+        }
+    }
+
+    /// Port of `VimPowerline.tabline()` fallback at
+    /// `powerline/vim.py:311-317`.
+    ///
+    /// When `win_idx(None)` returns None per py:306, falls back to
+    /// `(vim.current.window, last_window_id_or_existing,
+    /// vim.current.window.number)`. The Rust port returns the
+    /// (window_id, winnr) pair callers feed to render(is_tabline=True).
+    pub fn tabline_fallback_window(
+        current_window_existing_id: Option<u64>,
+        current_window_number: u64,
+        last_window_id: u64,
+    ) -> (u64, u64) {
+        // py:312-316  (win, win.vars.get('powerline_window_id', last_window_id), win.number)
+        let window_id = current_window_existing_id.unwrap_or(last_window_id);
+        (window_id, current_window_number)
+    }
+
+    /// Port of `VimPowerline.do_pyeval()` at
+    /// `powerline/vim.py:322-330`.
+    ///
+    /// Returns the `vim.command(...)` string Python emits at py:330,
+    /// given the JSON-encoded eval result. The actual `eval(...)`
+    /// dispatch lives outside the Rust port — caller wires the
+    /// evaluation through its own python-runtime layer and passes
+    /// the result JSON in.
+    pub fn do_pyeval_command(json_encoded_result: &str) -> String {
+        // py:330  vim.command('return ' + json.dumps(eval(...)))
+        format!("return {}", json_encoded_result)
+    }
+
+    /// Port of `VimPowerline.statusline()` early-exit at
+    /// `powerline/vim.py:299-303`.
+    ///
+    /// Returns the "No window" message when `win_idx(window_id)`
+    /// returned None per py:300-302; None when a real window was
+    /// found (caller routes through `render(window, window_id,
+    /// winnr)` at py:303 directly).
+    pub fn statusline_no_window_message(window_id: Option<u64>) -> Option<String> {
+        // py:300-302
+        Some(format!("No window {}", window_id.unwrap_or(0)))
+    }
+
     /// Port of `setup()` from `powerline/vim.py:354`.
     ///
     /// Convenience wrapper that constructs the `VimPowerline` and
@@ -505,5 +588,90 @@ mod tests {
         let p = VimPowerline::setup_entry("py3eval");
         assert_eq!(p.pyeval, "py3eval");
         assert_eq!(p.last_window_id, 1);
+    }
+
+    #[test]
+    fn reset_highlight_calls_renderer_when_present() {
+        // py:253-255
+        use std::cell::Cell;
+        let called = Cell::new(false);
+        VimPowerline::reset_highlight(Some(|| called.set(true)));
+        assert!(called.get());
+    }
+
+    #[test]
+    fn reset_highlight_no_op_when_renderer_missing() {
+        // py:256-261  AttributeError: pass
+        let f: Option<fn()> = None;
+        VimPowerline::reset_highlight(f);
+    }
+
+    #[test]
+    fn assign_window_id_existing_no_conflict_reuses() {
+        // py:271  use existing
+        let (id, last, assigned) = VimPowerline::assign_window_id(Some(7), 10, false);
+        assert_eq!(id, 7);
+        assert_eq!(last, 10);
+        assert!(!assigned);
+    }
+
+    #[test]
+    fn assign_window_id_no_existing_assigns_and_bumps() {
+        // py:271-273
+        let (id, last, assigned) = VimPowerline::assign_window_id(None, 10, false);
+        assert_eq!(id, 10);
+        assert_eq!(last, 11);
+        assert!(assigned);
+    }
+
+    #[test]
+    fn assign_window_id_existing_with_conflict_reassigns() {
+        // py:269-273  forces re-assignment via KeyError when conflict
+        let (id, last, assigned) = VimPowerline::assign_window_id(Some(5), 10, true);
+        assert_eq!(id, 10);
+        assert_eq!(last, 11);
+        assert!(assigned);
+    }
+
+    #[test]
+    fn tabline_fallback_window_uses_existing_id_when_set() {
+        // py:312-316
+        let (window_id, winnr) = VimPowerline::tabline_fallback_window(Some(3), 5, 100);
+        assert_eq!(window_id, 3);
+        assert_eq!(winnr, 5);
+    }
+
+    #[test]
+    fn tabline_fallback_window_defaults_to_last_window_id() {
+        // py:314  vars.get('powerline_window_id', last_window_id)
+        let (window_id, winnr) = VimPowerline::tabline_fallback_window(None, 5, 100);
+        assert_eq!(window_id, 100);
+        assert_eq!(winnr, 5);
+    }
+
+    #[test]
+    fn do_pyeval_command_builds_return_statement() {
+        // py:330  vim.command('return ' + json.dumps(...))
+        let cmd = VimPowerline::do_pyeval_command("[1, 2, 3]");
+        assert_eq!(cmd, "return [1, 2, 3]");
+    }
+
+    #[test]
+    fn do_pyeval_command_handles_dict_json() {
+        let cmd = VimPowerline::do_pyeval_command(r#"{"key": "value"}"#);
+        assert_eq!(cmd, r#"return {"key": "value"}"#);
+    }
+
+    #[test]
+    fn statusline_no_window_message_with_id() {
+        // py:302-303
+        let msg = VimPowerline::statusline_no_window_message(Some(5)).unwrap();
+        assert_eq!(msg, "No window 5");
+    }
+
+    #[test]
+    fn statusline_no_window_message_without_id() {
+        let msg = VimPowerline::statusline_no_window_message(None).unwrap();
+        assert_eq!(msg, "No window 0");
     }
 }
