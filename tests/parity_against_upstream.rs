@@ -2192,6 +2192,83 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_colorscheme_get_group_props_with_mode_translation() {
+    if !python_available() {
+        return;
+    }
+    // get_group_props recursively walks:
+    //   1. group is str → look up in trans['groups'] then self.groups
+    //   2. group is dict + translate_colors → apply trans['colors'] to fg/bg
+    let cs_config = r#"{
+        "groups": {
+            "critical": {"fg": "red", "bg": "black", "attrs": ["bold"]},
+            "normal":   {"fg": "white", "bg": "black", "attrs": []}
+        },
+        "mode_translations": {
+            "insert": {"colors": {"red": "green"}, "groups": {}}
+        }
+    }"#;
+    let colors_config = r#"{
+        "colors": {
+            "red":   [1,  "ff0000"],
+            "green": [2,  "00ff00"],
+            "white": [15, "ffffff"],
+            "black": [16, "000000"]
+        },
+        "gradients": {}
+    }"#;
+
+    let cs_map: serde_json::Map<String, serde_json::Value> =
+        serde_json::from_str(cs_config).unwrap();
+    let col_map: serde_json::Map<String, serde_json::Value> =
+        serde_json::from_str(colors_config).unwrap();
+    let c = powerliners::colorscheme::Colorscheme::new(&cs_map, &col_map);
+
+    let cases: &[(&str, &str, &str)] = &[
+        (
+            "normal",
+            "{}",
+            r#"{"fg":"red","bg":"black","attrs":["bold"]}"#,
+        ),
+        (
+            "insert",
+            r#"{"colors": {"red": "green"}, "groups": {}}"#,
+            r#"{"fg":"green","bg":"black","attrs":["bold"]}"#,
+        ),
+    ];
+    for (mode, trans_json, expected_json) in cases {
+        let py_expr = format!(
+            "(lambda c: __import__('json').dumps(c.get_group_props({mode:?}, {trans}, 'critical'), sort_keys=True))(__import__('powerline.colorscheme', fromlist=['Colorscheme']).Colorscheme({cs}, {col}))",
+            mode = mode, trans = trans_json, cs = cs_config, col = colors_config
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let expected: serde_json::Value =
+            serde_json::from_str(expected_json).expect("expected JSON malformed");
+        assert_eq!(
+            py_value, expected,
+            "Python get_group_props({}, {}) fixture drift",
+            mode, trans_json
+        );
+
+        let trans_map: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_str(trans_json).unwrap();
+        let rs = c
+            .get_group_props(
+                Some(mode),
+                &trans_map,
+                &serde_json::Value::String("critical".into()),
+                true,
+            )
+            .expect("Rust get_group_props returned None");
+        assert_eq!(rs, expected, "Rust get_group_props({}, ...) mismatch", mode);
+    }
+}
+
+#[test]
 fn parity_colorscheme_get_gradient_picks_and_falls_back() {
     if !python_available() {
         return;
