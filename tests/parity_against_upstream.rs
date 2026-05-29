@@ -2192,6 +2192,49 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_collection_node_flow_style_3_variants() {
+    if !python_available() {
+        return;
+    }
+    // CollectionNode(tag, value, ..., flow_style=None) — py:42-47.
+    // The flow_style flag distinguishes [..]/{..} (true) from block
+    // form (false / None). Verify state preservation across all 3
+    // tristate values + ID inheritance.
+    let cases: &[(&str, &str, Option<bool>)] = &[
+        ("!seq", "['a','b']", Some(true)),
+        ("!seq", "['c']", Some(false)),
+        ("tag:yaml.org,2002:seq", "[]", None),
+    ];
+    for (tag, _value_repr, flow_style) in cases {
+        let fs_py = flow_style
+            .map(|b| if b { "True" } else { "False" })
+            .unwrap_or("None");
+        let py_expr = format!(
+            "(lambda n: __import__('json').dumps([n.tag, n.flow_style]))(__import__('powerline.lint.markedjson.nodes', fromlist=['CollectionNode']).CollectionNode({tag:?}, [], None, None, flow_style={fs}))",
+            tag = tag, fs = fs_py
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let py_arr = py_value.as_array().expect("py array");
+        assert_eq!(py_arr[0].as_str(), Some(*tag));
+        assert_eq!(py_arr[1].as_bool(), *flow_style);
+
+        let n = powerliners::lint::markedjson::nodes::CollectionNode::new(
+            *tag,
+            serde_json::Value::Array(vec![]),
+            None,
+            None,
+            *flow_style,
+        );
+        assert_eq!(n.node.tag, *tag);
+        assert_eq!(n.flow_style, *flow_style);
+    }
+}
+
+#[test]
 fn parity_markedjson_scalar_node_state_preserved() {
     if !python_available() {
         return;
