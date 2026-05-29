@@ -2192,6 +2192,53 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_markedjson_scalar_token_state_preserved() {
+    if !python_available() {
+        return;
+    }
+    // ScalarToken(value, plain, start_mark, end_mark, style=None) —
+    // py:67-72: stores all 5 ctor args as instance attrs. Verify both
+    // ports preserve the state for several typical scalar shapes.
+    let cases: &[(&str, bool, Option<char>)] = &[
+        ("hello", true, Some('p')),
+        ("\"q\"", false, Some('"')),
+        ("123", true, None),
+        ("", true, None),
+    ];
+    for (value, plain, style) in cases {
+        let style_py = style
+            .map(|c| format!("{:?}", c.to_string()))
+            .unwrap_or_else(|| "None".to_string());
+        let py_expr = format!(
+            "(lambda t: __import__('json').dumps([t.value, t.plain, t.style, t.id]))(__import__('powerline.lint.markedjson.tokens', fromlist=['ScalarToken']).ScalarToken({val:?}, {pln}, None, None, {sty}))",
+            val = value,
+            pln = if *plain { "True" } else { "False" },
+            sty = style_py
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+        let py_arr = py_value.as_array().expect("py array");
+        assert_eq!(py_arr[0].as_str(), Some(*value), "Python value drift");
+        assert_eq!(py_arr[1].as_bool(), Some(*plain), "Python plain drift");
+        assert_eq!(py_arr[3].as_str(), Some("<scalar>"), "Python id drift");
+
+        let t = powerliners::lint::markedjson::tokens::ScalarToken::new(
+            *value, *plain, None, None, *style,
+        );
+        assert_eq!(t.value, *value);
+        assert_eq!(t.plain, *plain);
+        assert_eq!(t.style, *style);
+        assert_eq!(
+            powerliners::lint::markedjson::tokens::ScalarToken::ID,
+            "<scalar>"
+        );
+    }
+}
+
+#[test]
 fn parity_markedjson_token_ids_match_python_class_attrs() {
     if !python_available() {
         return;
