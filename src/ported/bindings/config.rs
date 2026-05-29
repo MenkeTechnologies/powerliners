@@ -235,7 +235,7 @@ pub fn get_tmux_configs(version: &TmuxVersionInfo) -> Vec<(PathBuf, i64)> {
 /// would be a compile error rather than a silent None.
 #[derive(Debug, Clone)]
 pub struct EmptyArgs {
-    /// py:91  self.ext = [ext]
+    /// py:91  `self.ext = [ext]`
     pub ext: Vec<String>,
     /// py:92  self.side = 'left'
     pub side: String,
