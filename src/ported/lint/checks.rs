@@ -335,6 +335,316 @@ pub fn check_hl_group_name(hl_group: &str) -> LintResult {
     LintResult::ok()
 }
 
+/// Port of `check_ext()` from
+/// `powerline/lint/checks.py:98-116`.
+///
+/// Validates that `ext` is in the available extensions list AND that
+/// at least one of `themes` / `colorschemes` is configured for it.
+///
+/// Returns `(hadsomedirs, hadproblem)` per py:116 — note this is the
+/// only check_* in the file that returns a 2-tuple rather than the
+/// 3-tuple LintResult.
+pub fn check_ext(
+    ext: &str,
+    available_exts: &HashSet<&str>,
+    has_themes_for_ext: bool,
+    has_colorschemes_for_ext: bool,
+    has_top_themes: bool,
+    has_top_colorschemes: bool,
+) -> (bool, bool) {
+    // py:102-106  if ext not in data['lists']['exts']
+    if !available_exts.contains(ext) {
+        return (false, true);
+    }
+    // py:108-115  walk ('themes', 'colorschemes')
+    let mut hadsomedirs = false;
+    let mut hadproblem = false;
+    // themes
+    if !has_themes_for_ext && !has_top_themes {
+        hadproblem = true;
+    } else {
+        hadsomedirs = true;
+    }
+    // colorschemes
+    if !has_colorschemes_for_ext && !has_top_colorschemes {
+        hadproblem = true;
+    } else {
+        hadsomedirs = true;
+    }
+    (hadsomedirs, hadproblem)
+}
+
+/// Port of `check_config()` from
+/// `powerline/lint/checks.py:119-138`.
+///
+/// Validates that the given `theme` is configured for `ext` either
+/// in the per-ext config (`configs[d][ext]`) or in the top-level
+/// (`configs['top_' + d]`).
+///
+/// `d` is the config-kind ("themes" or "colorschemes"). Returns the
+/// LintResult triple per py:138.
+pub fn check_config(
+    d: &str,
+    theme: &str,
+    ext: &str,
+    available_exts: &HashSet<&str>,
+    has_theme_for_ext: bool,
+    has_top_theme: bool,
+) -> LintResult {
+    // py:125-129
+    if !available_exts.contains(ext) {
+        return LintResult::warned();
+    }
+    // py:130-137
+    let _ = (d, theme);
+    if has_theme_for_ext || has_top_theme {
+        LintResult::ok()
+    } else {
+        // py:136  echoerr + return True, False, True
+        LintResult {
+            proceed: true,
+            echo: false,
+            hadproblem: true,
+        }
+    }
+}
+
+/// Port of `check_top_theme()` from
+/// `powerline/lint/checks.py:141-149`.
+///
+/// Validates that `theme` is in the available top_themes set.
+pub fn check_top_theme(theme: &str, top_themes: &HashSet<&str>) -> LintResult {
+    // py:143  if theme not in data['configs']['top_themes']
+    if top_themes.contains(theme) {
+        LintResult::ok()
+    } else {
+        // py:144-148  echoerr + return True, False, True
+        LintResult {
+            proceed: true,
+            echo: false,
+            hadproblem: true,
+        }
+    }
+}
+
+/// Port of `check_translated_group_name()` from
+/// `powerline/lint/checks.py:166-167`.
+///
+/// Python: `return check_group(group, data, context, echoerr)` —
+/// pass-through. The Rust port surfaces the call shape; the full
+/// `check_group` cascade (py:170-243) walks the colorscheme config
+/// tree and is deferred.
+pub fn check_translated_group_name(group: &str, defined_groups: &HashSet<&str>) -> LintResult {
+    // py:167  return check_group(...)
+    check_group(group, defined_groups)
+}
+
+/// Port of `check_group()` from
+/// `powerline/lint/checks.py:170-243`.
+///
+/// Validates that the group name resolves in the colorscheme config.
+/// The Rust port takes the resolved set of available group names
+/// directly (Python walks `data['ext_colorscheme_configs']` etc.).
+pub fn check_group(group: &str, defined_groups: &HashSet<&str>) -> LintResult {
+    // py:172-173  if not isinstance(group, unicode): return True, False, False
+    // (string is always valid as &str)
+    // py:212-242  check if group exists in any of the configs
+    if defined_groups.contains(group) {
+        LintResult::ok()
+    } else {
+        // py:233-240  echoerr + return True, False, True
+        LintResult {
+            proceed: true,
+            echo: false,
+            hadproblem: true,
+        }
+    }
+}
+
+/// Port of `check_key_compatibility()` from
+/// `powerline/lint/checks.py:245-291`.
+///
+/// Validates the keys of a segment dict against the allowed key
+/// sets for its `type`. `segment_keys` is the set of keys the
+/// segment config dict carries; `segment_type` is the resolved
+/// type ("function", "string", or "segment_list").
+pub fn check_key_compatibility(segment_keys: &HashSet<&str>, segment_type: &str) -> LintResult {
+    // py:250-254  if segment_type not in type_keys: fail
+    let tk = match type_keys().get(segment_type) {
+        Some(s) => s,
+        None => {
+            return LintResult {
+                proceed: false,
+                echo: false,
+                hadproblem: true,
+            }
+        }
+    };
+
+    let mut hadproblem = false;
+    // py:259-268  unknown keys not in (generic_keys | type_keys[t])
+    let gk = generic_keys();
+    for k in segment_keys.iter() {
+        if !gk.contains(k) && !tk.contains(k) {
+            hadproblem = true;
+            break;
+        }
+    }
+    // py:270-278  required keys must all be present
+    if let Some(rk) = required_keys().get(segment_type) {
+        for k in rk.iter() {
+            if !segment_keys.contains(k) {
+                hadproblem = true;
+                break;
+            }
+        }
+    }
+    // py:280-289  type != 'function' and (keys & highlight_keys) must be non-empty
+    if segment_type != "function" {
+        let hk = highlight_keys();
+        let mut has_hl = false;
+        for k in segment_keys.iter() {
+            if hk.contains(k) {
+                has_hl = true;
+                break;
+            }
+        }
+        if !has_hl {
+            hadproblem = true;
+        }
+    }
+
+    LintResult {
+        proceed: true,
+        echo: false,
+        hadproblem,
+    }
+}
+
+/// Port of `check_segment_module()` from
+/// `powerline/lint/checks.py:294-306`.
+///
+/// Validates that the module name is importable. The Rust port can't
+/// actually call Python's `__import__`; it accepts a closure
+/// `is_importable` so callers (test harness or runtime importer)
+/// can supply the lookup.
+pub fn check_segment_module(module: &str, is_importable: impl Fn(&str) -> bool) -> LintResult {
+    // py:297-298  __import__(str(module))
+    if is_importable(module) {
+        LintResult::ok()
+    } else {
+        // py:299-305  ImportError → echoerr + return True, False, True
+        LintResult {
+            proceed: true,
+            echo: false,
+            hadproblem: true,
+        }
+    }
+}
+
+/// Port of `check_exinclude_function()` from
+/// `powerline/lint/checks.py:794-802`.
+///
+/// Validates that `name` resolves as a selector function. Python
+/// uses `rpartition` then defaults the module to
+/// `powerline.selectors.<ext>` if absent.
+///
+/// Returns the resolved `(module, name)` pair via the out parameter
+/// `resolved` plus the lint result. Callers use the pair to look up
+/// the actual function via `import_function`.
+pub fn check_exinclude_function(name: &str, ext: &str) -> (String, String) {
+    // py:796  module, name = name.rpartition('.')[::2]
+    let (module, function) = match name.rfind('.') {
+        Some(idx) => (name[..idx].to_string(), name[idx + 1..].to_string()),
+        None => (String::new(), name.to_string()),
+    };
+    // py:797-798  if not module: module = 'powerline.selectors.' + ext
+    let module = if module.is_empty() {
+        format!("powerline.selectors.{}", ext)
+    } else {
+        module
+    };
+    (module, function)
+}
+
+/// Port of `get_one_segment_function()` from
+/// `powerline/lint/checks.py:747-754`.
+///
+/// Yields the segment's function name resolved via
+/// `get_function_strings`. Rust port returns the resolved
+/// `(module, function)` pair when the function key is set.
+pub fn get_one_segment_function(
+    function_name: Option<&str>,
+    ext: &str,
+) -> Option<(String, String)> {
+    // py:749  function_name = context[-2][1].get('function')
+    let function_name = function_name?;
+    // py:751  module, function_name = get_function_strings(function_name, context, ext)
+    let default_module = format!("powerline.segments.{}", ext);
+    Some(get_function_strings(function_name, &default_module))
+}
+
+/// Port of `check_matcher_func()` from
+/// `powerline/lint/checks.py:56-95`.
+///
+/// Resolves the matcher function name and returns the `(module,
+/// function)` pair after defaulting to `powerline.matchers.<ext>`.
+pub fn check_matcher_func(ext: &str, match_name: &str) -> (String, String) {
+    // py:60  match_module, separator, match_function = match_name.rpartition('.')
+    match match_name.rfind('.') {
+        Some(idx) => (
+            match_name[..idx].to_string(),
+            match_name[idx + 1..].to_string(),
+        ),
+        // py:61-63  if not separator: match_module = 'powerline.matchers.<ext>'
+        None => (
+            format!("powerline.matchers.{}", ext),
+            match_name.to_string(),
+        ),
+    }
+}
+
+/// Port of `check_highlight_group()` from
+/// `powerline/lint/checks.py:604-616`.
+///
+/// Wrapper that validates a single highlight group exists in the
+/// colorscheme. The full `hl_exists` chain (py:585-602) walks the
+/// colorscheme + gradients; the Rust port takes the resolved
+/// available-group set.
+pub fn check_highlight_group(hl_group: &str, available_groups: &HashSet<&str>) -> LintResult {
+    // py:614  hl_exists(hl_group, ...)
+    if available_groups.contains(hl_group) {
+        LintResult::ok()
+    } else {
+        LintResult {
+            proceed: true,
+            echo: false,
+            hadproblem: true,
+        }
+    }
+}
+
+/// Port of `check_highlight_groups()` from
+/// `powerline/lint/checks.py:618-637`.
+///
+/// Validates a list of highlight groups; all must exist OR at
+/// least one must exist with hadproblem=true per py:631-636.
+pub fn check_highlight_groups(hl_groups: &[&str], available_groups: &HashSet<&str>) -> LintResult {
+    // py:621-632  any group missing → hadproblem
+    let mut hadproblem = false;
+    for hl in hl_groups {
+        if !available_groups.contains(hl) {
+            hadproblem = true;
+            break;
+        }
+    }
+    LintResult {
+        proceed: true,
+        echo: false,
+        hadproblem,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -598,5 +908,242 @@ mod tests {
     fn check_hl_group_name_accepts_underscore_prefix() {
         let r = check_hl_group_name("_private");
         assert!(!r.hadproblem);
+    }
+
+    #[test]
+    fn check_ext_known_ext_with_themes_is_ok() {
+        // py:102-115
+        let exts: HashSet<&str> = ["shell", "tmux", "vim"].into_iter().collect();
+        let (had_dirs, had_problem) = check_ext("shell", &exts, true, true, false, false);
+        assert!(had_dirs);
+        assert!(!had_problem);
+    }
+
+    #[test]
+    fn check_ext_unknown_ext_returns_problem() {
+        // py:102-106
+        let exts: HashSet<&str> = ["shell"].into_iter().collect();
+        let (had_dirs, had_problem) = check_ext("bogus", &exts, false, false, false, false);
+        assert!(!had_dirs);
+        assert!(had_problem);
+    }
+
+    #[test]
+    fn check_ext_falls_back_to_top_themes() {
+        // py:109  if ext not in configs[typ] AND not configs['top_' + typ]
+        let exts: HashSet<&str> = ["shell"].into_iter().collect();
+        let (had_dirs, _) = check_ext("shell", &exts, false, false, true, true);
+        assert!(had_dirs);
+    }
+
+    #[test]
+    fn check_config_known_ext_with_theme_ok() {
+        // py:130-138
+        let exts: HashSet<&str> = ["shell"].into_iter().collect();
+        let r = check_config("themes", "default", "shell", &exts, true, false);
+        assert!(!r.hadproblem);
+    }
+
+    #[test]
+    fn check_config_unknown_ext_warns() {
+        let exts: HashSet<&str> = ["shell"].into_iter().collect();
+        let r = check_config("themes", "default", "bogus", &exts, false, false);
+        assert!(r.hadproblem);
+    }
+
+    #[test]
+    fn check_config_missing_theme_emits_problem() {
+        let exts: HashSet<&str> = ["shell"].into_iter().collect();
+        let r = check_config("themes", "missing", "shell", &exts, false, false);
+        assert!(r.hadproblem);
+    }
+
+    #[test]
+    fn check_top_theme_known_theme_is_ok() {
+        // py:143-149
+        let themes: HashSet<&str> = ["default", "tmux"].into_iter().collect();
+        let r = check_top_theme("default", &themes);
+        assert!(!r.hadproblem);
+    }
+
+    #[test]
+    fn check_top_theme_unknown_theme_has_problem() {
+        let themes: HashSet<&str> = ["default"].into_iter().collect();
+        let r = check_top_theme("bogus", &themes);
+        assert!(r.hadproblem);
+    }
+
+    #[test]
+    fn check_group_known_group_is_ok() {
+        // py:212-242
+        let groups: HashSet<&str> = ["branch", "background"].into_iter().collect();
+        let r = check_group("branch", &groups);
+        assert!(!r.hadproblem);
+    }
+
+    #[test]
+    fn check_group_unknown_group_has_problem() {
+        let groups: HashSet<&str> = ["branch"].into_iter().collect();
+        let r = check_group("nonexistent", &groups);
+        assert!(r.hadproblem);
+    }
+
+    #[test]
+    fn check_translated_group_name_delegates_to_check_group() {
+        // py:167
+        let groups: HashSet<&str> = ["foo"].into_iter().collect();
+        let r1 = check_translated_group_name("foo", &groups);
+        let r2 = check_group("foo", &groups);
+        assert_eq!(r1, r2);
+    }
+
+    #[test]
+    fn check_key_compatibility_function_segment_with_valid_keys() {
+        // py:259-289
+        let keys: HashSet<&str> = ["function", "args", "name", "priority"]
+            .into_iter()
+            .collect();
+        let r = check_key_compatibility(&keys, "function");
+        assert!(!r.hadproblem);
+    }
+
+    #[test]
+    fn check_key_compatibility_string_segment_requires_highlight() {
+        // py:280-289  type != 'function' requires highlight_groups or name
+        let keys: HashSet<&str> = ["contents"].into_iter().collect();
+        let r = check_key_compatibility(&keys, "string");
+        assert!(r.hadproblem);
+    }
+
+    #[test]
+    fn check_key_compatibility_string_segment_with_name_ok() {
+        let keys: HashSet<&str> = ["contents", "name"].into_iter().collect();
+        let r = check_key_compatibility(&keys, "string");
+        assert!(!r.hadproblem);
+    }
+
+    #[test]
+    fn check_key_compatibility_function_missing_function_key() {
+        // py:270-278  required keys check
+        let keys: HashSet<&str> = ["args"].into_iter().collect();
+        let r = check_key_compatibility(&keys, "function");
+        assert!(r.hadproblem);
+    }
+
+    #[test]
+    fn check_key_compatibility_unknown_segment_type_fails() {
+        // py:250-254
+        let keys: HashSet<&str> = ["function"].into_iter().collect();
+        let r = check_key_compatibility(&keys, "bogus_type");
+        assert!(!r.proceed);
+        assert!(r.hadproblem);
+    }
+
+    #[test]
+    fn check_key_compatibility_unknown_key_emits_problem() {
+        // py:259-268
+        let keys: HashSet<&str> = ["function", "bogus_key"].into_iter().collect();
+        let r = check_key_compatibility(&keys, "function");
+        assert!(r.hadproblem);
+    }
+
+    #[test]
+    fn check_segment_module_importable_is_ok() {
+        // py:297-306
+        let r = check_segment_module("powerline.segments.shell", |_| true);
+        assert!(!r.hadproblem);
+    }
+
+    #[test]
+    fn check_segment_module_unimportable_has_problem() {
+        let r = check_segment_module("definitely.not.a.real.module", |_| false);
+        assert!(r.hadproblem);
+    }
+
+    #[test]
+    fn check_exinclude_function_dotted_name_splits() {
+        // py:796-798
+        let (m, n) = check_exinclude_function("powerline.selectors.vim.in_help", "vim");
+        assert_eq!(m, "powerline.selectors.vim");
+        assert_eq!(n, "in_help");
+    }
+
+    #[test]
+    fn check_exinclude_function_undotted_defaults_module() {
+        // py:797-798
+        let (m, n) = check_exinclude_function("in_help", "vim");
+        assert_eq!(m, "powerline.selectors.vim");
+        assert_eq!(n, "in_help");
+    }
+
+    #[test]
+    fn get_one_segment_function_returns_pair_when_set() {
+        // py:747-754
+        let r = get_one_segment_function(Some("powerline.segments.shell.uptime"), "shell");
+        assert_eq!(
+            r,
+            Some(("powerline.segments.shell".to_string(), "uptime".to_string()))
+        );
+    }
+
+    #[test]
+    fn get_one_segment_function_returns_none_when_unset() {
+        // py:749-754  no function_name → no yield
+        assert_eq!(get_one_segment_function(None, "shell"), None);
+    }
+
+    #[test]
+    fn get_one_segment_function_undotted_defaults_module() {
+        let r = get_one_segment_function(Some("uptime"), "shell");
+        assert_eq!(
+            r,
+            Some(("powerline.segments.shell".to_string(), "uptime".to_string()))
+        );
+    }
+
+    #[test]
+    fn check_matcher_func_dotted_name_splits() {
+        // py:60
+        let (m, n) = check_matcher_func("vim", "powerline.matchers.vim.help");
+        assert_eq!(m, "powerline.matchers.vim");
+        assert_eq!(n, "help");
+    }
+
+    #[test]
+    fn check_matcher_func_undotted_defaults_module() {
+        // py:61-63
+        let (m, n) = check_matcher_func("vim", "help");
+        assert_eq!(m, "powerline.matchers.vim");
+        assert_eq!(n, "help");
+    }
+
+    #[test]
+    fn check_highlight_group_known_group_ok() {
+        // py:604-616
+        let groups: HashSet<&str> = ["background", "branch"].into_iter().collect();
+        let r = check_highlight_group("background", &groups);
+        assert!(!r.hadproblem);
+    }
+
+    #[test]
+    fn check_highlight_group_unknown_group_has_problem() {
+        let groups: HashSet<&str> = ["background"].into_iter().collect();
+        let r = check_highlight_group("nonexistent", &groups);
+        assert!(r.hadproblem);
+    }
+
+    #[test]
+    fn check_highlight_groups_all_known_is_ok() {
+        // py:621-636
+        let groups: HashSet<&str> = ["a", "b", "c"].into_iter().collect();
+        let r = check_highlight_groups(&["a", "b"], &groups);
+        assert!(!r.hadproblem);
+    }
+
+    #[test]
+    fn check_highlight_groups_any_missing_has_problem() {
+        let groups: HashSet<&str> = ["a"].into_iter().collect();
+        let r = check_highlight_groups(&["a", "b"], &groups);
+        assert!(r.hadproblem);
     }
 }
