@@ -921,6 +921,134 @@ impl Powerline {
         // py:979  self.shutdown()
         Self::shutdown(shutdown_event, true);
     }
+
+    /// Port of `Powerline.update_renderer()` from
+    /// `powerline/__init__.py:849-869`.
+    ///
+    /// Drives the cr_kwargs check + create_renderer dispatch.
+    /// Returns:
+    /// - `Ok(true)` when a renderer was (re-)created per py:858-868
+    ///   success path
+    /// - `Ok(false)` when no work was needed per py:855 (empty
+    ///   cr_kwargs)
+    /// - `Err(msg)` when create_renderer panics + no fallback
+    ///   renderer was available per py:865-866 (raise)
+    ///
+    /// `has_pending_kwargs` mirrors py:854-856 (Python locks +
+    /// snapshots cr_kwargs). `create_renderer` is the caller's
+    /// closure for py:859 self.create_renderer(**cr_kwargs).
+    /// `has_existing_renderer` mirrors py:862 hasattr(self,
+    /// 'renderer').
+    pub fn update_renderer<F>(
+        has_pending_kwargs: bool,
+        has_existing_renderer: bool,
+        create_renderer: F,
+    ) -> Result<bool, String>
+    where
+        F: FnOnce() -> Result<(), String>,
+    {
+        // py:851-852  run_loader_update path (caller-wired)
+        // py:853-856  snapshot cr_kwargs
+        if !has_pending_kwargs {
+            return Ok(false);
+        }
+        // py:858-869  try create_renderer
+        match create_renderer() {
+            Ok(()) => {
+                // py:867-869  clear cr_kwargs on success
+                Ok(true)
+            }
+            // py:860-866  except: log + maybe re-raise
+            Err(e) => {
+                if has_existing_renderer {
+                    // py:862-864  fallback to existing renderer
+                    Ok(false)
+                } else {
+                    // py:865-866  raise — no fallback
+                    Err(format!("Failed to create renderer: {}", e))
+                }
+            }
+        }
+    }
+
+    /// Port of `Powerline.render()` from
+    /// `powerline/__init__.py:871-887`.
+    ///
+    /// Calls update_renderer + dispatches to renderer.render per
+    /// py:876-877. On failure routes through FailedUnicode + the
+    /// exception logger per py:878-887. `output_width=true`
+    /// switches the failed return to a `(message, len)` pair per
+    /// py:885-886.
+    ///
+    /// The Rust port returns:
+    /// - `Ok(rendered)` on success
+    /// - `Err((failed_message, optional_width))` on failure;
+    ///   `Some(width)` when output_width=true.
+    pub fn render<U, R>(
+        update_renderer: U,
+        renderer_render: R,
+        output_width: bool,
+    ) -> Result<String, (String, Option<usize>)>
+    where
+        U: FnOnce() -> Result<(), String>,
+        R: FnOnce() -> Result<String, String>,
+    {
+        // py:875-877  update_renderer + renderer.render
+        let result = update_renderer().and_then(|()| renderer_render());
+        match result {
+            Ok(s) => Ok(s),
+            Err(e) => {
+                // py:878-884  FailedUnicode + exception log
+                let failed = format!("Failed to render: {}", e);
+                // py:885-886  output_width: ret = (ret, len(ret))
+                let width = if output_width {
+                    Some(failed.len())
+                } else {
+                    None
+                };
+                Err((failed, width))
+            }
+        }
+    }
+
+    /// Port of `Powerline.render_above_lines()` from
+    /// `powerline/__init__.py:889-902`.
+    ///
+    /// Wraps update_renderer + renderer.render_above_lines per
+    /// py:893-895. On failure yields a single FailedUnicode line
+    /// per py:902. The Rust port returns the resolved line vec or
+    /// a single error-line vec.
+    pub fn render_above_lines<U, R>(update_renderer: U, renderer_above: R) -> Vec<String>
+    where
+        U: FnOnce() -> Result<(), String>,
+        R: FnOnce() -> Result<Vec<String>, String>,
+    {
+        // py:892-895
+        match update_renderer().and_then(|()| renderer_above()) {
+            Ok(lines) => lines,
+            // py:896-902  yield single FailedUnicode line
+            Err(e) => vec![format!("Failed to render: {}", e)],
+        }
+    }
+
+    /// Port of `Powerline._load_hierarhical_config()` from
+    /// `powerline/__init__.py:757-796`.
+    ///
+    /// Wraps the module-level `_load_hierarhical_config` ported
+    /// above. Iterates `levels`, merges successful loads, and
+    /// errors when no non-ignored level produces a config per
+    /// py:788-795.
+    pub fn _load_hierarhical_config_instance<F>(
+        levels: &[String],
+        ignore_levels: &[usize],
+        load_one: F,
+    ) -> Result<Map<String, Value>, String>
+    where
+        F: Fn(&str) -> Result<Map<String, Value>, String>,
+    {
+        // py:772-796
+        _load_hierarhical_config(levels, ignore_levels, load_one)
+    }
 }
 
 /// Port of `get_fallback_logger()` from
@@ -1589,5 +1717,103 @@ mod powerline_class_tests {
         let ev = std::sync::Arc::new(AtomicBool::new(false));
         Powerline::exit(&ev);
         assert!(ev.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn update_renderer_no_pending_kwargs_returns_false() {
+        // py:855  if self.cr_kwargs: ... else skip
+        let r = Powerline::update_renderer(false, true, || panic!("should not run")).unwrap();
+        assert!(!r);
+    }
+
+    #[test]
+    fn update_renderer_success_returns_true() {
+        // py:858-869
+        let r = Powerline::update_renderer(true, false, || Ok(())).unwrap();
+        assert!(r);
+    }
+
+    #[test]
+    fn update_renderer_failure_with_existing_renderer_returns_false() {
+        // py:862-864  fallback to existing
+        let r = Powerline::update_renderer(true, true, || Err("boom".to_string())).unwrap();
+        assert!(!r);
+    }
+
+    #[test]
+    fn update_renderer_failure_without_existing_renderer_returns_err() {
+        // py:865-866  raise
+        let r = Powerline::update_renderer(true, false, || Err("boom".to_string()));
+        assert!(r.is_err());
+        assert!(r.unwrap_err().contains("Failed to create renderer"));
+    }
+
+    #[test]
+    fn render_success_returns_rendered_string() {
+        // py:876-877
+        let r = Powerline::render(|| Ok(()), || Ok("rendered".to_string()), false);
+        assert_eq!(r, Ok("rendered".to_string()));
+    }
+
+    #[test]
+    fn render_failure_returns_failed_message_without_width() {
+        // py:878-887
+        let r = Powerline::render(|| Ok(()), || Err("error".to_string()), false);
+        let (msg, width) = r.unwrap_err();
+        assert!(msg.contains("Failed to render"));
+        assert!(msg.contains("error"));
+        assert!(width.is_none());
+    }
+
+    #[test]
+    fn render_failure_with_output_width_returns_message_and_len() {
+        // py:885-886
+        let r = Powerline::render(|| Ok(()), || Err("err".to_string()), true);
+        let (msg, width) = r.unwrap_err();
+        assert_eq!(width, Some(msg.len()));
+    }
+
+    #[test]
+    fn render_update_renderer_failure_routes_to_failed() {
+        let r = Powerline::render(
+            || Err("update fail".to_string()),
+            || panic!("should not run after update fail"),
+            false,
+        );
+        assert!(r.is_err());
+        assert!(r.unwrap_err().0.contains("update fail"));
+    }
+
+    #[test]
+    fn render_above_lines_success_returns_yielded_lines() {
+        // py:893-895
+        let lines = Powerline::render_above_lines(
+            || Ok(()),
+            || Ok(vec!["line1".to_string(), "line2".to_string()]),
+        );
+        assert_eq!(lines, vec!["line1".to_string(), "line2".to_string()]);
+    }
+
+    #[test]
+    fn render_above_lines_failure_yields_single_failed_line() {
+        // py:896-902
+        let lines =
+            Powerline::render_above_lines(|| Err("boom".to_string()), || panic!("should not run"));
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].contains("Failed to render"));
+    }
+
+    #[test]
+    fn load_hierarhical_config_instance_delegates_to_module_fn() {
+        // py:757-796
+        let levels = vec!["a".to_string(), "b".to_string()];
+        let r = Powerline::_load_hierarhical_config_instance(&levels, &[], |p| {
+            let mut m = Map::new();
+            m.insert(p.to_string(), Value::Bool(true));
+            Ok(m)
+        })
+        .unwrap();
+        assert!(r.contains_key("a"));
+        assert!(r.contains_key("b"));
     }
 }

@@ -1731,3 +1731,12 @@ load_config_instance
 # from the PowerlineLogger method while keeping the upstream
 # meaning clear at call sites.
 powerline_exception
+
+# mod.rs::Powerline::_load_hierarhical_config_instance — Rust impl
+# of Powerline._load_hierarhical_config(self, cfg_type, levels,
+# ignore_levels) at powerline/__init__.py:757-796. Renamed from
+# `_load_hierarhical_config` because the module-level free fn of
+# the same name at py:757 was already ported at module scope.
+# The `_instance` suffix follows the same disambiguation pattern
+# as load_config_instance.
+_load_hierarhical_config_instance
