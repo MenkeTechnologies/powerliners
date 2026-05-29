@@ -2192,6 +2192,37 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_pick_gradient_value_bankers_rounding() {
+    if !python_available() {
+        return;
+    }
+    // pick_gradient_value(grad_list, level) → grad_list[int(round(level * (len-1) / 100))]
+    // Python 3 round() uses banker's rounding (half-to-even). Cover all
+    // 5 endpoint positions plus banker's-rounding edge cases:
+    //   0.5 (rounds DOWN to 0 — even), 12.5 (DOWN to 0), 87.5 (UP to 4 — even)
+    let grad: &[u64] = &[10, 20, 30, 40, 50];
+    let levels: &[f64] = &[0.0, 25.0, 50.0, 75.0, 100.0, 12.5, 87.5, 99.999, 0.5];
+    let py_grad = "[10, 20, 30, 40, 50]";
+    for level in levels {
+        let py_expr = format!(
+            "__import__('powerline.colorscheme', fromlist=['pick_gradient_value']).pick_gradient_value({}, {})",
+            py_grad, level
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_val: u64 = py.trim().parse().expect("py returned non-integer");
+        let rs_val = powerliners::colorscheme::pick_gradient_value(grad, *level);
+        assert_eq!(
+            rs_val, py_val,
+            "pick_gradient_value(level={}) mismatch: py={}, rs={}",
+            level, py_val, rs_val
+        );
+    }
+}
+
+#[test]
 fn parity_get_attrs_flag_combines_attrs() {
     if !python_available() {
         return;
