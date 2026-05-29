@@ -2192,6 +2192,51 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_delayed_echoerr_call_accumulates_and_next_variant_buckets() {
+    if !python_available() {
+        return;
+    }
+    // DelayedEchoErr.__call__ — py:219-222:
+    //   kwargs['indent'] = kwargs.get('indent', 0) + self.indent
+    //   self.errs[-1].append(kwargs)
+    // DelayedEchoErr.next_variant — py:224-225:
+    //   self.errs.append([])
+    let py = match py_eval(
+        "(lambda EE, DEE: (lambda d: (d(context='c1', problem='p1'), d.next_variant(), d(context='c2', problem='p2'), __import__('json').dumps(d.errs, sort_keys=True))[3])(DEE(EE(lambda **kw: None, object(), indent=4), message='m', separator_message='s')))(__import__('powerline.lint.markedjson.error', fromlist=['EchoErr']).EchoErr, __import__('powerline.lint.markedjson.error', fromlist=['DelayedEchoErr']).DelayedEchoErr)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let expected = serde_json::json!([
+        [{"context": "c1", "problem": "p1", "indent": 8}],
+        [{"context": "c2", "problem": "p2", "indent": 8}]
+    ]);
+    assert_eq!(
+        py_value, expected,
+        "Python DelayedEchoErr accumulation fixture drift"
+    );
+
+    use powerliners::lint::markedjson::error::DelayedEchoErr;
+    let mut d = DelayedEchoErr::new(4, "m", "s");
+    d.call(serde_json::Map::from_iter(vec![
+        ("context".to_string(), serde_json::Value::from("c1")),
+        ("problem".to_string(), serde_json::Value::from("p1")),
+    ]));
+    d.next_variant();
+    d.call(serde_json::Map::from_iter(vec![
+        ("context".to_string(), serde_json::Value::from("c2")),
+        ("problem".to_string(), serde_json::Value::from("p2")),
+    ]));
+
+    let rs_value = serde_json::to_value(&d.errs).expect("Rust errs not JSON-encodable");
+    assert_eq!(
+        rs_value, expected,
+        "Rust DelayedEchoErr.errs structure mismatch"
+    );
+}
+
+#[test]
 fn parity_delayed_echoerr_init_indent_shift_with_message() {
     if !python_available() {
         return;
