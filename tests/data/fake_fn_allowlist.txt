@@ -432,3 +432,23 @@ statuses
 # mapping can be unit-tested in isolation without needing the hg
 # shell-out (which is stubbed in this port pass).
 aggregate_repo_status
+
+# nick_pat() is the Rust accessor for the Python module-level
+# `nick_pat = re.compile(...)` constant at lib/vcs/bzr.py:23.
+# Python initialises module-level regex at import time; Rust
+# uses OnceLock for the same lazy single-init pattern.
+nick_pat
+
+# Repository::aggregate_short_status extracts the loop at
+# lib/vcs/bzr.py:87-93 that walks the `bzr status -S` raw output
+# and aggregates per-line indicators into the "DU"/"D "/" U"/None
+# repo-status string. Python inlines this inside _status(); Rust
+# extracts so the line→aggregate mapping can be unit-tested
+# without needing the bzrlib shell-out (which is stubbed).
+aggregate_short_status
+
+# Repository::extract_file_status extracts the per-file branch at
+# lib/vcs/bzr.py:80-83 (`ans = raw[:2]; if ans == 'I ': ans = None`).
+# Python inlines this inside _status when path is provided; Rust
+# extracts for the same testability reason as aggregate_short_status.
+extract_file_status
