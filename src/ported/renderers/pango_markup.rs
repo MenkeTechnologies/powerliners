@@ -20,6 +20,9 @@ impl PangoMarkupRenderer {
     /// Port of `PangoMarkupRenderer.hlstyle()` from
     /// `powerline/renderers/pango_markup.py:13`.
     pub fn hlstyle() -> &'static str {
+        // py:13  @staticmethod
+        // py:14  def hlstyle(*args, **kwargs):
+        // py:15  # We don't need to explicitly reset attributes, so skip those calls
         // py:16  return ''
         ""
     }
@@ -37,33 +40,45 @@ impl PangoMarkupRenderer {
         bg: Option<(i32, i64)>,
         attrs: Option<u32>,
     ) -> String {
+        // py:18  def hl(self, contents, fg=None, bg=None, attrs=None, **kwargs):
+        // py:19  '''Highlight a segment.'''
         // py:20  awesome_attr = []
         let mut awesome_attr: Vec<String> = Vec::new();
-        // py:21-23  fg
+        // py:21  if fg is not None:
         if let Some((_, hex)) = fg {
+            // py:22  if fg is not False and fg[1] is not False:
             if hex >= 0 {
+                // py:23  awesome_attr += ['foreground="#{0:06x}"'.format(fg[1])]
                 awesome_attr.push(format!("foreground=\"#{:06x}\"", hex));
             }
         }
-        // py:24-26  bg
+        // py:24  if bg is not None:
         if let Some((_, hex)) = bg {
+            // py:25  if bg is not False and bg[1] is not False:
             if hex >= 0 {
+                // py:26  awesome_attr += ['background="#{0:06x}"'.format(bg[1])]
                 awesome_attr.push(format!("background=\"#{:06x}\"", hex));
             }
         }
-        // py:27-33  attrs
+        // py:27  if attrs is not None and attrs is not False:
         if let Some(attrs) = attrs {
+            // py:28  if attrs & ATTR_BOLD:
             if attrs & ATTR_BOLD != 0 {
+                // py:29  awesome_attr += ['font_weight="bold"']
                 awesome_attr.push("font_weight=\"bold\"".to_string());
             }
+            // py:30  if attrs & ATTR_ITALIC:
             if attrs & ATTR_ITALIC != 0 {
+                // py:31  awesome_attr += ['font_style="italic"']
                 awesome_attr.push("font_style=\"italic\"".to_string());
             }
+            // py:32  if attrs & ATTR_UNDERLINE:
             if attrs & ATTR_UNDERLINE != 0 {
+                // py:33  awesome_attr += ['underline="single"']
                 awesome_attr.push("underline=\"single\"".to_string());
             }
         }
-        // py:34  '<span ' + ' '.join(awesome_attr) + '>' + contents + '</span>'
+        // py:34  return '<span ' + ' '.join(awesome_attr) + '>' + contents + '</span>'
         format!("<span {}>{}</span>", awesome_attr.join(" "), contents)
     }
 
