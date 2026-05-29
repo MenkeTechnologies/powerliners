@@ -7,7 +7,7 @@
 // import json                                      // py:4
 // from powerline.renderer import Renderer          // py:6
 
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 
 /// Port of `class I3barRenderer(Renderer)` from
 /// `powerline/renderers/i3bar.py:9`.
@@ -34,11 +34,7 @@ impl I3barRenderer {
     /// of contents. Returns `json.dumps(segment) + ','` per upstream
     /// py:33 — the trailing comma is part of i3bar's array-of-objects
     /// streaming format.
-    pub fn hl(
-        contents: &str,
-        fg: Option<(i32, i64)>,
-        bg: Option<(i32, i64)>,
-    ) -> String {
+    pub fn hl(contents: &str, fg: Option<(i32, i64)>, bg: Option<(i32, i64)>) -> String {
         // py:21-25  segment = {full_text, separator: False, separator_block_width: 0}
         let mut segment = Map::new();
         segment.insert("full_text".to_string(), Value::String(contents.to_string()));
@@ -48,10 +44,7 @@ impl I3barRenderer {
         // py:27-29  fg dispatch
         if let Some((_, hex)) = fg {
             if hex >= 0 {
-                segment.insert(
-                    "color".to_string(),
-                    Value::String(format!("#{:06x}", hex)),
-                );
+                segment.insert("color".to_string(), Value::String(format!("#{:06x}", hex)));
             }
         }
         // py:30-32  bg dispatch

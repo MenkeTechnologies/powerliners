@@ -24,13 +24,15 @@ impl LemonbarPowerline {
     /// `powerline/lemonbar.py:9`.
     ///
     /// Python: `super().init(ext='wm', renderer_module='lemonbar')`.
+    #[allow(non_upper_case_globals)]
     pub const init_ext: &'static str = "wm";
+    #[allow(non_upper_case_globals)]
     pub const init_renderer_module: &'static str = "lemonbar";
 
     /// Port of `LemonbarPowerline.get_encoding` (staticmethod lambda)
     /// from `powerline/lemonbar.py:13`.
     pub fn get_encoding() -> &'static str {
-        "utf-8"                                       // py:13  lambda: 'utf-8'
+        "utf-8" // py:13  lambda: 'utf-8'
     }
 
     /// Port of `LemonbarPowerline.get_local_themes()` from
@@ -40,9 +42,7 @@ impl LemonbarPowerline {
     /// builds `{key: {'config': self.load_theme_config(val)}}` —
     /// without the `Powerline.load_theme_config` orchestrator, this
     /// port forwards the val as-is into the config slot.
-    pub fn get_local_themes(
-        local_themes: Option<&HashMap<String, Value>>,
-    ) -> Map<String, Value> {
+    pub fn get_local_themes(local_themes: Option<&HashMap<String, Value>>) -> Map<String, Value> {
         // py:16-17  if not local_themes: return {}
         let themes = match local_themes {
             None => return Map::new(),
