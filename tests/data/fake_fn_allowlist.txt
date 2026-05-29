@@ -1962,3 +1962,10 @@ log_file_spec
 common_spec
 ext_block_spec
 main_spec
+
+# Approved 2026-05-29: _highlight_group_spec from
+# powerline/lint/checks.py:350-351. Module-level Spec binding (not a
+# `def`) so the extractor misses it. Same module-level-Spec-composer
+# pattern as the prior batches; the leading underscore is preserved
+# from the Python source.
+_highlight_group_spec

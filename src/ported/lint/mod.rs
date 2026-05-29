@@ -621,6 +621,19 @@ pub fn highlight_group_spec() -> spec::Spec {
     spec::Spec::new().ident()
 }
 
+/// Port of module-level `_highlight_group_spec` binding from
+/// `powerline/lint/checks.py:350-351`.
+///
+/// Same shape as [`highlight_group_spec`] but pre-wrapped with the
+/// "Error while checking function documentation while checking theme
+/// (key {key})" context message. Used internally for hl-group lookups
+/// inside function docstring scans.
+pub fn _highlight_group_spec() -> spec::Spec {
+    // checks.py:350-351
+    highlight_group_spec()
+        .context_message("Error while checking function documentation while checking theme (key {key})")
+}
+
 /// Port of module-level `vim_colorscheme_spec` binding from
 /// `powerline/lint/__init__.py:200-207`.
 pub fn vim_colorscheme_spec() -> spec::Spec {
