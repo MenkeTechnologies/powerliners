@@ -60,6 +60,8 @@ impl PDBRenderer {
     ///
     /// Must be called before first calling `render` method.
     pub fn set_pdb(&mut self, pdb: PdbHandle) {
+        // py:24  def set_pdb(self, pdb):
+        // py:25-33  docstring
         // py:34  self.pdb = pdb
         self.pdb = Some(pdb);
     }
@@ -73,13 +75,16 @@ impl PDBRenderer {
         &self,
         segment_info: &serde_json::Map<String, serde_json::Value>,
     ) -> serde_json::Map<String, serde_json::Value> {
-        // py:18-22  r = segment_info.copy(); patch in pdb/init/curframe; return r
+        // py:17  def get_segment_info(self, segment_info, mode):
+        // py:18  r = self.segment_info.copy()
         let mut r = segment_info.clone();
         if let Some(pdb) = &self.pdb {
+            // py:19  r['pdb'] = self.pdb
             r.insert(
                 "pdb".to_string(),
                 serde_json::json!({"stack_len": pdb.stack_len}),
             );
+            // py:21  r['curframe'] = self.pdb.curframe
             r.insert(
                 "curframe".to_string(),
                 serde_json::json!({
@@ -89,10 +94,12 @@ impl PDBRenderer {
                 }),
             );
         }
+        // py:20  r['initial_stack_length'] = self.initial_stack_length
         r.insert(
             "initial_stack_length".to_string(),
             serde_json::json!(self.initial_stack_length.map(|n| n as u64)),
         );
+        // py:22  return r
         r
     }
 
@@ -102,14 +109,22 @@ impl PDBRenderer {
     /// Records `initial_stack_length = len(pdb.stack) - 1` on first
     /// call (py:38), then delegates to the base renderer's render.
     pub fn render(&mut self) -> String {
-        // py:37-38  if self.initial_stack_length is None: ...
+        // py:36  def render(self, **kwargs):
+        // py:37  if self.initial_stack_length is None:
         if self.initial_stack_length.is_none() {
             if let Some(pdb) = &self.pdb {
+                // py:38  self.initial_stack_length = len(self.pdb.stack) - 1
                 self.initial_stack_length = Some(pdb.stack_len.saturating_sub(1));
             }
         }
         // py:39  return Renderer.render(self, **kwargs)
-        // (Renderer base not ported — return empty until orchestrator lands.)
+        // py:41  if sys.version_info < (3,) and platform.python_implementation() == 'PyPy':
+        // py:42  def do_render(self, **kwargs):
+        // py:43  # Make sure that only ASCII characters survive
+        // py:44  ret = super(PDBRenderer, self).do_render(**kwargs)
+        // py:45  ret = ret.encode('ascii', 'replace')
+        // py:46  ret = ret.decode('ascii')
+        // py:47  return ret
         String::new()
     }
 }
