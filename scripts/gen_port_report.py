@@ -92,6 +92,12 @@ def py_to_rs_path(py_rel: str) -> str:
 
     ``powerline/lib/path.py`` → ``src/ported/lib/path.rs``
     ``powerline/bindings/ipython/since_7.py`` → ``src/ported/bindings/ipython/since_7.rs``
+
+    Note: Python's ``__init__.py`` files map to the literal
+    ``__init__.rs`` path here. ``build_dataset`` then falls back to
+    ``mod.rs`` (Rust's convention for module roots) when the
+    ``__init__.rs`` form isn't present — see the fallback at the
+    ``rs_idx.get(rs_rel, [])`` lookup.
     """
     # Strip the leading `powerline/` package prefix.
     if py_rel.startswith("powerline/"):
@@ -101,6 +107,23 @@ def py_to_rs_path(py_rel: str) -> str:
     return f"src/ported/{rel[:-3]}.rs"
 
 
+def py_to_rs_mod_path(py_rel: str) -> str:
+    """Map an upstream ``__init__.py`` path to its ``mod.rs`` Rust
+    counterpart — Rust convention for module roots.
+
+    ``powerline/lib/__init__.py`` → ``src/ported/lib/mod.rs``
+    ``powerline/__init__.py`` → ``src/ported/mod.rs``
+    """
+    if py_rel.startswith("powerline/"):
+        rel = py_rel[len("powerline/"):]
+    else:
+        rel = py_rel
+    # Strip the trailing ``__init__.py`` and append ``mod.rs``.
+    if rel.endswith("__init__.py"):
+        rel = rel[: -len("__init__.py")]
+    return f"src/ported/{rel}mod.rs".replace("//", "/")
+
+
 def build_dataset(py_idx: dict[str, list[str]],
                   rs_idx: dict[str, list[str]]) -> list[dict]:
     """Build per-py-file rows with port coverage."""
@@ -108,6 +131,15 @@ def build_dataset(py_idx: dict[str, list[str]],
     for py_rel, py_fns in py_idx.items():
         rs_rel = py_to_rs_path(py_rel)
         rs_fns = rs_idx.get(rs_rel, [])
+        # Rust convention: ``__init__.py`` maps to ``mod.rs``, not
+        # ``__init__.rs``. Fall back to ``mod.rs`` when the literal
+        # ``__init__.rs`` path isn't present in the Rust tree.
+        if not rs_fns and py_rel.endswith("__init__.py"):
+            mod_rel = py_to_rs_mod_path(py_rel)
+            mod_fns = rs_idx.get(mod_rel, [])
+            if mod_fns:
+                rs_rel = mod_rel
+                rs_fns = mod_fns
         ported = [f for f in py_fns if f in rs_fns]
         missing = [f for f in py_fns if f not in rs_fns]
         rs_extra = [f for f in rs_fns if f not in py_fns]
