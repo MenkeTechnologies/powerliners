@@ -75,9 +75,9 @@ impl MultiRunnedThread {
     /// `powerline/lib/threaded.py:14`.
     pub fn new() -> Self {
         Self {
-            thread: Mutex::new(None),                 // py:14
+            thread: Mutex::new(None), // py:14
             shutdown_event: Arc::new(Mutex::new(false)),
-            daemon: true,                             // py:12  daemon = True
+            daemon: true, // py:12  daemon = True
         }
     }
 
@@ -127,7 +127,7 @@ impl MultiRunnedThread {
         let mut t = self.thread.lock().unwrap();
         let handle = t.take()?;
         let _ = handle.join();
-        Some(())                                      // py:27
+        Some(()) // py:27
     }
 
     /// Signal the thread to shut down (sets `shutdown_event` to true).

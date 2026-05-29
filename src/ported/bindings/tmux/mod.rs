@@ -162,9 +162,7 @@ pub fn get_tmux_version(pl: &()) -> Option<TmuxVersionInfo> {
     }
 
     // py:77  major, minor = version_string.split('.')
-    let mut split = version_string.splitn(2, '.');
-    let major_raw = split.next()?;
-    let minor_raw = split.next()?;
+    let (major_raw, minor_raw) = version_string.split_once('.')?;
 
     // py:78  major = NON_DIGITS.subn('', major)[0]
     let major_str = NON_DIGITS().replace_all(major_raw, "").into_owned();

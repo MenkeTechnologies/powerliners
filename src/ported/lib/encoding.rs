@@ -106,6 +106,10 @@ pub fn get_preferred_environment_encoding() -> &'static str {
 /// use; encoding/errors arguments are accepted for signature parity
 /// but currently ignored (Rust strings can never fail to encode as
 /// UTF-8).
+// `Box<dyn FnMut(&str) -> io::Result<()>>` is the upstream protocol — a
+// type alias here would lose the inline signature info that reviewers compare
+// against the `// py:121-125` cite below.
+#[allow(clippy::type_complexity)]
 pub fn get_unicode_writer<W: std::io::Write + 'static>(
     mut stream: W,
     _encoding: Option<&str>,

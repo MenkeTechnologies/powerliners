@@ -140,7 +140,9 @@ fn parity_attr_constants() {
             Some(v) => v,
             None => return,
         };
-        let py_int: u32 = py.parse().expect(&format!("bad py int for {}", name));
+        let py_int: u32 = py
+            .parse()
+            .unwrap_or_else(|_| panic!("bad py int for {}", name));
         assert_eq!(
             py_int, rs_vals[i],
             "{} mismatch: py={}, rs={}",
@@ -246,14 +248,14 @@ fn parity_cterm_to_hex_table() {
         powerliners::colorscheme::cterm_to_hex.len(),
         "len mismatch"
     );
-    for i in 0..256 {
+    for (i, (py, rs)) in py_vals
+        .iter()
+        .zip(powerliners::colorscheme::cterm_to_hex.iter())
+        .enumerate()
+    {
         assert_eq!(
-            py_vals[i],
-            powerliners::colorscheme::cterm_to_hex[i],
-            "cterm_to_hex[{}] mismatch: py=0x{:06x}, rs=0x{:06x}",
-            i,
-            py_vals[i],
-            powerliners::colorscheme::cterm_to_hex[i]
+            py, rs,
+            "cterm_to_hex[{i}] mismatch: py=0x{py:06x}, rs=0x{rs:06x}"
         );
     }
 }

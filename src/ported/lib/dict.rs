@@ -57,9 +57,7 @@ where
     I: IntoIterator<Item = (String, Value)>,
 {
     let mut iter = argvalue.into_iter().peekable(); // py:9
-    if iter.peek().is_none() {
-        return None; // py:10  if not argvalue: return None
-    }
+    iter.peek()?;
     let mut r: Map<String, Value> = Map::new(); // py:11
     for (k, v) in iter {
         // py:12-13

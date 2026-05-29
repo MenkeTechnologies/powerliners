@@ -122,7 +122,8 @@ pub fn get_argparser() -> ArgParser {
                 metavar: Some("PATH".into()),
                 help: "Path to configuration directory. If it is present \
                        then configuration files will only be sought in the provided path. \
-                       May be provided multiple times to search in a list of directories.".into(),
+                       May be provided multiple times to search in a list of directories."
+                    .into(),
             },
             // py:54  tmux sub-parser dispatch (function positional)
             Argument {
@@ -134,7 +135,8 @@ pub fn get_argparser() -> ArgParser {
                        files are sourced, if it is `setenv' then special \
                        (prefixed with `_POWERLINE') tmux global environment variables \
                        are filled with data from powerline configuration. \
-                       Action `setup' is just doing `setenv' then `source'.".into(),
+                       Action `setup' is just doing `setenv' then `source'."
+                    .into(),
             },
             // py:67-72  -s / --source (tmux sub-parser)
             Argument {
@@ -143,7 +145,8 @@ pub fn get_argparser() -> ArgParser {
                 metavar: None,
                 help: "When using `setup': always use configuration file sourcing. \
                        By default this is determined automatically based on tmux \
-                       version: this is the default for tmux 1.8 and below.".into(),
+                       version: this is the default for tmux 1.8 and below."
+                    .into(),
             },
             // py:73-81  -n / --no-source (tmux sub-parser)
             Argument {
@@ -155,7 +158,8 @@ pub fn get_argparser() -> ArgParser {
                        powerline-specific configuration file, substitute \
                        `$_POWERLINE_...' variables with appropriate values and run \
                        `tmux config line'. This is the default behaviour for \
-                       tmux 1.9 and above.".into(),
+                       tmux 1.9 and above."
+                    .into(),
             },
             // py:83  shell sub-parser dispatch (function positional)
             Argument {
@@ -165,7 +169,8 @@ pub fn get_argparser() -> ArgParser {
                 help: "Shell-specific commands: command / uses. \
                        If action is `command' then preferred powerline command is \
                        output, if it is `uses' then powerline-config script will exit \
-                       with 1 if specified component is disabled and 0 otherwise.".into(),
+                       with 1 if specified component is disabled and 0 otherwise."
+                    .into(),
             },
             // py:93-103  component (positional for shell uses)
             Argument {
@@ -176,7 +181,8 @@ pub fn get_argparser() -> ArgParser {
                        exit with 0 if specific component is enabled and with 1 otherwise. \
                        `tmux' component stands for tmux bindings \
                        (e.g. those that notify tmux about current directory changes), \
-                       `prompt' component stands for shell prompt.".into(),
+                       `prompt' component stands for shell prompt."
+                    .into(),
             },
             // py:104-108  -s / --shell (shell sub-parser)
             Argument {
@@ -232,13 +238,18 @@ mod tests {
     #[test]
     fn get_argparser_description_matches_upstream() {
         let p = get_argparser();
-        assert_eq!(p.description, "Script used to obtain powerline configuration.");
+        assert_eq!(
+            p.description,
+            "Script used to obtain powerline configuration."
+        );
     }
 
     #[test]
     fn get_argparser_includes_subcommand_handles() {
         let p = get_argparser();
-        let flag_names: Vec<&str> = p.arguments.iter()
+        let flag_names: Vec<&str> = p
+            .arguments
+            .iter()
             .flat_map(|a| a.flags.iter().map(|s| s.as_str()))
             .collect();
         // Top-level config-path

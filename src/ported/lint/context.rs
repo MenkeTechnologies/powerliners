@@ -46,7 +46,7 @@ impl JStr {
 /// Python: `key_sep = JStr('/')` — the breadcrumb separator.
 #[allow(non_upper_case_globals)]
 pub fn key_sep() -> JStr {
-    JStr("/".to_string())                            // py:16
+    JStr("/".to_string()) // py:16
 }
 
 /// Port of `list_themes()` from `powerline/lint/context.py:19`.
@@ -157,10 +157,7 @@ impl Context {
     /// `serde_json::Value::Object` directly.
     pub fn enter_key(&self, value: &Value, key: &str) -> Self {
         // py:62  return self.enter(value.keydict[key], value[key])
-        let inner = value
-            .get(key)
-            .cloned()
-            .unwrap_or(Value::Null);
+        let inner = value.get(key).cloned().unwrap_or(Value::Null);
         self.enter(key.to_string(), inner)
     }
 

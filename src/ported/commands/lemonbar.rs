@@ -83,7 +83,9 @@ mod tests {
     #[test]
     fn lemonbar_parser_bar_command_default_meta() {
         let p = get_argparser();
-        let bar = p.arguments.iter()
+        let bar = p
+            .arguments
+            .iter()
             .find(|a| a.flags.contains(&"--bar-command".to_string()))
             .unwrap();
         assert_eq!(bar.metavar, Some("CMD".to_string()));

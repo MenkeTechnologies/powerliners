@@ -63,7 +63,7 @@ impl DummyWatcher {
     ///
     /// Always returns `false` — no file has changed.
     pub fn check<P: AsRef<Path>>(&self, _path: P) -> bool {
-        false                                         // py:26
+        false // py:26
     }
 
     /// Port of `DummyWatcher.watch` from
@@ -109,7 +109,7 @@ impl DeferredWatcher {
     /// `powerline/lib/config.py:33`.
     pub fn new() -> Self {
         Self {
-            calls: Mutex::new(Vec::new()),           // py:36
+            calls: Mutex::new(Vec::new()), // py:36
         }
     }
 
@@ -168,10 +168,13 @@ mod tests {
 
     fn tmp_json(content: &str) -> std::path::PathBuf {
         let mut p = std::env::temp_dir();
-        p.push(format!("powerliners-config-test-{}-{}.json",
+        p.push(format!(
+            "powerliners-config-test-{}-{}.json",
             std::process::id(),
             std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
         ));
         let mut f = std::fs::File::create(&p).unwrap();
         f.write_all(content.as_bytes()).unwrap();

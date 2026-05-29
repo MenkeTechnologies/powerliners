@@ -234,6 +234,11 @@ impl Colorscheme {
     }
 
     /// Port of `Colorscheme.get_group_props()` from `powerline/colorscheme.py:68`.
+    ///
+    /// `translate_colors` is forwarded through recursive calls and ultimately
+    /// consumed in the non-recursive branch; clippy's `only_used_in_recursion`
+    /// fires on the recursive paths but the parameter is real upstream behavior.
+    #[allow(clippy::only_used_in_recursion)]
     pub fn get_group_props(
         &self,
         mode: Option<&str>,

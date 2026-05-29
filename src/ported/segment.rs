@@ -29,6 +29,9 @@ use serde_json::{Map, Value};
 /// Rust port: builds a Vec of the same candidate sequence; callers
 /// fold via `next()` (= bucket-by-bucket fallback) or
 /// `get_segment_key`'s merge logic.
+// Faithfully ports the 8-arg Python signature; refactoring into a
+// param-struct here would obscure the upstream `// py:NN` line citations.
+#[allow(clippy::too_many_arguments)]
 pub fn list_segment_key_values(
     segment: &Map<String, Value>,
     theme_configs: &[&Map<String, Value>],
@@ -52,9 +55,8 @@ pub fn list_segment_key_values(
             Some(s) => s,
             None => continue,
         };
-        if function_name.is_some() && name.is_none() {
+        if let (Some(fname), None) = (function_name, name) {
             // py:19
-            let fname = function_name.unwrap();
             if let Some(module) = module {
                 // py:20
                 let mod_key = format!("{}.{}", module, fname);
@@ -168,6 +170,9 @@ pub fn get_segment_key(
 /// Port of `get_string()` from `powerline/segment.py:73`.
 ///
 /// String-segment resolver: returns the literal `'contents'` value.
+// Tuple shape mirrors the 5-element Python return; a named struct here
+// would diverge from the upstream contract referenced by `// py:NN`.
+#[allow(clippy::type_complexity)]
 pub fn get_string(
     data: &Map<String, Value>,
     segment: &Map<String, Value>,

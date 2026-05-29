@@ -134,6 +134,8 @@ pub fn add_spaces_center(_pl: &(), amount: usize, segment: &Map<String, Value>) 
 /// Note the inverse mapping: align `'l'` (left) needs `add_spaces_right`
 /// (because padding goes on the right to make text appear left-aligned),
 /// align `'r'` (right) needs `add_spaces_left`.
+// The fn-pointer return type mirrors the upstream Python protocol shape.
+#[allow(clippy::type_complexity)]
 pub fn expand_functions(align: char) -> Option<fn(&(), usize, &Map<String, Value>) -> String> {
     match align {
         // py:40-44

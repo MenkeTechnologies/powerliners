@@ -172,7 +172,7 @@ pub fn finish_args(
                 let parsed_pane = match &pane_id {
                     Value::String(s) => {
                         // py:55-58  int(s.lstrip(' %')) or pass on ValueError
-                        let stripped = s.trim_start_matches(|c| c == ' ' || c == '%');
+                        let stripped = s.trim_start_matches([' ', '%']);
                         stripped.parse::<i64>().ok().map(Value::from)
                     }
                     _ => None,
@@ -226,14 +226,11 @@ pub fn finish_args(
 /// `--config-override`, `--theme-override`, `--renderer-arg`,
 /// `--config-path`, `--socket`.
 pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
-    use crate::ported::commands::lint::{ArgAction, ArgParser, Argument};
     use crate::ported::bindings::wm::wm_threads;
+    use crate::ported::commands::lint::{ArgAction, ArgParser, Argument};
 
     // py:88  ', '.join(('`wm.' + key + '`' for key in wm_threads.keys()))
-    let wm_keys: Vec<String> = wm_threads()
-        .keys()
-        .map(|k| format!("`wm.{}'", k))
-        .collect();
+    let wm_keys: Vec<String> = wm_threads().keys().map(|k| format!("`wm.{}'", k)).collect();
     let wm_help = wm_keys.join(", ");
 
     ArgParser {
@@ -259,7 +256,8 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
                        respectively, `above' emits lines that are supposed to be printed \
                        just above the prompt and `aboveleft' is like concatenating \
                        `above' with `left' with the exception that only one Python \
-                       instance is used in this case. May be omitted for `wm.*' extensions.".into(),
+                       instance is used in this case. May be omitted for `wm.*' extensions."
+                    .into(),
             },
             // py:98-105  -r / --renderer-module
             Argument {
@@ -270,7 +268,8 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
                        (with leading dot) which is `powerline.renderers.{ext}{MODULE}', \
                        may also be full module name (must contain at least one dot or \
                        end with a dot in case it is top-level module) or \
-                       `powerline.renderers' submodule (in case there are no dots).".into(),
+                       `powerline.renderers' submodule (in case there are no dots)."
+                    .into(),
             },
             // py:106-109  -w / --width
             Argument {
@@ -292,7 +291,8 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
                 action: ArgAction::Store,
                 metavar: Some("LIST".into()),
                 help: "Like above, but is supposed to contain space-separated array \
-                       of statuses, representing exit statuses of commands in one pipe.".into(),
+                       of statuses, representing exit statuses of commands in one pipe."
+                    .into(),
             },
             // py:120-123  --jobnum
             Argument {
@@ -313,7 +313,8 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
                        VALUE may be any JSON value, values that are not \
                        `null', `true', `false', start with digit, `{', `[' \
                        are treated like strings. If VALUE is omitted \
-                       then corresponding key is removed.".into(),
+                       then corresponding key is removed."
+                    .into(),
             },
             // py:136-142  -t / --theme-override
             Argument {
@@ -322,7 +323,8 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
                 metavar: Some("THEME.KEY.KEY=VALUE".into()),
                 help: "Like above, but theme-specific. THEME should point to \
                        an existing and used theme to have any effect, but it is fine \
-                       to use any theme here.".into(),
+                       to use any theme here."
+                    .into(),
             },
             // py:143-151  -R / --renderer-arg
             Argument {
@@ -333,7 +335,8 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
                        to be used only by shell bindings to provide various data like \
                        last-exit-code or last-pipe-status (they are not using \
                        `--renderer-arg' for historical reasons: `--renderer-arg' \
-                       was added later).".into(),
+                       was added later)."
+                    .into(),
             },
             // py:152-157  -p / --config-path
             Argument {
@@ -342,7 +345,8 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
                 metavar: Some("PATH".into()),
                 help: "Path to configuration directory. If it is present then \
                        configuration files will only be sought in the provided path. \
-                       May be provided multiple times to search in a list of directories.".into(),
+                       May be provided multiple times to search in a list of directories."
+                    .into(),
             },
             // py:158-166  --socket
             Argument {
@@ -354,7 +358,8 @@ pub fn get_argparser() -> crate::ported::commands::lint::ArgParser {
                        present only for compatibility with other powerline clients. \
                        This argument must always be the first one and be in a form \
                        `--socket ADDRESS': no `=' or short form allowed \
-                       (in other powerline clients, not here).".into(),
+                       (in other powerline clients, not here)."
+                    .into(),
             },
         ],
     }
@@ -500,17 +505,36 @@ mod tests {
     #[test]
     fn get_argparser_has_required_flags() {
         let p = get_argparser();
-        let all_flags: Vec<&str> = p.arguments.iter()
+        let all_flags: Vec<&str> = p
+            .arguments
+            .iter()
             .flat_map(|a| a.flags.iter().map(|s| s.as_str()))
             .collect();
         for required in [
-            "ext", "side", "-r", "--renderer-module", "-w", "--width",
-            "--last-exit-code", "--last-pipe-status", "--jobnum",
-            "-c", "--config-override", "-t", "--theme-override",
-            "-R", "--renderer-arg", "-p", "--config-path", "--socket",
+            "ext",
+            "side",
+            "-r",
+            "--renderer-module",
+            "-w",
+            "--width",
+            "--last-exit-code",
+            "--last-pipe-status",
+            "--jobnum",
+            "-c",
+            "--config-override",
+            "-t",
+            "--theme-override",
+            "-R",
+            "--renderer-arg",
+            "-p",
+            "--config-path",
+            "--socket",
         ] {
-            assert!(all_flags.contains(&required),
-                "missing required arg {:?} from get_argparser output", required);
+            assert!(
+                all_flags.contains(&required),
+                "missing required arg {:?} from get_argparser output",
+                required
+            );
         }
     }
 }
