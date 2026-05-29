@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">859</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3574</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">83.6%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">862</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3576</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">83.9%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -275,8 +275,8 @@ columns:
   <!-- SYM py_file=powerline/renderers/ipython/since_7.py rs_file=src/ported/renderers/ipython/since_7.rs rs_exists=True py_fn_total=8 ported_count=7 missing_count=1 rs_extra_count=29 coverage=0.8750 -->
   <!-- END-GROUP py_file=powerline/renderers/ipython/since_7.py -->
   <!-- BEGIN-GROUP py_file=powerline/renderers/shell/__init__.py -->
-  <tr class="partial"><td><code>renderers/shell/__init__.py</code></td><td>✔ <code>renderers/shell/mod.rs</code></td><td>8</td><td><code>int_to_rgb</code>, <code>get_client_id</code>, <code>hlstyle</code>, <code>get_theme</code></td><td><code>__init__</code>, <code>do_render</code>, <code>render</code>, <code>do_render</code></td><td><code>resolve</code>, <code>default</code>, <code>new</code>, <code>default</code>, <code>new</code>, <code>render_matcher_info</code>, <code>do_render_resolve_style</code>, <code>int_to_rgb_extracts_components</code>, <code>term_escape_style_auto_resolves_fbterm</code>, <code>term_escape_style_auto_resolves_xterm_for_other_term</code>, <code>term_escape_style_auto_resolves_xterm_when_term_unset</code>, <code>term_escape_style_pinned_value_passthrough</code>, <code>prompt_renderer_get_client_id_returns_value</code>, <code>prompt_renderer_get_client_id_returns_none_when_absent</code>, <code>shell_renderer_default_field_values_match_upstream</code>, <code>hlstyle_no_args_returns_just_reset_sequence</code>, <code>hlstyle_fg_cterm_emits_38_5_n</code>, <code>hlstyle_fg_truecolor_emits_38_2_rgb_when_enabled</code>, <code>hlstyle_truecolor_disabled_on_fbterm</code>, <code>hlstyle_bg_emits_48_5_n</code>, <code>hlstyle_attrs_bold_emits_1</code>, <code>hlstyle_attrs_italic_emits_3</code>, <code>hlstyle_attrs_underline_emits_4</code>, <code>hlstyle_combined_fg_bg_attrs</code>, <code>hlstyle_escape_true_wraps_with_hl_start_and_end</code>, <code>hlstyle_tmux_escape_wraps_with_dcs</code>, <code>hlstyle_screen_escape_wraps_with_dcs</code>, <code>render_matcher_info_pulls_local_theme</code>, <code>render_matcher_info_returns_none_when_unset</code>, <code>do_render_resolve_style_auto_dispatches_fbterm</code>, <code>do_render_resolve_style_auto_defaults_to_xterm</code>, <code>do_render_resolve_style_pinned_value_passes_through</code>, <code>shell_renderer_get_theme_no_matcher_returns_self_theme</code>, <code>shell_renderer_get_theme_empty_string_returns_self_theme</code>, <code>shell_renderer_get_theme_returns_existing_local_theme</code>, <code>shell_renderer_get_theme_constructs_lazy_theme</code>, <code>shell_renderer_get_theme_caches_constructed_theme</code>, <code>shell_renderer_get_theme_missing_matcher_returns_null</code></td><td class="coverage">50%</td></tr>
-  <!-- SYM py_file=powerline/renderers/shell/__init__.py rs_file=src/ported/renderers/shell/mod.rs rs_exists=True py_fn_total=8 ported_count=4 missing_count=4 rs_extra_count=38 coverage=0.5000 -->
+  <tr class="partial"><td><code>renderers/shell/__init__.py</code></td><td>✔ <code>renderers/shell/mod.rs</code></td><td>8</td><td><code>int_to_rgb</code>, <code>get_client_id</code>, <code>do_render</code>, <code>render</code>, <code>do_render</code>, <code>hlstyle</code>, <code>get_theme</code></td><td><code>__init__</code></td><td><code>resolve</code>, <code>default</code>, <code>new</code>, <code>default</code>, <code>new</code>, <code>render_matcher_info</code>, <code>do_render_resolve_style</code>, <code>int_to_rgb_extracts_components</code>, <code>term_escape_style_auto_resolves_fbterm</code>, <code>term_escape_style_auto_resolves_xterm_for_other_term</code>, <code>term_escape_style_auto_resolves_xterm_when_term_unset</code>, <code>term_escape_style_pinned_value_passthrough</code>, <code>prompt_renderer_get_client_id_returns_value</code>, <code>prompt_renderer_get_client_id_returns_none_when_absent</code>, <code>shell_renderer_default_field_values_match_upstream</code>, <code>hlstyle_no_args_returns_just_reset_sequence</code>, <code>hlstyle_fg_cterm_emits_38_5_n</code>, <code>hlstyle_fg_truecolor_emits_38_2_rgb_when_enabled</code>, <code>hlstyle_truecolor_disabled_on_fbterm</code>, <code>hlstyle_bg_emits_48_5_n</code>, <code>hlstyle_attrs_bold_emits_1</code>, <code>hlstyle_attrs_italic_emits_3</code>, <code>hlstyle_attrs_underline_emits_4</code>, <code>hlstyle_combined_fg_bg_attrs</code>, <code>hlstyle_escape_true_wraps_with_hl_start_and_end</code>, <code>hlstyle_tmux_escape_wraps_with_dcs</code>, <code>hlstyle_screen_escape_wraps_with_dcs</code>, <code>render_matcher_info_pulls_local_theme</code>, <code>render_matcher_info_returns_none_when_unset</code>, <code>do_render_resolve_style_auto_dispatches_fbterm</code>, <code>do_render_resolve_style_auto_defaults_to_xterm</code>, <code>do_render_resolve_style_pinned_value_passes_through</code>, <code>shell_renderer_get_theme_no_matcher_returns_self_theme</code>, <code>shell_renderer_get_theme_empty_string_returns_self_theme</code>, <code>shell_renderer_get_theme_returns_existing_local_theme</code>, <code>shell_renderer_get_theme_constructs_lazy_theme</code>, <code>shell_renderer_get_theme_caches_constructed_theme</code>, <code>shell_renderer_get_theme_missing_matcher_returns_null</code></td><td class="coverage">88%</td></tr>
+  <!-- SYM py_file=powerline/renderers/shell/__init__.py rs_file=src/ported/renderers/shell/mod.rs rs_exists=True py_fn_total=8 ported_count=7 missing_count=1 rs_extra_count=38 coverage=0.8750 -->
   <!-- END-GROUP py_file=powerline/renderers/shell/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/bindings/qtile/widget.py -->
   <tr class="partial"><td><code>bindings/qtile/widget.py</code></td><td>✔ <code>bindings/qtile/widget.rs</code></td><td>7</td><td><code>do_setup</code>, <code>update</code>, <code>cmd_update</code>, <code>cmd_get</code>, <code>timer_setup</code>, <code>_configure</code></td><td><code>__init__</code></td><td><code>default</code>, <code>new</code>, <code>new</code>, <code>with_defaults</code>, <code>calculated_constant_matches_libqtile_sentinel</code>, <code>qtile_powerline_do_setup_assigns_powerline_attribute</code>, <code>powerline_text_box_defaults_match_upstream_signature</code>, <code>update_interval_overrides_timeout_when_supplied</code>, <code>update_interval_falls_back_to_timeout_when_none</code>, <code>update_skips_when_not_configured</code>, <code>update_renders_and_draws_when_configured</code>, <code>update_passes_side_left_for_left_widget</code>, <code>cmd_get_returns_current_text</code>, <code>cmd_update_delegates_to_update</code>, <code>timer_setup_first_call_flips_flag</code>, <code>timer_setup_subsequent_calls_no_op</code>, <code>configure_marks_widget_configured_and_runs_timer_setup</code>, <code>configure_skips_relayout_when_layout_markup_already_true</code>, <code>update_returns_true_unconditionally</code>, <code>bar_draw_calls_accumulate_across_updates</code></td><td class="coverage">86%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 126,
-    "rs_fns_in_ported": 3574,
-    "ported_fns": 859,
-    "coverage": 0.835603112840467
+    "rs_fns_in_ported": 3576,
+    "ported_fns": 862,
+    "coverage": 0.8385214007782101
   },
   "rows": [
     {
@@ -3791,14 +3791,14 @@ columns:
       "ported_fns": [
         "int_to_rgb",
         "get_client_id",
+        "do_render",
+        "render",
+        "do_render",
         "hlstyle",
         "get_theme"
       ],
       "missing_fns": [
-        "__init__",
-        "do_render",
-        "render",
-        "do_render"
+        "__init__"
       ],
       "rs_extra_fns": [
         "resolve",
@@ -3840,7 +3840,7 @@ columns:
         "shell_renderer_get_theme_caches_constructed_theme",
         "shell_renderer_get_theme_missing_matcher_returns_null"
       ],
-      "coverage": 0.5
+      "coverage": 0.875
     },
     {
       "py_file": "powerline/bindings/qtile/widget.py",

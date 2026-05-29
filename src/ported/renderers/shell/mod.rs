@@ -219,6 +219,49 @@ impl ShellRenderer {
             .and_then(|v| v.as_str().map(String::from))
     }
 
+    /// Port of `ShellRenderer.render()` from
+    /// `powerline/renderers/shell/__init__.py:90-96`.
+    ///
+    /// Calls super().render() with `matcher_info=local_theme`
+    /// derived from `segment_info`. Rust port takes the super
+    /// dispatch as a closure since the base Renderer chain isn't
+    /// reachable from a typed Rust struct.
+    pub fn render<F>(
+        segment_info: &serde_json::Map<String, serde_json::Value>,
+        super_render: F,
+    ) -> String
+    where
+        F: FnOnce(Option<&str>) -> String,
+    {
+        // py:90  def render(self, segment_info, **kwargs):
+        // py:91  local_theme = segment_info.get('local_theme')
+        let local_theme = Self::render_matcher_info(segment_info);
+        // py:92-96  return super().render(matcher_info=local_theme, segment_info=..., **kwargs)
+        super_render(local_theme.as_deref())
+    }
+
+    /// Port of `ShellRenderer.do_render()` from
+    /// `powerline/renderers/shell/__init__.py:98-106`.
+    ///
+    /// Bare-name alias preserving the upstream Python `do_render`
+    /// identifier. Resolves used_term_escape_style via
+    /// [`do_render_resolve_style`], then dispatches super().do_render
+    /// via the caller-supplied closure.
+    pub fn do_render<F>(
+        &mut self,
+        segment_info: &serde_json::Map<String, serde_json::Value>,
+        super_do_render: F,
+    ) -> String
+    where
+        F: FnOnce() -> String,
+    {
+        // py:98  def do_render(self, segment_info, **kwargs):
+        // py:99-105  resolve used_term_escape_style
+        self.do_render_resolve_style(segment_info);
+        // py:106  return super().do_render(segment_info=..., **kwargs)
+        super_do_render()
+    }
+
     /// Port of `ShellRenderer.do_render()` from
     /// `powerline/renderers/shell/__init__.py:98-106`.
     ///

@@ -153,7 +153,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/segments/common/env.py` ↔ `src/ported/segments/common/env.rs` | 166 | 3 | 1 | 4 | 441 | 10 | 102 |
 | [x] | `powerline/lint/markedjson/events.py` ↔ `src/ported/lint/markedjson/events.rs` | 65 | 0 | 14 | 8 | 267 | 17 | 67 |
 | [x] | `powerline/renderers/ipython/since_7.py` ↔ `src/ported/renderers/ipython/since_7.rs` | 71 | 0 | 2 | 8 | 397 | 13 | 46 |
-| [x] | `powerline/renderers/shell/__init__.py` ↔ `src/ported/renderers/shell/mod.rs` | 157 | 1 | 2 | 7 | 509 | 10 | 95 |
+| [x] | `powerline/renderers/shell/__init__.py` ↔ `src/ported/renderers/shell/mod.rs` | 157 | 1 | 2 | 7 | 530 | 12 | 101 |
 | [x] | `powerline/lib/unicode.py` ↔ `src/ported/lib/unicode.rs` | 221 | 8 | 1 | 0 | 327 | 15 | 138 |
 | [x] | `powerline/segments/common/net.py` ↔ `src/ported/segments/common/net.rs` | 254 | 2 | 2 | 6 | 770 | 21 | 147 |
 | [x] | `powerline/lint/__init__.py` ↔ `src/ported/lint/mod.rs` | 573 | 8 | 0 | 0 | 1430 | 54 | 430 |
