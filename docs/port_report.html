@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">841</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3557</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">81.8%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">846</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3562</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">82.3%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -191,8 +191,8 @@ columns:
   <!-- SYM py_file=powerline/bindings/ipython/pre_0_11.py rs_file=src/ported/bindings/ipython/pre_0_11.rs rs_exists=True py_fn_total=16 ported_count=11 missing_count=5 rs_extra_count=38 coverage=0.6875 -->
   <!-- END-GROUP py_file=powerline/bindings/ipython/pre_0_11.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/vcs/__init__.py -->
-  <tr class="partial"><td><code>lib/vcs/__init__.py</code></td><td>✔ <code>lib/vcs/mod.rs</code></td><td>16</td><td><code>generate_directories</code>, <code>get_branch_name</code>, <code>update_maps</code>, <code>invalidate</code>, <code>ignore_files</code>, <code>cache_and_get</code>, <code>tree_status</code>, <code>guess</code></td><td><code>file_watcher</code>, <code>branch_watcher</code>, <code>__init__</code>, <code>get_file_status</code>, <code>__init__</code>, <code>__call__</code>, <code>get_fallback_create_watcher</code>, <code>debug</code></td><td><code>is_mount</code>, <code>is_mount</code>, <code>branch_name_cache</code>, <code>branch_lock</code>, <code>file_status_lock</code>, <code>default</code>, <code>new</code>, <code>file_status_cache</code>, <code>default</code>, <code>new</code>, <code>call</code>, <code>tree_status_cache</code>, <code>matches</code>, <code>vcs_props</code>, <code>guess_vcs_at_directory</code>, <code>file_watcher_initialised</code>, <code>branch_watcher_initialised</code>, <code>generate_directories_walks_up_from_cwd</code>, <code>generate_directories_terminates_at_root</code>, <code>reset_caches</code>, <code>file_status_cache_new_starts_empty</code>, <code>file_status_cache_update_maps_registers_ignore_files</code>, <code>file_status_cache_invalidate_clears_dirstate_dependents</code>, <code>file_status_cache_invalidate_clears_ignore_dependents</code>, <code>file_status_cache_extra_ignore_files_are_included</code>, <code>tree_status_cache_caches_status_on_first_call</code>, <code>tree_status_cache_call_invalidates_on_watcher_change</code>, <code>tree_status_cache_call_uses_cache_when_unchanged</code>, <code>tree_status_cache_call_swallows_os_error_and_uses_cache</code>, <code>get_branch_name_caches_within_process</code>, <code>get_branch_name_changed_flag_refreshes_cache</code>, <code>tree_status_delegates_to_cache</code>, <code>vcs_props_contains_three_entries</code>, <code>vcs_props_git_uses_exists_check</code>, <code>vcs_props_mercurial_uses_isdir_check</code>, <code>vcs_check_exists_matches_existing_path</code>, <code>vcs_check_isdir_only_matches_directories</code>, <code>vcs_check_exists_no_match_for_nonexistent_path</code>, <code>guess_vcs_at_directory_detects_git_repo</code>, <code>guess_vcs_at_directory_detects_mercurial_repo</code>, <code>guess_vcs_at_directory_returns_none_for_non_repo</code>, <code>guess_walks_parent_directories_to_find_repo</code>, <code>guess_returns_none_when_no_repo_in_chain</code>, <code>file_watcher_initialised_returns_bool</code>, <code>branch_watcher_initialised_returns_bool</code></td><td class="coverage">50%</td></tr>
-  <!-- SYM py_file=powerline/lib/vcs/__init__.py rs_file=src/ported/lib/vcs/mod.rs rs_exists=True py_fn_total=16 ported_count=8 missing_count=8 rs_extra_count=45 coverage=0.5000 -->
+  <tr class="partial"><td><code>lib/vcs/__init__.py</code></td><td>✔ <code>lib/vcs/mod.rs</code></td><td>16</td><td><code>generate_directories</code>, <code>file_watcher</code>, <code>branch_watcher</code>, <code>get_branch_name</code>, <code>update_maps</code>, <code>invalidate</code>, <code>ignore_files</code>, <code>get_file_status</code>, <code>cache_and_get</code>, <code>tree_status</code>, <code>guess</code>, <code>get_fallback_create_watcher</code>, <code>debug</code></td><td><code>__init__</code>, <code>__init__</code>, <code>__call__</code></td><td><code>is_mount</code>, <code>is_mount</code>, <code>branch_name_cache</code>, <code>branch_lock</code>, <code>file_status_lock</code>, <code>default</code>, <code>new</code>, <code>file_status_cache</code>, <code>default</code>, <code>new</code>, <code>call</code>, <code>tree_status_cache</code>, <code>matches</code>, <code>vcs_props</code>, <code>guess_vcs_at_directory</code>, <code>file_watcher_initialised</code>, <code>branch_watcher_initialised</code>, <code>generate_directories_walks_up_from_cwd</code>, <code>generate_directories_terminates_at_root</code>, <code>reset_caches</code>, <code>file_status_cache_new_starts_empty</code>, <code>file_status_cache_update_maps_registers_ignore_files</code>, <code>file_status_cache_invalidate_clears_dirstate_dependents</code>, <code>file_status_cache_invalidate_clears_ignore_dependents</code>, <code>file_status_cache_extra_ignore_files_are_included</code>, <code>tree_status_cache_caches_status_on_first_call</code>, <code>tree_status_cache_call_invalidates_on_watcher_change</code>, <code>tree_status_cache_call_uses_cache_when_unchanged</code>, <code>tree_status_cache_call_swallows_os_error_and_uses_cache</code>, <code>get_branch_name_caches_within_process</code>, <code>get_branch_name_changed_flag_refreshes_cache</code>, <code>tree_status_delegates_to_cache</code>, <code>vcs_props_contains_three_entries</code>, <code>vcs_props_git_uses_exists_check</code>, <code>vcs_props_mercurial_uses_isdir_check</code>, <code>vcs_check_exists_matches_existing_path</code>, <code>vcs_check_isdir_only_matches_directories</code>, <code>vcs_check_exists_no_match_for_nonexistent_path</code>, <code>guess_vcs_at_directory_detects_git_repo</code>, <code>guess_vcs_at_directory_detects_mercurial_repo</code>, <code>guess_vcs_at_directory_returns_none_for_non_repo</code>, <code>guess_walks_parent_directories_to_find_repo</code>, <code>guess_returns_none_when_no_repo_in_chain</code>, <code>file_watcher_initialised_returns_bool</code>, <code>branch_watcher_initialised_returns_bool</code></td><td class="coverage">81%</td></tr>
+  <!-- SYM py_file=powerline/lib/vcs/__init__.py rs_file=src/ported/lib/vcs/mod.rs rs_exists=True py_fn_total=16 ported_count=13 missing_count=3 rs_extra_count=45 coverage=0.8125 -->
   <!-- END-GROUP py_file=powerline/lib/vcs/__init__.py -->
   <!-- BEGIN-GROUP py_file=powerline/lib/watcher/inotify.py -->
   <tr class="partial"><td><code>lib/watcher/inotify.py</code></td><td>✔ <code>lib/watcher/inotify.rs</code></td><td>15</td><td><code>expire_watches</code>, <code>process_event</code>, <code>unwatch</code>, <code>watch</code>, <code>is_watching</code>, <code>close</code>, <code>watch_tree</code>, <code>add_watches</code>, <code>add_watch</code>, <code>process_event</code></td><td><code>__init__</code>, <code>__call__</code>, <code>__init__</code>, <code>__init__</code>, <code>__call__</code></td><td><code>fmt</code>, <code>fmt</code>, <code>fmt</code>, <code>new</code>, <code>now</code>, <code>query</code>, <code>mark_modified</code>, <code>new</code>, <code>query</code>, <code>no_such_dir_implements_error_traits</code>, <code>base_dir_changed_implements_error_traits</code>, <code>dir_too_large_message_matches_upstream</code>, <code>file_watcher_init_multiplies_expire_time_by_60</code>, <code>file_watcher_watch_stores_wd_in_state</code>, <code>file_watcher_watch_does_not_overwrite_existing</code>, <code>file_watcher_unwatch_removes_state_and_calls_rm</code>, <code>file_watcher_unwatch_unknown_path_no_op</code>, <code>file_watcher_is_watching_false_when_not_registered</code>, <code>file_watcher_query_returns_modified_flag_and_resets</code>, <code>file_watcher_query_unknown_path_returns_true</code>, <code>file_watcher_query_calls_read_callback</code>, <code>file_watcher_close_unwatches_all_paths</code>, <code>tree_watcher_is_dummy_false</code>, <code>tree_watcher_init_modified_true</code>, <code>tree_watcher_add_watch_dir_stores_both_maps</code>, <code>tree_watcher_add_watch_file_returns_false</code>, <code>tree_watcher_add_watch_failure_returns_false_and_no_state</code>, <code>tree_watcher_process_event_q_overflow_triggers_rescan</code>, <code>tree_watcher_process_event_unknown_wd_ignored</code>, <code>tree_watcher_process_event_create_returns_add_child_watch</code>, <code>tree_watcher_process_event_delete_self_on_basedir_returns_base_dir_changed</code>, <code>tree_watcher_process_event_ignored_event_does_not_set_modified</code>, <code>tree_watcher_query_returns_and_resets_modified</code>, <code>process_event_outcome_acknowledged_for_modified_only</code>, <code>file_watcher_expire_watches_removes_expired_entries</code>, <code>tree_watcher_watch_tree_resets_and_calls_add_watches</code>, <code>tree_watcher_add_watches_skips_already_known_paths</code>, <code>tree_watcher_add_watches_records_wd_on_success</code></td><td class="coverage">67%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 126,
-    "rs_fns_in_ported": 3557,
-    "ported_fns": 841,
-    "coverage": 0.8180933852140078
+    "rs_fns_in_ported": 3562,
+    "ported_fns": 846,
+    "coverage": 0.8229571984435797
   },
   "rows": [
     {
@@ -2464,23 +2464,23 @@ columns:
       "py_fn_total": 16,
       "ported_fns": [
         "generate_directories",
+        "file_watcher",
+        "branch_watcher",
         "get_branch_name",
         "update_maps",
         "invalidate",
         "ignore_files",
+        "get_file_status",
         "cache_and_get",
         "tree_status",
-        "guess"
-      ],
-      "missing_fns": [
-        "file_watcher",
-        "branch_watcher",
-        "__init__",
-        "get_file_status",
-        "__init__",
-        "__call__",
+        "guess",
         "get_fallback_create_watcher",
         "debug"
+      ],
+      "missing_fns": [
+        "__init__",
+        "__init__",
+        "__call__"
       ],
       "rs_extra_fns": [
         "is_mount",
@@ -2529,7 +2529,7 @@ columns:
         "file_watcher_initialised_returns_bool",
         "branch_watcher_initialised_returns_bool"
       ],
-      "coverage": 0.5
+      "coverage": 0.8125
     },
     {
       "py_file": "powerline/lib/watcher/inotify.py",
