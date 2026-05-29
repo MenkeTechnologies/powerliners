@@ -2192,6 +2192,49 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_lint_with_path_enter_exit_round_trip() {
+    if !python_available() {
+        return;
+    }
+    // WithPath context manager:
+    //   __enter__ → save oldpath; prepend import_paths
+    //   __exit__  → restore oldpath
+    //
+    // Rust port returns the new/restored list explicitly (no global
+    // sys.path equivalent). Verify the same prepend+restore semantics
+    // by comparing path layouts.
+    let py = match py_eval(
+        "(lambda wp, baseline: (lambda before, during, after: __import__('json').dumps([before, during, after]))(list(baseline), (lambda: (wp.__enter__(), list(__import__('sys').path), wp.__exit__())[1])(), list(__import__('sys').path)))(__import__('powerline.lint.imp', fromlist=['WithPath']).WithPath(['/X', '/Y']), __import__('sys').path[:2])",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+    let py_arr = py_value.as_array().expect("py array");
+    // During context, sys.path is ['/X', '/Y', ...baseline...]
+    let during = py_arr[1].as_array().expect("py during");
+    assert_eq!(during[0].as_str(), Some("/X"));
+    assert_eq!(during[1].as_str(), Some("/Y"));
+    // After exit, sys.path is restored (first two entries match before).
+    let before = py_arr[0].as_array().expect("py before");
+    let after = py_arr[2].as_array().expect("py after");
+    assert_eq!(before.len(), 2);
+    assert_eq!(
+        after[0].as_str(),
+        before[0].as_str(),
+        "Python sys.path not restored"
+    );
+
+    use powerliners::lint::imp::WithPath;
+    let baseline = vec!["/A".to_string(), "/B".to_string()];
+    let mut wp = WithPath::new(vec!["/X".to_string(), "/Y".to_string()]);
+    let entered = wp.enter(&baseline);
+    assert_eq!(entered, vec!["/X", "/Y", "/A", "/B"]);
+    let restored = wp.exit();
+    assert_eq!(restored, baseline, "Rust exit() must return baseline");
+}
+
+#[test]
 fn parity_lint_dict2_shallow_copies_inner_dicts() {
     if !python_available() {
         return;
