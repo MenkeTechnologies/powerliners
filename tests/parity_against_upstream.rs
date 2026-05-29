@@ -2192,6 +2192,73 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_colorscheme_init_parses_colors_and_gradients() {
+    if !python_available() {
+        return;
+    }
+    // Colorscheme.__init__ builds:
+    //   self.colors[name] = (cterm_int, hex_int)  from ['cterm', 'hexstr']
+    //                       OR (cterm, cterm_to_hex[cterm]) for plain int
+    //   self.gradients[name] = (cterm_list, hex_int_list)
+    // Verify both ports produce identical numeric values.
+    let cs_config = r#"{"groups": {}, "mode_translations": {}}"#;
+    let colors_config = r#"{
+        "colors": {"green": [2, "aaff44"], "black": [16, "000000"]},
+        "gradients": {"g1": [[1, 2, 3, 4], ["ff0000", "00ff00", "0000ff", "ffff00"]]}
+    }"#;
+    let py_expr = format!(
+        "(lambda C: __import__('json').dumps({{'colors': dict(c.colors), 'gradients': {{k: list(v) for k, v in c.gradients.items()}}}}, sort_keys=True))(__import__('powerline.colorscheme', fromlist=['Colorscheme']).Colorscheme({cs}, {col}))",
+        cs = cs_config,
+        col = colors_config
+    );
+    let py = match py_eval(&py_expr) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_value: serde_json::Value = serde_json::from_str(&py).expect("py JSON malformed");
+
+    let cs_map: serde_json::Map<String, serde_json::Value> =
+        serde_json::from_str(cs_config).unwrap();
+    let col_map: serde_json::Map<String, serde_json::Value> =
+        serde_json::from_str(colors_config).unwrap();
+    let c = powerliners::colorscheme::Colorscheme::new(&cs_map, &col_map);
+
+    // Compare colors entries
+    let py_colors = &py_value["colors"];
+    let py_green = py_colors["green"].as_array().expect("py green");
+    let rs_green = c.colors["green"].as_array().expect("rs green");
+    assert_eq!(py_green[0].as_i64(), rs_green[0].as_i64(), "green cterm");
+    assert_eq!(py_green[1].as_u64(), rs_green[1].as_u64(), "green hex");
+    let py_black = py_colors["black"].as_array().expect("py black");
+    let rs_black = c.colors["black"].as_array().expect("rs black");
+    assert_eq!(py_black[0].as_i64(), rs_black[0].as_i64(), "black cterm");
+    assert_eq!(py_black[1].as_u64(), rs_black[1].as_u64(), "black hex");
+
+    // Compare gradient g1 (cterm list + hex list)
+    let py_g1 = py_value["gradients"]["g1"].as_array().expect("py g1");
+    let rs_g1 = c.gradients["g1"].as_array().expect("rs g1");
+    let py_cterm_list = py_g1[0].as_array().expect("py g1 cterm");
+    let rs_cterm_list = rs_g1[0].as_array().expect("rs g1 cterm");
+    assert_eq!(py_cterm_list.len(), rs_cterm_list.len(), "g1 cterm len");
+    for (i, (p, r)) in py_cterm_list.iter().zip(rs_cterm_list.iter()).enumerate() {
+        assert_eq!(p.as_i64(), r.as_i64(), "g1 cterm[{}]", i);
+    }
+    let py_hex_list = py_g1[1].as_array().expect("py g1 hex");
+    let rs_hex_list = rs_g1[1].as_array().expect("rs g1 hex");
+    assert_eq!(py_hex_list.len(), rs_hex_list.len(), "g1 hex len");
+    for (i, (p, r)) in py_hex_list.iter().zip(rs_hex_list.iter()).enumerate() {
+        assert_eq!(
+            p.as_u64(),
+            r.as_u64(),
+            "g1 hex[{}] mismatch: py=0x{:06X} rs=0x{:06X}",
+            i,
+            p.as_u64().unwrap_or(0),
+            r.as_u64().unwrap_or(0)
+        );
+    }
+}
+
+#[test]
 fn parity_register_strwidth_error_name_format() {
     if !python_available() {
         return;
