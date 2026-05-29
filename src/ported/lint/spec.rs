@@ -203,10 +203,18 @@ impl Spec {
     pub fn update(mut self, key: impl Into<String>, spec: Spec) -> Self {
         // py:80  def update(self, **keys):
         // py:81  '''Describe additional keys ...
-        // py:91  for key, val in keys.items():
-        // py:92  self.keys[key] = val
-        // py:93  return self
+        // py:88  for k, v in keys.items():
+        // py:89  self.keys[k] = len(self.specs)
+        // py:90  self.specs.append(v)
         self.keys.insert(key.into(), spec);
+        // py:91  if self.keys and not self.did_type:
+        // py:92  self.type(dict)
+        // py:93  self.did_type = True
+        if !self.keys.is_empty() && !self.did_type {
+            self.allowed_types.push(SpecType::Dict);
+            self.did_type = true;
+        }
+        // py:94  return self
         self
     }
 
@@ -293,9 +301,13 @@ impl Spec {
         // py:380  '''Describe value as having one of the given types
         // py:381  ...
         // py:402  self.checks.append(('check_type', args))
-        // py:403  self.did_type = True
-        // py:404  return self
-        self.did_type = true;
+        // py:403  return self
+        //
+        // Note: Python's type() does NOT set self.did_type — that flag
+        // is only set inside update() when keys is non-empty as a gate
+        // against auto-adding type(dict). Mirroring Python's actual
+        // semantics here for parity with the upstream `update() →
+        // auto-type(dict)` flow.
         self.allowed_types.extend_from_slice(types);
         self
     }
@@ -433,16 +445,18 @@ impl Spec {
         // py:488  def list(self, item_func, msg_func=None, ...):
         // py:489  '''Describe value as a list of items each described by item_func
         // py:490  ...
-        // py:502  if not self.did_type:
-        // py:503  self.type(list)
+        // py:502  self.type(list)
+        //   Note: Python's list() unconditionally calls self.type(list);
+        //   neither gates on did_type nor sets did_type=True. We mirror
+        //   that for parity with the upstream `update() →
+        //   auto-type(dict)` flow.
         self.allowed_types.push(SpecType::List);
-        self.did_type = true;
+        // py:503  if isinstance(item_func, Spec):
         // py:504  self.specs.append(item_func)
-        // py:505  item_func_id = len(self.specs) - 1
-        // py:506  msg_func = msg_func or (lambda value: 'failed check')
+        // py:505  item_func = len(self.specs) - 1
+        // py:506  self.checks.append(('check_list', item_func, msg_func or (lambda item: 'failed check')))
         self.specs.push(item_spec);
-        // py:507  self.checks.append(('check_list', item_func_id, msg_func, ...))
-        // py:508  return self
+        // py:507  return self
         self
     }
 
@@ -458,10 +472,11 @@ impl Spec {
         // py:510  def tuple(self, *specs):
         // py:511  '''Describe value as a tuple of items, each item described by
         // py:512  ...
-        // py:521  if not self.did_type:
-        // py:522  self.type(list)
+        // py:521  self.type(list)
+        //   Note: Python's tuple() unconditionally calls self.type(list);
+        //   neither gates on did_type nor sets did_type=True. Mirrored
+        //   here for parity.
         self.allowed_types.push(SpecType::List);
-        self.did_type = true;
 
         let max_len = specs.len();
         // py:524  max_len = len(specs)
@@ -1056,7 +1071,10 @@ mod tests {
     #[test]
     fn spec_type_check_registers_allowed_types() {
         let s = Spec::new().type_check(&[SpecType::Unicode, SpecType::Bool]);
-        assert!(s.did_type);
+        // py:402-404 — type() does NOT set did_type; that flag is only
+        // set inside update() to gate auto-type(dict). did_type stays
+        // false after a bare type_check() call.
+        assert!(!s.did_type);
         assert_eq!(s.allowed_types.len(), 2);
         assert!(s.allowed_types.contains(&SpecType::Unicode));
         assert!(s.allowed_types.contains(&SpecType::Bool));
@@ -1217,11 +1235,12 @@ mod tests {
 
     #[test]
     fn list_pins_type_to_list_and_pushes_item_spec() {
-        // py:503-507
+        // py:502-507
         let item_spec = Spec::new().type_check(&[SpecType::Unicode]);
         let s = Spec::new().list(item_spec);
         assert!(s.allowed_types.contains(&SpecType::List));
-        assert!(s.did_type);
+        // py:502  self.type(list) — unconditional, does NOT set did_type.
+        assert!(!s.did_type);
         assert_eq!(s.specs.len(), 1);
     }
 
@@ -1250,11 +1269,12 @@ mod tests {
 
     #[test]
     fn tuple_sets_type_to_list() {
-        // py:522
+        // py:521
         let specs = vec![Spec::new().type_check(&[SpecType::Unicode])];
         let s = Spec::new().tuple(specs);
         assert!(s.allowed_types.contains(&SpecType::List));
-        assert!(s.did_type);
+        // py:521  self.type(list) — unconditional, does NOT set did_type.
+        assert!(!s.did_type);
     }
 
     #[test]

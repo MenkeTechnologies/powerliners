@@ -1722,6 +1722,56 @@ fn parity_spec_regex_check_appended() {
 }
 
 #[test]
+fn parity_spec_type_does_not_set_did_type() {
+    if !python_available() {
+        return;
+    }
+    // Python: Spec().type(str).did_type stays False. type() only appends
+    // to checks. did_type is only flipped inside update() when keys go
+    // non-empty as a gate against auto-adding type(dict).
+    let py = match py_eval(
+        "__import__('powerline.lint.spec', fromlist=['Spec']).Spec().type(str).did_type",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "False", "Python Spec().type(str).did_type changed");
+    use powerliners::lint::spec::{Spec, SpecType};
+    let s = Spec::new().type_check(&[SpecType::Unicode]);
+    assert!(
+        !s.did_type,
+        "Rust Spec::new().type_check().did_type should be false"
+    );
+}
+
+#[test]
+fn parity_spec_update_auto_adds_dict_type_once() {
+    if !python_available() {
+        return;
+    }
+    // Python: Spec().update(foo=Spec()).did_type becomes True AND
+    // the spec gains type=dict because update() gates on did_type
+    // and auto-calls self.type(dict) when keys is non-empty.
+    let py = match py_eval(
+        "__import__('powerline.lint.spec', fromlist=['Spec']).Spec().update(foo=__import__('powerline.lint.spec', fromlist=['Spec']).Spec()).did_type",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "True", "Python update() should set did_type=True");
+    use powerliners::lint::spec::{Spec, SpecType};
+    let s = Spec::new().update("foo", Spec::new());
+    assert!(
+        s.did_type,
+        "Rust update() should set did_type=true when keys go non-empty"
+    );
+    assert!(
+        s.allowed_types.contains(&SpecType::Dict),
+        "Rust update() should auto-add SpecType::Dict to allowed_types"
+    );
+}
+
+#[test]
 fn parity_spec_oneof_check_appended_and_stored() {
     if !python_available() {
         return;
