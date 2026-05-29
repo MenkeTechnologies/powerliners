@@ -383,10 +383,168 @@ impl EchoErr {
     }
 }
 
-// `DelayedEchoErr` (py:207-241) ports separately — its
-// `next_variant`/`echo_all` flow encodes a multi-variant error
-// accumulator that touches the (currently unported) logger and
-// `__call__` plumbing. Deferred.
+impl EchoErr {
+    /// Port of `EchoErr.__call__()` from
+    /// `powerline/lint/markedjson/error.py:202-205`.
+    ///
+    /// Returns the kwargs dict with the indent defaulted to
+    /// `self.indent` per py:204. The actual `self.echoerr(**kwargs)`
+    /// dispatch at py:205 routes through a caller-supplied echoerr
+    /// callable; the Rust port returns the resolved kwargs so the
+    /// caller dispatches through its own echoerr path.
+    pub fn call(
+        &self,
+        mut kwargs: serde_json::Map<String, serde_json::Value>,
+    ) -> serde_json::Map<String, serde_json::Value> {
+        // py:204  kwargs.setdefault('indent', self.indent)
+        kwargs
+            .entry("indent")
+            .or_insert_with(|| serde_json::Value::from(self.indent));
+        kwargs
+    }
+}
+
+/// Port of `class DelayedEchoErr(EchoErr)` from
+/// `powerline/lint/markedjson/error.py:208-241`.
+///
+/// Multi-variant error accumulator: each variant is a list of kwargs
+/// dicts. `__call__` appends to the current variant; `next_variant`
+/// starts a new bucket; `echo_all` walks every variant emitting the
+/// captured errors through the underlying echoerr callable per
+/// py:227-236.
+pub struct DelayedEchoErr {
+    /// Python: `self.errs` — list of variant buckets per py:213.
+    pub errs: Vec<Vec<serde_json::Map<String, serde_json::Value>>>,
+    /// Python: `self.message` (py:214).
+    pub message: String,
+    /// Python: `self.separator_message` (py:215).
+    pub separator_message: String,
+    /// Python: `self.indent_shift` (py:216).
+    pub indent_shift: usize,
+    /// Python: `self.indent` (py:217) — base indent + shift.
+    pub indent: usize,
+}
+
+impl DelayedEchoErr {
+    /// Port of `DelayedEchoErr.__init__()` from
+    /// `powerline/lint/markedjson/error.py:211-217`.
+    ///
+    /// Takes the parent EchoErr's indent as the seed; computes
+    /// `indent_shift = 4 if message_or_separator_set else 0` per
+    /// py:216 and `indent = parent.indent + shift` per py:217.
+    pub fn new(
+        parent_indent: usize,
+        message: impl Into<String>,
+        separator_message: impl Into<String>,
+    ) -> Self {
+        let message = message.into();
+        let separator_message = separator_message.into();
+        // py:216  4 if message or separator_message else 0
+        let indent_shift = if !message.is_empty() || !separator_message.is_empty() {
+            4
+        } else {
+            0
+        };
+        Self {
+            // py:213  self.errs = [[]]
+            errs: vec![Vec::new()],
+            message,
+            separator_message,
+            indent_shift,
+            // py:217  echoerr.indent + indent_shift
+            indent: parent_indent + indent_shift,
+        }
+    }
+
+    /// Port of `DelayedEchoErr.__call__()` from
+    /// `powerline/lint/markedjson/error.py:219-222`.
+    ///
+    /// Appends to the current variant bucket with the indent kwarg
+    /// shifted by `self.indent`. Python's
+    /// `kwargs.get('indent', 0) + self.indent` per py:221.
+    pub fn call(&mut self, mut kwargs: serde_json::Map<String, serde_json::Value>) {
+        // py:221  kwargs['indent'] = kwargs.get('indent', 0) + self.indent
+        let prev = kwargs.get("indent").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+        kwargs.insert(
+            "indent".to_string(),
+            serde_json::Value::from(prev + self.indent),
+        );
+        // py:222  self.errs[-1].append(kwargs)
+        if let Some(last) = self.errs.last_mut() {
+            last.push(kwargs);
+        }
+    }
+
+    /// Port of `DelayedEchoErr.next_variant()` from
+    /// `powerline/lint/markedjson/error.py:224-225`.
+    ///
+    /// Starts a new variant bucket per py:225.
+    pub fn next_variant(&mut self) {
+        // py:225  self.errs.append([])
+        self.errs.push(Vec::new());
+    }
+
+    /// Port of `DelayedEchoErr.echo_all()` from
+    /// `powerline/lint/markedjson/error.py:227-236`.
+    ///
+    /// Returns the flat list of kwargs dicts that the parent
+    /// `echoerr(...)` callable would receive in order. Python
+    /// dispatches each through `self.echoerr(**kwargs)` per py:236;
+    /// the Rust port returns the resolved sequence so callers can
+    /// route through their own echo strategy.
+    pub fn echo_all(&self) -> Vec<serde_json::Map<String, serde_json::Value>> {
+        let mut out: Vec<serde_json::Map<String, serde_json::Value>> = Vec::new();
+        // py:228-229  if self.message: echoerr(problem=message, indent=...)
+        if !self.message.is_empty() {
+            let mut kw = serde_json::Map::new();
+            kw.insert(
+                "problem".to_string(),
+                serde_json::Value::String(self.message.clone()),
+            );
+            kw.insert(
+                "indent".to_string(),
+                serde_json::Value::from(self.indent - self.indent_shift),
+            );
+            out.push(kw);
+        }
+        // py:230-236  iterate variants
+        for (i, variant) in self.errs.iter().enumerate() {
+            // py:231-232  if not variant: continue
+            if variant.is_empty() {
+                continue;
+            }
+            // py:233-234  separator_message for non-first variants
+            if !self.separator_message.is_empty() && i > 0 {
+                let mut kw = serde_json::Map::new();
+                kw.insert(
+                    "problem".to_string(),
+                    serde_json::Value::String(self.separator_message.clone()),
+                );
+                kw.insert(
+                    "indent".to_string(),
+                    serde_json::Value::from(self.indent - self.indent_shift),
+                );
+                out.push(kw);
+            }
+            // py:235-236  echoerr(**kwargs) per kwargs in variant
+            for kwargs in variant {
+                out.push(kwargs.clone());
+            }
+        }
+        out
+    }
+
+    /// Port of `DelayedEchoErr.__nonzero__()` / `__bool__()` from
+    /// `powerline/lint/markedjson/error.py:238-241`.
+    ///
+    /// Python: `return not not self.errs` — true when `self.errs`
+    /// is non-empty (the list of buckets), regardless of whether
+    /// individual buckets contain anything.
+    pub fn is_truthy(&self) -> bool {
+        // py:239  return not not self.errs
+        !self.errs.is_empty()
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -579,5 +737,157 @@ mod tests {
     fn echoerr_holds_indent() {
         let e = EchoErr::new(4);
         assert_eq!(e.indent, 4);
+    }
+
+    #[test]
+    fn echo_err_call_defaults_indent_to_self_indent() {
+        // py:204
+        let e = EchoErr::new(8);
+        let kwargs = serde_json::Map::new();
+        let r = e.call(kwargs);
+        assert_eq!(r["indent"], 8);
+    }
+
+    #[test]
+    fn echo_err_call_preserves_explicit_indent() {
+        // py:204  setdefault('indent', ...)
+        let e = EchoErr::new(8);
+        let mut kwargs = serde_json::Map::new();
+        kwargs.insert("indent".to_string(), serde_json::json!(20));
+        let r = e.call(kwargs);
+        assert_eq!(r["indent"], 20);
+    }
+
+    #[test]
+    fn delayed_echo_err_new_empty_message_shift_zero() {
+        // py:216  4 if message or separator_message else 0
+        let d = DelayedEchoErr::new(0, "", "");
+        assert_eq!(d.indent_shift, 0);
+        assert_eq!(d.indent, 0);
+    }
+
+    #[test]
+    fn delayed_echo_err_new_message_shifts_by_4() {
+        let d = DelayedEchoErr::new(2, "Error context", "");
+        assert_eq!(d.indent_shift, 4);
+        assert_eq!(d.indent, 6);
+    }
+
+    #[test]
+    fn delayed_echo_err_new_separator_shifts_by_4() {
+        let d = DelayedEchoErr::new(2, "", "Or:");
+        assert_eq!(d.indent_shift, 4);
+        assert_eq!(d.indent, 6);
+    }
+
+    #[test]
+    fn delayed_echo_err_call_appends_to_last_variant() {
+        // py:222
+        let mut d = DelayedEchoErr::new(0, "", "");
+        let mut kw = serde_json::Map::new();
+        kw.insert("problem".to_string(), serde_json::json!("x"));
+        d.call(kw);
+        assert_eq!(d.errs[0].len(), 1);
+        assert_eq!(d.errs[0][0]["problem"], "x");
+    }
+
+    #[test]
+    fn delayed_echo_err_call_shifts_indent_by_self_indent() {
+        // py:221
+        let mut d = DelayedEchoErr::new(0, "message", "");
+        // d.indent = 4
+        let mut kw = serde_json::Map::new();
+        kw.insert("indent".to_string(), serde_json::json!(2));
+        d.call(kw);
+        assert_eq!(d.errs[0][0]["indent"], 6);
+    }
+
+    #[test]
+    fn delayed_echo_err_call_defaults_kwargs_indent_to_zero() {
+        let mut d = DelayedEchoErr::new(0, "message", "");
+        // d.indent = 4
+        let kw = serde_json::Map::new();
+        d.call(kw);
+        // 0 + 4 = 4
+        assert_eq!(d.errs[0][0]["indent"], 4);
+    }
+
+    #[test]
+    fn delayed_echo_err_next_variant_appends_empty_bucket() {
+        // py:225
+        let mut d = DelayedEchoErr::new(0, "", "");
+        assert_eq!(d.errs.len(), 1);
+        d.next_variant();
+        assert_eq!(d.errs.len(), 2);
+        assert!(d.errs[1].is_empty());
+    }
+
+    #[test]
+    fn delayed_echo_err_echo_all_empty_variants_returns_empty() {
+        // py:230-232  if not variant: continue
+        let d = DelayedEchoErr::new(0, "", "");
+        assert!(d.echo_all().is_empty());
+    }
+
+    #[test]
+    fn delayed_echo_err_echo_all_emits_message_first() {
+        // py:228-229
+        let mut d = DelayedEchoErr::new(0, "Error in config", "");
+        let mut kw = serde_json::Map::new();
+        kw.insert("problem".to_string(), serde_json::json!("detail"));
+        d.call(kw);
+        let out = d.echo_all();
+        assert_eq!(out[0]["problem"], "Error in config");
+        // indent - indent_shift = 4 - 4 = 0
+        assert_eq!(out[0]["indent"], 0);
+    }
+
+    #[test]
+    fn delayed_echo_err_echo_all_emits_separator_between_variants() {
+        // py:233-234
+        let mut d = DelayedEchoErr::new(0, "", "Or:");
+        let mut kw = serde_json::Map::new();
+        kw.insert("problem".to_string(), serde_json::json!("variant1"));
+        d.call(kw);
+        d.next_variant();
+        let mut kw = serde_json::Map::new();
+        kw.insert("problem".to_string(), serde_json::json!("variant2"));
+        d.call(kw);
+
+        let out = d.echo_all();
+        // 1st variant entry, then separator, then 2nd variant entry
+        let problems: Vec<&str> = out
+            .iter()
+            .filter_map(|m| m.get("problem").and_then(|v| v.as_str()))
+            .collect();
+        assert_eq!(problems, vec!["variant1", "Or:", "variant2"]);
+    }
+
+    #[test]
+    fn delayed_echo_err_is_truthy_when_errs_non_empty() {
+        // py:239
+        let d = DelayedEchoErr::new(0, "", "");
+        // Initial state: errs = [[]] (1 empty bucket)
+        assert!(d.is_truthy());
+    }
+
+    #[test]
+    fn delayed_echo_err_echo_all_skips_empty_first_variant_when_subsequent_has_content() {
+        // py:230-232  empty buckets are skipped
+        let mut d = DelayedEchoErr::new(0, "", "separator");
+        // First bucket stays empty
+        d.next_variant();
+        let mut kw = serde_json::Map::new();
+        kw.insert("problem".to_string(), serde_json::json!("v2"));
+        d.call(kw);
+
+        let out = d.echo_all();
+        // Separator only emitted for non-first variants, but first is empty
+        // so separator does emit before v2 (since i=1 > 0)
+        let problems: Vec<&str> = out
+            .iter()
+            .filter_map(|m| m.get("problem").and_then(|v| v.as_str()))
+            .collect();
+        assert_eq!(problems, vec!["separator", "v2"]);
     }
 }

@@ -1574,3 +1574,12 @@ file_watcher_initialised
 # file_watcher_initialised for the branch_watcher() lazy global at
 # powerline/lib/vcs/__init__.py:41-45.
 branch_watcher_initialised
+
+# lint/markedjson/error.rs::DelayedEchoErr::is_truthy — Rust analog of
+# Python's __nonzero__/__bool__ dunder at
+# powerline/lint/markedjson/error.py:238-241. Python checks
+# `not not self.errs` via the truthiness protocol; Rust requires a
+# named method since there's no `__bool__` dunder equivalent.
+# is_truthy mirrors `bool(d)` semantics — true when the errs list is
+# non-empty (initial state errs=[[]] is truthy per py:239).
+is_truthy
