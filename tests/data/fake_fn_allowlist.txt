@@ -1400,3 +1400,15 @@ sysfs_tx_path
 # `_sysfs` to disambiguate from the psutil port that will land
 # in a follow-on pass. Underscore prefix preserved.
 _get_bytes_sysfs
+
+# renderers/vim.rs::VimRenderer::get_matched_theme_cached —
+# mutating variant of get_matched_theme that caches the constructed
+# theme back into the local_themes match dict per
+# powerline/renderers/vim.py:62 (`match['theme'] = Theme(...)`).
+# Python's get_matched_theme is naturally mutating since dicts are
+# passed by reference; Rust's borrow checker forces the cache-back
+# step into a separate `&mut self` method because the read-only
+# `get_matched_theme` returns the constructed value without
+# touching the dict. Split mirrors the
+# get_theme/get_theme_cached pattern used elsewhere.
+get_matched_theme_cached

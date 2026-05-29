@@ -102,6 +102,27 @@ pub struct VimRenderer {
     /// renderer return "" when two consecutive segments share a style
     /// (vim E541 mitigation per py:130-131).
     pub prev_highlight: Option<(Option<ColorSpec>, Option<ColorSpec>, u32)>,
+    /// Python: `self.theme` (inherited from Renderer base). Used by
+    /// shutdown at py:48 and get_theme at py:72.
+    pub theme: serde_json::Value,
+    /// Python: `self.local_themes` (inherited) — `matcher_info_key →
+    /// match_dict`. The `match_dict` mirror's Python's `{'config': ...,
+    /// 'theme': ...}` shape with the theme constructed lazily.
+    pub local_themes: std::collections::HashMap<String, serde_json::Map<String, serde_json::Value>>,
+    /// Python: `self.theme_config` (inherited) — passed as
+    /// main_theme_config to Theme construction at py:62.
+    pub theme_config: serde_json::Value,
+    /// Python: `self.theme_kwargs` (inherited) — splat into Theme
+    /// construction at py:62.
+    pub theme_kwargs: serde_json::Map<String, serde_json::Value>,
+    /// Python: `self.segment_info` (inherited via Renderer class
+    /// attribute at py:32-33). The `environ` key gets patched in
+    /// per py:33; Rust stores the merged dict directly.
+    pub segment_info: serde_json::Map<String, serde_json::Value>,
+    /// Records shutdown-call order — used in lieu of the
+    /// Theme.shutdown() side effect since the Theme class isn't yet
+    /// ported. See py:48-51.
+    pub shutdown_called: std::sync::Mutex<Vec<String>>,
 }
 
 impl Default for VimRenderer {
@@ -117,6 +138,155 @@ impl VimRenderer {
         Self {
             hl_groups: HashMap::new(),
             prev_highlight: None,
+            theme: serde_json::Value::Null,
+            local_themes: std::collections::HashMap::new(),
+            theme_config: serde_json::Value::Null,
+            theme_kwargs: serde_json::Map::new(),
+            segment_info: serde_json::Map::new(),
+            shutdown_called: std::sync::Mutex::new(Vec::new()),
+        }
+    }
+
+    /// Port of `VimRenderer.shutdown()` from
+    /// `powerline/renderers/vim.py:47-51`.
+    ///
+    /// Calls `theme.shutdown()` + every local theme's `shutdown()`
+    /// per py:48-51. The Rust port records the shutdown order in
+    /// `shutdown_called` for test assertion since `Theme.shutdown` is
+    /// not yet ported.
+    pub fn shutdown(&self) {
+        // py:48  self.theme.shutdown()
+        let mut log = self
+            .shutdown_called
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        log.push("theme".to_string());
+        // py:49-51  for match in self.local_themes.values():
+        //             if 'theme' in match: match['theme'].shutdown()
+        for (name, match_entry) in &self.local_themes {
+            if match_entry.contains_key("theme") {
+                log.push(name.clone());
+            }
+        }
+    }
+
+    /// Port of `VimRenderer.add_local_theme()` from
+    /// `powerline/renderers/vim.py:53-56`.
+    ///
+    /// Inserts `theme` into `local_themes[matcher]`. Returns an
+    /// `Err` matching Python's `KeyError('There is already a local
+    /// theme ...')` per py:55 when the matcher is already present.
+    pub fn add_local_theme(
+        &mut self,
+        matcher: &str,
+        theme: serde_json::Map<String, serde_json::Value>,
+    ) -> Result<(), String> {
+        // py:54-55  if matcher in self.local_themes: raise KeyError
+        if self.local_themes.contains_key(matcher) {
+            return Err("There is already a local theme with given matcher".to_string());
+        }
+        // py:56  self.local_themes[matcher] = theme
+        self.local_themes.insert(matcher.to_string(), theme);
+        Ok(())
+    }
+
+    /// Port of `VimRenderer.get_matched_theme()` from
+    /// `powerline/renderers/vim.py:58-63`.
+    ///
+    /// Lazy theme builder: returns the cached `theme` if present,
+    /// else constructs a fresh Theme dict from `config` +
+    /// `theme_config` + `theme_kwargs` per py:62 and caches it back
+    /// into the match dict.
+    ///
+    /// The Theme class isn't yet ported so the constructed value is a
+    /// JSON object snapshot of the construction kwargs. Same pattern
+    /// as IPython/Shell renderer ports.
+    pub fn get_matched_theme(&self, matcher: &str) -> serde_json::Value {
+        let match_entry = match self.local_themes.get(matcher) {
+            Some(e) => e,
+            None => return serde_json::Value::Null,
+        };
+        // py:60  return match['theme'] if present
+        if let Some(t) = match_entry.get("theme") {
+            return t.clone();
+        }
+        // py:62  match['theme'] = Theme(theme_config=..., main_theme_config=..., **theme_kwargs)
+        serde_json::json!({
+            "theme_config": match_entry.get("config").cloned().unwrap_or(serde_json::Value::Null),
+            "main_theme_config": self.theme_config.clone(),
+            "theme_kwargs": serde_json::Value::Object(self.theme_kwargs.clone()),
+        })
+    }
+
+    /// Mutating variant of [`get_matched_theme`] that caches the
+    /// constructed theme back into the match dict per py:62. The
+    /// non-mutating variant above is safe to call from `get_theme`
+    /// which needs to walk the matcher table.
+    pub fn get_matched_theme_cached(&mut self, matcher: &str) -> serde_json::Value {
+        let constructed = self.get_matched_theme(matcher);
+        if let Some(entry) = self.local_themes.get_mut(matcher) {
+            if !entry.contains_key("theme") {
+                entry.insert("theme".to_string(), constructed.clone());
+            }
+        }
+        constructed
+    }
+
+    /// Port of `VimRenderer.get_theme()` from
+    /// `powerline/renderers/vim.py:65-72`.
+    ///
+    /// `matcher_info` is the segment_info dict for the current vim
+    /// buffer/window (or None to use the `None` matcher slot).
+    /// `matchers` is the caller-supplied list of `(matcher_key,
+    /// matcher_fn)` pairs since Python's matcher closures
+    /// (e.g. `powerline.matchers.vim.help`) aren't reachable from
+    /// Rust at the lint-port level.
+    ///
+    /// If `matcher_info` is None, returns the theme registered under
+    /// the empty matcher key (Python's `None` key at py:66-67).
+    /// Otherwise walks the matchers + returns the first matching
+    /// local theme; falls through to `self.theme` per py:72.
+    pub fn get_theme<F>(
+        &mut self,
+        matcher_info: Option<&serde_json::Map<String, serde_json::Value>>,
+        matchers: &[(&str, F)],
+    ) -> serde_json::Value
+    where
+        F: Fn(&serde_json::Map<String, serde_json::Value>) -> bool,
+    {
+        // py:66-67  if matcher_info is None: return get_matched_theme(local_themes[None])
+        let info = match matcher_info {
+            Some(i) => i,
+            None => {
+                // py:67  self.local_themes[None] — Rust uses "" as the
+                // None-key analog
+                return self.get_matched_theme_cached("");
+            }
+        };
+        // py:68-70  for matcher in local_themes.keys(): if matcher and matcher(info): return ...
+        for (key, matcher_fn) in matchers {
+            if !key.is_empty() && matcher_fn(info) && self.local_themes.contains_key(*key) {
+                return self.get_matched_theme_cached(key);
+            }
+        }
+        // py:72  return self.theme
+        self.theme.clone()
+    }
+
+    /// Port of `VimRenderer.get_segment_info()` from
+    /// `powerline/renderers/vim.py:85-86`.
+    ///
+    /// Returns the supplied `segment_info` when present, otherwise
+    /// the renderer's default `self.segment_info`.
+    pub fn get_segment_info(
+        &self,
+        segment_info: Option<&serde_json::Map<String, serde_json::Value>>,
+        _mode: &str,
+    ) -> serde_json::Map<String, serde_json::Value> {
+        // py:86  return segment_info or self.segment_info
+        match segment_info {
+            Some(s) if !s.is_empty() => s.clone(),
+            _ => self.segment_info.clone(),
         }
     }
 
@@ -411,5 +581,182 @@ mod tests {
         let s = r.hlstyle(None, None, Some(ATTR_BOLD | ATTR_UNDERLINE), &mut commands);
         assert!(s.starts_with("%#Pl_NONE_None_NONE_None_boldunderline#"));
         assert!(commands[0].contains("cterm=bold,underline"));
+    }
+
+    #[test]
+    fn shutdown_records_main_theme_first() {
+        // py:48
+        let r = VimRenderer::new();
+        r.shutdown();
+        let log = r.shutdown_called.lock().unwrap();
+        assert_eq!(log[0], "theme");
+    }
+
+    #[test]
+    fn shutdown_walks_local_themes_with_theme_key() {
+        // py:49-51  only matches WITH 'theme' key get shutdown
+        let mut r = VimRenderer::new();
+        let mut with_theme = serde_json::Map::new();
+        with_theme.insert("theme".to_string(), serde_json::json!({}));
+        let no_theme: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+        r.local_themes.insert("ready".to_string(), with_theme);
+        r.local_themes.insert("not_ready".to_string(), no_theme);
+        r.shutdown();
+        let log = r.shutdown_called.lock().unwrap();
+        assert!(log.contains(&"ready".to_string()));
+        assert!(!log.contains(&"not_ready".to_string()));
+    }
+
+    #[test]
+    fn add_local_theme_inserts_into_dict() {
+        // py:53-56
+        let mut r = VimRenderer::new();
+        let mut theme = serde_json::Map::new();
+        theme.insert("config".to_string(), serde_json::json!({"key": "value"}));
+        let result = r.add_local_theme("help", theme);
+        assert!(result.is_ok());
+        assert!(r.local_themes.contains_key("help"));
+    }
+
+    #[test]
+    fn add_local_theme_rejects_duplicate_matcher() {
+        // py:54-55  raise KeyError
+        let mut r = VimRenderer::new();
+        let theme1 = serde_json::Map::new();
+        let theme2 = serde_json::Map::new();
+        assert!(r.add_local_theme("help", theme1).is_ok());
+        let err = r.add_local_theme("help", theme2).unwrap_err();
+        assert!(err.contains("already a local theme"));
+    }
+
+    #[test]
+    fn get_matched_theme_returns_existing_theme() {
+        // py:60  if 'theme' in match: return match['theme']
+        let mut r = VimRenderer::new();
+        let mut entry = serde_json::Map::new();
+        entry.insert("theme".to_string(), serde_json::json!({"name": "help"}));
+        r.local_themes.insert("help".to_string(), entry);
+        let t = r.get_matched_theme("help");
+        assert_eq!(t["name"], "help");
+    }
+
+    #[test]
+    fn get_matched_theme_constructs_from_config_when_missing() {
+        // py:62  match['theme'] = Theme(theme_config=match['config'], ...)
+        let mut r = VimRenderer::new();
+        r.theme_config = serde_json::json!({"colorscheme": "default"});
+        r.theme_kwargs
+            .insert("extra".to_string(), serde_json::json!("kw_value"));
+        let mut entry = serde_json::Map::new();
+        entry.insert("config".to_string(), serde_json::json!({"segments": []}));
+        r.local_themes.insert("help".to_string(), entry);
+
+        let t = r.get_matched_theme("help");
+        assert_eq!(t["theme_config"]["segments"], serde_json::json!([]));
+        assert_eq!(t["main_theme_config"]["colorscheme"], "default");
+        assert_eq!(t["theme_kwargs"]["extra"], "kw_value");
+    }
+
+    #[test]
+    fn get_matched_theme_cached_back_inserts_theme_key() {
+        // py:62  match['theme'] = ... (mutating cache-back)
+        let mut r = VimRenderer::new();
+        let mut entry = serde_json::Map::new();
+        entry.insert("config".to_string(), serde_json::json!({"a": 1}));
+        r.local_themes.insert("help".to_string(), entry);
+
+        let _ = r.get_matched_theme_cached("help");
+        let cached = r
+            .local_themes
+            .get("help")
+            .and_then(|m| m.get("theme"))
+            .cloned();
+        assert!(cached.is_some());
+    }
+
+    #[test]
+    fn get_theme_none_matcher_uses_empty_key_local_theme() {
+        // py:66-67  if matcher_info is None: return get_matched_theme(local_themes[None])
+        let mut r = VimRenderer::new();
+        let mut entry = serde_json::Map::new();
+        entry.insert("theme".to_string(), serde_json::json!({"name": "default"}));
+        r.local_themes.insert("".to_string(), entry);
+
+        let matchers: &[(
+            &str,
+            fn(&serde_json::Map<String, serde_json::Value>) -> bool,
+        )] = &[];
+        let t = r.get_theme(None, matchers);
+        assert_eq!(t["name"], "default");
+    }
+
+    #[test]
+    fn get_theme_walks_matchers_and_returns_first_match() {
+        // py:68-70
+        let mut r = VimRenderer::new();
+        let mut entry = serde_json::Map::new();
+        entry.insert(
+            "theme".to_string(),
+            serde_json::json!({"name": "help-theme"}),
+        );
+        r.local_themes.insert("help".to_string(), entry);
+
+        let mut info = serde_json::Map::new();
+        info.insert("filetype".to_string(), serde_json::json!("help"));
+
+        // Matcher 'help' fires when filetype == 'help'
+        let matchers: Vec<(
+            &str,
+            fn(&serde_json::Map<String, serde_json::Value>) -> bool,
+        )> = vec![("help", |i| {
+            i.get("filetype").and_then(|v| v.as_str()) == Some("help")
+        })];
+        let t = r.get_theme(Some(&info), &matchers);
+        assert_eq!(t["name"], "help-theme");
+    }
+
+    #[test]
+    fn get_theme_no_matcher_match_falls_back_to_self_theme() {
+        // py:72  return self.theme
+        let mut r = VimRenderer::new();
+        r.theme = serde_json::json!({"name": "default"});
+
+        let info = serde_json::Map::new();
+        let matchers: Vec<(
+            &str,
+            fn(&serde_json::Map<String, serde_json::Value>) -> bool,
+        )> = vec![("never", |_| false)];
+        let t = r.get_theme(Some(&info), &matchers);
+        assert_eq!(t["name"], "default");
+    }
+
+    #[test]
+    fn get_segment_info_returns_supplied_when_present() {
+        // py:86  segment_info or self.segment_info
+        let r = VimRenderer::new();
+        let mut info = serde_json::Map::new();
+        info.insert("buffer".to_string(), serde_json::json!("foo"));
+        let result = r.get_segment_info(Some(&info), "n");
+        assert_eq!(result["buffer"], "foo");
+    }
+
+    #[test]
+    fn get_segment_info_falls_back_to_self_when_none() {
+        let mut r = VimRenderer::new();
+        r.segment_info
+            .insert("default".to_string(), serde_json::json!("yes"));
+        let result = r.get_segment_info(None, "n");
+        assert_eq!(result["default"], "yes");
+    }
+
+    #[test]
+    fn get_segment_info_falls_back_to_self_when_supplied_empty() {
+        // py:86  empty dict is falsy in Python → falls back
+        let mut r = VimRenderer::new();
+        r.segment_info
+            .insert("default".to_string(), serde_json::json!("yes"));
+        let empty = serde_json::Map::new();
+        let result = r.get_segment_info(Some(&empty), "n");
+        assert_eq!(result["default"], "yes");
     }
 }
