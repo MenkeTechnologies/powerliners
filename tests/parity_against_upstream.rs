@@ -2192,6 +2192,49 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_run_cmd_stdout_stripped_default() {
+    if !python_available() {
+        return;
+    }
+    // run_cmd(pl, ['echo', 'hello']) → 'hello' (strip=True default
+    // removes the trailing newline). Verify against an actual subprocess
+    // invocation: both ports must run the same echo binary and strip.
+    let cases: &[(&[&str], Option<&str>, &str)] = &[
+        (&["echo", "hello"], None, "hello"),
+        (&["echo", "foo", "bar"], None, "foo bar"),
+        (&["printf", "%s", "no_newline"], None, "no_newline"),
+        (&["cat"], Some("piped-data"), "piped-data"),
+    ];
+    for (cmd, stdin, expected) in cases {
+        // Python invocation: run_cmd defaults to strip=True.
+        let py_cmd = cmd
+            .iter()
+            .map(|s| format!("{:?}", s))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let py_expr = match stdin {
+            None => format!(
+                "__import__('powerline.lib.shell', fromlist=['run_cmd']).run_cmd(None, [{}])",
+                py_cmd
+            ),
+            Some(s) => format!(
+                "__import__('powerline.lib.shell', fromlist=['run_cmd']).run_cmd(None, [{}], stdin={:?})",
+                py_cmd, s
+            ),
+        };
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(py.trim(), *expected, "Python fixture drift for {:?}", cmd);
+        let rs_cmd: Vec<String> = cmd.iter().map(|s| s.to_string()).collect();
+        let rs = powerliners::lib::shell::run_cmd(&(), &rs_cmd, *stdin, true)
+            .expect("Rust run_cmd returned None");
+        assert_eq!(rs, *expected, "Rust run_cmd({:?}) mismatch", cmd);
+    }
+}
+
+#[test]
 fn parity_pick_gradient_value_bankers_rounding() {
     if !python_available() {
         return;
