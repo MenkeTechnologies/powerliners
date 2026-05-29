@@ -2192,6 +2192,48 @@ fn parity_mergedefaults_preserves_d1_on_overlap() {
 }
 
 #[test]
+fn parity_lint_strip_json_suffix_matches_python_slice() {
+    if !python_available() {
+        return;
+    }
+    // strip_json_suffix(name) ports Python's `name[:-5]` idiom from
+    // py:361 / py:373. Verify Rust's strip_suffix(".json") matches
+    // the Python slice semantics on the cases where the suffix
+    // actually matches.
+    //
+    // Python's idiom blindly slices the last 5 chars REGARDLESS of
+    // suffix — so 'short'[:-5] == '' and 'a.JSON'[:-5] == ''. The Rust
+    // port DEVIATES intentionally (only strips literal '.json') to
+    // avoid producing empty names for short non-JSON inputs.
+    //
+    // Pin both behaviors so the divergence is documented.
+    let cases: &[(&str, &str, &str)] = &[
+        // (input, python_value, rust_value)
+        ("theme.json", "theme", "theme"),
+        ("colors.json", "colors", "colors"),
+        ("no_suffix", "no_s", "no_suffix"), // Python slices last 5
+        ("a.JSON", "a", "a.JSON"),          // Python slices last 5
+        (".json", "", ""),
+        ("file.JSON.json", "file.JSON", "file.JSON"),
+    ];
+    for (input, expected_py, expected_rs) in cases {
+        // Mimic Python's name[:-5] semantics — used at py:361/py:373.
+        let py_expr = format!("{:?}[:-5]", input);
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(py.as_str(), *expected_py, "Python {:?}[:-5] drift", input);
+        let rs = powerliners::lint::strip_json_suffix(input);
+        assert_eq!(
+            rs, *expected_rs,
+            "Rust strip_json_suffix({:?}) mismatch",
+            input
+        );
+    }
+}
+
+#[test]
 fn parity_lint_with_path_enter_exit_round_trip() {
     if !python_available() {
         return;
