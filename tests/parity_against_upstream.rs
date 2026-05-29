@@ -1583,6 +1583,71 @@ fn parity_surrogate_pair_to_character() {
 // ─────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────
+// lib/vcs/git.py — _ref_pat regex pattern + matching behaviour
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_git_ref_pat_pattern_string() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "__import__('powerline.lib.vcs.git', fromlist=['_ref_pat'])._ref_pat.pattern.decode('ascii')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    // Python regex source: rb'ref:\s*refs/heads/(.+)'
+    assert_eq!(
+        py, r"ref:\s*refs/heads/(.+)",
+        "_ref_pat.pattern mismatch: py={:?}",
+        py
+    );
+}
+
+#[test]
+fn parity_git_ref_pat_extracts_branch_name() {
+    if !python_available() {
+        return;
+    }
+    // Exercise the regex with realistic .git/HEAD content shapes.
+    // Both Python and Rust should extract the same captured branch.
+    let cases: &[(&[u8], &str)] = &[
+        (b"ref: refs/heads/main\n", "main"),
+        (b"ref: refs/heads/feature/x", "feature/x"),
+        (
+            b"ref:   refs/heads/with/three/slashes\n",
+            "with/three/slashes",
+        ),
+        (b"ref:\trefs/heads/tab-separated\n", "tab-separated"),
+    ];
+    for &(raw, expected) in cases {
+        // Python: run a regex match against the raw bytes
+        let py_expr = format!(
+            "(lambda m: m.group(1).decode('ascii') if m else 'NO_MATCH')(\
+                __import__('powerline.lib.vcs.git', fromlist=['_ref_pat'])._ref_pat.match({:?}))",
+            raw
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let line_bytes = raw.split(|&b| b == b'\n').next().unwrap_or(&[]);
+        let rs_bytes = powerliners::lib::vcs::git::_ref_pat()
+            .captures(line_bytes)
+            .and_then(|c| c.get(1).map(|m| m.as_bytes().to_vec()))
+            .unwrap_or_default();
+        let rs = String::from_utf8(rs_bytes).expect("non-utf8 in test fixture");
+        assert_eq!(py, expected, "Python regex behavior changed");
+        assert_eq!(
+            py, rs,
+            "_ref_pat.match({:?}) capture mismatch: py={:?}, rs={:?}",
+            raw, py, rs
+        );
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // pdb.py — PDBPowerline init() pinned kwargs
 // ─────────────────────────────────────────────────────────────────────
 
