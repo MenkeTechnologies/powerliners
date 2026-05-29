@@ -225,6 +225,194 @@ pub fn render_one(
     Some(out)
 }
 
+/// Port of `class ExternalIpSegment(ThreadedSegment)` from
+/// `powerline/segments/common/net.py:41-54`.
+///
+/// Marker struct holding the query URL + the
+/// thread-update-interval class constant.
+#[derive(Debug, Clone)]
+pub struct ExternalIpSegment {
+    /// Python: `self.query_url` set by `set_state` (py:45). Default
+    /// per py:44 keyword arg.
+    pub query_url: String,
+}
+
+impl ExternalIpSegment {
+    /// Port of the `interval` class attribute at
+    /// `powerline/segments/common/net.py:42`.
+    pub const INTERVAL: u64 = 300;
+
+    /// Port of the `set_state` keyword default at
+    /// `powerline/segments/common/net.py:44`.
+    pub const DEFAULT_QUERY_URL: &'static str = "http://ipv4.icanhazip.com/";
+
+    /// Construct with the default query URL.
+    pub fn new() -> Self {
+        Self {
+            query_url: Self::DEFAULT_QUERY_URL.to_string(),
+        }
+    }
+
+    /// Port of `ExternalIpSegment.set_state()` from
+    /// `powerline/segments/common/net.py:44-46`.
+    ///
+    /// Stores `query_url` on self per py:45. The base class
+    /// `set_state(**kwargs)` dispatch at py:46 is the
+    /// `ThreadedSegment.set_state` port and is invoked separately.
+    pub fn set_state(&mut self, query_url: Option<&str>) {
+        // py:45  self.query_url = query_url
+        if let Some(url) = query_url {
+            self.query_url = url.to_string();
+        }
+    }
+
+    /// Port of `ExternalIpSegment.update()` from
+    /// `powerline/segments/common/net.py:48-49`.
+    ///
+    /// Returns `_external_ip(query_url=self.query_url)` per py:49.
+    /// `read` is the caller-supplied closure that performs the HTTP
+    /// GET (the Python `urllib_read` call).
+    pub fn update<F>(&self, read: F) -> Option<String>
+    where
+        F: FnOnce(&str) -> Option<String>,
+    {
+        // py:49  return _external_ip(query_url=self.query_url)
+        _external_ip(|| read(&self.query_url))
+    }
+
+    /// Port of `ExternalIpSegment.render()` from
+    /// `powerline/segments/common/net.py:51-54`.
+    ///
+    /// Delegates to the standalone `external_ip_render` since render
+    /// has no instance-state dependency.
+    pub fn render(&self, ip: Option<&str>) -> Option<Vec<Value>> {
+        external_ip_render(ip)
+    }
+}
+
+impl Default for ExternalIpSegment {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Port of `internal_ip()` from
+/// `powerline/segments/common/net.py:76-77` (the no-netifaces
+/// branch).
+///
+/// Python's source has two branches: the `netifaces`-enabled one
+/// at py:109-128 and the fallback at py:76-77 returning None. Rust
+/// doesn't bundle a `netifaces` analog by default; the port surfaces
+/// the fallback. The full interface-resolution + `getifaddrs` path
+/// is deferred to a follow-on pass that wires a Rust crate.
+pub fn internal_ip(_interface: &str, _ipv: u8) -> Option<String> {
+    // py:77  return None
+    None
+}
+
+/// Port of `NetworkLoadSegment.key()` from
+/// `powerline/segments/common/net.py:198-200`.
+///
+/// Static dispatch key — Python's KwThreadedSegment uses the result
+/// as the cache key for the per-interface state.
+pub fn network_load_key(interface: &str) -> String {
+    // py:200  return interface
+    interface.to_string()
+}
+
+/// Port of the `/proc/net/route` default-interface scanner at
+/// `powerline/segments/common/net.py:208-216`.
+///
+/// Returns the interface name whose destination column is all
+/// zeros (the default-route entry), or None when no such row exists.
+/// `content` is the raw text of `/proc/net/route` (Python reads it
+/// at py:209-210).
+pub fn parse_proc_net_route_default(content: &str) -> Option<String> {
+    // py:210-216  for line in f: parts = line.split(); destination → 0
+    for line in content.lines() {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        // py:212  if len(parts) > 1
+        if parts.len() < 2 {
+            continue;
+        }
+        let iface = parts[0];
+        let destination = parts[1];
+        // py:214  if not destination.replace('0', '')  — all zeros
+        if destination.chars().all(|c| c == '0') {
+            // py:215  interface = iface.decode('utf-8')
+            return Some(iface.to_string());
+        }
+    }
+    None
+}
+
+/// Port of the activity-based interface picker at
+/// `powerline/segments/common/net.py:218-228`.
+///
+/// `interfaces` is an iterator of `(name, rx_bytes, tx_bytes)`.
+/// Returns the interface with the highest total `rx+tx`, excluding
+/// loopback (`lo`), VMware (`vmnet`), and Linux-SIT (`sit`) by
+/// regex-extracted alpha prefix. Defaults to `"eth0"` per py:220.
+pub fn pick_active_interface<'a, I>(interfaces: I) -> String
+where
+    I: IntoIterator<Item = (&'a str, u64, u64)>,
+{
+    // py:220  interface, total = 'eth0', -1
+    let mut interface = "eth0".to_string();
+    let mut total: i64 = -1;
+    let re = replace_num_pat();
+    for (name, rx, tx) in interfaces {
+        // py:222  base = self.replace_num_pat.match(name)
+        let base = match re.find(name) {
+            Some(m) => m.as_str(),
+            // py:223  None in (base, ...) → continue
+            None => continue,
+        };
+        // py:223  excluded prefixes
+        if matches!(base, "lo" | "vmnet" | "sit") {
+            continue;
+        }
+        // py:225  activity = rx + tx
+        let activity = (rx as i64) + (tx as i64);
+        if activity > total {
+            total = activity;
+            interface = name.to_string();
+        }
+    }
+    interface
+}
+
+/// Port of the sysfs path builders used by `_get_bytes` at
+/// `powerline/segments/common/net.py:181/183`.
+///
+/// Returns `/sys/class/net/<interface>/statistics/{rx,tx}_bytes`.
+pub fn sysfs_rx_path(interface: &str) -> String {
+    // py:181  '/sys/class/net/{interface}/statistics/rx_bytes'
+    format!("/sys/class/net/{}/statistics/rx_bytes", interface)
+}
+
+/// `tx_bytes` sysfs path. See [`sysfs_rx_path`].
+pub fn sysfs_tx_path(interface: &str) -> String {
+    // py:183  '/sys/class/net/{interface}/statistics/tx_bytes'
+    format!("/sys/class/net/{}/statistics/tx_bytes", interface)
+}
+
+/// Port of `_get_bytes()` from
+/// `powerline/segments/common/net.py:180-185` (the no-psutil
+/// branch).
+///
+/// `rx_content` / `tx_content` are the raw text of the
+/// `rx_bytes`/`tx_bytes` sysfs files. Returns `(rx, tx)` parsed
+/// as u64, or None when either parse fails.
+pub fn _get_bytes_sysfs(rx_content: &str, tx_content: &str) -> Option<(u64, u64)> {
+    // py:182  rx = int(file.read())
+    let rx: u64 = rx_content.trim().parse().ok()?;
+    // py:184  tx = int(file.read())
+    let tx: u64 = tx_content.trim().parse().ok()?;
+    // py:185  return (rx, tx)
+    Some((rx, tx))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -519,5 +707,163 @@ mod tests {
             POWERLINE_TEST_HOSTNAME_UUID,
             "ee5bcdc6-b749-11e7-9456-50465d597777"
         );
+    }
+
+    #[test]
+    fn external_ip_segment_interval_matches_upstream() {
+        // py:42  interval = 300
+        assert_eq!(ExternalIpSegment::INTERVAL, 300);
+    }
+
+    #[test]
+    fn external_ip_segment_default_query_url() {
+        // py:44  default keyword arg
+        assert_eq!(
+            ExternalIpSegment::DEFAULT_QUERY_URL,
+            "http://ipv4.icanhazip.com/"
+        );
+        let s = ExternalIpSegment::new();
+        assert_eq!(s.query_url, ExternalIpSegment::DEFAULT_QUERY_URL);
+    }
+
+    #[test]
+    fn external_ip_segment_set_state_overrides_query_url() {
+        // py:44-46
+        let mut s = ExternalIpSegment::new();
+        s.set_state(Some("http://ipv6.icanhazip.com/"));
+        assert_eq!(s.query_url, "http://ipv6.icanhazip.com/");
+    }
+
+    #[test]
+    fn external_ip_segment_set_state_no_arg_preserves_url() {
+        let mut s = ExternalIpSegment::new();
+        s.set_state(None);
+        assert_eq!(s.query_url, ExternalIpSegment::DEFAULT_QUERY_URL);
+    }
+
+    #[test]
+    fn external_ip_segment_update_dispatches_to_query_url() {
+        // py:48-49
+        let mut s = ExternalIpSegment::new();
+        s.query_url = "http://test.example/ip".to_string();
+        let ip = s.update(|url| {
+            assert_eq!(url, "http://test.example/ip");
+            Some("  4.3.2.1\n".to_string())
+        });
+        assert_eq!(ip, Some("4.3.2.1".to_string()));
+    }
+
+    #[test]
+    fn external_ip_segment_render_delegates_to_external_ip_render() {
+        // py:51-54
+        let s = ExternalIpSegment::new();
+        let r = s.render(Some("1.2.3.4")).unwrap();
+        assert_eq!(r[0]["contents"], "1.2.3.4");
+    }
+
+    #[test]
+    fn internal_ip_fallback_returns_none() {
+        // py:76-77  no-netifaces branch
+        assert!(internal_ip("eth0", 4).is_none());
+        assert!(internal_ip("auto", 6).is_none());
+    }
+
+    #[test]
+    fn network_load_key_returns_interface_name() {
+        // py:200
+        assert_eq!(network_load_key("eth0"), "eth0");
+        assert_eq!(network_load_key("auto"), "auto");
+    }
+
+    #[test]
+    fn parse_proc_net_route_default_finds_zero_destination_row() {
+        // py:208-216  destination column all-zeros indicates default route
+        let content = concat!(
+            "Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask\tMTU\tWindow\tIRTT\n",
+            "eth0\t00000000\t0102A8C0\t0003\t0\t0\t0\t00000000\t0\t0\t0\n",
+            "eth0\t000000FE\t00000000\t0001\t0\t0\t0\t000000FF\t0\t0\t0\n",
+        );
+        assert_eq!(
+            parse_proc_net_route_default(content),
+            Some("eth0".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_proc_net_route_default_returns_none_when_no_default_route() {
+        let content = "Iface\tDestination\nlo\tFFFFFFFF\n";
+        assert!(parse_proc_net_route_default(content).is_none());
+    }
+
+    #[test]
+    fn parse_proc_net_route_default_handles_blank_lines() {
+        let content = "\n\neth0\t00000000\tx\n";
+        assert_eq!(
+            parse_proc_net_route_default(content),
+            Some("eth0".to_string())
+        );
+    }
+
+    #[test]
+    fn pick_active_interface_picks_highest_total() {
+        // py:218-228  activity = rx + tx; highest wins
+        let ifaces = vec![("eth0", 100u64, 50u64), ("wlan0", 1000u64, 500u64)];
+        assert_eq!(pick_active_interface(ifaces), "wlan0");
+    }
+
+    #[test]
+    fn pick_active_interface_excludes_lo_and_vmnet_and_sit() {
+        // py:223  excluded prefixes
+        let ifaces = vec![
+            ("lo", 1_000_000u64, 1_000_000u64),
+            ("vmnet0", 999u64, 999u64),
+            ("sit0", 500u64, 500u64),
+            ("eth0", 100u64, 100u64),
+        ];
+        assert_eq!(pick_active_interface(ifaces), "eth0");
+    }
+
+    #[test]
+    fn pick_active_interface_empty_input_defaults_to_eth0() {
+        // py:220
+        let empty: Vec<(&str, u64, u64)> = vec![];
+        assert_eq!(pick_active_interface(empty), "eth0");
+    }
+
+    #[test]
+    fn pick_active_interface_only_excluded_defaults_to_eth0() {
+        let ifaces = vec![("lo", 1u64, 1u64)];
+        assert_eq!(pick_active_interface(ifaces), "eth0");
+    }
+
+    #[test]
+    fn sysfs_rx_path_builds_correct_path() {
+        // py:181
+        assert_eq!(
+            sysfs_rx_path("eth0"),
+            "/sys/class/net/eth0/statistics/rx_bytes"
+        );
+    }
+
+    #[test]
+    fn sysfs_tx_path_builds_correct_path() {
+        // py:183
+        assert_eq!(
+            sysfs_tx_path("eth0"),
+            "/sys/class/net/eth0/statistics/tx_bytes"
+        );
+    }
+
+    #[test]
+    fn get_bytes_sysfs_parses_integers() {
+        // py:182-185
+        let r = _get_bytes_sysfs("1234\n", "5678\n");
+        assert_eq!(r, Some((1234, 5678)));
+    }
+
+    #[test]
+    fn get_bytes_sysfs_returns_none_for_invalid_input() {
+        assert!(_get_bytes_sysfs("not-a-number", "5678").is_none());
+        assert!(_get_bytes_sysfs("1234", "abc").is_none());
     }
 }

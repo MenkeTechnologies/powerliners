@@ -1354,3 +1354,49 @@ render_matcher_info
 # it can be tested without the super dispatch substrate. Same
 # pattern as load_colorscheme_config_levels.
 do_render_resolve_style
+
+# segments/common/net.rs::network_load_key — extracts the
+# NetworkLoadSegment.key static method body at
+# powerline/segments/common/net.py:198-200. Python's @staticmethod
+# wrapper takes the **kwargs splat; the Rust port surfaces just the
+# pure-functional `interface` → identity-string mapping. Renamed
+# from plain `key` to avoid namespace collision with other
+# `key` fns across the codebase.
+network_load_key
+
+# segments/common/net.rs::parse_proc_net_route_default — extracts
+# the inline /proc/net/route scanner from
+# NetworkLoadSegment.compute_state body at
+# powerline/segments/common/net.py:208-216. Python embeds the
+# file-open + line-scan inside compute_state; Rust extracts the
+# scanner as a pure parser taking the file content so the
+# default-route detection can be tested without filesystem I/O.
+parse_proc_net_route_default
+
+# segments/common/net.rs::pick_active_interface — extracts the
+# activity-based interface picker from NetworkLoadSegment.compute_state
+# body at powerline/segments/common/net.py:218-228. Python embeds
+# the loop + rx+tx scoring + exclusion list (lo/vmnet/sit) inside
+# compute_state; Rust extracts as a pure fn taking an iterator of
+# (name, rx, tx) tuples so it can be tested without psutil/sysfs.
+pick_active_interface
+
+# segments/common/net.rs::sysfs_rx_path / sysfs_tx_path — extract the
+# /sys/class/net/<iface>/statistics/{rx,tx}_bytes format strings from
+# _get_bytes at powerline/segments/common/net.py:181/183. Python
+# embeds the format inline; Rust pulls them to named helpers since
+# they're useful at the call site and the format pattern is shared
+# between both files.
+sysfs_rx_path
+sysfs_tx_path
+
+# segments/common/net.rs::_get_bytes_sysfs — disambiguates the
+# no-psutil branch of _get_bytes at
+# powerline/segments/common/net.py:180-185. Python defines two
+# _get_bytes fns under try/except ImportError (psutil branch at
+# py:161-169, sysfs branch at py:180-185). Both share the Python
+# fn name `_get_bytes`; Rust ports the sysfs branch as a pure
+# parser taking rx/tx file contents, and the name is suffixed
+# `_sysfs` to disambiguate from the psutil port that will land
+# in a follow-on pass. Underscore prefix preserved.
+_get_bytes_sysfs
