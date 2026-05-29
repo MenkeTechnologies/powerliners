@@ -105,9 +105,9 @@ columns:
 <div class="stat-row">
   <div class="stat-card"><div class="n">137</div><div class="l">upstream py files</div></div>
   <div class="stat-card"><div class="n">1028</div><div class="l">upstream py fns</div></div>
-  <div class="stat-card"><div class="n">580</div><div class="l">ported fns</div></div>
-  <div class="stat-card"><div class="n">3349</div><div class="l">rust fns total</div></div>
-  <div class="stat-card"><div class="n">56.4%</div><div class="l">overall coverage</div></div>
+  <div class="stat-card"><div class="n">585</div><div class="l">ported fns</div></div>
+  <div class="stat-card"><div class="n">3362</div><div class="l">rust fns total</div></div>
+  <div class="stat-card"><div class="n">56.9%</div><div class="l">overall coverage</div></div>
 </div>
 <h2 class="group-title">// PER-FILE COVERAGE</h2>
 <table class="port">
@@ -151,8 +151,8 @@ columns:
   <!-- SYM py_file=powerline/lib/config.py rs_file=src/ported/lib/config.rs rs_exists=True py_fn_total=21 ported_count=17 missing_count=4 rs_extra_count=38 coverage=0.8095 -->
   <!-- END-GROUP py_file=powerline/lib/config.py -->
   <!-- BEGIN-GROUP py_file=powerline/bindings/config.py -->
-  <tr class="partial"><td><code>bindings/config.py</code></td><td>✔ <code>bindings/config.rs</code></td><td>18</td><td><code>list_all_tmux_configs</code>, <code>get_tmux_configs</code>, <code>replace_env</code>, <code>check_command</code>, <code>deduce_command</code>, <code>shell_command</code></td><td><code>source_tmux_files</code>, <code>__init__</code>, <code>__getattr__</code>, <code>init_tmux_environment</code>, <code>get_highlighting</code>, <code>tmux_setup</code>, <code>set_tmux_environment_nosource</code>, <code>replace_cb</code>, <code>source_tmux_file_nosource</code>, <code>get_main_config</code>, <code>create_powerline_logger</code>, <code>uses</code></td><td><code>CONFIG_FILE_NAME</code>, <code>applies</code>, <code>priority</code>, <code>new</code>, <code>TMUX_VAR_RE</code>, <code>parse_tmux_file_line</code>, <code>shlex_split</code>, <code>sorted_tmux_configs</code>, <code>uses_check_env_vars</code>, <code>uses_component_exit_code</code>, <code>ver</code>, <code>config_file_name_matches_standard_format</code>, <code>exact_matcher_requires_same_major_minor</code>, <code>plus_matcher_applies_when_file_lte_tmux</code>, <code>minus_matcher_applies_when_file_gte_tmux</code>, <code>priority_order_matches_upstream</code>, <code>empty_args_init_stores_ext_as_single_element_list</code>, <code>empty_args_init_defaults_side_to_left</code>, <code>empty_args_init_pins_config_path_to_none</code>, <code>tmux_var_re_matches_dollar_powerline_var</code>, <code>tmux_var_re_captures_group_after_dollar</code>, <code>check_command_returns_some_for_real_binary</code>, <code>check_command_returns_none_for_missing_binary</code>, <code>deduce_command_returns_some_or_none</code>, <code>replace_env_substitutes_known_var</code>, <code>replace_env_passes_through_unknown_var</code>, <code>replace_env_substitutes_multiple_in_one_string</code>, <code>replace_env_leaves_non_dollar_powerline_text_alone</code>, <code>parse_tmux_file_line_skips_comments</code>, <code>parse_tmux_file_line_skips_blank_lines</code>, <code>parse_tmux_file_line_splits_simple_args</code>, <code>parse_tmux_file_line_handles_quoted_args</code>, <code>sorted_tmux_configs_returns_entries_in_ascending_priority_order</code>, <code>uses_check_env_vars_returns_true_for_powerline_no_var</code>, <code>uses_check_env_vars_checks_shell_fallback</code>, <code>uses_check_env_vars_returns_false_when_unset</code>, <code>uses_check_env_vars_returns_false_when_var_is_empty</code>, <code>uses_component_exit_code_returns_0_when_component_in_config</code>, <code>uses_component_exit_code_returns_1_when_component_not_in_config</code>, <code>uses_component_exit_code_default_components_when_missing</code>, <code>shell_command_returns_deduce_command_result</code></td><td class="coverage">33%</td></tr>
-  <!-- SYM py_file=powerline/bindings/config.py rs_file=src/ported/bindings/config.rs rs_exists=True py_fn_total=18 ported_count=6 missing_count=12 rs_extra_count=41 coverage=0.3333 -->
+  <tr class="partial"><td><code>bindings/config.py</code></td><td>✔ <code>bindings/config.rs</code></td><td>18</td><td><code>list_all_tmux_configs</code>, <code>get_tmux_configs</code>, <code>set_tmux_environment_nosource</code>, <code>replace_cb</code>, <code>replace_env</code>, <code>get_main_config</code>, <code>create_powerline_logger</code>, <code>check_command</code>, <code>deduce_command</code>, <code>shell_command</code>, <code>uses</code></td><td><code>source_tmux_files</code>, <code>__init__</code>, <code>__getattr__</code>, <code>init_tmux_environment</code>, <code>get_highlighting</code>, <code>tmux_setup</code>, <code>source_tmux_file_nosource</code></td><td><code>CONFIG_FILE_NAME</code>, <code>applies</code>, <code>priority</code>, <code>new</code>, <code>TMUX_VAR_RE</code>, <code>parse_tmux_file_line</code>, <code>shlex_split</code>, <code>sorted_tmux_configs</code>, <code>uses_check_env_vars</code>, <code>uses_component_exit_code</code>, <code>ver</code>, <code>config_file_name_matches_standard_format</code>, <code>exact_matcher_requires_same_major_minor</code>, <code>plus_matcher_applies_when_file_lte_tmux</code>, <code>minus_matcher_applies_when_file_gte_tmux</code>, <code>priority_order_matches_upstream</code>, <code>empty_args_init_stores_ext_as_single_element_list</code>, <code>empty_args_init_defaults_side_to_left</code>, <code>empty_args_init_pins_config_path_to_none</code>, <code>tmux_var_re_matches_dollar_powerline_var</code>, <code>tmux_var_re_captures_group_after_dollar</code>, <code>check_command_returns_some_for_real_binary</code>, <code>check_command_returns_none_for_missing_binary</code>, <code>deduce_command_returns_some_or_none</code>, <code>replace_env_substitutes_known_var</code>, <code>replace_env_passes_through_unknown_var</code>, <code>replace_env_substitutes_multiple_in_one_string</code>, <code>replace_env_leaves_non_dollar_powerline_text_alone</code>, <code>parse_tmux_file_line_skips_comments</code>, <code>parse_tmux_file_line_skips_blank_lines</code>, <code>parse_tmux_file_line_splits_simple_args</code>, <code>parse_tmux_file_line_handles_quoted_args</code>, <code>sorted_tmux_configs_returns_entries_in_ascending_priority_order</code>, <code>uses_check_env_vars_returns_true_for_powerline_no_var</code>, <code>uses_check_env_vars_checks_shell_fallback</code>, <code>uses_check_env_vars_returns_false_when_unset</code>, <code>uses_check_env_vars_returns_false_when_var_is_empty</code>, <code>uses_component_exit_code_returns_0_when_component_in_config</code>, <code>uses_component_exit_code_returns_1_when_component_not_in_config</code>, <code>uses_component_exit_code_default_components_when_missing</code>, <code>shell_command_returns_deduce_command_result</code>, <code>set_tmux_environment_nosource_inserts_entry</code>, <code>replace_cb_returns_value_for_known_key</code>, <code>get_main_config_returns_err_when_no_config_found</code>, <code>get_main_config_returns_loaded_object</code>, <code>uses_requires_non_empty_component</code>, <code>uses_returns_1_when_env_var_set</code>, <code>uses_returns_0_when_component_in_default_components</code>, <code>create_powerline_logger_constructs_logger</code></td><td class="coverage">61%</td></tr>
+  <!-- SYM py_file=powerline/bindings/config.py rs_file=src/ported/bindings/config.rs rs_exists=True py_fn_total=18 ported_count=11 missing_count=7 rs_extra_count=49 coverage=0.6111 -->
   <!-- END-GROUP py_file=powerline/bindings/config.py -->
   <!-- BEGIN-GROUP py_file=powerline/lint/markedjson/markedvalue.py -->
   <tr class="partial"><td><code>lint/markedjson/markedvalue.py</code></td><td>✔ <code>lint/markedjson/markedvalue.rs</code></td><td>17</td><td><code>_proc_partition</code>, <code>rpartition</code>, <code>partition</code>, <code>setmerged</code>, <code>update</code>, <code>copy</code>, <code>gen_marked_value</code>, <code>copy</code></td><td><code>gen_new</code>, <code>__new__</code>, <code>gen_init</code>, <code>__init__</code>, <code>gen_getnewargs</code>, <code>__getnewargs__</code>, <code>__new__</code>, <code>__setitem__</code>, <code>__init__</code></td><td><code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>new</code>, <code>mk</code>, <code>marked_unicode_carries_value_and_mark</code>, <code>marked_unicode_partition_returns_three_parts</code>, <code>marked_unicode_rpartition_returns_three_parts</code>, <code>marked_unicode_partition_no_sep_returns_first_in_pre</code>, <code>marked_dict_carries_keydict_for_every_key</code>, <code>marked_dict_copy_clones_value_and_keydict</code>, <code>marked_dict_update_adds_to_keydict</code>, <code>gen_marked_value_dispatches_on_value_type</code>, <code>marked_int_carries_i64</code>, <code>marked_float_carries_f64</code></td><td class="coverage">47%</td></tr>
@@ -675,9 +675,9 @@ columns:
     "py_files": 137,
     "py_fns": 1028,
     "rs_files_in_ported": 110,
-    "rs_fns_in_ported": 3349,
-    "ported_fns": 580,
-    "coverage": 0.5642023346303502
+    "rs_fns_in_ported": 3362,
+    "ported_fns": 585,
+    "coverage": 0.5690661478599222
   },
   "rows": [
     {
@@ -1545,10 +1545,15 @@ columns:
       "ported_fns": [
         "list_all_tmux_configs",
         "get_tmux_configs",
+        "set_tmux_environment_nosource",
+        "replace_cb",
         "replace_env",
+        "get_main_config",
+        "create_powerline_logger",
         "check_command",
         "deduce_command",
-        "shell_command"
+        "shell_command",
+        "uses"
       ],
       "missing_fns": [
         "source_tmux_files",
@@ -1557,12 +1562,7 @@ columns:
         "init_tmux_environment",
         "get_highlighting",
         "tmux_setup",
-        "set_tmux_environment_nosource",
-        "replace_cb",
-        "source_tmux_file_nosource",
-        "get_main_config",
-        "create_powerline_logger",
-        "uses"
+        "source_tmux_file_nosource"
       ],
       "rs_extra_fns": [
         "CONFIG_FILE_NAME",
@@ -1605,9 +1605,17 @@ columns:
         "uses_component_exit_code_returns_0_when_component_in_config",
         "uses_component_exit_code_returns_1_when_component_not_in_config",
         "uses_component_exit_code_default_components_when_missing",
-        "shell_command_returns_deduce_command_result"
+        "shell_command_returns_deduce_command_result",
+        "set_tmux_environment_nosource_inserts_entry",
+        "replace_cb_returns_value_for_known_key",
+        "get_main_config_returns_err_when_no_config_found",
+        "get_main_config_returns_loaded_object",
+        "uses_requires_non_empty_component",
+        "uses_returns_1_when_env_var_set",
+        "uses_returns_0_when_component_in_default_components",
+        "create_powerline_logger_constructs_logger"
       ],
-      "coverage": 0.3333333333333333
+      "coverage": 0.6111111111111112
     },
     {
       "py_file": "powerline/lint/markedjson/markedvalue.py",
