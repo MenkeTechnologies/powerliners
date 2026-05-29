@@ -1313,3 +1313,13 @@ fuzzy_time_default_special_cases
 # layer. fuzzy_time itself remains as the wrapper that reads
 # localtime and dispatches to fuzzy_time_compute.
 fuzzy_time_compute
+
+# commands/config.rs::StrFunction::binding_function_name —
+# Python's StrFunction at powerline/commands/config.py:9-18
+# stores a callable via __init__(function, name) at py:10-12.
+# The Rust enum can't carry a runtime callable across the
+# (Source/Setenv/Setup/Command/Uses) variants directly, so the
+# binding function name is exposed as a method that returns the
+# corresponding `powerline.bindings.config.<name>` identifier.
+# Used by callers (CLI driver, tests) to route the dispatch.
+binding_function_name

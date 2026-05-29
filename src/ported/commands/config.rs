@@ -48,6 +48,38 @@ impl StrFunction {
             StrFunction::Uses => "uses",
         }
     }
+
+    /// Returns the fully-qualified binding function name that this
+    /// StrFunction wraps, per py:22-30. Used by the dispatch site to
+    /// invoke the right `powerline.bindings.config` fn.
+    pub fn binding_function_name(&self) -> &'static str {
+        match self {
+            // py:22  config.source_tmux_files
+            StrFunction::Source => "source_tmux_files",
+            // py:23  config.init_tmux_environment
+            StrFunction::Setenv => "init_tmux_environment",
+            // py:24  config.tmux_setup
+            StrFunction::Setup => "tmux_setup",
+            // py:29  config.shell_command
+            StrFunction::Command => "shell_command",
+            // py:30  config.uses
+            StrFunction::Uses => "uses",
+        }
+    }
+
+    /// Port of `StrFunction.__call__()` from
+    /// `powerline/commands/config.py:14-15`.
+    ///
+    /// Python: `self.function(*args, **kwargs)`. The Rust port returns
+    /// the bound fn name + the (pl, args) tuple it would dispatch to;
+    /// actual execution happens at the caller since the underlying
+    /// binding functions (source_tmux_files / init_tmux_environment /
+    /// tmux_setup / shell_command / uses) are platform-glue with
+    /// runtime tmux/socket dependencies and are deferred.
+    pub fn call(&self) -> &'static str {
+        // py:14-15  self.function(*args, **kwargs)
+        self.binding_function_name()
+    }
 }
 
 impl std::fmt::Display for StrFunction {
@@ -98,11 +130,43 @@ pub fn shell_action_from_name(name: &str) -> Option<StrFunction> {
     }
 }
 
-// py:34-42  class ConfigArgParser(argparse.ArgumentParser):
-//   override parse_args to require a sub-command (raise "too few arguments")
-// The Rust port handles this at the caller — when the parsed Args has
-// no function set, the CLI prints "too few arguments" and exits.
-// No separate type needed.
+/// Port of `class ConfigArgParser(argparse.ArgumentParser)` from
+/// `powerline/commands/config.py:34-42`.
+///
+/// Python: subclass of `ArgumentParser` whose `parse_args` override
+/// raises "too few arguments" when the parsed result has no
+/// `function` attribute. Rust port wraps the data-only `ArgParser`
+/// from `commands/lint.rs` and provides the same validation.
+pub struct ConfigArgParser {
+    /// The underlying argparse spec — same data shape as
+    /// `commands::lint::ArgParser`.
+    pub argparser: ArgParser,
+}
+
+impl ConfigArgParser {
+    /// Construct from a base `ArgParser` (typically the value returned
+    /// by `get_argparser`).
+    pub fn new(argparser: ArgParser) -> Self {
+        Self { argparser }
+    }
+
+    /// Port of `ConfigArgParser.parse_args()` from
+    /// `powerline/commands/config.py:35-42`.
+    ///
+    /// Validates that the parsed args carry a `function` field. Python
+    /// at py:37 checks `hasattr(ret, 'function')`; the Rust port
+    /// receives the resolved function name (or None for absent) and
+    /// returns an error matching Python's `self.error('too few
+    /// arguments')` at py:41.
+    pub fn parse_args(&self, function: Option<&str>) -> Result<String, String> {
+        // py:35-42
+        match function {
+            // py:37-41  if not hasattr(ret, 'function'): self.error(...)
+            None => Err("too few arguments".to_string()),
+            Some(f) => Ok(f.to_string()),
+        }
+    }
+}
 
 /// Port of `get_argparser()` from `powerline/commands/config.py:45`.
 ///
@@ -259,5 +323,70 @@ mod tests {
         assert!(flag_names.contains(&"shell"));
         // Component positional for `shell uses`
         assert!(flag_names.contains(&"component"));
+    }
+
+    #[test]
+    fn shell_action_lookup_command_and_uses() {
+        // py:87  SHELL_ACTIONS.get(v)
+        assert_eq!(
+            shell_action_from_name("command"),
+            Some(StrFunction::Command)
+        );
+        assert_eq!(shell_action_from_name("uses"), Some(StrFunction::Uses));
+        assert_eq!(shell_action_from_name("xyz"), None);
+    }
+
+    #[test]
+    fn str_function_binding_names_match_python_module_attrs() {
+        // py:22-30  function names in the powerline.bindings.config module
+        assert_eq!(
+            StrFunction::Source.binding_function_name(),
+            "source_tmux_files"
+        );
+        assert_eq!(
+            StrFunction::Setenv.binding_function_name(),
+            "init_tmux_environment"
+        );
+        assert_eq!(StrFunction::Setup.binding_function_name(), "tmux_setup");
+        assert_eq!(
+            StrFunction::Command.binding_function_name(),
+            "shell_command"
+        );
+        assert_eq!(StrFunction::Uses.binding_function_name(), "uses");
+    }
+
+    #[test]
+    fn str_function_call_returns_binding_function_name() {
+        // py:14-15  self.function(*args, **kwargs) — Rust returns the
+        // name of the fn it would invoke at the call site.
+        assert_eq!(StrFunction::Source.call(), "source_tmux_files");
+        assert_eq!(StrFunction::Uses.call(), "uses");
+    }
+
+    #[test]
+    fn config_arg_parser_parse_args_requires_function() {
+        // py:37-41  if not hasattr(ret, 'function'): self.error('too few arguments')
+        let parser = ConfigArgParser::new(get_argparser());
+        let err = parser.parse_args(None).unwrap_err();
+        assert_eq!(err, "too few arguments");
+    }
+
+    #[test]
+    fn config_arg_parser_parse_args_returns_function_when_set() {
+        let parser = ConfigArgParser::new(get_argparser());
+        let r = parser.parse_args(Some("tmux")).unwrap();
+        assert_eq!(r, "tmux");
+    }
+
+    #[test]
+    fn config_arg_parser_round_trips_underlying_argparser() {
+        // The ConfigArgParser wrapper preserves the underlying
+        // argparser state for subsequent introspection.
+        let underlying = get_argparser();
+        let saved_desc = underlying.description.clone();
+        let saved_args_count = underlying.arguments.len();
+        let parser = ConfigArgParser::new(underlying);
+        assert_eq!(parser.argparser.description, saved_desc);
+        assert_eq!(parser.argparser.arguments.len(), saved_args_count);
     }
 }
