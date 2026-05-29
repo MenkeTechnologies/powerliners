@@ -49,32 +49,44 @@ pub enum ArgAction {
 ///
 /// Returns the argument parser for `powerline-lint`.
 pub fn get_argparser() -> ArgParser {
-    // py:7
+    // py:7  def get_argparser(ArgumentParser=argparse.ArgumentParser)
     ArgParser {
-        description: "Powerline configuration checker.".to_string(), // py:8
+        // py:8  parser = ArgumentParser(description='Powerline configuration checker.')
+        description: "Powerline configuration checker.".to_string(),
         arguments: vec![
-            // py:9-15  -p / --config-path
+            // py:9   parser.add_argument(
+            // py:10  '-p', '--config-path', action='append', metavar='PATH',
             Argument {
                 flags: vec!["-p".into(), "--config-path".into()],
                 action: ArgAction::Append,
                 metavar: Some("PATH".into()),
+                // py:11  help='Paths where configuration should be checked, in order. You must '
+                // py:12  'supply all paths necessary for powerline to work, '
+                // py:13  'checking partial (e.g. only user overrides) configuration '
+                // py:14  'is not supported.'
+                // py:15  )
                 help: "Paths where configuration should be checked, in order. You must \
                        supply all paths necessary for powerline to work, \
                        checking partial (e.g. only user overrides) configuration \
                        is not supported."
                     .to_string(),
             },
-            // py:16-20  -d / --debug
+            // py:16  parser.add_argument(
+            // py:17  '-d', '--debug', action='store_const', const=True,
             Argument {
                 flags: vec!["-d".into(), "--debug".into()],
                 action: ArgAction::StoreConstTrue,
                 metavar: None,
+                // py:18  help='Display additional information. Used for debugging '
+                // py:19  '`powerline-lint\' itself, not for debugging configuration.'
+                // py:20  )
                 help: "Display additional information. Used for debugging \
                        `powerline-lint' itself, not for debugging configuration."
                     .to_string(),
             },
         ],
     }
+    // py:21  return parser
 }
 
 #[cfg(test)]

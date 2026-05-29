@@ -47,7 +47,13 @@ use std::path::Path;
 /// Until the full `markedjson` parser ports, this dispatches to
 /// `lib/config.load_json_config` and reports `hadproblem = err.is_some()`.
 pub fn load<P: AsRef<Path>>(stream: P) -> (Option<Value>, bool) {
-    // py:8-12  loader = Loader(stream); r = loader.get_single_data(); return r, loader.haserrors
+    // py:7  def load(stream, Loader=Loader)
+    // py:14  loader = Loader(stream)
+    // py:15  try:
+    // py:16  r = loader.get_single_data()
+    // py:17  return r, loader.haserrors
+    // py:18  finally:
+    // py:19  loader.dispose()
     match load_json_config(stream) {
         Ok(v) => (Some(v), false),
         Err(_) => (None, true),

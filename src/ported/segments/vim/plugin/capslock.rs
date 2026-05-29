@@ -19,15 +19,22 @@ use crate::ported::bindings::vim::{vim_func_exists, MatcherInfo};
 /// empty. Returns `None` when the function isn't defined (matches py:25
 /// short-circuit) or when the eval returns empty (py:28).
 pub fn capslock_indicator(_pl: &(), _segment_info: &MatcherInfo, text: &str) -> Option<String> {
-    // py:25  if not vim_func_exists('CapsLockStatusline'): return None
+    // py:13  @requires_segment_info
+    // py:14  def capslock_indicator(pl, segment_info, text='CAPS'):
+    // py:15-23  docstring: 'Shows the indicator if tpope/vim-capslock plugin is enabled'
+    // py:24  if not vim_func_exists('CapsLockStatusline'):
     if !vim_func_exists("CapsLockStatusline") {
+        // py:25  return None
         return None;
     }
+    // py:26-27  comment: 'CapsLockStatusline() returns empty string when plugin is disabled'
     // py:28  return text if vim.eval('CapsLockStatusline()') else None
     let active = false; // vim.eval stub yields empty/false
     if active {
+        // py:28  return text
         Some(text.to_string())
     } else {
+        // py:28  else None
         None
     }
 }

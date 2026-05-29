@@ -20,12 +20,20 @@ use serde_json::{json, Value};
 /// path. Returns `None` (matches the upstream py:17 short-circuit
 /// when NERDTreeRoot is not set).
 pub fn nerdtree(_pl: &()) -> Option<Vec<Value>> {
-    // py:17  if not bufvar_exists(None, 'NERDTreeRoot'): return None
+    // py:13  @window_cached
+    // py:14  def nerdtree(pl):
+    // py:15-16  docstring: 'Return directory that is shown by the current buffer.'
+    // py:17  if not bufvar_exists(None, 'NERDTreeRoot'):
     if !bufvar_exists(None, "NERDTreeRoot") {
+        // py:18  return None
         return None;
     }
-    // py:18-22  path_str = vim.eval(...); return [{contents, highlight_groups}]
+    // py:19  path_str = vim.eval('getbufvar("%", "NERDTreeRoot").path.str()')
     let path_str = String::new(); // vim.eval stub yields empty
+                                  // py:20  return [{
+                                  // py:21  'contents': path_str,
+                                  // py:22  'highlight_groups': ['nerdtree:path', 'file_name'],
+                                  // py:23  }]
     Some(vec![json!({
         "contents": path_str,
         "highlight_groups": ["nerdtree:path", "file_name"]

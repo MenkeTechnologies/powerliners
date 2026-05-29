@@ -41,33 +41,49 @@ pub fn frame_lister(
     full_stack: bool,
     maxframes: usize,
 ) -> Vec<(Map<String, Value>, Map<String, Value>)> {
-    // py:18-23  full_stack vs default initial_stack_length window
+    // py:7  @requires_segment_info
+    // py:8  def frame_lister(pl, segment_info, full_stack=False, maxframes=3):
+    // py:9-17  docstring
+    // py:18  if full_stack:
     let (initial_stack_length, mut frames) = if full_stack {
-        // py:19-20
+        // py:19  initial_stack_length = 0
+        // py:20  frames = segment_info['pdb'].stack
         (0, segment_info.stack.clone())
     } else {
-        // py:22-23
+        // py:21  else:
+        // py:22  initial_stack_length = segment_info['initial_stack_length']
         let isl = segment_info.initial_stack_length;
+        // py:23  frames = segment_info['pdb'].stack[initial_stack_length:]
         let sliced = segment_info.stack.iter().skip(isl).cloned().collect();
         (isl, sliced)
     };
 
-    // py:25-26  if len(frames) > maxframes: frames = frames[-maxframes:]
+    // py:25  if len(frames) > maxframes:
     if frames.len() > maxframes {
+        // py:26  frames = frames[-maxframes:]
         let start = frames.len() - maxframes;
         frames = frames[start..].to_vec();
     }
 
-    // py:28-37  yield (info_dict, {}) for each frame
+    // py:28  return (
+    // py:29  (
+    // py:30  {
     frames
         .into_iter()
         .map(|frame| {
             let mut info = Map::new();
+            // py:31  'curframe': frame[0],
             info.insert("curframe".to_string(), frame.0);
+            // py:32  'initial_stack_length': initial_stack_length,
             info.insert(
                 "initial_stack_length".to_string(),
                 json!(initial_stack_length as u64),
             );
+            // py:33  },
+            // py:34  {}
+            // py:35  )
+            // py:36  for frame in frames
+            // py:37  )
             (info, Map::new())
         })
         .collect()
