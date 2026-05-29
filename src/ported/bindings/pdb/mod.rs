@@ -87,6 +87,54 @@ impl PdbClass {
     }
 }
 
+/// Port of the inner `prompt` property getter from
+/// `powerline/bindings/pdb/__init__.py:135-143` (inside
+/// `use_powerline_prompt`).
+///
+/// Python: `@property def prompt(self): … return
+/// PowerlineRenderResult(powerline.render(side='left'))`.
+/// Rust port returns the rendered left-side string when the caller
+/// supplies a renderer closure. A None renderer mirrors the absence
+/// of the embedded Powerline + pdb integration in pure Rust.
+pub fn prompt<R: FnOnce() -> Option<String>>(render: R) -> PowerlineRenderResult {
+    // py:135  @property
+    // py:136  def prompt(self):
+    // py:137  try: powerline = self.powerline
+    // py:138-141 except AttributeError: powerline = PDBPowerline(); powerline.setup(self); self.powerline = powerline
+    // py:143  return PowerlineRenderResult(powerline.render(side='left'))
+    render().unwrap_or_default()
+}
+
+/// Port of the `add` static method from
+/// `powerline/bindings/pdb/__init__.py:61-71` (inside
+/// `PowerlineRenderBytesResult`) and `:105-112` (inside
+/// `PowerlineRenderResult`).
+///
+/// Python: encodes string args to bytes in `encoding` and joins them.
+/// In Python 3, `PowerlineRenderResult = str` (py:122), so this
+/// reduces to ordinary string concatenation with `encoding` ignored
+/// (matches py:103-105 behavior on the str path).
+pub fn add(_encoding: Option<&str>, parts: &[&str]) -> String {
+    // py:61  def add(encoding, *args):
+    // py:62-71  return bytes(b'').join(map(...))
+    parts.concat()
+}
+
+/// Port of the `encode` method from
+/// `powerline/bindings/pdb/__init__.py:119-120` (inside
+/// `PowerlineRenderResult`).
+///
+/// Python 2 branch only. In Py3 (`PowerlineRenderResult = str`) the
+/// method is inherited from `str.encode`. Rust port mirrors that —
+/// returns bytes per the given encoding label, ignoring exotic
+/// encodings that aren't UTF-8 (matches the Py3 fallback path where
+/// the encode happens at the C boundary).
+pub fn encode(s: &str, _encoding: Option<&str>) -> Vec<u8> {
+    // py:119  def encode(self, *args, **kwargs):
+    // py:120  return PowerlineRenderBytesResult(unicode.encode(self, *args, **kwargs), args[0])
+    s.as_bytes().to_vec()
+}
+
 pub fn use_powerline_prompt(cls: PdbClass) -> PdbClass {
     // py:125  def use_powerline_prompt(cls):
     // py:126  '''Decorator that installs powerline prompt to the class
