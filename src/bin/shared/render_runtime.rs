@@ -653,22 +653,29 @@ fn read_cpu_percent_uncached() -> f64 {
 }
 
 fn ad_cpu_load_percent(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::icons;
     use powerliners::ported::segments::common::sys::render as cpu_render;
+    // Default format leads with the cpu glyph from the active tier
+    // (NF → Unicode → ASCII per `POWERLINERS_ICONS`). Themes can
+    // still override `format` per-segment.
+    let default = format!("{} {{0:.0f}}%", icons::cpu());
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
-        .unwrap_or("{0:.0f}%");
+        .unwrap_or(&default);
     let pct = read_cpu_percent();
     let chunks = cpu_render(pct, format);
     Some(Value::Array(chunks))
 }
 
 fn ad_mem_usage(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::icons;
     use powerliners::extensions::mem_usage::mem_usage;
+    let default = format!("{} %s/%s", icons::memory());
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
-        .unwrap_or("%s/%s");
+        .unwrap_or(&default);
     let mem_type = args
         .get("mem_type")
         .and_then(|v| v.as_str())
@@ -706,41 +713,49 @@ fn ad_mem_swap(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<
 
 fn ad_gpu_usage_percent(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
     use powerliners::extensions::gpu::gpu_usage_percent;
+    use powerliners::extensions::icons;
+    let default = format!("{} {{0:d}}%", icons::gpu());
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
-        .unwrap_or("{0:d}%");
+        .unwrap_or(&default);
     Some(Value::Array(gpu_usage_percent(format)))
 }
 
 fn ad_gpu_vram(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
     use powerliners::extensions::gpu::gpu_vram;
+    use powerliners::extensions::icons;
+    let default = format!("{}{} %s/%s", icons::gpu(), icons::memory());
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
-        .unwrap_or("%s/%s");
+        .unwrap_or(&default);
     let short = args.get("short").and_then(|v| v.as_bool()).unwrap_or(false);
     Some(Value::Array(gpu_vram(format, short)))
 }
 
 fn ad_disk_usage(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
     use powerliners::extensions::disk::disk_usage;
+    use powerliners::extensions::icons;
     let mount = args.get("mount").and_then(|v| v.as_str()).unwrap_or("/");
+    let default = format!("{} %s/%s", icons::disk());
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
-        .unwrap_or("%s/%s");
+        .unwrap_or(&default);
     let short = args.get("short").and_then(|v| v.as_bool()).unwrap_or(false);
     Some(Value::Array(disk_usage(mount, format, short)))
 }
 
 fn ad_disk_usage_percent(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
     use powerliners::extensions::disk::disk_usage_percent;
+    use powerliners::extensions::icons;
     let mount = args.get("mount").and_then(|v| v.as_str()).unwrap_or("/");
+    let default = format!("{} {{0:d}}%", icons::disk());
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
-        .unwrap_or("{0:d}%");
+        .unwrap_or(&default);
     Some(Value::Array(disk_usage_percent(mount, format)))
 }
 
@@ -781,8 +796,10 @@ fn ad_git_status(args: &Map<String, Value>, info: &Map<String, Value>) -> Option
     // glyph (U+E0A0). `github_icon` defaults to Nerd Font's
     // nf-fa-github_alt (U+F09B) — empty string in the theme JSON
     // disables the prefix for non-NF fonts.
-    let branch_icon = pick("branch_icon", "\u{E0A0}");
-    let github_icon = pick("github_icon", "\u{F09B}");
+    use powerliners::extensions::icons;
+    let branch_icon = pick("branch_icon", icons::branch());
+    let github_icon = pick("github_icon", icons::github());
+    let tag_icon = pick("tag_icon", icons::tag());
     let unstaged_icon = pick("unstaged_icon", "!");
     let untracked_icon = pick("untracked_icon", "?");
     let staged_icon = pick("staged_icon", "+");
@@ -798,6 +815,7 @@ fn ad_git_status(args: &Map<String, Value>, info: &Map<String, Value>) -> Option
         cwd,
         &branch_icon,
         &github_icon,
+        &tag_icon,
         &unstaged_icon,
         &untracked_icon,
         &staged_icon,
@@ -811,12 +829,21 @@ fn ad_git_status(args: &Map<String, Value>, info: &Map<String, Value>) -> Option
 }
 
 fn ad_thermal(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::icons;
     use powerliners::extensions::thermal::thermal;
     let family = args.get("family").and_then(|v| v.as_str()).unwrap_or("cpu");
+    // Pick the family-matching glyph by default so a single template
+    // serves both `family=cpu` and `family=gpu`. GPU has no usable
+    // fan RPM probe (Apple SMC kext is entitled), so the gpu default
+    // drops the `%sRPM` tail.
+    let default = match family {
+        "gpu" => format!("{} %s°C", icons::gpu()),
+        _ => format!("{} %s°C %sRPM", icons::cpu()),
+    };
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
-        .unwrap_or("%s°C %sRPM");
+        .unwrap_or(&default);
     let temp_max = args
         .get("temp_max")
         .and_then(|v| v.as_f64())
@@ -1686,39 +1713,60 @@ fn ad_weather(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
         .get("temp_hottest")
         .and_then(|v| v.as_f64())
         .unwrap_or(default_hot);
-    // Default Unicode weather glyphs (text-presentation, render in any
-    // UTF-8 terminal). Upstream's ASCII fallbacks ("SUN", "RAIN", …)
-    // live one layer down in `weather_conditions_icons()` for strict
-    // 1:1 port behavior; the adapter sits in the non-port `extensions`
-    // territory and substitutes user-friendlier glyphs when the theme
-    // doesn't pin its own. Theme JSON can still override per-key.
-    let default_icons: Map<String, Value> = [
-        ("day", "☀"),
-        ("sunny", "☀"),
-        ("night", "☾"),
-        ("rainy", "☔"),
-        ("cloudy", "☁"),
-        ("snowy", "❄"),
-        ("stormy", "⛈"),
-        ("foggy", "🌫"),
-        ("windy", "🌬"),
-        ("blustery", "🌬"),
-        ("not_available", "?"),
-        ("unknown", "?"),
-    ]
-    .iter()
-    .map(|(k, v)| (k.to_string(), Value::String(v.to_string())))
-    .collect();
-    let user_icons = args.get("icons").and_then(|v| v.as_object()).cloned();
-    let merged_icons: Map<String, Value> = match user_icons {
-        Some(mut u) => {
-            for (k, v) in default_icons {
-                u.entry(k).or_insert(v);
+    // Default weather glyphs from the active icon tier
+    // (`POWERLINERS_ICONS=nerdfont|unicode|ascii`). The adapter
+    // substitutes these when the theme doesn't pin its own.
+    use powerliners::extensions::icons;
+    // Build the defaults from the active icon tier.
+    let mut merged_icons: Map<String, Value> = Map::new();
+    merged_icons.insert("day".into(), Value::String(icons::weather_sunny().into()));
+    merged_icons.insert("sunny".into(), Value::String(icons::weather_sunny().into()));
+    merged_icons.insert("night".into(), Value::String(icons::weather_night().into()));
+    merged_icons.insert("rainy".into(), Value::String(icons::weather_rainy().into()));
+    merged_icons.insert("cloudy".into(), Value::String(icons::weather_cloudy().into()));
+    merged_icons.insert("snowy".into(), Value::String(icons::weather_snowy().into()));
+    merged_icons.insert("stormy".into(), Value::String(icons::weather_stormy().into()));
+    merged_icons.insert("foggy".into(), Value::String(icons::weather_foggy().into()));
+    merged_icons.insert("windy".into(), Value::String(icons::weather_windy().into()));
+    merged_icons.insert("blustery".into(), Value::String(icons::weather_windy().into()));
+    merged_icons.insert(
+        "not_available".into(),
+        Value::String(icons::weather_unknown().into()),
+    );
+    merged_icons.insert(
+        "unknown".into(),
+        Value::String(icons::weather_unknown().into()),
+    );
+    // Layer user-explicit icons on top, BUT skip values that exactly
+    // match upstream's ASCII fallback set — those are cascade noise
+    // from the bundled `themes/<top_theme>.json` segment_data, not
+    // intentional user customization. Anything else (Unicode glyph,
+    // different NF, etc.) wins over the code default.
+    let upstream_ascii: &[(&str, &str)] = &[
+        ("day", "DAY"),
+        ("blustery", "WIND"),
+        ("rainy", "RAIN"),
+        ("cloudy", "CLOUDS"),
+        ("snowy", "SNOW"),
+        ("stormy", "STORM"),
+        ("foggy", "FOG"),
+        ("sunny", "SUN"),
+        ("night", "NIGHT"),
+        ("windy", "WINDY"),
+        ("not_available", "NA"),
+        ("unknown", "UKN"),
+    ];
+    if let Some(user_icons) = args.get("icons").and_then(|v| v.as_object()) {
+        for (k, v) in user_icons {
+            let val_str = v.as_str().unwrap_or("");
+            let is_cascade_noise = upstream_ascii
+                .iter()
+                .any(|(uk, uv)| uk == k && *uv == val_str);
+            if !is_cascade_noise {
+                merged_icons.insert(k.clone(), v.clone());
             }
-            u
         }
-        None => default_icons,
-    };
+    }
     let chunks = render_one(
         Some(weather),
         Some(&merged_icons),
