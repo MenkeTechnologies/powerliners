@@ -11893,3 +11893,192 @@ fn parity_renderer_np_character_translations_union_size() {
     let rs_n = powerliners::ported::renderer::np_character_translations().len();
     assert_eq!(rs_n, py_n, "np_character_translations union size mismatch");
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// renderers/vim — character_translations escapes '%' (vim %=literal-%)
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_renderer_vim_character_translations_doubles_percent() {
+    // py renderers/vim.py:30  character_translations[ord('%')] = '%%'
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.renderers.vim import VimRenderer; \
+         t = VimRenderer.character_translations; \
+         print(t.get(ord('%'), 'missing'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "%%");
+    let rs = powerliners::ported::renderers::vim::VimRenderer::character_translations();
+    let pct = rs
+        .iter()
+        .find(|(c, _)| *c == '%')
+        .map(|(_, s)| *s)
+        .expect("% override missing in VimRenderer");
+    assert_eq!(pct, py);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// theme — divider lookup + accessor invariants
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_theme_get_divider_left_hard() {
+    // py theme.py:116-118  return self.dividers[side][type]
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.theme import Theme; \
+         t = Theme(dividers={'left': {'hard': 'L', 'soft': 'l'}, \
+                              'right': {'hard': 'R', 'soft': 'r'}}, \
+                   colorscheme=None, segments=[]); \
+         print(t.get_divider('left', 'hard'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "L");
+    let mut dividers = serde_json::Map::new();
+    let mut left = serde_json::Map::new();
+    left.insert("hard".to_string(), serde_json::Value::String("L".into()));
+    left.insert("soft".to_string(), serde_json::Value::String("l".into()));
+    dividers.insert("left".to_string(), serde_json::Value::Object(left));
+    let theme = powerliners::ported::theme::Theme {
+        colorscheme: serde_json::Value::Null,
+        dividers,
+        cursor_space_multiplier: None,
+        cursor_columns: None,
+        spaces: 1,
+        outer_padding: 1,
+        segments: vec![],
+        empty_segment: serde_json::Value::Null,
+        shutdown_called: std::sync::Mutex::new(Vec::new()),
+    };
+    let rs = theme.get_divider("left", "hard");
+    assert_eq!(rs.as_deref(), Some(py.as_str()));
+}
+
+#[test]
+fn parity_theme_get_divider_missing_side_returns_none() {
+    // py: KeyError → exception; Rust port returns Option::None.
+    // Compare presence/absence rather than exact value.
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.theme import Theme; \
+         t = Theme(dividers={'left': {'hard': 'X'}}, colorscheme=None, segments=[]); \
+         try: \
+           r = t.get_divider('right', 'hard') \
+         except (KeyError, IndexError): \
+           r = None; \
+         print('None' if r is None else r, end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let mut dividers = serde_json::Map::new();
+    let mut left = serde_json::Map::new();
+    left.insert("hard".to_string(), serde_json::Value::String("X".into()));
+    dividers.insert("left".to_string(), serde_json::Value::Object(left));
+    let theme = powerliners::ported::theme::Theme {
+        colorscheme: serde_json::Value::Null,
+        dividers,
+        cursor_space_multiplier: None,
+        cursor_columns: None,
+        spaces: 1,
+        outer_padding: 1,
+        segments: vec![],
+        empty_segment: serde_json::Value::Null,
+        shutdown_called: std::sync::Mutex::new(Vec::new()),
+    };
+    let rs = theme.get_divider("right", "hard");
+    assert!(rs.is_none(), "missing side should return None");
+    assert!(
+        py == "None" || py.is_empty(),
+        "py should report None on missing side, got {:?}",
+        py
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// theme/new_empty_segment_line — fresh segment line shape
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_theme_new_empty_segment_line_keys_left_and_right() {
+    // py theme.py:54  new_empty_segment_line: {'left': [], 'right': []}
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "import json; \
+         from powerline.theme import new_empty_segment_line; \
+         print(json.dumps(new_empty_segment_line(), sort_keys=True), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::theme::new_empty_segment_line();
+    let rs_json = serde_json::to_string(&rs).expect("serialize");
+    let py_compact = py.replace(", ", ",").replace(": ", ":");
+    assert_eq!(rs_json, py_compact, "new_empty_segment_line shape mismatch");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/memoize — default_cache_key stable across calls with same args
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_memoize_default_cache_key_stable_for_identical_kwargs() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "import json; \
+         mod = __import__('powerline.lib.memoize', fromlist=['default_cache_key']); \
+         d = {'a': 1, 'b': 'x'}; \
+         k1 = mod.default_cache_key(**d); \
+         k2 = mod.default_cache_key(**d); \
+         print(str(k1 == k2), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "True", "py keys should be equal for identical input");
+    let mut kwargs = serde_json::Map::new();
+    kwargs.insert("a".to_string(), serde_json::Value::from(1));
+    kwargs.insert("b".to_string(), serde_json::Value::String("x".into()));
+    let k1 = powerliners::ported::lib::memoize::default_cache_key(&kwargs);
+    let k2 = powerliners::ported::lib::memoize::default_cache_key(&kwargs);
+    assert_eq!(k1, k2, "rs default_cache_key should be deterministic");
+}
+
+#[test]
+fn parity_memoize_default_cache_key_differs_for_different_kwargs() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "mod = __import__('powerline.lib.memoize', fromlist=['default_cache_key']); \
+         k1 = mod.default_cache_key(a=1); \
+         k2 = mod.default_cache_key(a=2); \
+         print(str(k1 != k2), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "True", "py keys should differ for different input");
+    let mut kw1 = serde_json::Map::new();
+    kw1.insert("a".to_string(), serde_json::Value::from(1));
+    let mut kw2 = serde_json::Map::new();
+    kw2.insert("a".to_string(), serde_json::Value::from(2));
+    let k1 = powerliners::ported::lib::memoize::default_cache_key(&kw1);
+    let k2 = powerliners::ported::lib::memoize::default_cache_key(&kw2);
+    assert_ne!(k1, k2, "rs keys should differ for different kwargs");
+}
