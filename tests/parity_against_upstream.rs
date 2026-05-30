@@ -13444,3 +13444,112 @@ fn parity_renderer_strwidth_empty_string_is_zero() {
     let rs = powerliners::ported::renderer::strwidth("");
     assert_eq!(rs, 0, "empty string width should be 0");
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// renderer::width_data — 6-class table with ambiwidth
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_renderer_width_data_table_size() {
+    // py:173-180  width_data has 6 entries: N/Na/A/H/W/F
+    let table = powerliners::ported::renderer::width_data(1);
+    assert_eq!(table.len(), 6, "width_data should have 6 entries");
+}
+
+#[test]
+fn parity_renderer_width_data_ambiwidth_1_makes_ambiguous_narrow() {
+    let table = powerliners::ported::renderer::width_data(1);
+    assert_eq!(table.get(&'A'), Some(&1), "ambiwidth=1 → A=1");
+}
+
+#[test]
+fn parity_renderer_width_data_ambiwidth_2_makes_ambiguous_wide() {
+    let table = powerliners::ported::renderer::width_data(2);
+    assert_eq!(table.get(&'A'), Some(&2), "ambiwidth=2 → A=2");
+}
+
+#[test]
+fn parity_renderer_width_data_wide_and_fullwidth_are_two() {
+    let table = powerliners::ported::renderer::width_data(1);
+    assert_eq!(table.get(&'W'), Some(&2), "W (wide) should be 2");
+    assert_eq!(table.get(&'F'), Some(&2), "F (fullwidth) should be 2");
+}
+
+#[test]
+fn parity_renderer_width_data_narrow_neutral_halfwidth_are_one() {
+    let table = powerliners::ported::renderer::width_data(1);
+    assert_eq!(table.get(&'N'), Some(&1), "N (neutral) should be 1");
+    assert_eq!(table.get(&'a'), Some(&1), "Na (narrow) 'a' key, =1");
+    assert_eq!(table.get(&'H'), Some(&1), "H (half-width) should be 1");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// renderer::np_invalid_character_translations — boundary entries
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_renderer_np_invalid_0xdc80_maps_to_angle_80() {
+    // py renderer.py:30-40  0xDC80 → '<80>' surrogate replacement
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline import renderer; \
+         print(renderer.np_invalid_character_translations.get(0xDC80), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "<80>");
+    let table = powerliners::ported::renderer::np_invalid_character_translations();
+    let rs = table.get(&0xDC80).map(|s| s.as_str());
+    assert_eq!(rs, Some(py.as_str()));
+}
+
+#[test]
+fn parity_renderer_np_invalid_0xdcff_maps_to_angle_ff() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline import renderer; \
+         print(renderer.np_invalid_character_translations.get(0xDCFF), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert!(
+        py.eq_ignore_ascii_case("<ff>"),
+        "py format mismatch: {:?}",
+        py
+    );
+    let table = powerliners::ported::renderer::np_invalid_character_translations();
+    let rs = table.get(&0xDCFF).map(|s| s.as_str());
+    assert!(
+        rs.unwrap_or("").eq_ignore_ascii_case(&py),
+        "rs={:?}, py={:?}",
+        rs,
+        py
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// renderer::compute_divider_widths — Map shape
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_renderer_compute_divider_widths_returns_left_and_right_keys() {
+    let get_divider = |_side: &str, _kind: &str| "X".to_string();
+    let r = powerliners::ported::renderer::compute_divider_widths(get_divider);
+    assert!(r.contains_key("left"), "missing 'left' key");
+    assert!(r.contains_key("right"), "missing 'right' key");
+}
+
+#[test]
+fn parity_renderer_compute_divider_widths_per_side_has_hard_and_soft() {
+    let get_divider = |_side: &str, _kind: &str| "•".to_string();
+    let r = powerliners::ported::renderer::compute_divider_widths(get_divider);
+    let left = r.get("left").and_then(|v| v.as_object()).expect("left obj");
+    assert!(left.contains_key("hard"), "left.hard missing");
+    assert!(left.contains_key("soft"), "left.soft missing");
+}
