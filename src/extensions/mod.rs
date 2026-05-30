@@ -17,17 +17,26 @@
 //! `src/bin/shared/render_runtime.rs` so the daemon's segment lookup
 //! finds them without a Python `__import__` round-trip.
 //!
-//! - [`gpu`]      — `powerliners.gpu.{gpu_usage_percent,gpu_vram}`
+//! - [`gpu`]        — `powerliners.gpu.{gpu_usage_percent,gpu_vram}`
 //!   (vendor-dispatched: nvidia-smi → rocm-smi → ioreg → intel_gpu_top)
-//! - [`disk`]     — `powerliners.disk.{disk_usage,disk_usage_percent,disk_io}`
-//! - [`thermal`]  — `powerliners.thermal.thermal` (CPU/GPU temp + fan RPM)
+//! - [`disk`]       — `powerliners.disk.{disk_usage,disk_usage_percent,disk_io}`
+//! - [`thermal`]    — `powerliners.thermal.thermal` (CPU/GPU temp + fan RPM)
+//! - [`docker`]     — `powerliners.docker.containers` (running/total/images
+//!   via `docker ps` / OCI-compatible CLI)
+//! - [`k8s`]        — `powerliners.k8s.kubecontext` (current kubectl
+//!   context + active namespace, honors KUBECONFIG cascade)
+//! - [`proc_count`] — `powerliners.proc.process_count` (POSIX `ps -eo
+//!   stat=` tally by state code: running/sleeping/zombie/dwait/stopped)
 
 pub mod bundled_config;
 pub mod diag_log;
 pub mod disk;
+pub mod docker;
 pub mod exec_segment;
 pub mod git_status;
 pub mod gpu;
 pub mod icons;
+pub mod k8s;
 pub mod mem_usage;
+pub mod proc_count;
 pub mod thermal;

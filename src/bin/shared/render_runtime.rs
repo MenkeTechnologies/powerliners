@@ -864,6 +864,63 @@ fn ad_mem_swap_percentage(args: &Map<String, Value>, _info: &Map<String, Value>)
     Some(Value::Array(mem_swap_percentage(format, mem_type)))
 }
 
+fn ad_docker_containers(
+    args: &Map<String, Value>,
+    _info: &Map<String, Value>,
+) -> Option<Value> {
+    use powerliners::extensions::docker::containers;
+    use powerliners::extensions::icons;
+    let default = format!("{} {{running}}/{{total}}", icons::docker());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&default);
+    let cli = args.get("cli").and_then(|v| v.as_str()).unwrap_or("docker");
+    let show_when_zero = args
+        .get("show_when_zero")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    containers(cli, format, show_when_zero).map(Value::Array)
+}
+
+fn ad_kubecontext(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::icons;
+    use powerliners::extensions::k8s::kubecontext;
+    let default = format!("{} {{context}}:{{namespace}}", icons::kubernetes());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&default);
+    let cli = args
+        .get("cli")
+        .and_then(|v| v.as_str())
+        .unwrap_or("kubectl");
+    let default_namespace = args
+        .get("default_namespace")
+        .and_then(|v| v.as_str())
+        .unwrap_or("default");
+    let hide_default = args
+        .get("hide_default")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    kubecontext(cli, format, default_namespace, hide_default).map(Value::Array)
+}
+
+fn ad_process_count(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::icons;
+    use powerliners::extensions::proc_count::process_count;
+    let default = format!("{} {{total}}", icons::process());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&default);
+    let warn_zombie = args
+        .get("warn_zombie")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    process_count(format, warn_zombie).map(Value::Array)
+}
+
 fn ad_exec(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
     // Option A — explicit `exec` adapter. Theme JSON:
     //   { "function": "exec",
@@ -2139,6 +2196,12 @@ pub const ADAPTERS: &[(&str, AdapterFn)] = &[
     ("powerliners.disk.disk_io", ad_disk_io),
     ("powerliners.thermal.thermal", ad_thermal),
     ("powerliners.vcs.git_status", ad_git_status),
+    // Docker / OCI containers — src/extensions/docker.rs
+    ("powerliners.docker.containers", ad_docker_containers),
+    // Kubernetes context — src/extensions/k8s.rs
+    ("powerliners.k8s.kubecontext", ad_kubecontext),
+    // POSIX process tally — src/extensions/proc_count.rs
+    ("powerliners.proc.process_count", ad_process_count),
     // User-extensibility (`src/extensions/exec_segment.rs`):
     //   Option A — explicit `exec` adapter spawns args.command + parses
     //   stdout. Theme JSON references `"function": "exec"`.
@@ -2721,6 +2784,9 @@ mod tests {
             ("powerliners.vcs", "git_status"),
             ("powerlinemem.mem_usage", "mem_usage"),
             ("powerlinemem.mem_usage", "mem_swap_percentage"),
+            ("powerliners.docker", "containers"),
+            ("powerliners.k8s", "kubecontext"),
+            ("powerliners.proc", "process_count"),
         ] {
             let id = adapter_id(mod_, name).unwrap_or_else(|| {
                 panic!("extension adapter {mod_}.{name} missing from ADAPTERS")

@@ -99,6 +99,25 @@ pub fn tag() -> &'static str {
     pick("\u{F02B}", "⚑", "tag:")
 }
 
+/// Docker / OCI container. NF: nf-md-docker (U+ED7E). Unicode: 🐳
+/// + VS-15 for text presentation. ASCII: `D:`.
+pub fn docker() -> &'static str {
+    pick("\u{ED7E}", "🐳\u{FE0E}", "D:")
+}
+
+/// Kubernetes helm-wheel. NF: nf-md-kubernetes (U+F10FE). Unicode:
+/// ⎈ (helm symbol, the canonical k8s glyph in any text terminal).
+/// ASCII: `k8s:`.
+pub fn kubernetes() -> &'static str {
+    pick("\u{F10FE}", "⎈", "k8s:")
+}
+
+/// Process / task icon. NF: nf-md-cog (U+F0493 — gear, "running").
+/// Unicode: ⚙ gear with text presentation. ASCII: `P:`.
+pub fn process() -> &'static str {
+    pick("\u{F0493}", "⚙\u{FE0E}", "P:")
+}
+
 // --- Weather glyphs, keyed by upstream condition name ----------
 
 /// Sunny / day. NF: nf-weather-day_sunny (U+E30D). Unicode: ☀.
