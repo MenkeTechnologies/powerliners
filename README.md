@@ -13,8 +13,8 @@
 ---
 
 [![Status](https://img.shields.io/badge/status-134%2F137%20DONE-39ff14.svg)](#-status)
-[![Tests](https://img.shields.io/badge/lib%20tests-2097%20passing-39ff14.svg)](#-status)
-[![Parity](https://img.shields.io/badge/parity%20tests-397%20vs%20upstream-05d9e8.svg)](#-status)
+[![Tests](https://img.shields.io/badge/lib%20tests-2152%20passing-39ff14.svg)](#-status)
+[![Parity](https://img.shields.io/badge/parity%20tests-462%20vs%20upstream-05d9e8.svg)](#-status)
 [![Bugs Fixed](https://img.shields.io/badge/port%20bugs%20fixed-11-d300c5.svg)](#-status)
 [![Source](https://img.shields.io/badge/port_of-powerline--status-05d9e8.svg)](https://github.com/powerline/powerline)
 [![Language](https://img.shields.io/badge/lang-rust-d300c5.svg)](https://www.rust-lang.org/)
@@ -66,8 +66,8 @@ Drop-in compatible with the existing `powerline/config` JSON theme + segment fil
 [port progress]   134 / 137 upstream .py files at DONE tier (97.8%)
 [remaining]       3 NEAR — class-only Python sources at classifier ceiling
 [partial/sparse]  0 / 0 — no degraded files
-[lib tests]       2097 passing, 0 failing, 0 ignored
-[parity tests]    454 against live upstream Python — every assertion runs the
+[lib tests]       2152 passing, 0 failing, 0 ignored
+[parity tests]    462 against live upstream Python — every assertion runs the
                   Python interpreter on the upstream powerline source and
                   compares byte/value identical with the Rust port
 [port bugs fixed] 11 surfaced by the parity harness and corrected in the
@@ -114,14 +114,16 @@ upstream Python `powerline` C client. The render path covers:
   hard/soft divider insertion and per-side outer padding
 - TmuxRenderer `#[…]` markup emission with `term_truecolor` cterm path
 
-34 segment adapters wired in `src/bin/shared/render_runtime.rs` (shared
+40 segment adapters wired in `src/bin/shared/render_runtime.rs` (shared
 between `powerline-daemon` and `powerline-render`): `battery`, `branch`,
 `clementine`, `cmus`, `cpu_load_percent`, `cwd`, `date`, `dbus_player`,
-`disk_io`, `disk_usage`, `email_imap_alert`, `environment`,
-`external_ip`, `fuzzy_time`, `gpu`, `hostname`, `internal_ip`, `itunes`,
-`jobnum`, `last_pipe_status`, `last_status`, `mem_usage`, `mocp`, `mpd`,
-`network_load`, `rhythmbox`, `spotify`, `stash`, `system_load`,
-`thermal`, `uptime`, `user`, `virtualenv`, `weather`.
+`disk_io`, `disk_usage`, `disk_usage_percent`, `email_imap_alert`,
+`environment`, `exec`, `external_ip`, `fuzzy_time`, `gpu_usage_percent`,
+`gpu_vram`, `hostname`, `internal_ip`, `itunes`, `jobnum`,
+`last_pipe_status`, `last_status`, `mem_swap`, `mem_swap_percentage`,
+`mem_usage`, `mem_usage_percent`, `mocp`, `mpd`, `network_load`,
+`rhythmbox`, `spotify`, `stash`, `system_load`, `thermal`, `uptime`,
+`user`, `virtualenv`, `weather`.
 
 Point it at a config root via `POWERLINE_CONFIG_PATHS`:
 
