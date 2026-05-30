@@ -12620,3 +12620,205 @@ fn parity_lib_dict_updated_does_not_mutate_original() {
     let py_compact = py.replace(", ", ",").replace(": ", ":");
     assert_eq!(rs_json, py_compact, "original d should be untouched");
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// CLI `-m`/`--mode` shorthand (Rust-port deviation, ergonomic alias
+// for `-R mode=VALUE` so zsh/bash bindings can pass current vi mode
+// without spelling out the renderer_arg form).
+//
+// Upstream Python has no `-m` flag — the mode flows through
+// `renderer_arg["mode"]`. The Rust client pushes "mode=VALUE" into
+// `renderer_arg`, then finish_args merges into renderer_arg_merged,
+// then render_once lifts to `Renderer.render(mode=…)`. These tests
+// pin the end-to-end propagation.
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn argv_m_short_flag_pushes_mode_into_renderer_arg() {
+    let a = powerliners::ported::scripts::powerline_daemon::parse_client_argv(&[
+        "shell".to_string(),
+        "-m".to_string(),
+        "insert".to_string(),
+    ]);
+    let renderer_args = a.renderer_arg.expect("renderer_arg populated by -m");
+    assert!(
+        renderer_args.contains(&"mode=insert".to_string()),
+        "renderer_arg should contain 'mode=insert', got {:?}",
+        renderer_args
+    );
+}
+
+#[test]
+fn argv_mode_long_flag_pushes_mode_into_renderer_arg() {
+    let a = powerliners::ported::scripts::powerline_daemon::parse_client_argv(&[
+        "shell".to_string(),
+        "--mode".to_string(),
+        "vicmd".to_string(),
+    ]);
+    let renderer_args = a.renderer_arg.expect("renderer_arg populated by --mode");
+    assert!(
+        renderer_args.contains(&"mode=vicmd".to_string()),
+        "renderer_arg should contain 'mode=vicmd', got {:?}",
+        renderer_args
+    );
+}
+
+#[test]
+fn argv_m_value_flows_through_finish_args_to_renderer_arg_merged() {
+    let mut a = powerliners::ported::scripts::powerline_daemon::parse_client_argv(&[
+        "shell".to_string(),
+        "left".to_string(),
+        "-m".to_string(),
+        "insert".to_string(),
+    ]);
+    let environ: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    powerliners::ported::commands::main::finish_args(&environ, &mut a, false).expect("finish_args");
+    let merged = a
+        .renderer_arg_merged
+        .as_ref()
+        .expect("renderer_arg_merged populated");
+    let mode = merged
+        .get("mode")
+        .and_then(|v| v.as_str())
+        .expect("merged['mode'] populated");
+    assert_eq!(
+        mode, "insert",
+        "renderer_arg_merged['mode'] should propagate to 'insert'"
+    );
+}
+
+#[test]
+fn argv_m_combined_with_explicit_dash_r_renderer_arg() {
+    // Both forms together: -m wins last per append-order semantics
+    // (mergeargs folds the chain).
+    let mut a = powerliners::ported::scripts::powerline_daemon::parse_client_argv(&[
+        "shell".to_string(),
+        "left".to_string(),
+        "-R".to_string(),
+        "mode=normal".to_string(),
+        "-m".to_string(),
+        "insert".to_string(),
+    ]);
+    let environ: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    powerliners::ported::commands::main::finish_args(&environ, &mut a, false).expect("finish_args");
+    let mode = a
+        .renderer_arg_merged
+        .as_ref()
+        .and_then(|m| m.get("mode"))
+        .and_then(|v| v.as_str())
+        .expect("merged mode");
+    assert_eq!(mode, "insert", "-m wins when appended after -R mode=...");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// bindings/config::init_tmux_environment — _POWERLINE_* emit parity
+//
+// The Python `init_tmux_environment` walks the colorscheme + theme and
+// emits ~30 named `_POWERLINE_*` env vars via `set_tmux_environment`.
+// Pin the SET of var names so adding/removing one trips the test —
+// these names are referenced by name in the bundled powerline-base.conf
+// and the tmux user's status-line `#{...}` references.
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_bindings_config_init_tmux_environment_emits_known_env_vars() {
+    use powerliners::ported::_find_config_files;
+    use powerliners::ported::bindings::config::init_tmux_environment;
+    use powerliners::ported::colorscheme::Colorscheme;
+    use powerliners::ported::lib::config::load_json_config;
+    use powerliners::ported::renderers::tmux::TmuxRenderer;
+    use powerliners::ported::theme::Theme;
+
+    // Build search path from the in-tree mirror so the test is hermetic.
+    let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let paths = vec![manifest.join("src/ported/config_files")];
+
+    let load = |name: &str| -> Option<serde_json::Map<String, serde_json::Value>> {
+        let m = _find_config_files(&paths, name).ok()?;
+        let p = m.first()?;
+        let v = load_json_config(p).ok()?;
+        v.as_object().cloned()
+    };
+    let colors = load("colors").expect("colors.json");
+    let cs_main = load("colorschemes/tmux/default").expect("colorschemes/tmux/default in mirror");
+    let theme_main = load("themes/powerline_terminus").expect("powerline_terminus theme");
+
+    let colorscheme = Colorscheme::new(&cs_main, &colors);
+    let mut theme = Theme::new();
+    if let Some(d) = theme_main.get("dividers").and_then(|v| v.as_object()) {
+        theme.dividers = d.clone();
+    }
+    let renderer = TmuxRenderer::new(false);
+
+    let env_vars = init_tmux_environment(&colorscheme, &theme, &renderer, false);
+    let names: std::collections::BTreeSet<String> =
+        env_vars.iter().map(|(k, _)| k.clone()).collect();
+
+    // Names that the bundled tmux/default.json's groups produce —
+    // these MUST be present whenever a tmux colorscheme is loaded:
+    // window/window:current/session/active_window_status are direct
+    // group hits, plus the divider names that come from the theme.
+    for required in &[
+        "_POWERLINE_ACTIVE_WINDOW_STATUS_COLOR",
+        "_POWERLINE_WINDOW_STATUS_COLOR",
+        "_POWERLINE_WINDOW_COLOR",
+        "_POWERLINE_WINDOW_CURRENT_COLOR",
+        "_POWERLINE_SESSION_COLOR",
+        "_POWERLINE_LEFT_HARD_DIVIDER",
+        "_POWERLINE_LEFT_SOFT_DIVIDER",
+    ] {
+        assert!(
+            names.contains(*required),
+            "init_tmux_environment missing required var {:?}; got {:?}",
+            required,
+            names
+        );
+    }
+}
+
+#[test]
+fn parity_bindings_config_init_tmux_environment_emits_color_string_form() {
+    use powerliners::ported::_find_config_files;
+    use powerliners::ported::bindings::config::init_tmux_environment;
+    use powerliners::ported::colorscheme::Colorscheme;
+    use powerliners::ported::lib::config::load_json_config;
+    use powerliners::ported::renderers::tmux::TmuxRenderer;
+    use powerliners::ported::theme::Theme;
+
+    let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let paths = vec![manifest.join("src/ported/config_files")];
+    let load = |name: &str| -> Option<serde_json::Map<String, serde_json::Value>> {
+        let m = _find_config_files(&paths, name).ok()?;
+        let p = m.first()?;
+        let v = load_json_config(p).ok()?;
+        v.as_object().cloned()
+    };
+    let colors = load("colors").expect("colors");
+    let cs_main = load("colorschemes/tmux/default").expect("cs default");
+    let theme_main = load("themes/powerline_terminus").expect("theme");
+    let colorscheme = Colorscheme::new(&cs_main, &colors);
+    let mut theme = Theme::new();
+    if let Some(d) = theme_main.get("dividers").and_then(|v| v.as_object()) {
+        theme.dividers = d.clone();
+    }
+    let renderer = TmuxRenderer::new(false);
+    let env_vars = init_tmux_environment(&colorscheme, &theme, &renderer, false);
+
+    // _POWERLINE_WINDOW_COLOR value should look like
+    // "fg=colourN,bg=colourM,..." — the tmux `#[...]` directive form.
+    let value = env_vars
+        .iter()
+        .find(|(k, _)| k == "_POWERLINE_WINDOW_COLOR")
+        .map(|(_, v)| v.clone())
+        .expect("WINDOW_COLOR missing");
+    assert!(
+        value.contains("colour"),
+        "WINDOW_COLOR should contain 'colour' (cterm form), got {:?}",
+        value
+    );
+    assert!(
+        value.contains("fg=") || value.contains("bg="),
+        "WINDOW_COLOR should contain fg= or bg= directive, got {:?}",
+        value
+    );
+}
