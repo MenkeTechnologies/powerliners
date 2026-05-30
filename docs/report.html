@@ -112,7 +112,7 @@
         <tr><td>Bindings — ipython</td><td><code>src/ported/bindings/ipython/</code></td><td>3 version flavours: pre_0_11, since_5, since_7</td></tr>
         <tr><td>Bindings — config</td><td><code>src/ported/bindings/config.rs</code></td><td>shared config loader</td></tr>
         <tr><td>Daemon lifecycle</td><td><code>src/ported/scripts/powerline_daemon.rs</code> + <code>src/bin/powerline-daemon.rs</code></td><td>UNIX socket bind + daemonize + pidfile lock + accept loop</td></tr>
-        <tr><td>Parity harness</td><td><code>tests/parity_against_upstream.rs</code></td><td>219 tests piping the same input through upstream Python and Rust</td></tr>
+        <tr><td>Parity harness</td><td><code>tests/parity_against_upstream.rs</code></td><td>368 tests piping the same input through upstream Python and Rust</td></tr>
         <tr><td>Audit harness</td><td><code>tests/ported_fn_names_match_py.rs</code></td><td>enforces fn name parity with upstream py</td></tr>
         <tr><td>Allowlist</td><td><code>docs/powerline_py_functions.txt</code></td><td>631 upstream py fns (regenerable)</td></tr>
         <tr><td>Exemptions</td><td><code>tests/data/fake_fn_allowlist.txt</code></td><td>maintainer-approved Rust-only fns</td></tr>
@@ -161,7 +161,7 @@ test result: ok.  219 passed; 0 failed   # tests/parity_against_upstream.rs</pre
         <li>Wire the daemon render path through the orchestrator so <code>powerline-daemon</code> serves segment output over its UNIX socket instead of the current placeholder string.</li>
         <li>End-to-end byte-identical comparison: feed <code>powerline/config/themes/tmux/default.json</code> through both the Rust pipeline and <code>python -m powerline.commands.main</code>, assert byte-identical output.</li>
         <li>First benchmark: render the user's daily-driver tmux config 10,000× and report wall-clock vs upstream py.</li>
-        <li>Grow the parity harness past the current 219 tests — at minimum one fixture per Python source file with function bodies.</li>
+        <li>Grow the parity harness past the current 368 tests — at minimum one fixture per Python source file with function bodies.</li>
       </ol>
     </section>
   </main>
