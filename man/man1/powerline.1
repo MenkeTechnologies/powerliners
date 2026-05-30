@@ -1,0 +1,172 @@
+.\" Manpage for powerline (powerliners).
+.\" Contact https://github.com/MenkeTechnologies/powerliners to correct errors or omissions.
+.TH POWERLINE 1 "2026-05-30" "powerliners 0.2.1" "User Commands"
+.SH NAME
+powerline \- native Rust statusline / prompt client (zero-Python powerline-status drop-in)
+.SH SYNOPSIS
+.B powerline
+[\fB\-\-socket\fR \fIPATH\fR]
+\fIEXT\fR
+[\fIARGS\fR...]
+.SH DESCRIPTION
+.B powerline
+is the native Rust client for the powerline statusline / prompt rendering
+system. It is a 1:1 port of upstream's
+.B vendor/powerline/client/powerline.c
+and is invoked by tmux, zsh, bash, vim, and ipython through the
+.B $POWERLINE_COMMAND
+environment variable.
+.PP
+On invocation,
+.B powerline
+builds a wire request from \fIargv\fR, the current working directory, and
+the inherited environment, sends it over a Unix socket to a running
+.BR powerline-daemon (1),
+and copies the rendered statusline / prompt response to standard output.
+If the daemon socket is not reachable it execs
+.BR powerline-render (1)
+as a fallback, mirroring the upstream C client behavior.
+.PP
+This native binary replaces the Python
+.B powerline
+shell command. There is no Python interpreter import cost, no GIL, and
+no GC pause; render is sub\(hymillisecond on a warm daemon.
+.SH OPTIONS
+.TP
+.BR \-\-socket " " \fIPATH\fR
+Override the default Unix-socket path used to reach
+.BR powerline-daemon (1).
+Must appear as the
+.B first
+argument (before \fIEXT\fR), per the C-client convention. When absent,
+the platform-specific default is used (see
+.B FILES
+below).
+.PP
+All other \fIARGS\fR after \fIEXT\fR are forwarded verbatim to the
+daemon. See
+.BR powerline-render (1)
+for the canonical list of extension-targeted arguments.
+.SH EXTENSIONS
+\fIEXT\fR selects which powerline extension to render. Stock extensions:
+.TP
+.B tmux
+Tmux statusline segments.
+.TP
+.B shell
+Shell prompt (zsh, bash continuation, fish, etc.); subtypes pass through
+the next arg (\fBleft\fR, \fBright\fR, \fBcontinuation\fR).
+.TP
+.B vim
+Vim statusline / tabline; only used via the Python ipython binding.
+.TP
+.B ipython
+IPython prompt / continuation.
+.TP
+.B wm
+i3 / awesome / qtile widget binding.
+.SH ENVIRONMENT
+.TP
+.B POWERLINE_COMMAND
+The command that shell integrations invoke to render their prompt. Set to
+.B powerline
+(this binary) once installed; existing setups that hardcode the upstream
+Python shim continue to work transparently because the wire format is
+identical.
+.TP
+.B POWERLINE_CONFIG_PATHS
+Colon-separated list of directories searched for
+.B config.json
+and themes / colors / segments JSON. Mirrors upstream search order.
+.TP
+.B POWERLINE_CONFIG_OVERRIDES
+Theme-override key=value pairs applied per-extension.
+.SH FILES
+.TP
+.B /tmp/powerline-ipc-<uid>
+Filesystem Unix socket the daemon listens on (macOS, BSD).
+.TP
+.B \\0powerline-ipc-<uid>
+Abstract Unix socket (Linux). Not visible via
+.BR ls (1)
+or
+.BR fuser (1)
+because it has no filesystem path.
+.TP
+.B ~/.config/powerline/config.json
+User config root. Merged over the system / package defaults.
+.TP
+.B ~/.config/powerline/themes/
+Per-extension theme directories (
+.BR tmux/ ,
+.BR shell/ ,
+.BR vim/ ,
+.BR ipython/ ).
+.SH EXIT STATUS
+.TP
+.B 0
+Successful render (output written to stdout).
+.TP
+.B non-zero
+Daemon unreachable AND fallback exec of
+.BR powerline-render (1)
+failed.
+.SH EXAMPLES
+.PP
+Render the tmux statusline:
+.PP
+.RS
+.nf
+$ powerline tmux statusline
+.fi
+.RE
+.PP
+Render the zsh left-prompt with the daemon running on a custom socket:
+.PP
+.RS
+.nf
+$ powerline --socket /tmp/my-powerline shell left
+.fi
+.RE
+.PP
+Typical tmux integration (
+.BR ~/.tmux.conf ):
+.PP
+.RS
+.nf
+set -g status-interval 2
+set -g status-left "#(powerline tmux left)"
+set -g status-right "#(powerline tmux right)"
+.fi
+.RE
+.PP
+Typical zsh integration (
+.BR ~/.zshrc ):
+.PP
+.RS
+.nf
+function powerline_precmd() {
+    PS1="$(powerline shell left --last-exit-code=$? --jobnum=$(jobs -p | wc -l))"
+}
+precmd_functions+=(powerline_precmd)
+.fi
+.RE
+.SH SEE ALSO
+.BR powerline-daemon (1),
+.BR powerline-render (1),
+.BR powerline-config (1),
+.BR powerline-lint (1),
+.BR tmux (1),
+.BR zsh (1)
+.PP
+Upstream Python powerline-status:
+.UR https://powerline.readthedocs.io
+.UE .
+.SH AUTHORS
+MenkeTechnologies. 1:1 Rust port of the upstream Python
+.B powerline-status
+project by Kim Silkebækken et al.
+.SH BUGS
+Report at
+.UR https://github.com/MenkeTechnologies/powerliners/issues
+.UE .

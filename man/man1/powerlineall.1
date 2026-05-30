@@ -1,0 +1,430 @@
+.\" Comprehensive manpage for the powerliners binary suite (5 binaries).
+.\" Contact https://github.com/MenkeTechnologies/powerliners to correct errors or omissions.
+.TH POWERLINEALL 1 "2026-05-30" "powerliners 0.2.1" "User Commands"
+.SH NAME
+powerlineall \- comprehensive reference for the powerliners 5-binary suite (powerline / powerline-daemon / powerline-config / powerline-render / powerline-lint)
+.SH OVERVIEW
+.B powerliners
+is a 1:1 Rust port of the upstream Python
+.B powerline-status
+project. It ships five cooperating binaries that together replace the
+entire Python implementation while preserving the existing
+.B ~/.config/powerline/
+JSON config tree byte-for-byte.
+.PP
+This manpage documents the suite as a whole: invocation order, wire
+protocol between client and daemon, config-lookup cascade, theme
+grammar, segment dispatch, and the rendering pipeline. For individual
+binaries see the per-binary
+.BR powerline (1),
+.BR powerline-daemon (1),
+.BR powerline-render (1),
+.BR powerline-config (1),
+.BR powerline-lint (1)
+pages.
+.SH SYNOPSIS
+.B powerline
+[\fB\-\-socket\fR \fIPATH\fR]
+\fIEXT\fR
+[\fIARGS\fR...]
+.PP
+.B powerline-daemon
+[\fB\-\-foreground\fR | \fB\-\-quiet\fR | \fB\-\-replace\fR | \fB\-\-kill\fR]
+[\fB\-\-socket\fR \fIPATH\fR]
+.PP
+.B powerline-render
+\fIEXT\fR
+[\fIARGS\fR...]
+.PP
+.B powerline-config
+\fISUBCOMMAND\fR
+[\fIARGS\fR...]
+.PP
+.B powerline-lint
+[\fB\-p\fR \fIPATH\fR]
+.SH DESCRIPTION
+.SH "1.  ARCHITECTURE"
+.B powerliners
+splits the rendering pipeline into a long-lived daemon and a thin
+fork-on-demand client:
+.IP \(bu 2
+.B powerline-daemon
+\(em a single Unix-socket server per UID. Loads the JSON config tree
+once, instantiates segment classes once, holds the theme dictionaries
+and color palettes in memory.
+.IP \(bu 2
+.B powerline
+\(em the lightweight client. Forwards \fIargv\fR + \fIcwd\fR + the
+environment to the daemon over a Unix socket and copies the rendered
+statusline to stdout. Falls back to
+.B powerline-render
+when the daemon is unreachable.
+.IP \(bu 2
+.B powerline-render
+\(em the direct-render fallback. Same render path as the daemon but
+no socket; pays the full config-load cost on every invocation.
+.IP \(bu 2
+.B powerline-config
+\(em config-introspection helper. Used by shell init scripts to locate
+the right
+.B powerline.sh
+bindings to source.
+.IP \(bu 2
+.B powerline-lint
+\(em static-analysis tool. Validates
+.B config.json
++ theme JSON for unknown segment names, missing color references,
+malformed
+.B before/after
+formatting strings, and other authoring errors.
+.SH "2.  WIRE PROTOCOL"
+The
+.B powerline
+client and the
+.B powerline-daemon
+server communicate over an abstract or filesystem Unix socket. The
+wire format mirrors the upstream C client
+.RB ( vendor/powerline/client/powerline.c
+lines 126\-148):
+.PP
+.RS
+.nf
+hex(argc-1) "\\0" argv[0] "\\0" argv[1] "\\0" ... cwd "\\0" env[0] "\\0" ... "\\0\\0"
+.fi
+.RE
+.PP
+The server demarshals the request, dispatches to the appropriate
+.B Powerline.<ext>
+extension, and writes the rendered byte stream back. Cross\(hyversion
+clients and servers interop as long as the wire format is preserved.
+.SH "3.  SOCKET PATHS"
+.TP
+.B /tmp/powerline-ipc-<uid>
+Filesystem socket (macOS, FreeBSD, OpenBSD, NetBSD).
+.TP
+.B \\0powerline-ipc-<uid>
+Abstract socket (Linux). Has no filesystem entry; appears only in
+.BR ss (8) " -x"
+and
+.BR lsof (8) " -U"
+under the leading NUL marker. Survives
+.B /tmp
+cleanup races.
+.PP
+Both can be overridden with
+.B \-\-socket
+.IR PATH .
+.SH "4.  CONFIG CASCADE"
+.B powerline-render
+and
+.B powerline-daemon
+search for
+.B config.json
++ theme JSON in this order (first hit wins per key):
+.IP 1. 4
+.B $XDG_CONFIG_HOME/powerline/
+(falls back to
+.BR ~/.config/powerline/ ).
+.IP 2. 4
+.B $POWERLINE_CONFIG_PATHS
+\(em colon-separated user override roots.
+.IP 3. 4
+.B /etc/powerline/
+\(em system\(hywide overrides.
+.IP 4. 4
+The bundled defaults shipped with the
+.B powerliners
+package itself
+.RB ( vendor/powerline/powerline/config_files/ ).
+.PP
+Per-key merging follows the upstream Python
+.B mergedicts
+semantics: deep dictionary merge, REMOVE sentinel for explicit deletion,
+nested\(hylist append.
+.SH "5.  THEME GRAMMAR"
+A theme JSON file declares
+.IR segments :
+left / right list of segment specs, each segment naming a Python\(hystyle
+.B segment_data
+function (mapped in the Rust port to a dispatch table of
+.B fn(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value>
+adapters). The segment returns a list of
+.B highlight_groups
++ contents tuples. The theme's
+.B segment_data
+section can override
+.B args ,
+.BR contents ,
+.BR before / after ,
+or the
+.B priority
+for any segment by key.
+.PP
+Color palettes live in
+.BR colors.json ;
+named colors are referenced from
+.B colorschemes/<ext>.json
+which maps highlight\(hygroup names to
+.B fg / bg / attrs
+triples. The theme grammar is the same as upstream and any existing
+.B ~/.config/powerline/
+tree works unchanged.
+.SH "6.  SEGMENT DISPATCH"
+Segments fall into three categories:
+.TP
+.B common
+Cross\(hyextension segments (battery, network, weather, mail, hostname,
+cwd, vcs branch). Located under
+.BR src/ported/segments/common/ .
+.TP
+.B shell
+Shell\(hyspecific segments (
+.BR last_status ,
+.BR last_pipe_status ,
+.BR jobnum ,
+.BR continuation_marker ).
+.TP
+.B tmux
+Tmux\(hyspecific segments (
+.BR session_name ,
+.BR window_index ,
+.BR pane_count ).
+.PP
+The
+.B player
+segment family additionally supports per-player adapters (spotify, itunes,
+mocp, mpd, cmus, rhythmbox, clementine) through a common
+.B PlayerSegment
+base, faithfully mirroring upstream's class hierarchy.
+.SH "7.  DAEMON LIFECYCLE"
+.B powerline-daemon
+defaults to forking into the background after binding the socket
+.RB ( "powerline-daemon &"
+in
+.BR ~/.profile ),
+re\(hyexecs on
+.B SIGHUP
+(to pick up config changes without dropping the socket), and exits
+cleanly on
+.BR SIGTERM .
+.IP \(bu 2
+.B \-\-foreground
+keeps the daemon attached to the terminal (useful for systemd
+.B Type=simple
+units).
+.IP \(bu 2
+.B \-\-replace
+kills any existing daemon on the same socket and takes over.
+.IP \(bu 2
+.B \-\-kill
+sends SIGTERM to the running daemon and exits.
+.IP \(bu 2
+.B \-\-quiet
+suppresses startup banner / log output (analogous to upstream).
+.SH "8.  INVOCATION FROM SHELLS"
+.SS zsh
+.RS
+.nf
+function powerline_precmd() {
+    PS1="$(powerline shell left \\
+        --last-exit-code=$? \\
+        --jobnum=$(jobs -p | wc -l))"
+}
+precmd_functions+=(powerline_precmd)
+.fi
+.RE
+.SS bash
+.RS
+.nf
+PROMPT_COMMAND='PS1="$(powerline shell left \\
+    --last-exit-code=$? \\
+    --jobnum=$(jobs -p | wc -l))"'
+.fi
+.RE
+.SS tmux
+.RS
+.nf
+set -g status-interval 2
+set -g status-left  "#(powerline tmux left)"
+set -g status-right "#(powerline tmux right)"
+set -g status-style "bg=colour234,fg=colour231"
+.fi
+.RE
+.SS vim
+.RS
+.nf
+" let g:powerline_pycmd = 'py3'
+set rtp+=~/.local/lib/python3.X/site-packages/powerline/bindings/vim/
+set laststatus=2
+.fi
+.RE
+Vim integration retains the Python plumbing because vim's
+.B :python
+host is the only IPC path for inline script execution; the rendered
+content still comes from the
+.B powerline
+binary, just via a thin Python helper.
+.SH "9.  CONFIG INTROSPECTION"
+.B powerline-config
+subcommands:
+.TP
+.B tmux setup
+Print the
+.B tmux source-file
+fragment to wire powerline statusline + status\(hyleft / right + window
+status formats. Used by
+.B powerline.sh
+during shell init.
+.TP
+.B tmux source
+Print the path to the active
+.B powerline.tmux
+fragment so downstream
+.B source-file
+directives can pick it up.
+.TP
+.B shell command
+Print the shell command that should be set as
+.B $POWERLINE_COMMAND
+\(em useful for shells whose init script needs to detect the binary.
+.TP
+.B shell uses [SEGMENT]
+Exit 0 iff
+.I SEGMENT
+is referenced from any active theme. Used to gate optional segment
+setup (e.g. skip
+.B powerline.sh
+sourcing of git completion when no git segment is active).
+.SH "10.  LINTING"
+.B powerline-lint
+walks the config + theme cascade and reports:
+.IP \(bu 2
+Unknown segment function names referenced from themes.
+.IP \(bu 2
+Missing color names referenced from
+.BR colorschemes / .
+.IP \(bu 2
+Malformed
+.BR before / after / contents
+format strings (unbalanced braces, unknown variable references).
+.IP \(bu 2
+Type errors in JSON keys (e.g. a string where an integer
+.B priority
+is required).
+.IP \(bu 2
+Tuple\(hylength bounds violations (e.g. a 1\(hyelement tuple where 2\(hyelements are required).
+.SH "11.  ENVIRONMENT"
+.TP
+.B POWERLINE_COMMAND
+The command invoked by shell + tmux integrations. Set to
+.B powerline
+to use this native binary.
+.TP
+.B POWERLINE_CONFIG_PATHS
+Colon\(hyseparated config search roots.
+.TP
+.B POWERLINE_CONFIG_OVERRIDES
+.B key=value
+overrides applied to the resolved config dict per extension.
+.TP
+.B POWERLINE_NO_DAEMON
+If set, the
+.B powerline
+client skips the daemon socket and execs
+.B powerline-render
+directly. Useful when debugging daemon startup races.
+.TP
+.B XDG_CONFIG_HOME
+User config root; falls back to
+.B ~/.config
+if unset.
+.SH "12.  FILES"
+.TP
+.B ~/.config/powerline/config.json
+User config root.
+.TP
+.B ~/.config/powerline/themes/<ext>/
+Per\(hyextension theme JSON files.
+.TP
+.B ~/.config/powerline/colorschemes/<ext>.json
+Highlight\(hygroup color mappings.
+.TP
+.B ~/.config/powerline/colors.json
+Named color palette.
+.TP
+.B /tmp/powerline-ipc-<uid>
+Daemon Unix socket (macOS / BSD).
+.TP
+.B \\0powerline-ipc-<uid>
+Daemon Unix socket (Linux abstract).
+.TP
+.B /etc/powerline/
+System\(hywide config overrides.
+.SH "13.  EXIT STATUS"
+.TP
+.B 0
+Successful render (
+.B powerline ,
+.BR powerline-render ).
+.TP
+.B 0
+Daemon started successfully (
+.BR powerline-daemon ).
+.TP
+.B 0
+Lint clean (
+.BR powerline-lint ).
+.TP
+.B 1
+Daemon unreachable AND fallback failed (
+.BR powerline ).
+.TP
+.B 2
+Config or theme lint errors (
+.BR powerline-lint ).
+.TP
+.B 64
+Bad invocation / unrecognized argument.
+.SH "14.  PERFORMANCE NOTES"
+The Python upstream pays a ~50\(en150 ms interpreter import tax on every
+render. Because tmux re\(hyrenders the statusline at
+.B status-interval
+and shell prompts re\(hyrender on every keystroke (with
+.B precmd
+hooks fired), the import tax compounds into a noticeable interactive
+latency.
+.PP
+.B powerliners
+is a single static binary: zero\(hyimport, zero\(hyGC, no GIL. With a warm
+.B powerline-daemon
+the per\(hyrender cost is dominated by the socket roundtrip
+(typically <500 \(*ms). Without the daemon,
+.B powerline-render
+pays a one\(hytime config\(hyload cost (~10 ms) and emits in <2 ms thereafter.
+.SH "15.  SEE ALSO"
+.BR powerline (1),
+.BR powerline-daemon (1),
+.BR powerline-render (1),
+.BR powerline-config (1),
+.BR powerline-lint (1),
+.BR tmux (1),
+.BR zsh (1),
+.BR bash (1),
+.BR vim (1)
+.PP
+Upstream Python
+.B powerline-status :
+.UR https://powerline.readthedocs.io
+.UE .
+.PP
+Source / issues:
+.UR https://github.com/MenkeTechnologies/powerliners
+.UE .
+.SH AUTHORS
+MenkeTechnologies. 1:1 Rust port of the upstream Python
+.B powerline-status
+project (Kim Silkebækken et al.).
+.SH BUGS
+Report at
+.UR https://github.com/MenkeTechnologies/powerliners/issues
+.UE .
