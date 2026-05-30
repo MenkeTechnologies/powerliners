@@ -12822,3 +12822,118 @@ fn parity_bindings_config_init_tmux_environment_emits_color_string_form() {
         value
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// theme — cursor_space_multiplier + cursor_columns round-trip
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_theme_cursor_space_multiplier_round_trip() {
+    // py:67  self.cursor_space_multiplier = 1 - (theme_config['cursor_space'] / 100)
+    for mult in &[None, Some(0.5_f64), Some(1.0), Some(0.0)] {
+        let theme = powerliners::ported::theme::Theme {
+            colorscheme: serde_json::Value::Null,
+            dividers: serde_json::Map::new(),
+            cursor_space_multiplier: *mult,
+            cursor_columns: None,
+            spaces: 1,
+            outer_padding: 1,
+            segments: vec![],
+            empty_segment: serde_json::Value::Null,
+            shutdown_called: std::sync::Mutex::new(Vec::new()),
+        };
+        assert_eq!(
+            theme.cursor_space_multiplier, *mult,
+            "cursor_space_multiplier round-trip mismatch"
+        );
+    }
+}
+
+#[test]
+fn parity_theme_cursor_columns_round_trip() {
+    // py:70  self.cursor_columns = theme_config.get('cursor_columns')
+    for cols in &[None, Some(80_i64), Some(120), Some(200)] {
+        let theme = powerliners::ported::theme::Theme {
+            colorscheme: serde_json::Value::Null,
+            dividers: serde_json::Map::new(),
+            cursor_space_multiplier: None,
+            cursor_columns: *cols,
+            spaces: 1,
+            outer_padding: 1,
+            segments: vec![],
+            empty_segment: serde_json::Value::Null,
+            shutdown_called: std::sync::Mutex::new(Vec::new()),
+        };
+        assert_eq!(
+            theme.cursor_columns, *cols,
+            "cursor_columns round-trip mismatch"
+        );
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/dict::mergeargs with remove=true — REMOVE_THIS_KEY deletes
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_mergeargs_remove_true_deletes_keys_marked_with_sentinel() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "import json; \
+         mod = __import__('powerline.lib.dict', fromlist=['mergeargs', 'REMOVE_THIS_KEY']); \
+         r = mod.mergeargs(iter([('a', 1), ('b', 2), ('b', mod.REMOVE_THIS_KEY)]), remove=True); \
+         print(json.dumps(r, sort_keys=True), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let pairs = vec![
+        ("a".to_string(), serde_json::Value::from(1)),
+        ("b".to_string(), serde_json::Value::from(2)),
+        (
+            "b".to_string(),
+            powerliners::ported::lib::dict::REMOVE_THIS_KEY(),
+        ),
+    ];
+    let rs = powerliners::ported::lib::dict::mergeargs(pairs, true).expect("mergeargs");
+    let rs_json = serde_json::to_string(&rs).expect("serialize");
+    let py_compact = py.replace(", ", ",").replace(": ", ":");
+    assert_eq!(rs_json, py_compact, "REMOVE_THIS_KEY should delete 'b'");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/path::join — multi-part + edge cases
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_lib_path_join_absolute_prefix_three_parts() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval("import os; print(os.path.join('/usr', 'local', 'bin'), end='')") {
+        Some(v) => v,
+        None => return,
+    };
+    let rs: std::path::PathBuf = powerliners::ported::lib::path::join(vec!["/usr", "local", "bin"]);
+    assert_eq!(
+        rs.display().to_string(),
+        py,
+        "3-part absolute join mismatch"
+    );
+}
+
+#[test]
+fn parity_lib_path_join_empty_parts_skip_separator() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval("import os; print(os.path.join('', 'foo'), end='')") {
+        Some(v) => v,
+        None => return,
+    };
+    let rs: std::path::PathBuf = powerliners::ported::lib::path::join(vec!["", "foo"]);
+    let py_norm = std::path::PathBuf::from(&py);
+    assert_eq!(rs, py_norm, "empty-first join parity mismatch");
+}
