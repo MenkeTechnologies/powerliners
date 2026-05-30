@@ -7,6 +7,8 @@ license = "MIT"
 authors = ["MenkeTechnologies <linux.dev25@gmail.com>"]
 repository = "https://github.com/MenkeTechnologies/powerliners"
 homepage = "https://menketechnologies.github.io/powerliners/"
+keywords = ["powerline", "tmux", "zsh", "statusline", "prompt"]
+categories = ["command-line-utilities"]
 readme = "README.md"
 
 # Exclude development-only directories from the published crate.
