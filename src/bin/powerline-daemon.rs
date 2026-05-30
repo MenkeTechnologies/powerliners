@@ -31,6 +31,11 @@ fn main() {
     let renderer_clone = renderer.clone();
     let render_fn: Arc<RenderFn> = Arc::new(move |args, environ, cwd, _is_daemon| {
         let ext = args.ext.first().cloned().unwrap_or_default();
+        let side = args.side.clone().unwrap_or_default();
+        powerliners::extensions::diag_log::log(&format!(
+            "daemon REQ ext={} side={} client_cwd={}",
+            ext, side, cwd
+        ));
 
         let configs = {
             let mut guard = store_clone.lock().expect("config store poisoned");
@@ -41,17 +46,29 @@ fn main() {
             let cached = guard.get(&ext).cloned();
             let stale = cached.as_ref().map(|c| c.is_stale()).unwrap_or(false);
             if stale {
+                powerliners::extensions::diag_log::log(&format!(
+                    "daemon configs RELOAD ext={} (stale config files detected)",
+                    ext
+                ));
                 guard.remove(&ext);
             }
             match (cached, stale) {
                 (Some(c), false) => c,
                 _ => match render_runtime::build_configs(&ext) {
                     Ok(c) => {
+                        powerliners::extensions::diag_log::log(&format!(
+                            "daemon configs BUILT ext={} (cache miss)",
+                            ext
+                        ));
                         guard.insert(ext.clone(), c.clone());
                         c
                     }
                     Err(e) => {
-                        return format!("powerline-daemon: config error: {}\n", e).into_bytes()
+                        powerliners::extensions::diag_log::log(&format!(
+                            "daemon configs ERROR ext={} err={}",
+                            ext, e
+                        ));
+                        return format!("powerline-daemon: config error: {}\n", e).into_bytes();
                     }
                 },
             }
