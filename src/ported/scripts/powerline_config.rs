@@ -72,10 +72,22 @@ fn tmux_setup(args: &[String]) -> Result<(), String> {
         let mut paths: Vec<PathBuf> = Vec::new();
         // py:152  bundled `plugin_path` FIRST so user overrides win via
         // mergedicts in the load_cascade closure below.
+        // Live checkout takes priority — dev iteration sees JSON edits
+        // without a rebuild-and-extract cycle.
         if let Some(manifest) = option_env!("CARGO_MANIFEST_DIR") {
             let ported = PathBuf::from(manifest).join("src/ported/config_files");
             if ported.is_dir() {
                 paths.push(ported);
+            }
+        }
+        // Release-tarball fallback: include_str! tree extracted to
+        // `$XDG_CACHE_HOME/powerliners/config_files/`. Without this
+        // any non-`cargo install --path .` install (release tarball,
+        // brew, bundled GHA binary) silently drops the bundled base
+        // and `powerline-config tmux setup` emits broken markup.
+        if let Some(cache) = crate::extensions::bundled_config::bundled_config_dir() {
+            if !paths.contains(&cache) {
+                paths.push(cache);
             }
         }
         paths.extend(get_config_paths());

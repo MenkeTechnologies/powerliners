@@ -22,6 +22,7 @@
 //! - [`disk`]     — `powerliners.disk.{disk_usage,disk_usage_percent,disk_io}`
 //! - [`thermal`]  — `powerliners.thermal.thermal` (CPU/GPU temp + fan RPM)
 
+pub mod bundled_config;
 pub mod disk;
 pub mod exec_segment;
 pub mod gpu;
