@@ -8612,3 +8612,716 @@ fn parity_bat_pmset_parser_against_python_inline() {
         );
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// CLI argparser parity for all 5 binaries
+//
+// Each upstream binary (powerline, powerline-daemon, powerline-config,
+// powerline-render, powerline-lint) gets its flag set from a Python
+// `get_argparser()` in `powerline/commands/*.py`. The Rust ports
+// surface those flags either as structured `ArgParser`/`Argument`
+// values (commands/{main,daemon,config,lint}.rs) or as imperative
+// parsers (scripts/powerline_daemon::parse_{client,daemon}_argv).
+//
+// These tests pin every documented flag against the Python source so
+// missing/renamed/dropped flags trip a parity failure before they hit
+// the user's prompt.
+//
+// `py_argparser_actions` returns a JSON list of
+// (option_strings_csv, action_class, metavar_or_empty, nargs_str)
+// tuples in the same order Python's argparse registered them. The
+// auto-generated `-h/--help` action is filtered out by class name.
+// ─────────────────────────────────────────────────────────────────────
+
+fn py_argparser_actions(module: &str) -> Option<String> {
+    if !python_available() {
+        return None;
+    }
+    // commands/config.py:get_argparser uses subparsers which contain
+    // _SubParsersAction; report it as a regular row so the Rust side
+    // can mirror via its own `subparsers` slot if it grows one.
+    let expr = format!(
+        "import json; \
+         mod = __import__('powerline.commands.{m}', fromlist=['get_argparser']); \
+         p = mod.get_argparser(); \
+         rows = []; \
+         [rows.append([','.join(a.option_strings) or a.dest, type(a).__name__, a.metavar or '', str(a.nargs) if a.nargs is not None else '']) \
+          for a in p._actions if type(a).__name__ != '_HelpAction']; \
+         print(json.dumps(rows), end='')",
+        m = module,
+    );
+    py_eval(&expr)
+}
+
+fn py_argparser_description(module: &str) -> Option<String> {
+    if !python_available() {
+        return None;
+    }
+    let expr = format!(
+        "mod = __import__('powerline.commands.{m}', fromlist=['get_argparser']); \
+         p = mod.get_argparser(); \
+         print(p.description, end='')",
+        m = module,
+    );
+    py_eval(&expr)
+}
+
+#[test]
+fn parity_cli_main_description() {
+    // commands/main.py:83  description='Powerline prompt and statusline script.'
+    let py = match py_argparser_description("main") {
+        Some(v) => v,
+        None => return,
+    };
+    // The Rust `commands/main.rs::get_argparser` builds the same parser
+    // (used by both powerline and powerline-render).
+    let rs = powerliners::ported::commands::main::get_argparser().description;
+    assert_eq!(rs, py, "commands/main description mismatch");
+}
+
+#[test]
+fn parity_cli_main_argument_count() {
+    // commands/main.py:90-166 — 11 add_argument calls (ext + side +
+    // 9 flags). Help action filtered out on both sides.
+    let py_actions = match py_argparser_actions("main") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_rows: Vec<Vec<String>> = serde_json::from_str(&py_actions).expect("parse py rows");
+    let rs = powerliners::ported::commands::main::get_argparser();
+    assert_eq!(
+        rs.arguments.len(),
+        py_rows.len(),
+        "commands/main argument-count mismatch: py={} rs={}",
+        py_rows.len(),
+        rs.arguments.len()
+    );
+}
+
+#[test]
+fn parity_cli_main_each_flag_set() {
+    // For every Python argument row, the Rust port must have a flag
+    // matching by option-strings set (order-independent).
+    let py_actions = match py_argparser_actions("main") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_rows: Vec<Vec<String>> = serde_json::from_str(&py_actions).expect("parse py rows");
+    let rs = powerliners::ported::commands::main::get_argparser();
+    for (i, py_row) in py_rows.iter().enumerate() {
+        let py_flags: std::collections::BTreeSet<String> =
+            py_row[0].split(',').map(String::from).collect();
+        let rs_flags: std::collections::BTreeSet<String> =
+            rs.arguments[i].flags.iter().cloned().collect();
+        assert_eq!(
+            rs_flags, py_flags,
+            "commands/main flag set #{} mismatch: py={:?} rs={:?}",
+            i, py_flags, rs_flags
+        );
+    }
+}
+
+#[test]
+fn parity_cli_main_metavars() {
+    let py_actions = match py_argparser_actions("main") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_rows: Vec<Vec<String>> = serde_json::from_str(&py_actions).expect("parse py rows");
+    let rs = powerliners::ported::commands::main::get_argparser();
+    for (i, py_row) in py_rows.iter().enumerate() {
+        let py_mv = py_row[2].clone();
+        let rs_mv = rs.arguments[i].metavar.clone().unwrap_or_default();
+        assert_eq!(
+            rs_mv, py_mv,
+            "commands/main metavar #{} mismatch: py={:?} rs={:?}",
+            i, py_mv, rs_mv
+        );
+    }
+}
+
+#[test]
+fn parity_cli_daemon_description() {
+    // commands/daemon.py:8  description='Daemon that improves powerline performance.'
+    let py = match py_argparser_description("daemon") {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::commands::daemon::get_argparser().description;
+    assert_eq!(rs, py, "commands/daemon description mismatch");
+}
+
+#[test]
+fn parity_cli_daemon_argument_count() {
+    // commands/daemon.py — 5 flags: --quiet, --socket, --kill,
+    // --foreground, --replace.
+    let py_actions = match py_argparser_actions("daemon") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_rows: Vec<Vec<String>> = serde_json::from_str(&py_actions).expect("parse py rows");
+    let rs = powerliners::ported::commands::daemon::get_argparser();
+    assert_eq!(
+        rs.arguments.len(),
+        py_rows.len(),
+        "commands/daemon argument-count mismatch"
+    );
+}
+
+#[test]
+fn parity_cli_daemon_each_flag_set() {
+    let py_actions = match py_argparser_actions("daemon") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_rows: Vec<Vec<String>> = serde_json::from_str(&py_actions).expect("parse py rows");
+    let rs = powerliners::ported::commands::daemon::get_argparser();
+    for (i, py_row) in py_rows.iter().enumerate() {
+        let py_flags: std::collections::BTreeSet<String> =
+            py_row[0].split(',').map(String::from).collect();
+        let rs_flags: std::collections::BTreeSet<String> =
+            rs.arguments[i].flags.iter().cloned().collect();
+        assert_eq!(
+            rs_flags, py_flags,
+            "commands/daemon flag set #{} mismatch: py={:?} rs={:?}",
+            i, py_flags, rs_flags
+        );
+    }
+}
+
+#[test]
+fn parity_cli_lint_description() {
+    // commands/lint.py:8  description='Powerline configuration checker.'
+    let py = match py_argparser_description("lint") {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::commands::lint::get_argparser().description;
+    assert_eq!(rs, py, "commands/lint description mismatch");
+}
+
+#[test]
+fn parity_cli_lint_argument_count() {
+    // commands/lint.py — exactly 2 flags: -p/--config-path, -d/--debug.
+    let py_actions = match py_argparser_actions("lint") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_rows: Vec<Vec<String>> = serde_json::from_str(&py_actions).expect("parse py rows");
+    let rs = powerliners::ported::commands::lint::get_argparser();
+    assert_eq!(
+        rs.arguments.len(),
+        py_rows.len(),
+        "commands/lint argument-count mismatch"
+    );
+}
+
+#[test]
+fn parity_cli_lint_each_flag_set() {
+    let py_actions = match py_argparser_actions("lint") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_rows: Vec<Vec<String>> = serde_json::from_str(&py_actions).expect("parse py rows");
+    let rs = powerliners::ported::commands::lint::get_argparser();
+    for (i, py_row) in py_rows.iter().enumerate() {
+        let py_flags: std::collections::BTreeSet<String> =
+            py_row[0].split(',').map(String::from).collect();
+        let rs_flags: std::collections::BTreeSet<String> =
+            rs.arguments[i].flags.iter().cloned().collect();
+        assert_eq!(
+            rs_flags, py_flags,
+            "commands/lint flag set #{} mismatch: py={:?} rs={:?}",
+            i, py_flags, rs_flags
+        );
+    }
+}
+
+#[test]
+fn parity_cli_config_description() {
+    // commands/config.py:46  description='Script used to obtain powerline configuration.'
+    let py = match py_argparser_description("config") {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::commands::config::get_argparser().description;
+    assert_eq!(rs, py, "commands/config description mismatch");
+}
+
+#[test]
+fn parity_cli_config_tmux_actions_set() {
+    // commands/config.py:21-25 — TMUX_ACTIONS keys: source, setenv, setup
+    if !python_available() {
+        return;
+    }
+    let py_expr =
+        "import json; mod = __import__('powerline.commands.config', fromlist=['TMUX_ACTIONS']); \
+                   print(json.dumps(sorted(mod.TMUX_ACTIONS.keys())), end='')";
+    let py_json = match py_eval(py_expr) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_names: Vec<String> = serde_json::from_str(&py_json).expect("parse py names");
+    let mut rs_names: Vec<String> = powerliners::ported::commands::config::TMUX_ACTIONS()
+        .iter()
+        .map(|f| f.name().to_string())
+        .collect();
+    rs_names.sort();
+    assert_eq!(
+        rs_names, py_names,
+        "TMUX_ACTIONS name set mismatch: py={:?} rs={:?}",
+        py_names, rs_names
+    );
+}
+
+#[test]
+fn parity_cli_config_shell_actions_set() {
+    // commands/config.py:28-31 — SHELL_ACTIONS keys: command, uses
+    if !python_available() {
+        return;
+    }
+    let py_expr =
+        "import json; mod = __import__('powerline.commands.config', fromlist=['SHELL_ACTIONS']); \
+                   print(json.dumps(sorted(mod.SHELL_ACTIONS.keys())), end='')";
+    let py_json = match py_eval(py_expr) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_names: Vec<String> = serde_json::from_str(&py_json).expect("parse py names");
+    let mut rs_names: Vec<String> = powerliners::ported::commands::config::SHELL_ACTIONS()
+        .iter()
+        .map(|f| f.name().to_string())
+        .collect();
+    rs_names.sort();
+    assert_eq!(
+        rs_names, py_names,
+        "SHELL_ACTIONS name set mismatch: py={:?} rs={:?}",
+        py_names, rs_names
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Behavioral argv-parser parity: feed identical argv to upstream
+// Python `parser.parse_args()` and Rust `parse_{client,daemon}_argv`,
+// compare the resulting field values.
+// ─────────────────────────────────────────────────────────────────────
+
+fn py_parse_main_args(argv_json: &str) -> Option<String> {
+    if !python_available() {
+        return None;
+    }
+    let expr = format!(
+        "import json; \
+         mod = __import__('powerline.commands.main', fromlist=['get_argparser']); \
+         p = mod.get_argparser(); \
+         a = p.parse_args({argv}); \
+         out = {{'ext': a.ext, 'side': a.side, 'width': a.width, \
+                'renderer_module': a.renderer_module, \
+                'jobnum': a.jobnum, \
+                'config_path': a.config_path, \
+                'config_override': a.config_override, \
+                'theme_override': a.theme_override, \
+                'renderer_arg': a.renderer_arg, \
+                'socket': a.socket}}; \
+         print(json.dumps(out, default=str), end='')",
+        argv = argv_json,
+    );
+    py_eval(&expr)
+}
+
+#[test]
+fn parity_argv_main_positional_ext_only() {
+    let py = match py_parse_main_args("['tmux']") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+    let a =
+        powerliners::ported::scripts::powerline_daemon::parse_client_argv(&["tmux".to_string()]);
+    assert_eq!(
+        a.ext,
+        py_v["ext"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap().to_string())
+            .collect::<Vec<_>>(),
+        "ext mismatch"
+    );
+    assert_eq!(
+        a.side,
+        py_v["side"].as_str().map(String::from),
+        "side mismatch"
+    );
+}
+
+#[test]
+fn parity_argv_main_positional_ext_and_side() {
+    let py = match py_parse_main_args("['shell', 'left']") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+    let a = powerliners::ported::scripts::powerline_daemon::parse_client_argv(&[
+        "shell".to_string(),
+        "left".to_string(),
+    ]);
+    assert_eq!(
+        a.ext[0],
+        py_v["ext"][0].as_str().unwrap(),
+        "ext[0] mismatch"
+    );
+    assert_eq!(a.side.as_deref(), py_v["side"].as_str(), "side mismatch");
+}
+
+#[test]
+fn parity_argv_main_width_short_flag() {
+    // -w 80 → width=80
+    let py = match py_parse_main_args("['shell', '-w', '80']") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+    let a = powerliners::ported::scripts::powerline_daemon::parse_client_argv(&[
+        "shell".to_string(),
+        "-w".to_string(),
+        "80".to_string(),
+    ]);
+    assert_eq!(
+        a.width.map(|n| n as i64),
+        py_v["width"].as_i64(),
+        "width mismatch"
+    );
+}
+
+#[test]
+fn parity_argv_main_width_long_flag() {
+    let py = match py_parse_main_args("['shell', '--width', '120']") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+    let a = powerliners::ported::scripts::powerline_daemon::parse_client_argv(&[
+        "shell".to_string(),
+        "--width".to_string(),
+        "120".to_string(),
+    ]);
+    assert_eq!(
+        a.width.map(|n| n as i64),
+        py_v["width"].as_i64(),
+        "width mismatch"
+    );
+}
+
+#[test]
+fn parity_argv_main_renderer_module_short() {
+    let py = match py_parse_main_args("['shell', '-r', '.bash']") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+    let a = powerliners::ported::scripts::powerline_daemon::parse_client_argv(&[
+        "shell".to_string(),
+        "-r".to_string(),
+        ".bash".to_string(),
+    ]);
+    assert_eq!(
+        a.renderer_module.as_deref(),
+        py_v["renderer_module"].as_str(),
+        "renderer_module mismatch"
+    );
+}
+
+#[test]
+fn parity_argv_main_config_override_append() {
+    // -c key.k=v repeats → append into a list.
+    let py = match py_parse_main_args("['shell', '-c', 'a=1', '-c', 'b=2']") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+    let a = powerliners::ported::scripts::powerline_daemon::parse_client_argv(&[
+        "shell".to_string(),
+        "-c".to_string(),
+        "a=1".to_string(),
+        "-c".to_string(),
+        "b=2".to_string(),
+    ]);
+    let py_list: Vec<String> = py_v["config_override"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    let rs_list: Vec<String> = a.config_override.unwrap_or_default();
+    assert_eq!(rs_list, py_list, "config_override list mismatch");
+}
+
+#[test]
+fn parity_argv_main_theme_override_append() {
+    let py = match py_parse_main_args("['shell', '-t', 'th.x=1']") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+    let a = powerliners::ported::scripts::powerline_daemon::parse_client_argv(&[
+        "shell".to_string(),
+        "-t".to_string(),
+        "th.x=1".to_string(),
+    ]);
+    let py_list: Vec<String> = py_v["theme_override"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    let rs_list: Vec<String> = a.theme_override.unwrap_or_default();
+    assert_eq!(rs_list, py_list, "theme_override list mismatch");
+}
+
+#[test]
+fn parity_argv_main_renderer_arg_append() {
+    let py = match py_parse_main_args("['shell', '-R', 'mode=normal']") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+    let a = powerliners::ported::scripts::powerline_daemon::parse_client_argv(&[
+        "shell".to_string(),
+        "-R".to_string(),
+        "mode=normal".to_string(),
+    ]);
+    let py_list: Vec<String> = py_v["renderer_arg"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    let rs_list: Vec<String> = a.renderer_arg.unwrap_or_default();
+    assert_eq!(rs_list, py_list, "renderer_arg list mismatch");
+}
+
+#[test]
+fn parity_argv_main_config_path_append_multi() {
+    let py = match py_parse_main_args("['shell', '-p', '/a', '-p', '/b']") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+    let a = powerliners::ported::scripts::powerline_daemon::parse_client_argv(&[
+        "shell".to_string(),
+        "-p".to_string(),
+        "/a".to_string(),
+        "-p".to_string(),
+        "/b".to_string(),
+    ]);
+    let py_list: Vec<String> = py_v["config_path"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    let rs_list: Vec<String> = a.config_path.unwrap_or_default();
+    assert_eq!(rs_list, py_list, "config_path list mismatch");
+}
+
+#[test]
+fn parity_argv_main_socket_flag() {
+    let py = match py_parse_main_args("['shell', '--socket', '/tmp/sock']") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+    let a = powerliners::ported::scripts::powerline_daemon::parse_client_argv(&[
+        "shell".to_string(),
+        "--socket".to_string(),
+        "/tmp/sock".to_string(),
+    ]);
+    assert_eq!(
+        a.socket.as_deref(),
+        py_v["socket"].as_str(),
+        "socket mismatch"
+    );
+}
+
+#[test]
+fn parity_argv_main_all_flags_combined() {
+    // Stress-test: many flags + positional in one invocation.
+    let argv_py = "['tmux', 'right', '-w', '200', '-r', '.zsh', '-c', 'a=1', \
+                   '-t', 'th.x=1', '-R', 'mode=normal', '-p', '/cfg', \
+                   '--socket', '/sock']";
+    let py = match py_parse_main_args(argv_py) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+    let a = powerliners::ported::scripts::powerline_daemon::parse_client_argv(&[
+        "tmux".to_string(),
+        "right".to_string(),
+        "-w".to_string(),
+        "200".to_string(),
+        "-r".to_string(),
+        ".zsh".to_string(),
+        "-c".to_string(),
+        "a=1".to_string(),
+        "-t".to_string(),
+        "th.x=1".to_string(),
+        "-R".to_string(),
+        "mode=normal".to_string(),
+        "-p".to_string(),
+        "/cfg".to_string(),
+        "--socket".to_string(),
+        "/sock".to_string(),
+    ]);
+    assert_eq!(a.ext[0], py_v["ext"][0].as_str().unwrap());
+    assert_eq!(a.side.as_deref(), py_v["side"].as_str());
+    assert_eq!(a.width.map(|n| n as i64), py_v["width"].as_i64());
+    assert_eq!(
+        a.renderer_module.as_deref(),
+        py_v["renderer_module"].as_str()
+    );
+    assert_eq!(a.socket.as_deref(), py_v["socket"].as_str());
+}
+
+fn py_parse_daemon_args(argv_json: &str) -> Option<String> {
+    if !python_available() {
+        return None;
+    }
+    let expr = format!(
+        "import json; \
+         mod = __import__('powerline.commands.daemon', fromlist=['get_argparser']); \
+         p = mod.get_argparser(); \
+         a = p.parse_args({argv}); \
+         out = {{'quiet': a.quiet, 'socket': a.socket, 'kill': a.kill, \
+                'foreground': a.foreground, 'replace': a.replace}}; \
+         print(json.dumps(out), end='')",
+        argv = argv_json,
+    );
+    py_eval(&expr)
+}
+
+#[test]
+fn parity_argv_daemon_quiet_short() {
+    let py = match py_parse_daemon_args("['-q']") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+    let a = powerliners::ported::scripts::powerline_daemon::parse_daemon_argv(&["-q".to_string()]);
+    assert_eq!(a.quiet, py_v["quiet"].as_bool().unwrap());
+}
+
+#[test]
+fn parity_argv_daemon_quiet_long() {
+    let py = match py_parse_daemon_args("['--quiet']") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+    let a =
+        powerliners::ported::scripts::powerline_daemon::parse_daemon_argv(&["--quiet".to_string()]);
+    assert_eq!(a.quiet, py_v["quiet"].as_bool().unwrap());
+}
+
+#[test]
+fn parity_argv_daemon_socket_short() {
+    let py = match py_parse_daemon_args("['-s', '/tmp/sock']") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+    let a = powerliners::ported::scripts::powerline_daemon::parse_daemon_argv(&[
+        "-s".to_string(),
+        "/tmp/sock".to_string(),
+    ]);
+    assert_eq!(a.socket.as_deref(), py_v["socket"].as_str());
+}
+
+#[test]
+fn parity_argv_daemon_socket_long() {
+    let py = match py_parse_daemon_args("['--socket', '/tmp/sock']") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+    let a = powerliners::ported::scripts::powerline_daemon::parse_daemon_argv(&[
+        "--socket".to_string(),
+        "/tmp/sock".to_string(),
+    ]);
+    assert_eq!(a.socket.as_deref(), py_v["socket"].as_str());
+}
+
+#[test]
+fn parity_argv_daemon_kill_short_and_long() {
+    for flag in &["-k", "--kill"] {
+        let py = match py_parse_daemon_args(&format!("['{}']", flag)) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+        let a =
+            powerliners::ported::scripts::powerline_daemon::parse_daemon_argv(&[flag.to_string()]);
+        assert_eq!(
+            a.kill,
+            py_v["kill"].as_bool().unwrap(),
+            "kill mismatch for {}",
+            flag
+        );
+    }
+}
+
+#[test]
+fn parity_argv_daemon_foreground_short_and_long() {
+    for flag in &["-f", "--foreground"] {
+        let py = match py_parse_daemon_args(&format!("['{}']", flag)) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+        let a =
+            powerliners::ported::scripts::powerline_daemon::parse_daemon_argv(&[flag.to_string()]);
+        assert_eq!(
+            a.foreground,
+            py_v["foreground"].as_bool().unwrap(),
+            "foreground mismatch for {}",
+            flag
+        );
+    }
+}
+
+#[test]
+fn parity_argv_daemon_replace_short_and_long() {
+    for flag in &["-r", "--replace"] {
+        let py = match py_parse_daemon_args(&format!("['{}']", flag)) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+        let a =
+            powerliners::ported::scripts::powerline_daemon::parse_daemon_argv(&[flag.to_string()]);
+        assert_eq!(
+            a.replace,
+            py_v["replace"].as_bool().unwrap(),
+            "replace mismatch for {}",
+            flag
+        );
+    }
+}
+
+#[test]
+fn parity_argv_daemon_all_flags_combined() {
+    let py = match py_parse_daemon_args("['-q', '-s', '/sock', '-k']") {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: serde_json::Value = serde_json::from_str(&py).expect("parse");
+    let a = powerliners::ported::scripts::powerline_daemon::parse_daemon_argv(&[
+        "-q".to_string(),
+        "-s".to_string(),
+        "/sock".to_string(),
+        "-k".to_string(),
+    ]);
+    assert_eq!(a.quiet, py_v["quiet"].as_bool().unwrap());
+    assert_eq!(a.socket.as_deref(), py_v["socket"].as_str());
+    assert_eq!(a.kill, py_v["kill"].as_bool().unwrap());
+}

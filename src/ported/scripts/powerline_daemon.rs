@@ -1134,15 +1134,15 @@ pub fn lockpidfile(pidfile: &str) -> Option<PidLock> {
 
 /// Parsed daemon CLI args (subset used by `main()`).
 #[derive(Debug, Default)]
-struct DaemonArgs {
-    quiet: bool,
-    socket: Option<String>,
-    kill: bool,
-    foreground: bool,
-    replace: bool,
+pub struct DaemonArgs {
+    pub quiet: bool,
+    pub socket: Option<String>,
+    pub kill: bool,
+    pub foreground: bool,
+    pub replace: bool,
 }
 
-fn parse_daemon_argv(argv: &[String]) -> DaemonArgs {
+pub fn parse_daemon_argv(argv: &[String]) -> DaemonArgs {
     let mut a = DaemonArgs::default();
     let mut i = 0;
     while i < argv.len() {
