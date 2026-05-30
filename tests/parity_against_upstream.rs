@@ -11491,3 +11491,254 @@ fn parity_lib_url_urlencode_handles_unicode_value() {
         powerliners::ported::lib::url::urllib_urlencode([("q".to_string(), "日本語".to_string())]);
     assert_eq!(rs, py);
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// renderers — character_translations per backend
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_renderer_tmux_character_translations_overrides_hash() {
+    // py renderers/tmux.py:30-31  character_translations[ord('#')] = '##['
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.renderers.tmux import TmuxRenderer; \
+         t = TmuxRenderer.character_translations; \
+         print(t.get(ord('#'), 'missing'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "##[");
+    let rs = powerliners::ported::renderers::tmux::TmuxRenderer::character_translations();
+    let hash_translation = rs
+        .iter()
+        .find(|(c, _)| *c == '#')
+        .map(|(_, s)| *s)
+        .expect("# override missing in TmuxRenderer");
+    assert_eq!(hash_translation, py);
+}
+
+#[test]
+fn parity_renderer_lemonbar_character_translations_overrides_percent() {
+    // py renderers/lemonbar.py:17  character_translations[ord('%')] = '%%{}'
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.renderers.lemonbar import LemonbarRenderer; \
+         t = LemonbarRenderer.character_translations; \
+         print(t.get(ord('%'), 'missing'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "%%{}");
+    let rs = powerliners::ported::renderers::lemonbar::LemonbarRenderer::character_translations();
+    let pct = rs.get(&'%').copied().expect("% override missing");
+    assert_eq!(pct, py);
+}
+
+#[test]
+fn parity_renderer_base_np_control_char_translations_size() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline import renderer; \
+         print(len(renderer.np_control_character_translations), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_n: usize = py.parse().expect("py int");
+    let rs_n = powerliners::ported::renderer::np_control_character_translations().len();
+    assert_eq!(
+        rs_n, py_n,
+        "np_control_character_translations size mismatch"
+    );
+}
+
+#[test]
+fn parity_renderer_base_np_invalid_char_translations_size() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline import renderer; \
+         print(len(renderer.np_invalid_character_translations), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_n: usize = py.parse().expect("py int");
+    let rs_n = powerliners::ported::renderer::np_invalid_character_translations().len();
+    assert_eq!(
+        rs_n, py_n,
+        "np_invalid_character_translations size mismatch"
+    );
+}
+
+#[test]
+fn parity_renderer_base_np_control_translates_0x00_to_caret_at() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline import renderer; \
+         print(renderer.np_control_character_translations.get(0), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "^@");
+    let rs = powerliners::ported::renderer::np_control_character_translations();
+    let nul = rs.get(&'\u{0}').map(|s| s.as_str()).expect("0x00 missing");
+    assert_eq!(nul, py);
+}
+
+#[test]
+fn parity_renderer_base_np_control_translates_0x1f_to_caret_underscore() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline import renderer; \
+         print(renderer.np_control_character_translations.get(0x1F), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "^_");
+    let rs = powerliners::ported::renderer::np_control_character_translations();
+    let v = rs.get(&'\u{1F}').map(|s| s.as_str()).expect("0x1F missing");
+    assert_eq!(v, py);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/dict::mergedefaults — overlap-preserve invariant
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_mergedefaults_skips_existing_top_level_key() {
+    if !python_available() {
+        return;
+    }
+    let py_expr = "\
+        import json; \
+        mod = __import__('powerline.lib.dict', fromlist=['mergedefaults']); \
+        d1 = {'a': 1, 'b': 2}; \
+        d2 = {'b': 99, 'c': 3}; \
+        mod.mergedefaults(d1, d2); \
+        print(json.dumps(d1, sort_keys=True), end='')";
+    let py = match py_eval(py_expr) {
+        Some(v) => v,
+        None => return,
+    };
+    let mut d1 = serde_json::Map::new();
+    d1.insert("a".to_string(), serde_json::Value::from(1));
+    d1.insert("b".to_string(), serde_json::Value::from(2));
+    let mut d2 = serde_json::Map::new();
+    d2.insert("b".to_string(), serde_json::Value::from(99));
+    d2.insert("c".to_string(), serde_json::Value::from(3));
+    powerliners::ported::lib::dict::mergedefaults(&mut d1, d2);
+    let rs = serde_json::to_string(&d1).expect("serialize");
+    let py_compact = py.replace(", ", ",").replace(": ", ":");
+    assert_eq!(rs, py_compact, "b should stay 2 (existing), c added as 3");
+}
+
+#[test]
+fn parity_mergedefaults_recurses_into_nested_existing_dict() {
+    if !python_available() {
+        return;
+    }
+    let py_expr = "\
+        import json; \
+        mod = __import__('powerline.lib.dict', fromlist=['mergedefaults']); \
+        d1 = {'outer': {'kept': 1}}; \
+        d2 = {'outer': {'kept': 99, 'added': 2}}; \
+        mod.mergedefaults(d1, d2); \
+        print(json.dumps(d1, sort_keys=True), end='')";
+    let py = match py_eval(py_expr) {
+        Some(v) => v,
+        None => return,
+    };
+    let mut inner1 = serde_json::Map::new();
+    inner1.insert("kept".to_string(), serde_json::Value::from(1));
+    let mut d1 = serde_json::Map::new();
+    d1.insert("outer".to_string(), serde_json::Value::Object(inner1));
+    let mut inner2 = serde_json::Map::new();
+    inner2.insert("kept".to_string(), serde_json::Value::from(99));
+    inner2.insert("added".to_string(), serde_json::Value::from(2));
+    let mut d2 = serde_json::Map::new();
+    d2.insert("outer".to_string(), serde_json::Value::Object(inner2));
+    powerliners::ported::lib::dict::mergedefaults(&mut d1, d2);
+    let rs = serde_json::to_string(&d1).expect("serialize");
+    let py_compact = py.replace(", ", ",").replace(": ", ":");
+    assert_eq!(
+        rs, py_compact,
+        "nested kept should stay 1, added should appear"
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/overrides::parse_value — JSON + bare-string fallback
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_parse_value_json_object_string() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "import json; mod = __import__('powerline.lib.overrides', fromlist=['parse_value']); \
+         print(json.dumps(mod.parse_value('{\"a\": 1, \"b\": 2}'), sort_keys=True), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::lib::overrides::parse_value(r#"{"a": 1, "b": 2}"#);
+    let rs_json = serde_json::to_string(&rs).expect("serialize");
+    let py_compact = py.replace(", ", ",").replace(": ", ":");
+    assert_eq!(rs_json, py_compact, "JSON object roundtrip mismatch");
+}
+
+#[test]
+fn parity_parse_value_json_array_of_ints() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "import json; mod = __import__('powerline.lib.overrides', fromlist=['parse_value']); \
+         print(json.dumps(mod.parse_value('[1, 2, 3]')), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::lib::overrides::parse_value("[1, 2, 3]");
+    let rs_json = serde_json::to_string(&rs).expect("serialize");
+    let py_compact = py.replace(", ", ",");
+    assert_eq!(rs_json, py_compact);
+}
+
+#[test]
+fn parity_parse_value_bare_identifier_stays_string() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "mod = __import__('powerline.lib.overrides', fromlist=['parse_value']); \
+         print(mod.parse_value('hello'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "hello");
+    let rs = powerliners::ported::lib::overrides::parse_value("hello");
+    assert_eq!(
+        rs.as_str().expect("string variant"),
+        py,
+        "bare identifier should stay string"
+    );
+}
