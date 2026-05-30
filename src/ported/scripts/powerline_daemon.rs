@@ -510,7 +510,7 @@ pub fn get_answer(
 /// raise, but the daemon's `try/except` wraps that into a response
 /// body and the client retries — the wire format guarantees the
 /// positional layout here.
-fn parse_client_argv(argv: &[String]) -> Args {
+pub fn parse_client_argv(argv: &[String]) -> Args {
     let mut a = Args::default();
     let mut positional: Vec<String> = Vec::new();
     let mut i = 0;

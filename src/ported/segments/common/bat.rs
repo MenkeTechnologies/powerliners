@@ -173,92 +173,6 @@ pub fn flatten_battery(devices: &[(f64, f64, bool)]) -> (f64, bool) {
     (percent, state)
 }
 
-/// Faithful port of Python's `format.format(ac_state=..., capacity=...)`
-/// call at `powerline/segments/common/bat.py:296` for the two
-/// placeholders the segment uses: `{ac_state}` and
-/// `{capacity[:spec]%}`.
-///
-/// Python passes `capacity=(capacity / 100.0)` then the `%` conversion
-/// multiplies by 100 and appends `'%'`; the field width N in
-/// `{capacity:N.M%}` applies to the *full* `'87%'` output, not just the
-/// digits — `87` (capacity 87) stays 3 chars (no pad), `5` becomes
-/// `' 5%'` (right-padded). `M` is the digit precision after the
-/// decimal point (`:0` → no decimals, `:2` → two decimals).
-///
-/// `capacity` is a 0..100 percent value (matches the pmset /
-/// /sys/class/power_supply path; the dbus path also normalizes to
-/// 0..100 via `flatten_battery`).
-pub fn expand_battery_format(fmt: &str, ac_state: &str, capacity: f64) -> String {
-    let mut out = String::with_capacity(fmt.len());
-    let bytes = fmt.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'{' {
-            if let Some(end) = fmt[i + 1..].find('}') {
-                let placeholder = &fmt[i + 1..i + 1 + end];
-                let rendered = render_placeholder(placeholder, ac_state, capacity);
-                out.push_str(&rendered);
-                i += 1 + end + 1;
-                continue;
-            }
-        }
-        out.push(bytes[i] as char);
-        i += 1;
-    }
-    out
-}
-
-fn render_placeholder(spec: &str, ac_state: &str, capacity: f64) -> String {
-    if spec == "ac_state" {
-        return ac_state.to_string();
-    }
-    if let Some(rest) = spec.strip_prefix("capacity") {
-        // rest is "" or ":N.M%" / ":N%" / ":.M%" / ":%" etc.
-        let rest = rest.strip_prefix(':').unwrap_or(rest);
-        let (width, precision) = parse_pct_spec(rest);
-        let value_str = match precision {
-            Some(p) => format!("{:.*}", p, capacity),
-            None => format!("{}", capacity as i64),
-        };
-        let core = format!("{}%", value_str);
-        return match width {
-            Some(w) if core.chars().count() < w => format!("{:>1$}", core, w),
-            _ => core,
-        };
-    }
-    // Unknown placeholder — emit verbatim so theme authors notice.
-    format!("{{{}}}", spec)
-}
-
-/// Parses Python format spec fragments like `3.0%`, `.2%`, `5%`,
-/// `%` into `(min_width, precision_after_point)`.
-///
-/// Returns `(None, None)` only when the spec lacks the `%` type
-/// suffix; callers fall back to integer rendering for that case.
-/// When `%` is present but no explicit `.M` precision is given,
-/// returns precision `Some(6)` to match Python's float-type default
-/// (mirrors `format(0.87, '%')` → `'87.000000%'`). The default-precision-6
-/// rule is what makes `:3%` and `:%` both produce 6-digit output upstream.
-fn parse_pct_spec(spec: &str) -> (Option<usize>, Option<usize>) {
-    let Some(spec) = spec.strip_suffix('%') else {
-        return (None, None);
-    };
-    let (w_str, p_str) = match spec.find('.') {
-        Some(dot) => (&spec[..dot], Some(&spec[dot + 1..])),
-        None => (spec, None),
-    };
-    let width = if w_str.is_empty() {
-        None
-    } else {
-        w_str.parse().ok()
-    };
-    let precision = match p_str {
-        Some(p) => p.parse().ok(),
-        None => Some(6),
-    };
-    (width, precision)
-}
-
 /// Port of `battery()` from
 /// `powerline/segments/common/bat.py:215`.
 ///
@@ -352,23 +266,78 @@ pub fn battery(
         // py:300  'gradient_level': 100 - capacity,
         // py:301  })
         //
-        // Faithful port of Python `{capacity:N.M%}`:
-        //   • Python passes capacity / 100 then `%` type *100 → net
-        //     integer-percent in 0..100.
-        //   • Width N applies to the whole output (digits + '%'), not the
-        //     digits alone. `:3.0%` with capacity=87 → '87%' (3 chars, no
-        //     padding), capacity=5 → ' 5%' (right-padded to 3).
-        //   • The earlier `format!("{:3.0}%", capacity)` hack padded the
-        //     number alone, producing ' 87%' (4 chars) — extra leading
-        //     space vs upstream.
-        let contents = expand_battery_format(format, ac_state, capacity);
+        // Inlined port of Python `format.format(ac_state=…, capacity=…)`
+        // for the two placeholders the segment uses: `{ac_state}` and
+        // `{capacity[:N.M%]}`. Implementation notes:
+        //   • Python passes `capacity / 100.0` then the `%` type
+        //     multiplies by 100 — net integer-percent in 0..100; we just
+        //     format the 0..100 value directly.
+        //   • Field width N in `{capacity:N.M%}` applies to the FULL
+        //     output (`87%`), NOT just the digits. `:3.0%` w/ capacity=87
+        //     → '87%' (3 chars, no pad); capacity=5 → ' 5%' (right-pad).
+        //   • Precision M defaults to 6 when `%` type is used without
+        //     explicit `.M` (Python float-type default).
+        // No helper fns — closures live inside the body so no Rust-only
+        // names land under src/ported/ (PORT.md Rule 0).
+        let parse_pct_spec = |spec: &str| -> Option<(Option<usize>, Option<usize>)> {
+            let spec = spec.strip_suffix('%')?;
+            let (w_str, p_str) = match spec.find('.') {
+                Some(dot) => (&spec[..dot], Some(&spec[dot + 1..])),
+                None => (spec, None),
+            };
+            let width = if w_str.is_empty() {
+                None
+            } else {
+                w_str.parse().ok()
+            };
+            let precision = match p_str {
+                Some(p) => p.parse().ok(),
+                None => Some(6),
+            };
+            Some((width, precision))
+        };
+        let render_placeholder = |spec: &str| -> String {
+            if spec == "ac_state" {
+                return ac_state.to_string();
+            }
+            if let Some(rest) = spec.strip_prefix("capacity") {
+                let rest = rest.strip_prefix(':').unwrap_or(rest);
+                let (width, precision) = parse_pct_spec(rest).unwrap_or((None, None));
+                let value_str = match precision {
+                    Some(p) => format!("{:.*}", p, capacity),
+                    None => format!("{}", capacity as i64),
+                };
+                let core = format!("{}%", value_str);
+                return match width {
+                    Some(w) if core.chars().count() < w => format!("{:>1$}", core, w),
+                    _ => core,
+                };
+            }
+            format!("{{{}}}", spec)
+        };
+        let mut contents = String::with_capacity(format.len());
+        let bytes = format.as_bytes();
+        let mut i = 0;
+        while i < bytes.len() {
+            if bytes[i] == b'{' {
+                if let Some(end) = format[i + 1..].find('}') {
+                    contents.push_str(&render_placeholder(&format[i + 1..i + 1 + end]));
+                    i += 1 + end + 1;
+                    continue;
+                }
+            }
+            contents.push(bytes[i] as char);
+            i += 1;
+        }
         // When the offline placeholder collapses to whitespace (the
-        // default powerline.json override sets `offline: " "`), strip the
-        // leading whitespace that came from the `{ac_state} ` prefix +
-        // separator so the segment doesn't reserve a blank cell when AC
-        // is unplugged. Online case keeps the literal separator that
-        // sits between the icon and the percentage.
-        let contents = if ac_state.trim().is_empty() {
+        // default powerline.json override sets `offline: " "`) AND the
+        // format string actually starts with the `{ac_state}` slot, strip
+        // the leading whitespace that came from the placeholder + the
+        // separator that follows it. Format strings that don't lead with
+        // `{ac_state}` (e.g. `{capacity:5.1%}` alone) keep any
+        // intrinsic width-pad whitespace from the `%` spec — that
+        // whitespace is part of the percentage rendering, not the icon.
+        let contents = if ac_state.trim().is_empty() && format.starts_with("{ac_state}") {
             contents.trim_start().to_string()
         } else {
             contents
@@ -785,18 +754,38 @@ mod tests {
     }
 
     #[test]
-    fn expand_battery_format_supports_alternate_precisions() {
-        // Theme overrides like `{capacity:.2%}` should produce
-        // '87.00%' — the previous two-replacement hack only handled
-        // the literal '{capacity:3.0%}' substring.
-        assert_eq!(
-            expand_battery_format("{capacity:.2%}", "", 87.0),
-            "87.00%"
-        );
-        assert_eq!(
-            expand_battery_format("{capacity:5.1%}", "", 5.0),
-            " 5.0%"
-        );
+    fn battery_format_supports_alternate_precisions_via_battery_fn() {
+        // Theme overrides like `{capacity:.2%}` should produce '87.00%'
+        // — the previous two-replacement hack only handled the literal
+        // '{capacity:3.0%}' substring. Drive through battery() because
+        // the formatter has no standalone fn name per PORT.md Rule 0.
+        // `{capacity:N.M%}` standalone (no `{ac_state}` placeholder) →
+        // the offline-trim shortcut doesn't apply, output is the pure
+        // format-spec result.
+        let r1 = battery(
+            || Some((87.0, true)),
+            "{capacity:.2%}",
+            5,
+            false,
+            "O",
+            "O",
+            "",
+            "",
+        )
+        .unwrap();
+        assert_eq!(r1[0]["contents"], "87.00%");
+        let r2 = battery(
+            || Some((5.0, true)),
+            "{capacity:5.1%}",
+            5,
+            false,
+            "O",
+            "O",
+            "",
+            "",
+        )
+        .unwrap();
+        assert_eq!(r2[0]["contents"], " 5.0%");
     }
 
     #[test]
