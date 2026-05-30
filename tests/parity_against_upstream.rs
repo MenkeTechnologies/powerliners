@@ -13559,3 +13559,176 @@ fn parity_renderer_compute_divider_widths_per_side_has_hard_and_soft() {
     assert!(left.contains_key("hard"), "left.hard missing");
     assert!(left.contains_key("soft"), "left.soft missing");
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// extensions::mem_usage — 1:1 port of mKaloer/powerline_mem_segment.
+//
+// The deterministic helpers (`_sizeof_fmt`, `_get_mem_used`) are
+// parity-tested against the Python plugin directly. The 4 public
+// segment fns call live psutil → live memory stats, so they can't be
+// byte-compared (Python and Rust sample at different instants and on
+// macOS use the same `vm_stat` text but Python's psutil normalises
+// differently). Those are covered by lib-level shape unit tests in
+// `src/extensions/mem_usage.rs`.
+// ─────────────────────────────────────────────────────────────────────
+
+/// Run an expression with both upstream powerline and the third-party
+/// `powerline_mem_segment` plugin on sys.path. Returns None when
+/// either tree is missing (so tests skip gracefully on CI machines
+/// that don't have the plugin cloned).
+fn py_eval_mem(expr: &str) -> Option<String> {
+    let repo = repo_root();
+    let plugin = repo.join("vendor").join("powerline_mem_segment");
+    if !plugin.exists() {
+        return None;
+    }
+    let script = format!(
+        "import sys; sys.path.insert(0, '{}'); print({})",
+        plugin.display(),
+        expr
+    );
+    let out = std::process::Command::new("python3")
+        .arg("-c")
+        .arg(&script)
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        eprintln!(
+            "py_eval_mem failed: stderr={}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        return None;
+    }
+    let s = String::from_utf8_lossy(&out.stdout).into_owned();
+    Some(s.strip_suffix('\n').unwrap_or(&s).to_string())
+}
+
+#[test]
+fn parity_extensions_mem_usage_sizeof_fmt_zero_long_form() {
+    // py:19  zero uses '%d%s%s' → '0B'
+    let py = match py_eval_mem(
+        "__import__('powerlinemem.mem_usage', fromlist=['_sizeof_fmt'])._sizeof_fmt(0)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "0B");
+    let rs = powerliners::extensions::mem_usage::_sizeof_fmt(0.0, false, "B");
+    assert_eq!(rs, py, "_sizeof_fmt(0) mismatch");
+}
+
+#[test]
+fn parity_extensions_mem_usage_sizeof_fmt_zero_short_form() {
+    // py:15-16  short=True wipes the suffix
+    let py = match py_eval_mem(
+        "__import__('powerlinemem.mem_usage', fromlist=['_sizeof_fmt'])._sizeof_fmt(0, short=True)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "0");
+    let rs = powerliners::extensions::mem_usage::_sizeof_fmt(0.0, true, "B");
+    assert_eq!(rs, py);
+}
+
+#[test]
+fn parity_extensions_mem_usage_sizeof_fmt_byte_value_long_form() {
+    // py:19  '%3.1f%s%s' for nonzero under 1024
+    let py = match py_eval_mem(
+        "__import__('powerlinemem.mem_usage', fromlist=['_sizeof_fmt'])._sizeof_fmt(512.0)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::extensions::mem_usage::_sizeof_fmt(512.0, false, "B");
+    assert_eq!(rs, py, "_sizeof_fmt(512.0) mismatch");
+}
+
+#[test]
+fn parity_extensions_mem_usage_sizeof_fmt_kib_long_form() {
+    let py = match py_eval_mem(
+        "__import__('powerlinemem.mem_usage', fromlist=['_sizeof_fmt'])._sizeof_fmt(1024.0)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::extensions::mem_usage::_sizeof_fmt(1024.0, false, "B");
+    assert_eq!(rs, py, "_sizeof_fmt(1024) mismatch");
+}
+
+#[test]
+fn parity_extensions_mem_usage_sizeof_fmt_mib_short_form() {
+    let py = match py_eval_mem(
+        "__import__('powerlinemem.mem_usage', fromlist=['_sizeof_fmt'])._sizeof_fmt(1024.0*1024.0, short=True)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::extensions::mem_usage::_sizeof_fmt(1024.0 * 1024.0, true, "B");
+    assert_eq!(rs, py, "_sizeof_fmt(1MiB, short=True) mismatch");
+}
+
+#[test]
+fn parity_extensions_mem_usage_sizeof_fmt_gib_value() {
+    let py = match py_eval_mem(
+        "__import__('powerlinemem.mem_usage', fromlist=['_sizeof_fmt'])._sizeof_fmt(2.0 * 1024**3)",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::extensions::mem_usage::_sizeof_fmt(2.0 * 1024.0_f64.powi(3), false, "B");
+    assert_eq!(rs, py, "_sizeof_fmt(2GiB) mismatch");
+}
+
+#[test]
+fn parity_extensions_mem_usage_get_mem_used_dispatches_on_attr() {
+    // The Python plugin uses `getattr(mem_data, mem_type, None)`. To
+    // parity-test we feed a fake namedtuple-like object and call
+    // _get_mem_used directly.
+    if py_eval_mem("'ok'").is_none() {
+        return;
+    }
+    let py = match py_eval_mem(
+        "import collections; \
+         m = collections.namedtuple('m', ['used', 'free', 'available', 'total']) \
+             (used=700, free=200, available=300, total=1000); \
+         __import__('powerlinemem.mem_usage', fromlist=['_get_mem_used'])._get_mem_used(m, 'used')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "700");
+    let stats = powerliners::extensions::mem_usage::MemStats {
+        used: 700,
+        free: 200,
+        available: 300,
+        total: 1000,
+    };
+    let rs = stats._get_mem_used("used");
+    assert_eq!(rs, 700, "_get_mem_used('used') mismatch");
+}
+
+#[test]
+fn parity_extensions_mem_usage_get_mem_used_falls_back_to_used_for_unknown_attr() {
+    // py:25-26  if mem_used is None: mem_used = mem_data.used
+    if py_eval_mem("'ok'").is_none() {
+        return;
+    }
+    let py = match py_eval_mem(
+        "import collections; \
+         m = collections.namedtuple('m', ['used'])(used=700); \
+         __import__('powerlinemem.mem_usage', fromlist=['_get_mem_used'])._get_mem_used(m, 'frobnicate')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "700");
+    let stats = powerliners::extensions::mem_usage::MemStats {
+        used: 700,
+        free: 0,
+        available: 0,
+        total: 1000,
+    };
+    let rs = stats._get_mem_used("frobnicate");
+    assert_eq!(rs, 700, "unknown attr should fall back to .used");
+}

@@ -523,79 +523,58 @@ fn ad_cpu_load_percent(args: &Map<String, Value>, _info: &Map<String, Value>) ->
     Some(Value::Array(chunks))
 }
 
-fn ad_mem_usage(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
-    // powerlinemem.mem_usage isn't in upstream; reproduce its typical
-    // output (memory used percent) using `vm_stat` on darwin or
-    // /proc/meminfo on linux.
-    #[cfg(target_os = "macos")]
-    let pct = {
-        let out = std::process::Command::new("vm_stat").output().ok()?;
-        let text = String::from_utf8_lossy(&out.stdout);
-        let mut free = 0u64;
-        let mut active = 0u64;
-        let mut inactive = 0u64;
-        let mut wired = 0u64;
-        let mut compressed = 0u64;
-        let mut page_size: u64 = 4096;
-        for line in text.lines() {
-            if let Some(p) = line.strip_prefix("Mach Virtual Memory Statistics: (page size of ") {
-                if let Some(n) = p.split(' ').next().and_then(|s| s.parse().ok()) {
-                    page_size = n;
-                }
-            }
-            let parse = |label: &str| -> Option<u64> {
-                line.strip_prefix(label)
-                    .and_then(|r| r.trim().trim_end_matches('.').parse().ok())
-            };
-            if let Some(n) = parse("Pages free:") {
-                free = n;
-            }
-            if let Some(n) = parse("Pages active:") {
-                active = n;
-            }
-            if let Some(n) = parse("Pages inactive:") {
-                inactive = n;
-            }
-            if let Some(n) = parse("Pages wired down:") {
-                wired = n;
-            }
-            if let Some(n) = parse("Pages occupied by compressor:") {
-                compressed = n;
-            }
-        }
-        let used = (active + wired + compressed) * page_size;
-        let total = (free + active + inactive + wired + compressed) * page_size;
-        if total == 0 {
-            0.0
-        } else {
-            100.0 * used as f64 / total as f64
-        }
-    };
-    #[cfg(target_os = "linux")]
-    let pct = {
-        let s = std::fs::read_to_string("/proc/meminfo").ok()?;
-        let mut total = 0u64;
-        let mut available = 0u64;
-        for line in s.lines() {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.first() == Some(&"MemTotal:") {
-                total = parts.get(1).and_then(|p| p.parse().ok()).unwrap_or(0);
-            }
-            if parts.first() == Some(&"MemAvailable:") {
-                available = parts.get(1).and_then(|p| p.parse().ok()).unwrap_or(0);
-            }
-        }
-        if total == 0 {
-            0.0
-        } else {
-            100.0 * (total - available) as f64 / total as f64
-        }
-    };
-    Some(Value::Array(vec![serde_json::json!({
-        "contents": format!("{:.0}%", pct),
-        "highlight_groups": ["mem_usage_gradient", "mem_usage"],
-        "gradient_level": pct,
-    })]))
+fn ad_mem_usage(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::mem_usage::mem_usage;
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("%s/%s");
+    let mem_type = args
+        .get("mem_type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("used");
+    let short = args.get("short").and_then(|v| v.as_bool()).unwrap_or(false);
+    Some(Value::Array(mem_usage(format, mem_type, short)))
+}
+
+fn ad_mem_usage_percent(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::mem_usage::mem_usage_percent;
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("%d%%");
+    let mem_type = args
+        .get("mem_type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("used");
+    Some(Value::Array(mem_usage_percent(format, mem_type)))
+}
+
+fn ad_mem_swap(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::mem_usage::mem_swap;
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("%s/%s");
+    let mem_type = args
+        .get("mem_type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("used");
+    let short = args.get("short").and_then(|v| v.as_bool()).unwrap_or(false);
+    Some(Value::Array(mem_swap(format, mem_type, short)))
+}
+
+fn ad_mem_swap_percentage(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::mem_usage::mem_swap_percentage;
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("%d%%");
+    let mem_type = args
+        .get("mem_type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("used");
+    Some(Value::Array(mem_swap_percentage(format, mem_type)))
 }
 
 fn ad_system_load(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
@@ -1740,6 +1719,15 @@ pub const ADAPTERS: &[(&str, AdapterFn)] = &[
     ("powerline.segments.common.vcs.stash", ad_stash),
     ("powerline.segments.common.bat.battery", ad_battery),
     ("powerlinemem.mem_usage.mem_usage", ad_mem_usage),
+    (
+        "powerlinemem.mem_usage.mem_usage_percent",
+        ad_mem_usage_percent,
+    ),
+    ("powerlinemem.mem_usage.mem_swap", ad_mem_swap),
+    (
+        "powerlinemem.mem_usage.mem_swap_percentage",
+        ad_mem_swap_percentage,
+    ),
     (
         "powerline.segments.common.net.network_load",
         ad_network_load,
