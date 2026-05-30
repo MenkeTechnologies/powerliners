@@ -908,10 +908,7 @@ fn ad_spotify(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
     // (Darwin) / spotify_dbus (Linux), then PlayerSegment.__call__
     // formatting, which emits highlight_groups
     // ['player_<state>', 'player'] — upstream players.py:56.
-    use powerliners::ported::segments::common::players::{
-        player_segment_call, state_symbols, SpotifyAppleScriptPlayerSegment,
-        APPLESCRIPT_STATUS_DELIMITER,
-    };
+    use powerliners::ported::segments::common::players::{player_segment_call, state_symbols};
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
@@ -919,6 +916,9 @@ fn ad_spotify(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
 
     #[cfg(target_os = "macos")]
     let func_stats = {
+        use powerliners::ported::segments::common::players::{
+            SpotifyAppleScriptPlayerSegment, APPLESCRIPT_STATUS_DELIMITER,
+        };
         // py:374-396 — the full 6-field delimited AppleScript.
         // Status order: state | album | artist | title | track_length | player_position
         let script = format!(
@@ -1471,9 +1471,7 @@ fn ad_rhythmbox(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option
 }
 
 fn ad_itunes(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
-    use powerliners::ported::segments::common::players::{
-        player_segment_call, state_symbols, ITunesPlayerSegment, APPLESCRIPT_STATUS_DELIMITER,
-    };
+    use powerliners::ported::segments::common::players::{player_segment_call, state_symbols};
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
@@ -1481,6 +1479,9 @@ fn ad_itunes(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Va
 
     #[cfg(target_os = "macos")]
     let stats = {
+        use powerliners::ported::segments::common::players::{
+            ITunesPlayerSegment, APPLESCRIPT_STATUS_DELIMITER,
+        };
         // py:534-554 — 6-field delimited AppleScript (title|artist|album|elapsed|duration|state)
         let script = format!(
             "tell application \"System Events\"\n\
