@@ -252,6 +252,37 @@ pub fn main(args: &[String]) -> i32 {
     //   powerline-config shell command|uses [...]
     // Strip the leading `tmux` / `shell` prefix and treat the next
     // positional as the action name.
+    // Non-port subcommand: `powerline-config vim source-path` prints
+    // the extracted vim plugin path so users can drop one line in
+    // `.vimrc`:
+    //   execute 'source' trim(system('powerline-config vim source-path'))
+    // Handled before the standard tmux/shell dispatch because `vim`
+    // isn't a port-recognized prefix.
+    if args.first().map(String::as_str) == Some("vim") {
+        match args.get(1).map(String::as_str) {
+            Some("source-path") => {
+                match crate::extensions::bundled_config::bundled_vim_plugin_path() {
+                    Some(p) => {
+                        println!("{}", p.display());
+                        return 0;
+                    }
+                    None => {
+                        eprintln!("powerline-config vim source-path: extraction failed");
+                        return 1;
+                    }
+                }
+            }
+            Some(s) => {
+                eprintln!("powerline-config vim: unknown action '{}'", s);
+                return 2;
+            }
+            None => {
+                eprintln!("powerline-config vim: missing action argument (expected `source-path`)");
+                return 2;
+            }
+        }
+    }
+
     let action_name = match args.first().map(String::as_str) {
         Some("tmux") | Some("shell") => match args.get(1) {
             Some(s) => s.as_str(),
