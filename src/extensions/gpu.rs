@@ -297,7 +297,12 @@ pub fn gpu_usage_percent(format: &str) -> Vec<Value> {
     vec![json!({
         "contents": contents,
         "gradient_level": util,
-        "highlight_groups": ["gpu_load_gradient", "gpu_load"],
+        "highlight_groups": [
+            "gpu_load_gradient",
+            "gpu_load",
+            "cpu_load_percent_gradient",
+            "cpu_load_percent",
+        ],
         "divider_highlight_group": "background:divider",
     })]
 }
@@ -322,7 +327,12 @@ pub fn gpu_vram(format: &str, short: bool) -> Vec<Value> {
     vec![json!({
         "contents": contents,
         "gradient_level": pct,
-        "highlight_groups": ["gpu_vram_gradient", "gpu_vram"],
+        "highlight_groups": [
+            "gpu_vram_gradient",
+            "gpu_vram",
+            "mem_usage_gradient",
+            "mem_usage",
+        ],
         "divider_highlight_group": "background:divider",
     })]
 }
