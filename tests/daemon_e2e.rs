@@ -180,10 +180,7 @@ fn render_once(socket: &PathBuf, args: &[&str], cwd: &str, env: &[(&str, &str)])
             }
         };
         conn.set_read_timeout(Some(READ_TIMEOUT)).ok();
-        if conn
-            .write_all(&build_request(args, cwd, env))
-            .is_err()
-        {
+        if conn.write_all(&build_request(args, cwd, env)).is_err() {
             std::thread::sleep(Duration::from_millis(200));
             continue;
         }
