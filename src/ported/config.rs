@@ -58,11 +58,38 @@ pub fn BINDINGS_DIRECTORY() -> &'static PathBuf {
 /// Port of module-level binding `TMUX_CONFIG_DIRECTORY` from `powerline/config.py:9`.
 ///
 /// Python: `TMUX_CONFIG_DIRECTORY = os.path.join(BINDINGS_DIRECTORY, 'tmux')`
+///
+/// Upstream Python ships `powerline-base.conf` + version-specific
+/// `powerline_tmux_*.conf` files alongside the `bindings/tmux/__init__.py`
+/// in the installed package, so the `BINDINGS_DIRECTORY/tmux` derivation
+/// at py:9 always finds them.
+///
+/// In the Rust port the binary lives at `~/.cargo/bin/powerline-config`,
+/// so `BINDINGS_DIRECTORY/tmux` resolves to `~/.cargo/powerline/bindings/tmux`
+/// which never exists. Fall back to the in-tree mirror at
+/// `src/ported/bindings/tmux/` (shipped in the published crate via
+/// `option_env!("CARGO_MANIFEST_DIR")`) — same pattern used by the
+/// daemon's `search_paths()` for `config_files/`.
 #[allow(non_snake_case)]
 pub fn TMUX_CONFIG_DIRECTORY() -> &'static PathBuf {
     TMUX_CONFIG_DIRECTORY_CELL.get_or_init(|| {
         // py:9
-        BINDINGS_DIRECTORY().join("tmux")
+        let default = BINDINGS_DIRECTORY().join("tmux");
+        if default.join("powerline-base.conf").exists() {
+            return default;
+        }
+        if let Some(manifest) = option_env!("CARGO_MANIFEST_DIR") {
+            let manifest = PathBuf::from(manifest);
+            let mirror = manifest.join("src/ported/bindings/tmux");
+            if mirror.join("powerline-base.conf").exists() {
+                return mirror;
+            }
+            let vendor = manifest.join("vendor/powerline/powerline/bindings/tmux");
+            if vendor.join("powerline-base.conf").exists() {
+                return vendor;
+            }
+        }
+        default
     })
 }
 
@@ -91,7 +118,21 @@ mod tests {
         let system = DEFAULT_SYSTEM_CONFIG_DIR();
 
         assert_eq!(bindings, &root.join("powerline").join("bindings"));
-        assert_eq!(tmux, &bindings.join("tmux"));
+        // TMUX_CONFIG_DIRECTORY: either the upstream derivation
+        // (BINDINGS_DIRECTORY/tmux) when the conf files are present
+        // there, or the in-tree mirror under src/ported/bindings/tmux/
+        // when the binary is installed and the default path doesn't
+        // exist. Both are valid.
+        let upstream = bindings.join("tmux");
+        let mirror =
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/ported/bindings/tmux");
+        let vendor = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("vendor/powerline/powerline/bindings/tmux");
+        assert!(
+            tmux == &upstream || tmux == &mirror || tmux == &vendor,
+            "TMUX_CONFIG_DIRECTORY {} not in {{upstream, mirror, vendor}}",
+            tmux.display()
+        );
         // Python: `DEFAULT_SYSTEM_CONFIG_DIR = None` at py:10.
         assert!(system.is_none());
     }
