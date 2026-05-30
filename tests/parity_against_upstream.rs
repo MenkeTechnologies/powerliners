@@ -11742,3 +11742,154 @@ fn parity_parse_value_bare_identifier_stays_string() {
         "bare identifier should stay string"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// segments/common/players — STATE_SYMBOLS default + _convert_state
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_segment_players_state_symbols_default_table() {
+    // py:12-17  STATE_SYMBOLS = {'fallback': '', 'play': '>', 'pause': '~', 'stop': 'X'}
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "import json; \
+         mod = __import__('powerline.segments.common.players', fromlist=['STATE_SYMBOLS']); \
+         print(json.dumps(mod.STATE_SYMBOLS, sort_keys=True), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::segments::common::players::state_symbols();
+    let rs_json = serde_json::to_string(&rs).expect("serialize");
+    let py_compact = py.replace(", ", ",").replace(": ", ":");
+    assert_eq!(rs_json, py_compact, "STATE_SYMBOLS default table mismatch");
+}
+
+#[test]
+fn parity_segment_players_convert_state_play_classification() {
+    if !python_available() {
+        return;
+    }
+    for input in &["Playing", "PLAY", "is playing now", "play"] {
+        let py = match py_eval(&format!(
+            "mod = __import__('powerline.segments.common.players', fromlist=['_convert_state']); \
+             print(mod._convert_state({input:?}), end='')",
+            input = input,
+        )) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = powerliners::ported::segments::common::players::_convert_state(input);
+        assert_eq!(rs, py, "_convert_state({:?}) mismatch", input);
+    }
+}
+
+#[test]
+fn parity_segment_players_convert_state_pause_classification() {
+    if !python_available() {
+        return;
+    }
+    for input in &["paused", "PAUSE", "is on pause"] {
+        let py = match py_eval(&format!(
+            "mod = __import__('powerline.segments.common.players', fromlist=['_convert_state']); \
+             print(mod._convert_state({input:?}), end='')",
+            input = input,
+        )) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = powerliners::ported::segments::common::players::_convert_state(input);
+        assert_eq!(rs, py, "_convert_state({:?}) mismatch", input);
+    }
+}
+
+#[test]
+fn parity_segment_players_convert_state_stop_classification() {
+    if !python_available() {
+        return;
+    }
+    for input in &["stopped", "STOP", "is stopped"] {
+        let py = match py_eval(&format!(
+            "mod = __import__('powerline.segments.common.players', fromlist=['_convert_state']); \
+             print(mod._convert_state({input:?}), end='')",
+            input = input,
+        )) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = powerliners::ported::segments::common::players::_convert_state(input);
+        assert_eq!(rs, py, "_convert_state({:?}) mismatch", input);
+    }
+}
+
+#[test]
+fn parity_segment_players_convert_state_unknown_falls_back() {
+    if !python_available() {
+        return;
+    }
+    for input in &["", "unknown", "loading", "buffering"] {
+        let py = match py_eval(&format!(
+            "mod = __import__('powerline.segments.common.players', fromlist=['_convert_state']); \
+             print(mod._convert_state({input:?}), end='')",
+            input = input,
+        )) {
+            Some(v) => v,
+            None => return,
+        };
+        assert_eq!(py, "fallback");
+        let rs = powerliners::ported::segments::common::players::_convert_state(input);
+        assert_eq!(rs, py, "_convert_state({:?}) should fall back", input);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/encoding::get_preferred_output_encoding — locale chain
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_lib_encoding_get_preferred_output_encoding_matches_locale() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "import locale; \
+         print(locale.getpreferredencoding(False) or 'ascii', end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::lib::encoding::get_preferred_output_encoding();
+    let norm = |s: &str| s.to_lowercase().replace(['-', '_'], "");
+    assert_eq!(
+        norm(rs),
+        norm(&py),
+        "encoding mismatch: py={:?} rs={:?}",
+        py,
+        rs
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// renderer — np_character_translations union
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_renderer_np_character_translations_union_size() {
+    // py renderer.py:57-58  np_character_translations is the union of
+    // np_control_character_translations + np_invalid_character_translations.
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline import renderer; \
+         print(len(renderer.np_character_translations), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_n: usize = py.parse().expect("py int");
+    let rs_n = powerliners::ported::renderer::np_character_translations().len();
+    assert_eq!(rs_n, py_n, "np_character_translations union size mismatch");
+}
