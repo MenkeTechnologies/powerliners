@@ -21,6 +21,7 @@ use powerliners::ported::lib::config::load_json_config;
 use powerliners::ported::lib::dict::mergedicts;
 use powerliners::ported::renderer::{RenderReturn, Renderer};
 use powerliners::ported::renderers::tmux::{ColorSpec, TmuxRenderer};
+use powerliners::ported::renderers::vim::{ColorSpec as VimColorSpec, VimRenderer};
 use powerliners::ported::segment::gen_segment_getter;
 use powerliners::ported::theme::Theme;
 use powerliners::ported::{_find_config_files, get_config_paths};
@@ -122,9 +123,20 @@ fn load_cascade(levels: &[String], paths: &[PathBuf]) -> Option<Map<String, Valu
 
 #[derive(Clone)]
 pub struct Configs {
+    /// Active ext name (`shell`, `tmux`, `vim`, …). Drives the
+    /// markup-format dispatch in `render_once`. Stored as a string
+    /// rather than an enum so future exts can be added without
+    /// expanding a closed set.
+    pub ext: String,
     pub colorscheme: Arc<Colorscheme>,
     pub theme: Arc<Theme>,
     pub tmux: Arc<TmuxRenderer>,
+    /// VimRenderer state — populated only when `ext == "vim"`. Held
+    /// behind `Mutex` because `VimRenderer::hlstyle()` mutates the
+    /// internal `(fg, bg, attrs) -> hl_group` cache. Daemon caches
+    /// `Configs` per-ext so the cache persists across requests within
+    /// one daemon lifetime, keeping `:hi` redefinitions to a minimum.
+    pub vim: Option<Arc<std::sync::Mutex<VimRenderer>>>,
     /// py:265-272 — WM extensions consume `update_interval` to drive
     /// background re-render. tmux daemon path doesn't run a WM thread;
     /// surfaced here so a future WM dispatch can read the configured
@@ -397,10 +409,17 @@ pub fn build_configs(ext: &str) -> Result<Configs, String> {
         }
     }
 
+    let vim = if ext == "vim" {
+        Some(Arc::new(std::sync::Mutex::new(VimRenderer::new())))
+    } else {
+        None
+    };
     Ok(Configs {
+        ext: ext.to_string(),
         colorscheme: Arc::new(colorscheme),
         theme: Arc::new(theme),
         tmux: Arc::new(TmuxRenderer::new(term_truecolor)),
+        vim,
         wm_update_interval,
         reload_config,
         loaded_paths,
@@ -2159,8 +2178,24 @@ pub fn render_once(
     }
     segment_info.insert("args".to_string(), Value::Object(args_map));
 
+    // Per-request vim command sink — `VimRenderer::hlstyle()`
+    // appends every `:hi GroupName ...` declaration here. After the
+    // render loop completes we splice the commands onto the response
+    // payload so the vim plugin can run them via `:execute` before
+    // applying the statusline. Mutex needed because both `hl_fn` and
+    // `hlstyle_fn` close over it and `Renderer::render` invokes them
+    // sequentially.
+    let vim_commands: Arc<std::sync::Mutex<Vec<String>>> =
+        Arc::new(std::sync::Mutex::new(Vec::new()));
+
     let tmux_for_hl = configs.tmux.clone();
     let tmux_for_hlstyle = configs.tmux.clone();
+    let vim_for_hl = configs.vim.clone();
+    let vim_for_hlstyle = configs.vim.clone();
+    let vim_cmds_for_hl = vim_commands.clone();
+    let vim_cmds_for_hlstyle = vim_commands.clone();
+    let ext_is_vim = configs.ext == "vim";
+
     let hl_fn = move |contents: Option<&str>,
                       fg: &Value,
                       bg: &Value,
@@ -2168,12 +2203,26 @@ pub fn render_once(
                       _hl_args: &Map<String, Value>|
           -> String {
         // py:600-606  return self.hlstyle(fg, bg, attrs, **kwargs) + (contents or '')
-        let style = render_hlstyle(&tmux_for_hl, fg, bg, attrs);
+        let style = if ext_is_vim {
+            render_hlstyle_vim(vim_for_hl.as_ref(), fg, bg, attrs, &vim_cmds_for_hl)
+        } else {
+            render_hlstyle(&tmux_for_hl, fg, bg, attrs)
+        };
         format!("{}{}", style, contents.unwrap_or(""))
     };
     let hlstyle_fn =
         move |fg: &Value, bg: &Value, attrs: &Value, _hl_args: &Map<String, Value>| -> String {
-            render_hlstyle(&tmux_for_hlstyle, fg, bg, attrs)
+            if ext_is_vim {
+                render_hlstyle_vim(
+                    vim_for_hlstyle.as_ref(),
+                    fg,
+                    bg,
+                    attrs,
+                    &vim_cmds_for_hlstyle,
+                )
+            } else {
+                render_hlstyle(&tmux_for_hlstyle, fg, bg, attrs)
+            }
         };
 
     let contents_func =
@@ -2210,8 +2259,91 @@ pub fn render_once(
         &hl_fn,
     );
 
-    match result {
-        RenderReturn::Plain(s) => s.into_bytes(),
-        RenderReturn::Tuple { highlighted, .. } => highlighted.into_bytes(),
+    let statusline = match result {
+        RenderReturn::Plain(s) => s,
+        RenderReturn::Tuple { highlighted, .. } => highlighted,
+    };
+
+    if configs.ext == "vim" {
+        // Wire format for vim: every `:hi GroupName ...` command on
+        // its own line, then a single empty separator line, then the
+        // statusline markup as the last line. The vim plugin reads
+        // the full response, executes every line before the empty
+        // separator via `:execute`, and assigns the line after to
+        // `&statusline`. Empty separator means a missing/empty
+        // statusline still parses unambiguously.
+        let cmds = vim_commands.lock().unwrap();
+        let mut out = String::new();
+        for c in cmds.iter() {
+            out.push_str(c);
+            out.push('\n');
+        }
+        out.push('\n');
+        out.push_str(&statusline);
+        return out.into_bytes();
     }
+
+    statusline.into_bytes()
+}
+
+/// Vim-flavoured `hlstyle`: emits a `%#PowerLine_…#` reference and
+/// appends the matching `:hi PowerLine_… ctermfg=…` command to the
+/// per-request command sink. Mirrors `render_hlstyle` for the tmux
+/// path but threads through `VimRenderer`'s state.
+fn render_hlstyle_vim(
+    vim: Option<&Arc<std::sync::Mutex<VimRenderer>>>,
+    fg: &Value,
+    bg: &Value,
+    attrs: &Value,
+    commands: &Arc<std::sync::Mutex<Vec<String>>>,
+) -> String {
+    let Some(vim) = vim else {
+        return String::new();
+    };
+    let fg_spec = json_value_to_colorspec(fg);
+    let bg_spec = json_value_to_colorspec(bg);
+    let attrs_u: Option<u32> = attrs.as_u64().map(|n| n as u32);
+    let mut renderer = vim.lock().unwrap();
+    let mut local_cmds: Vec<String> = Vec::new();
+    let out = renderer.hlstyle(fg_spec, bg_spec, attrs_u, &mut local_cmds);
+    if !local_cmds.is_empty() {
+        let mut sink = commands.lock().unwrap();
+        sink.extend(local_cmds);
+    }
+    out
+}
+
+/// Decode the JSON shape Theme writes for fg/bg — either a number
+/// (cterm-only palette index) or an object
+/// `{"cterm": N, "truecolor": "RRGGBB"|null}` — into the
+/// `VimColorSpec` the renderer wants. Mirrors the same lookup the
+/// tmux side does in `render_hlstyle`.
+fn json_value_to_colorspec(v: &Value) -> Option<VimColorSpec> {
+    if v.is_null() || v.is_boolean() {
+        return None;
+    }
+    if let Some(n) = v.as_u64() {
+        return Some(VimColorSpec {
+            cterm: n as u16,
+            truecolor: None,
+        });
+    }
+    if let Some(arr) = v.as_array() {
+        // Theme palette form: `[cterm, "RRGGBB"]`
+        let cterm = arr.first().and_then(|v| v.as_u64())? as u16;
+        let truecolor = arr
+            .get(1)
+            .and_then(|v| v.as_str())
+            .and_then(|s| u32::from_str_radix(s.trim_start_matches('#'), 16).ok());
+        return Some(VimColorSpec { cterm, truecolor });
+    }
+    if let Some(obj) = v.as_object() {
+        let cterm = obj.get("cterm").and_then(|v| v.as_u64())? as u16;
+        let truecolor = obj
+            .get("truecolor")
+            .and_then(|v| v.as_str())
+            .and_then(|s| u32::from_str_radix(s.trim_start_matches('#'), 16).ok());
+        return Some(VimColorSpec { cterm, truecolor });
+    }
+    None
 }

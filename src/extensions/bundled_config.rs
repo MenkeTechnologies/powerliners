@@ -246,6 +246,26 @@ fn extract() -> Option<PathBuf> {
     cache.join("config.json").exists().then_some(cache)
 }
 
+/// Extract the vim driver script
+/// (`src/ported/bindings/vim/powerline.vim`) to
+/// `$XDG_CACHE_HOME/powerliners/vim/powerline.vim` and return the
+/// resulting path. Mirrors `bundled_config_dir` but with one file
+/// instead of 46 — the plugin is small enough that paying the
+/// `OnceLock` for parity isn't worth the indirection.
+pub fn bundled_vim_plugin_path() -> Option<PathBuf> {
+    const VIM_PLUGIN: &str = include_str!("../ported/bindings/vim/powerline.vim");
+    let dir = std::env::var_os("XDG_CACHE_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))
+        .unwrap_or_else(std::env::temp_dir)
+        .join("powerliners")
+        .join("vim");
+    std::fs::create_dir_all(&dir).ok()?;
+    let path = dir.join("powerline.vim");
+    std::fs::write(&path, VIM_PLUGIN).ok()?;
+    Some(path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
