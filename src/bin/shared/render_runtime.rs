@@ -2591,3 +2591,166 @@ fn json_value_to_colorspec(v: &Value) -> Option<VimColorSpec> {
     }
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    // =====================================================================
+    // json_value_to_colorspec — vim renderer's theme-color decoder
+    // (commit 70f0ea3458, feat(vim): ext dispatch).
+    // =====================================================================
+
+    #[test]
+    fn colorspec_null_returns_none() {
+        assert!(json_value_to_colorspec(&Value::Null).is_none());
+    }
+
+    #[test]
+    fn colorspec_bool_returns_none() {
+        assert!(json_value_to_colorspec(&json!(true)).is_none());
+        assert!(json_value_to_colorspec(&json!(false)).is_none());
+    }
+
+    #[test]
+    fn colorspec_number_yields_cterm_only() {
+        let c = json_value_to_colorspec(&json!(42)).expect("u64 → Some");
+        assert_eq!(c.cterm, 42);
+        assert!(c.truecolor.is_none());
+    }
+
+    #[test]
+    fn colorspec_palette_array_decodes_cterm_and_truecolor() {
+        // Theme JSON `[cterm, "RRGGBB"]` form (no leading '#').
+        let c = json_value_to_colorspec(&json!([196, "ff0000"])).expect("[cterm, hex] → Some");
+        assert_eq!(c.cterm, 196);
+        assert_eq!(c.truecolor, Some(0xff0000));
+    }
+
+    #[test]
+    fn colorspec_palette_array_accepts_hash_prefix() {
+        // trim_start_matches('#') means leading hash is tolerated.
+        let c = json_value_to_colorspec(&json!([21, "#0000ff"])).expect("[cterm, #hex] → Some");
+        assert_eq!(c.cterm, 21);
+        assert_eq!(c.truecolor, Some(0x0000ff));
+    }
+
+    #[test]
+    fn colorspec_object_form_with_truecolor() {
+        let c = json_value_to_colorspec(&json!({"cterm": 76, "truecolor": "33cc66"}))
+            .expect("{cterm,truecolor} → Some");
+        assert_eq!(c.cterm, 76);
+        assert_eq!(c.truecolor, Some(0x33cc66));
+    }
+
+    #[test]
+    fn colorspec_object_form_truecolor_null_yields_cterm_only() {
+        // truecolor: null is a legitimate theme value meaning
+        // "no GUI color, cterm only" — must still produce Some.
+        let c = json_value_to_colorspec(&json!({"cterm": 7, "truecolor": null}))
+            .expect("{cterm, null} → Some");
+        assert_eq!(c.cterm, 7);
+        assert!(c.truecolor.is_none());
+    }
+
+    #[test]
+    fn colorspec_object_missing_cterm_returns_none() {
+        // Without cterm there's nothing to render against; treat as
+        // malformed and return None rather than guess a default.
+        assert!(json_value_to_colorspec(&json!({"truecolor": "ffffff"})).is_none());
+    }
+
+    #[test]
+    fn colorspec_string_value_returns_none() {
+        // Strings aren't a valid theme color shape — neither a number
+        // nor an array nor an object.
+        assert!(json_value_to_colorspec(&json!("red")).is_none());
+    }
+
+    #[test]
+    fn colorspec_palette_array_invalid_hex_drops_truecolor() {
+        // Hex parse failure on the truecolor field doesn't poison the
+        // cterm value; the cterm-only spec is still valid.
+        let c = json_value_to_colorspec(&json!([10, "nothex"]))
+            .expect("[cterm, bad-hex] → Some(cterm-only)");
+        assert_eq!(c.cterm, 10);
+        assert!(c.truecolor.is_none());
+    }
+
+    // =====================================================================
+    // adapter_id — theme function string → internal dispatcher key
+    // =====================================================================
+
+    #[test]
+    fn adapter_id_full_dotted_path_matches() {
+        // Exact ADAPTERS entry: powerline.segments.common.net.hostname.
+        let id = adapter_id("powerline.segments.common.net", "hostname")
+            .expect("hostname adapter must register");
+        assert_eq!(id, "powerline.segments.common.net.hostname");
+    }
+
+    #[test]
+    fn adapter_id_bare_name_fallback_hits_short_alias() {
+        // ADAPTERS has the bare "exec" alias for user-defined scripts.
+        // Caller supplies a nonsense module that's not in the table,
+        // but the bare-name fallback at line 459-461 should hit.
+        let id = adapter_id("powerline.segments.nonexistent", "exec")
+            .expect("exec bare-name alias must be registered");
+        assert_eq!(id, "exec");
+    }
+
+    #[test]
+    fn adapter_id_unknown_returns_none() {
+        // Neither full nor bare match → None (unless the fs fallback
+        // resolves it; "definitely_not_a_segment" isn't a real script).
+        assert!(adapter_id("does.not.exist", "definitely_not_a_segment").is_none());
+    }
+
+    #[test]
+    fn adapter_id_extension_segments_register() {
+        // powerliners.gpu.gpu_usage_percent, .disk.disk_io, etc. are
+        // extension-tier (commit 147a0a4b24) — verify they appear in
+        // the dispatch table so theme JSON can reference them.
+        for (mod_, name) in [
+            ("powerliners.gpu", "gpu_usage_percent"),
+            ("powerliners.gpu", "gpu_vram"),
+            ("powerliners.disk", "disk_usage"),
+            ("powerliners.disk", "disk_io"),
+            ("powerliners.thermal", "thermal"),
+            ("powerliners.vcs", "git_status"),
+            ("powerlinemem.mem_usage", "mem_usage"),
+            ("powerlinemem.mem_usage", "mem_swap_percentage"),
+        ] {
+            let id = adapter_id(mod_, name).unwrap_or_else(|| {
+                panic!("extension adapter {mod_}.{name} missing from ADAPTERS")
+            });
+            assert_eq!(id, format!("{mod_}.{name}"));
+        }
+    }
+
+    // =====================================================================
+    // ADAPTERS table — invariants
+    // =====================================================================
+
+    #[test]
+    fn adapters_table_keys_are_unique() {
+        // Duplicate keys would let one mask another silently — surface
+        // any future merge that introduces collisions.
+        let mut seen = std::collections::HashSet::new();
+        for (k, _) in ADAPTERS {
+            assert!(
+                seen.insert(*k),
+                "duplicate ADAPTERS key: {k}"
+            );
+        }
+    }
+
+    #[test]
+    fn adapters_table_keys_have_no_leading_or_trailing_dots() {
+        for (k, _) in ADAPTERS {
+            assert!(!k.starts_with('.'), "ADAPTERS key {k:?} starts with '.'");
+            assert!(!k.ends_with('.'), "ADAPTERS key {k:?} ends with '.'");
+        }
+    }
+}
