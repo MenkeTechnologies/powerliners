@@ -1,0 +1,7 @@
+/target/
+
+# Override the global Cargo.lock ignore — powerliners is a binary crate
+# (5-binary suite: powerline / powerline-daemon / powerline-config /
+# powerline-render / powerline-lint), so Cargo.lock must be tracked for
+# reproducible `cargo build --release --locked` in release.yml.
+!Cargo.lock
