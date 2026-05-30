@@ -12937,3 +12937,173 @@ fn parity_lib_path_join_empty_parts_skip_separator() {
     let py_norm = std::path::PathBuf::from(&py);
     assert_eq!(rs, py_norm, "empty-first join parity mismatch");
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// colorscheme — get_gradient pair-array reduction + fallback
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_colorscheme_get_gradient_picks_cterm_and_truecolor() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.colorscheme import Colorscheme; \
+         cs_cfg = {'name': 'test', 'gradients': {'g': [[1, 2, 3, 4, 5], [10, 20, 30, 40, 50]]}, \
+                   'groups': {}}; \
+         colors_cfg = {'colors': {}, 'gradients': {}}; \
+         cs = Colorscheme(cs_cfg, colors_cfg); \
+         r = cs.get_gradient('g', 50); \
+         print(list(r) if hasattr(r, '__iter__') else r, end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let mut cs_cfg = serde_json::Map::new();
+    cs_cfg.insert("name".to_string(), serde_json::Value::String("test".into()));
+    let mut grads = serde_json::Map::new();
+    grads.insert(
+        "g".to_string(),
+        serde_json::json!([[1, 2, 3, 4, 5], [10, 20, 30, 40, 50]]),
+    );
+    cs_cfg.insert("gradients".to_string(), serde_json::Value::Object(grads));
+    cs_cfg.insert(
+        "groups".to_string(),
+        serde_json::Value::Object(serde_json::Map::new()),
+    );
+    let mut colors_cfg = serde_json::Map::new();
+    colors_cfg.insert(
+        "colors".to_string(),
+        serde_json::Value::Object(serde_json::Map::new()),
+    );
+    colors_cfg.insert(
+        "gradients".to_string(),
+        serde_json::Value::Object(serde_json::Map::new()),
+    );
+    let cs = powerliners::ported::colorscheme::Colorscheme::new(&cs_cfg, &colors_cfg);
+    let rs = cs.get_gradient("g", 50.0);
+    let rs_json = serde_json::to_string(&rs).expect("serialize");
+    let py_compact = py.replace(", ", ",");
+    assert_eq!(rs_json, py_compact, "get_gradient at level=50 mismatch");
+}
+
+#[test]
+fn parity_colorscheme_get_gradient_endpoint_picks_first_and_last() {
+    if !python_available() {
+        return;
+    }
+    let py0 = match py_eval(
+        "from powerline.colorscheme import Colorscheme; \
+         cs_cfg = {'name': 't', 'gradients': {'g': [[1, 2, 3, 4, 5]]}, 'groups': {}}; \
+         colors_cfg = {'colors': {}, 'gradients': {}}; \
+         cs = Colorscheme(cs_cfg, colors_cfg); \
+         print(list(cs.get_gradient('g', 0))[0], end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py0, "1", "level=0 picks first");
+    let py100 = match py_eval(
+        "from powerline.colorscheme import Colorscheme; \
+         cs_cfg = {'name': 't', 'gradients': {'g': [[1, 2, 3, 4, 5]]}, 'groups': {}}; \
+         colors_cfg = {'colors': {}, 'gradients': {}}; \
+         cs = Colorscheme(cs_cfg, colors_cfg); \
+         print(list(cs.get_gradient('g', 100))[0], end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py100, "5", "level=100 picks last");
+    let mut cs_cfg = serde_json::Map::new();
+    cs_cfg.insert("name".to_string(), serde_json::Value::String("t".into()));
+    let mut grads = serde_json::Map::new();
+    grads.insert("g".to_string(), serde_json::json!([[1, 2, 3, 4, 5]]));
+    cs_cfg.insert("gradients".to_string(), serde_json::Value::Object(grads));
+    cs_cfg.insert(
+        "groups".to_string(),
+        serde_json::Value::Object(serde_json::Map::new()),
+    );
+    let mut colors_cfg = serde_json::Map::new();
+    colors_cfg.insert(
+        "colors".to_string(),
+        serde_json::Value::Object(serde_json::Map::new()),
+    );
+    colors_cfg.insert(
+        "gradients".to_string(),
+        serde_json::Value::Object(serde_json::Map::new()),
+    );
+    let cs = powerliners::ported::colorscheme::Colorscheme::new(&cs_cfg, &colors_cfg);
+    let rs0 = cs.get_gradient("g", 0.0);
+    let rs100 = cs.get_gradient("g", 100.0);
+    assert_eq!(rs0[0].as_u64(), Some(1), "rs level=0 first");
+    assert_eq!(rs100[0].as_u64(), Some(5), "rs level=100 last");
+}
+
+#[test]
+fn parity_colorscheme_get_gradient_falls_back_to_colors_lookup() {
+    // py:65-66  if gradient name not in gradients: return colors[gradient]
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.colorscheme import Colorscheme; \
+         cs_cfg = {'name': 't', 'gradients': {}, 'groups': {}}; \
+         colors_cfg = {'colors': {'red': [9, 16711680]}, 'gradients': {}}; \
+         cs = Colorscheme(cs_cfg, colors_cfg); \
+         print(list(cs.get_gradient('red', 50)), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let mut cs_cfg = serde_json::Map::new();
+    cs_cfg.insert("name".to_string(), serde_json::Value::String("t".into()));
+    cs_cfg.insert(
+        "gradients".to_string(),
+        serde_json::Value::Object(serde_json::Map::new()),
+    );
+    cs_cfg.insert(
+        "groups".to_string(),
+        serde_json::Value::Object(serde_json::Map::new()),
+    );
+    let mut colors_cfg = serde_json::Map::new();
+    let mut colors = serde_json::Map::new();
+    colors.insert("red".to_string(), serde_json::json!([9, 16711680]));
+    colors_cfg.insert("colors".to_string(), serde_json::Value::Object(colors));
+    colors_cfg.insert(
+        "gradients".to_string(),
+        serde_json::Value::Object(serde_json::Map::new()),
+    );
+    let cs = powerliners::ported::colorscheme::Colorscheme::new(&cs_cfg, &colors_cfg);
+    let rs = cs.get_gradient("red", 50.0);
+    let rs_json = serde_json::to_string(&rs).expect("serialize");
+    let py_compact = py.replace(", ", ",");
+    assert_eq!(rs_json, py_compact, "fallback-to-colors lookup mismatch");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/encoding — preferred_*_encoding fns return non-empty
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_lib_encoding_preferred_input_encoding_non_empty() {
+    let rs = powerliners::ported::lib::encoding::get_preferred_input_encoding();
+    assert!(!rs.is_empty(), "input encoding should be non-empty");
+}
+
+#[test]
+fn parity_lib_encoding_preferred_file_name_encoding_non_empty() {
+    let rs = powerliners::ported::lib::encoding::get_preferred_file_name_encoding();
+    assert!(!rs.is_empty(), "file_name encoding should be non-empty");
+}
+
+#[test]
+fn parity_lib_encoding_preferred_arguments_encoding_non_empty() {
+    let rs = powerliners::ported::lib::encoding::get_preferred_arguments_encoding();
+    assert!(!rs.is_empty(), "arguments encoding should be non-empty");
+}
+
+#[test]
+fn parity_lib_encoding_preferred_environment_encoding_non_empty() {
+    let rs = powerliners::ported::lib::encoding::get_preferred_environment_encoding();
+    assert!(!rs.is_empty(), "environment encoding should be non-empty");
+}
