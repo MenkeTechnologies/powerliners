@@ -12407,3 +12407,216 @@ fn parity_theme_outer_padding_field_stored() {
         assert_eq!(theme.outer_padding, *n, "outer_padding round-trip mismatch");
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// segments/shell::mode — override / default / uppercase fallback
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_shell_mode_returns_override_value() {
+    // py:101  return override[mode]
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "f = __import__('powerline.segments.shell', fromlist=['mode']).mode; \
+         inner = f.__wrapped__ if hasattr(f, '__wrapped__') else f; \
+         r = inner(None, {'mode': 'viins'}, override={'vicmd': 'COMMND', 'viins': 'INSERT'}, default=None); \
+         print(r if r else 'None', end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "INSERT");
+    let info = powerliners::ported::segments::shell::ShellSegmentInfo {
+        mode: Some("viins".to_string()),
+        ..Default::default()
+    };
+    let mut override_tbl = serde_json::Map::new();
+    override_tbl.insert(
+        "vicmd".to_string(),
+        serde_json::Value::String("COMMND".into()),
+    );
+    override_tbl.insert(
+        "viins".to_string(),
+        serde_json::Value::String("INSERT".into()),
+    );
+    let rs = powerliners::ported::segments::shell::mode(&(), &info, &override_tbl, None);
+    assert_eq!(rs.as_deref(), Some(py.as_str()));
+}
+
+#[test]
+fn parity_shell_mode_uppercases_unknown_mode() {
+    // py:109  return mode.upper()
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "f = __import__('powerline.segments.shell', fromlist=['mode']).mode; \
+         inner = f.__wrapped__ if hasattr(f, '__wrapped__') else f; \
+         r = inner(None, {'mode': 'isearch'}, override={'vicmd': 'COMMND'}, default=None); \
+         print(r if r else 'None', end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "ISEARCH");
+    let info = powerliners::ported::segments::shell::ShellSegmentInfo {
+        mode: Some("isearch".to_string()),
+        ..Default::default()
+    };
+    let mut override_tbl = serde_json::Map::new();
+    override_tbl.insert(
+        "vicmd".to_string(),
+        serde_json::Value::String("COMMND".into()),
+    );
+    let rs = powerliners::ported::segments::shell::mode(&(), &info, &override_tbl, None);
+    assert_eq!(rs.as_deref(), Some(py.as_str()));
+}
+
+#[test]
+fn parity_shell_mode_default_match_returns_none() {
+    // py:98-99  if mode == default: return None
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "f = __import__('powerline.segments.shell', fromlist=['mode']).mode; \
+         inner = f.__wrapped__ if hasattr(f, '__wrapped__') else f; \
+         r = inner(None, {'mode': 'viins'}, override={'viins': 'INSERT'}, default='viins'); \
+         print('None' if r is None else r, end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "None");
+    let info = powerliners::ported::segments::shell::ShellSegmentInfo {
+        mode: Some("viins".to_string()),
+        ..Default::default()
+    };
+    let mut override_tbl = serde_json::Map::new();
+    override_tbl.insert(
+        "viins".to_string(),
+        serde_json::Value::String("INSERT".into()),
+    );
+    let rs = powerliners::ported::segments::shell::mode(&(), &info, &override_tbl, Some("viins"));
+    assert!(rs.is_none(), "default match should suppress segment");
+}
+
+#[test]
+fn parity_shell_mode_empty_mode_returns_none() {
+    // py:94-96  if not mode: return None
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "f = __import__('powerline.segments.shell', fromlist=['mode']).mode; \
+         inner = f.__wrapped__ if hasattr(f, '__wrapped__') else f; \
+         r = inner(None, {'mode': ''}, override={}, default=None); \
+         print('None' if r is None else r, end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "None");
+    let info = powerliners::ported::segments::shell::ShellSegmentInfo {
+        mode: Some(String::new()),
+        ..Default::default()
+    };
+    let rs = powerliners::ported::segments::shell::mode(&(), &info, &serde_json::Map::new(), None);
+    assert!(rs.is_none(), "empty mode should suppress segment");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// segments/shell::jobnum — show_zero flag
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_shell_jobnum_returns_number_when_nonzero() {
+    let info = powerliners::ported::segments::shell::ShellSegmentInfo {
+        jobnum: Some(3),
+        ..Default::default()
+    };
+    let rs = powerliners::ported::segments::shell::jobnum(&(), &info, false);
+    assert_eq!(rs.as_deref(), Some("3"));
+}
+
+#[test]
+fn parity_shell_jobnum_zero_with_show_zero_false_returns_none() {
+    let info = powerliners::ported::segments::shell::ShellSegmentInfo {
+        jobnum: Some(0),
+        ..Default::default()
+    };
+    let rs = powerliners::ported::segments::shell::jobnum(&(), &info, false);
+    assert!(rs.is_none(), "0 + show_zero=false should suppress");
+}
+
+#[test]
+fn parity_shell_jobnum_zero_with_show_zero_true_renders_zero() {
+    let info = powerliners::ported::segments::shell::ShellSegmentInfo {
+        jobnum: Some(0),
+        ..Default::default()
+    };
+    let rs = powerliners::ported::segments::shell::jobnum(&(), &info, true);
+    assert_eq!(rs.as_deref(), Some("0"));
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/dict::updated — kwargs overlap + non-mutation invariant
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_lib_dict_updated_overlapping_kwargs_overwrite() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "import json; \
+         mod = __import__('powerline.lib.dict', fromlist=['updated']); \
+         d = {'a': 1, 'b': 2}; \
+         r = mod.updated(d, b=99, c=3); \
+         print(json.dumps(r, sort_keys=True), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let mut d = serde_json::Map::new();
+    d.insert("a".to_string(), serde_json::Value::from(1));
+    d.insert("b".to_string(), serde_json::Value::from(2));
+    let r = powerliners::ported::lib::dict::updated(
+        &d,
+        vec![
+            ("b".to_string(), serde_json::Value::from(99)),
+            ("c".to_string(), serde_json::Value::from(3)),
+        ],
+    );
+    let rs_json = serde_json::to_string(&r).expect("serialize");
+    let py_compact = py.replace(", ", ",").replace(": ", ":");
+    assert_eq!(rs_json, py_compact, "updated overwrite mismatch");
+}
+
+#[test]
+fn parity_lib_dict_updated_does_not_mutate_original() {
+    if !python_available() {
+        return;
+    }
+    let py_expr = "\
+        import json; \
+        mod = __import__('powerline.lib.dict', fromlist=['updated']); \
+        d = {'a': 1}; \
+        _ = mod.updated(d, b=2); \
+        print(json.dumps(d, sort_keys=True), end='')";
+    let py = match py_eval(py_expr) {
+        Some(v) => v,
+        None => return,
+    };
+    let mut d = serde_json::Map::new();
+    d.insert("a".to_string(), serde_json::Value::from(1));
+    let _r = powerliners::ported::lib::dict::updated(
+        &d,
+        vec![("b".to_string(), serde_json::Value::from(2))],
+    );
+    let rs_json = serde_json::to_string(&d).expect("serialize");
+    let py_compact = py.replace(", ", ",").replace(": ", ":");
+    assert_eq!(rs_json, py_compact, "original d should be untouched");
+}
