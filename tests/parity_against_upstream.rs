@@ -13215,3 +13215,97 @@ fn parity_lib_url_urllib_read_returns_none_for_invalid_url() {
         "urllib_read stub should return None for any URL"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// lint/spec — check_type per-variant invariants
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_spec_check_type_object_matches_dict() {
+    use powerliners::ported::lint::spec::{check_type, SpecType};
+    let v = serde_json::json!({"a": 1});
+    let r = check_type(&v, &[SpecType::Dict]);
+    assert!(!r.hadproblem, "Object should match SpecType::Dict");
+}
+
+#[test]
+fn parity_spec_check_type_array_matches_list() {
+    use powerliners::ported::lint::spec::{check_type, SpecType};
+    let v = serde_json::json!([1, 2, 3]);
+    let r = check_type(&v, &[SpecType::List]);
+    assert!(!r.hadproblem, "Array should match SpecType::List");
+}
+
+#[test]
+fn parity_spec_check_type_string_matches_unicode() {
+    use powerliners::ported::lint::spec::{check_type, SpecType};
+    let v = serde_json::json!("hello");
+    let r = check_type(&v, &[SpecType::Unicode]);
+    assert!(!r.hadproblem, "String should match SpecType::Unicode");
+}
+
+#[test]
+fn parity_spec_check_type_bool_matches_bool() {
+    use powerliners::ported::lint::spec::{check_type, SpecType};
+    let v = serde_json::json!(true);
+    let r = check_type(&v, &[SpecType::Bool]);
+    assert!(!r.hadproblem, "Bool should match SpecType::Bool");
+}
+
+#[test]
+fn parity_spec_check_type_mismatch_returns_not_ok() {
+    use powerliners::ported::lint::spec::{check_type, SpecType};
+    let v = serde_json::json!("hello");
+    let r = check_type(&v, &[SpecType::Dict]);
+    assert!(r.hadproblem, "String should NOT match SpecType::Dict");
+}
+
+#[test]
+fn parity_spec_check_type_union_dict_or_list() {
+    // Python: Spec.type(dict, list) — either is acceptable.
+    use powerliners::ported::lint::spec::{check_type, SpecType};
+    let dict_v = serde_json::json!({"a": 1});
+    let list_v = serde_json::json!([1, 2]);
+    assert!(!check_type(&dict_v, &[SpecType::Dict, SpecType::List]).hadproblem);
+    assert!(!check_type(&list_v, &[SpecType::Dict, SpecType::List]).hadproblem);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/shell::run_cmd — stdout strip parity
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_lib_shell_run_cmd_strips_trailing_newline_by_default() {
+    // py:strip=True default trims '\n' from end of output.
+    let cmd = vec!["echo".to_string(), "hello".to_string()];
+    let rs = powerliners::ported::lib::shell::run_cmd(&(), &cmd, None, true);
+    assert_eq!(
+        rs.as_deref(),
+        Some("hello"),
+        "echo should strip trailing newline"
+    );
+}
+
+#[test]
+fn parity_lib_shell_run_cmd_strip_false_keeps_newline() {
+    // strip=False preserves the trailing newline.
+    let cmd = vec!["echo".to_string(), "hello".to_string()];
+    let rs = powerliners::ported::lib::shell::run_cmd(&(), &cmd, None, false);
+    assert_eq!(
+        rs.as_deref(),
+        Some("hello\n"),
+        "echo with strip=false should keep newline"
+    );
+}
+
+#[test]
+fn parity_lib_shell_run_cmd_nonexistent_command_returns_none() {
+    // py: returns None when command not found (subprocess.SubprocessError)
+    let cmd = vec!["powerliners_nonexistent_binary_zzz".to_string()];
+    let rs = powerliners::ported::lib::shell::run_cmd(&(), &cmd, None, true);
+    assert!(
+        rs.is_none(),
+        "nonexistent command should return None, got {:?}",
+        rs
+    );
+}
