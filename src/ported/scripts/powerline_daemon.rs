@@ -570,6 +570,35 @@ pub fn parse_client_argv(argv: &[String]) -> Args {
                     continue;
                 }
             }
+            "--last-exit-code" => {
+                // commands/main.py:110-112  type=int_or_sig
+                if let Some(v) = argv.get(i + 1) {
+                    if let Ok(parsed) = crate::ported::commands::main::int_or_sig(v) {
+                        a.last_exit_code = Some(parsed);
+                    }
+                    i += 2;
+                    continue;
+                }
+            }
+            "--last-pipe-status" => {
+                // commands/main.py:114-118  default='', type=lambda s: [int_or_sig(...) for ... in s.split()]
+                if let Some(v) = argv.get(i + 1) {
+                    a.last_pipe_status = v
+                        .split_whitespace()
+                        .filter_map(|tok| crate::ported::commands::main::int_or_sig(tok).ok())
+                        .collect();
+                    i += 2;
+                    continue;
+                }
+            }
+            "--jobnum" => {
+                // commands/main.py:120-122  type=int
+                if let Some(v) = argv.get(i + 1) {
+                    a.jobnum = v.parse().ok();
+                    i += 2;
+                    continue;
+                }
+            }
             s if s.starts_with('-') => {
                 // unknown flag; skip
                 i += 1;
