@@ -570,6 +570,22 @@ pub fn parse_client_argv(argv: &[String]) -> Args {
                     continue;
                 }
             }
+            "-m" | "--mode" => {
+                // Rust-port shorthand for `-R mode=VALUE`. Upstream
+                // Python ports the mode through `renderer_arg["mode"]`,
+                // which `finish_args` merges into `renderer_arg_merged`
+                // and `render_once` lifts into `Renderer.render(mode=…)`.
+                // `-m` flows through the same renderer_arg pipeline so
+                // mode_translations colorscheme groups fire when the
+                // shell binding supplies a current vi mode.
+                if let Some(v) = argv.get(i + 1) {
+                    a.renderer_arg
+                        .get_or_insert_with(Vec::new)
+                        .push(format!("mode={}", v));
+                    i += 2;
+                    continue;
+                }
+            }
             "--last-exit-code" => {
                 // commands/main.py:110-112  type=int_or_sig
                 if let Some(v) = argv.get(i + 1) {
