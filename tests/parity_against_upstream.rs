@@ -8316,3 +8316,277 @@ fn parity_updated_merges_and_copies() {
         py_compact, rs
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// segments/common/bat.py — battery segment
+//
+// Pins the new `expand_battery_format` helper against Python's
+// `str.format()` for the `{ac_state}` + `{capacity:N.M%}` placeholders
+// the segment uses. The earlier two-`.replace()` hack at
+// `bat.rs:268-271` diverged from Python for:
+//   • `:3.0%` with capacity 87 → Rust emitted ' 87%', Python emits '87%'
+//   • alt precisions like `:.2%` → unrecognized, left as raw placeholder
+//   • capacity 100 width-3 → both keep '100%' (no truncation)
+//
+// Capacity convention: Rust API takes 0..100 (matches the pmset /
+// /sys / dbus paths); Python `{capacity:N.M%}` expects 0..1 because
+// the `%` type multiplies by 100. So every parity test passes
+// `capacity / 100` to Python and `capacity` to Rust.
+// ─────────────────────────────────────────────────────────────────────
+
+fn parity_battery_format(fmt: &str, ac_state: &str, capacity_pct: f64) {
+    if !python_available() {
+        return;
+    }
+    let py_expr = format!(
+        "repr({fmt:?}.format(ac_state={ac_state:?}, capacity={cap}))",
+        fmt = fmt,
+        ac_state = ac_state,
+        cap = capacity_pct / 100.0,
+    );
+    let py_repr = match py_eval(&py_expr) {
+        Some(v) => v,
+        None => return,
+    };
+    // Strip Python's repr quotes (e.g. "'87%'" → "87%"). Use the same
+    // single-quoted-repr convention upstream tests rely on.
+    let py = py_repr
+        .trim_start_matches('\'')
+        .trim_end_matches('\'')
+        .to_string();
+    let rs = powerliners::ported::segments::common::bat::expand_battery_format(
+        fmt,
+        ac_state,
+        capacity_pct,
+    );
+    assert_eq!(
+        rs, py,
+        "battery format mismatch:\n  fmt: {:?}\n  ac_state: {:?}\n  cap: {}\n  py: {:?}\n  rs: {:?}",
+        fmt, ac_state, capacity_pct, py, rs
+    );
+}
+
+#[test]
+fn parity_bat_format_default_online_lightning_87pct() {
+    // The shipped powerline.json override: online='⚡︎'. Most common
+    // render path: AC plugged in, mid charge.
+    parity_battery_format("{ac_state} {capacity:3.0%}", "\u{26a1}\u{fe0e}", 87.0);
+}
+
+#[test]
+fn parity_bat_format_default_offline_space_87pct() {
+    // Default offline=' ' (literal space). Python emits '  87%' (two
+    // leading spaces). Pinning Python's literal-space behavior, NOT
+    // the Rust-segment-side trim_start (which is applied at the
+    // `battery()` level, not in `expand_battery_format` itself — the
+    // helper has to remain Python-faithful).
+    parity_battery_format("{ac_state} {capacity:3.0%}", " ", 87.0);
+}
+
+#[test]
+fn parity_bat_format_width_3_pads_single_digit() {
+    // `:3.0%` with capacity 5 → ' 5%' (Python pads the full '5%'
+    // output to width 3, NOT the digits alone). Old Rust hack
+    // emitted '  5%' (4 chars) — captured here so it can't regress.
+    parity_battery_format("{ac_state} {capacity:3.0%}", "C", 5.0);
+}
+
+#[test]
+fn parity_bat_format_width_3_zero_pct() {
+    // Edge of the width-3 pad range: '0%' → ' 0%'.
+    parity_battery_format("{ac_state} {capacity:3.0%}", "C", 0.0);
+}
+
+#[test]
+fn parity_bat_format_capacity_100_overflows_width() {
+    // Python `{:3.0%}` against 1.0 → '100%' (4 chars > width 3); no
+    // truncation, just emits the full value. The Rust port mirrors
+    // this by skipping the right-pad when `core.len() >= width`.
+    parity_battery_format("{ac_state} {capacity:3.0%}", "C", 100.0);
+}
+
+#[test]
+fn parity_bat_format_alt_precision_2() {
+    // `:.2%` with capacity 87 → '87.00%'. The old two-`.replace()`
+    // hack only matched the literal '{capacity:3.0%}' substring, so
+    // any theme override using a different precision left the
+    // placeholder as raw text — caught here as a parity failure.
+    parity_battery_format("{capacity:.2%}", "", 87.0);
+}
+
+#[test]
+fn parity_bat_format_alt_width_precision() {
+    // `:5.1%` with capacity 5 → ' 5.0%' (4 chars right-padded to 5).
+    parity_battery_format("{ac_state} {capacity:5.1%}", "C", 5.0);
+}
+
+#[test]
+fn parity_bat_format_no_precision_default_six() {
+    // `:%` with no precision uses Python's float default precision
+    // (6 digits after the decimal). 0.87 → '87.000000%'.
+    parity_battery_format("{capacity:%}", "", 87.0);
+}
+
+#[test]
+fn parity_bat_format_literal_separator_kept() {
+    // Format strings with multi-char literal separators between the
+    // two placeholders shouldn't be touched by the placeholder
+    // expander — only the `{…}` chunks get replaced.
+    parity_battery_format("{ac_state} batt={capacity:3.0%}", "C", 75.0);
+}
+
+#[test]
+fn parity_bat_format_only_ac_state() {
+    // Theme override with no capacity at all (icon-only display).
+    parity_battery_format("[{ac_state}]", "C", 50.0);
+}
+
+#[test]
+fn parity_bat_format_only_capacity() {
+    // Theme override that drops the icon entirely.
+    parity_battery_format("{capacity:3.0%}", "ignored", 42.0);
+}
+
+#[test]
+fn parity_bat_battery_percent_re_matches_first_digits() {
+    // py:146  BATTERY_PERCENT_RE = re.compile(r'(\d+)%')
+    // Python's `search` returns FIRST match; with multi-battery
+    // pmset output the FIRST battery's percent wins.
+    if !python_available() {
+        return;
+    }
+    let input = "Battery1 87%; charging; Battery2 55%";
+    let py_expr = format!(
+        "__import__('re').compile(r'(\\d+)%').search({input:?}).group(1)",
+        input = input,
+    );
+    let py = match py_eval(&py_expr) {
+        Some(v) => v,
+        None => return,
+    };
+    let r = powerliners::ported::segments::common::bat::BATTERY_PERCENT_RE();
+    let rs = r.captures(input).unwrap().get(1).unwrap().as_str();
+    assert_eq!(rs, py, "BATTERY_PERCENT_RE first-match mismatch");
+}
+
+#[test]
+fn parity_bat_battery_percent_re_no_match_returns_none() {
+    // py:148  search returns None when no digits — Python raises
+    // AttributeError on .group(); Rust returns None from captures().
+    // Compare the boolean "did it match" rather than the missing
+    // capture itself.
+    if !python_available() {
+        return;
+    }
+    let input = "No battery installed";
+    let py_expr = format!(
+        "str(__import__('re').compile(r'(\\d+)%').search({input:?}) is not None)",
+        input = input,
+    );
+    let py_matched = match py_eval(&py_expr) {
+        Some(v) => v == "True",
+        None => return,
+    };
+    let r = powerliners::ported::segments::common::bat::BATTERY_PERCENT_RE();
+    let rs_matched = r.captures(input).is_some();
+    assert_eq!(
+        rs_matched, py_matched,
+        "BATTERY_PERCENT_RE match-presence mismatch"
+    );
+}
+
+#[test]
+fn parity_bat_ac_substring_check_present() {
+    // py:149  ac_charging = 'AC' in battery_summary
+    if !python_available() {
+        return;
+    }
+    let input = "Battery 87%; charging; AC Power";
+    let py = match py_eval(&format!("str('AC' in {input:?})", input = input)) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = input.contains("AC");
+    assert_eq!(rs.to_string(), py.to_lowercase().replace("true", "true"));
+    // Stricter form: pin exact str-form.
+    let expected = if py == "True" { "true" } else { "false" };
+    assert_eq!(rs.to_string(), expected);
+}
+
+#[test]
+fn parity_bat_ac_substring_check_absent() {
+    // 'AC' missing → False on Python side.
+    if !python_available() {
+        return;
+    }
+    let input = "Battery 87%; discharging; 4:23 remaining";
+    let py = match py_eval(&format!("str('AC' in {input:?})", input = input)) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = input.contains("AC");
+    let expected = if py == "True" { "true" } else { "false" };
+    assert_eq!(rs.to_string(), expected);
+}
+
+#[test]
+fn parity_bat_linux_status_discharging_check() {
+    // py:111  state &= (f.readline().strip() != 'Discharging')
+    // Compare Python's `.strip() != 'Discharging'` against the
+    // Rust `parse_linux_status` for the canonical inputs the
+    // /sys/class/power_supply path produces.
+    if !python_available() {
+        return;
+    }
+    for input in &["Discharging\n", "Charging\n", "Full\n", "Not charging\n"] {
+        let py = match py_eval(&format!(
+            "str({input:?}.strip() != 'Discharging')",
+            input = input,
+        )) {
+            Some(v) => v,
+            None => return,
+        };
+        let rs = powerliners::ported::segments::common::bat::parse_linux_status(input);
+        let expected = py == "True";
+        assert_eq!(
+            rs, expected,
+            "parse_linux_status mismatch for {:?}: py={} rs={}",
+            input, py, rs
+        );
+    }
+}
+
+#[test]
+fn parity_bat_pmset_parser_against_python_inline() {
+    // The Python pmset code path (py:147-150) is an inline lambda,
+    // not an importable helper. Reconstruct the two-line body
+    // verbatim and compare against `parse_pmset_output`.
+    if !python_available() {
+        return;
+    }
+    let cases = [
+        "Battery 87%; discharging; 4:23 remaining",
+        "Battery 87%; charging; AC Power",
+        "Battery 0%; discharging",
+        "Battery 100%; AC attached; not charging",
+    ];
+    for input in &cases {
+        // py:148-150 verbatim, formatted to print "(pct,ac)".
+        let py_expr = format!(
+            "(lambda s: (int(__import__('re').compile(r'(\\d+)%').search(s).group(1)), 'AC' in s))({input:?})",
+            input = input,
+        );
+        let py = match py_eval(&py_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let (rs_pct, rs_ac) = powerliners::ported::segments::common::bat::parse_pmset_output(input)
+            .expect("Rust parse_pmset_output returned None for input with digits");
+        let rs = format!("({}, {})", rs_pct, if rs_ac { "True" } else { "False" });
+        assert_eq!(
+            rs, py,
+            "parse_pmset_output mismatch for {:?}: py={} rs={}",
+            input, py, rs
+        );
+    }
+}
