@@ -993,7 +993,11 @@ fn ad_branch(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Val
     let ignore_statuses: Vec<String> = args
         .get("ignore_statuses")
         .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default();
 
     let (branch, status) = git_branch(&cwd)
