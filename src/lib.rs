@@ -21,6 +21,7 @@
 //! (binaries, integration tests) can reference symbols by their Python name
 //! without an extra `ported::` qualifier.
 
+pub mod extensions;
 pub mod ported;
 
 // Re-export the entire ported tree for ergonomic call sites.
