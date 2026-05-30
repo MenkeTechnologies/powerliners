@@ -17,62 +17,54 @@
 //     write = sys.stdout.buffer.write
 
 use crate::ported::commands::main::{finish_args, get_argparser, Args};
+use crate::ported::scripts::powerline_daemon::parse_client_argv;
 use std::collections::HashMap;
+use std::io::Write;
 
 /// Port of the `if __name__ == '__main__':` block at
 /// `vendor/powerline/scripts/powerline-render:25-31`.
 ///
 /// Builds the argparser, parses args, finishes the args dict, then
-/// renders a `ShellPowerline` to stdout. Returns the process exit
-/// code (always 0 on the success path; non-zero when the argparser
-/// rejects required positional `--ext`).
+/// hands off to `render_fn` for the actual `ShellPowerline` render and
+/// writes the bytes to stdout. Mirrors the structure of upstream's
+/// `powerline-render` script: get_argparser → parse → finish_args →
+/// segment_info → write_output. The render bin supplies `render_fn`
+/// the same way `powerline_daemon::main` takes a `RenderFn` callback —
+/// keeps the script port free of bin-private adapter dispatch.
 ///
-/// `ShellPowerline(args, run_once=True)` at sh:29 and `write_output`
-/// at sh:31 are not yet ported (depend on the full Powerline
-/// renderer dispatch). The script body is wired structurally so the
-/// next port pass can drop the real call in place.
-pub fn main(args: &[String]) -> i32 {
+/// Returns the process exit code (0 on success; 2 when `--ext` is
+/// missing, matching argparse's "required argument" rejection).
+pub fn main<F>(args: &[String], render_fn: F) -> i32
+where
+    F: FnOnce(&Args, &HashMap<String, String>, &str) -> Vec<u8>,
+{
     // sh:26  parser = get_argparser()
     let parser = get_argparser();
-
-    // Locate --ext / -e (the only required arg per commands/main.py).
-    let mut ext: Option<String> = None;
-    let mut i = 0;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--ext" | "-e" => {
-                i += 1;
-                if let Some(e) = args.get(i) {
-                    ext = Some(e.clone());
-                }
-            }
-            _ => {}
-        }
-        i += 1;
-    }
     let _ = parser;
 
-    let mut parsed = Args::default();
-    if let Some(e) = ext {
-        parsed.ext = vec![e];
-    } else {
+    // sh:27  args = parser.parse_args()
+    let mut parsed = parse_client_argv(args);
+    if parsed.ext.is_empty() {
         eprintln!("powerline-render: --ext is required");
         return 2;
     }
 
-    // sh:27  args = parser.parse_args()
     // sh:28  finish_args(parser, os.environ, args)
     let environ: HashMap<String, String> = std::env::vars().collect();
     let _ = finish_args(&environ, &mut parsed, false);
 
     // sh:29  powerline = ShellPowerline(args, run_once=True)
-    // TODO: ShellPowerline construction defers to the Powerline
-    // class port. The arg-handling path is verified here.
-
     // sh:30  segment_info = {'args': args, 'environ': os.environ}
     // sh:31  write_output(args, powerline, segment_info, get_unicode_writer())
-    // TODO: write_output also deferred.
-
+    //
+    // The injected `render_fn` encapsulates ShellPowerline construction +
+    // write_output's render dispatch + the os.environ + cwd plumbing.
+    // Mirrors the daemon's RenderFn callback architecture.
+    let cwd = std::env::current_dir()
+        .map(|p| p.display().to_string())
+        .unwrap_or_default();
+    let bytes = render_fn(&parsed, &environ, &cwd);
+    let _ = std::io::stdout().lock().write_all(&bytes);
     0
 }
 
@@ -80,21 +72,51 @@ pub fn main(args: &[String]) -> i32 {
 mod tests {
     use super::*;
 
-    #[test]
-    fn main_returns_2_when_ext_missing() {
-        // sh:27  argparse exits 2 when required --ext absent
-        assert_eq!(main(&[]), 2);
+    fn noop_render(_args: &Args, _environ: &HashMap<String, String>, _cwd: &str) -> Vec<u8> {
+        Vec::new()
     }
 
     #[test]
-    fn main_returns_0_when_ext_supplied_long() {
-        let r = main(&["--ext".to_string(), "shell".to_string()]);
+    fn main_returns_2_when_ext_missing() {
+        // sh:27  argparse exits 2 when required --ext absent
+        assert_eq!(main(&[], noop_render), 2);
+    }
+
+    #[test]
+    fn main_returns_0_when_ext_supplied_positional() {
+        let r = main(&["shell".to_string()], noop_render);
         assert_eq!(r, 0);
     }
 
     #[test]
-    fn main_returns_0_when_ext_supplied_short() {
-        let r = main(&["-e".to_string(), "tmux".to_string()]);
+    fn main_passes_parsed_args_to_render_fn() {
+        let captured: std::cell::RefCell<Option<Args>> = std::cell::RefCell::new(None);
+        let capture = |a: &Args, _e: &HashMap<String, String>, _c: &str| -> Vec<u8> {
+            *captured.borrow_mut() = Some(a.clone());
+            Vec::new()
+        };
+        let r = main(
+            &[
+                "tmux".to_string(),
+                "left".to_string(),
+                "-w".to_string(),
+                "80".to_string(),
+            ],
+            capture,
+        );
+        assert_eq!(r, 0);
+        let got = captured.borrow().clone().expect("render_fn not called");
+        assert_eq!(got.ext, vec!["tmux".to_string()]);
+        assert_eq!(got.side.as_deref(), Some("left"));
+        assert_eq!(got.width, Some(80));
+    }
+
+    #[test]
+    fn main_writes_render_fn_bytes_through_to_caller_path() {
+        // Smoke test: render_fn returns specific bytes — assert the
+        // happy path reaches it. (Stdout capture across processes is
+        // tested in integration.)
+        let r = main(&["shell".to_string()], |_a, _e, _c| b"hello".to_vec());
         assert_eq!(r, 0);
     }
 }
