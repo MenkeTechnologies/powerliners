@@ -10879,3 +10879,368 @@ fn parity_theme_expand_functions_unknown_returns_none() {
     let rs = powerliners::ported::theme::expand_functions('z');
     assert!(rs.is_none());
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// segments/shell — last_status + last_pipe_status signal-name lookup
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_shell_exit_codes_sigint() {
+    // py: exit_codes maps 2 → 'SIGINT'.
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "import signal; print('SIGINT' if signal.SIGINT == 2 else 'mismatch', end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "SIGINT");
+    let rs = powerliners::ported::segments::shell::exit_codes(2);
+    assert_eq!(rs.unwrap_or("None"), py);
+}
+
+#[test]
+fn parity_shell_exit_codes_sigkill() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "import signal; print('SIGKILL' if signal.SIGKILL == 9 else 'mismatch', end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "SIGKILL");
+    let rs = powerliners::ported::segments::shell::exit_codes(9);
+    assert_eq!(rs.unwrap_or("None"), py);
+}
+
+#[test]
+fn parity_shell_exit_codes_sigterm() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "import signal; print('SIGTERM' if signal.SIGTERM == 15 else 'mismatch', end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "SIGTERM");
+    let rs = powerliners::ported::segments::shell::exit_codes(15);
+    assert_eq!(rs.unwrap_or("None"), py);
+}
+
+#[test]
+fn parity_shell_exit_codes_unknown_returns_none() {
+    let rs = powerliners::ported::segments::shell::exit_codes(999);
+    assert!(rs.is_none(), "Rust should return None for unknown signal");
+}
+
+#[test]
+fn parity_shell_last_status_zero_returns_none() {
+    // py:40-41  if not segment_info['args'].last_exit_code: return None
+    let info = powerliners::ported::segments::shell::ShellSegmentInfo {
+        last_exit_code: Some(0),
+        ..Default::default()
+    };
+    let rs = powerliners::ported::segments::shell::last_status(&(), &info, true);
+    assert!(rs.is_none(), "exit code 0 should suppress segment");
+}
+
+#[test]
+fn parity_shell_last_status_nonzero_emits_segment() {
+    // py:48  return [{'contents': str(code), 'highlight_groups': ['exit_fail']}]
+    let info = powerliners::ported::segments::shell::ShellSegmentInfo {
+        last_exit_code: Some(127),
+        ..Default::default()
+    };
+    let rs = powerliners::ported::segments::shell::last_status(&(), &info, false).unwrap();
+    assert_eq!(rs.len(), 1);
+    assert_eq!(rs[0]["contents"], "127");
+    let groups = rs[0]["highlight_groups"].as_array().unwrap();
+    assert_eq!(groups[0], "exit_fail");
+}
+
+#[test]
+fn parity_shell_last_status_signal_form_translates_to_name() {
+    // py:44  if signal_names and code - 128 in exit_codes: return [{'contents': exit_codes[...]}]
+    let info = powerliners::ported::segments::shell::ShellSegmentInfo {
+        last_exit_code: Some(128 + 2),
+        ..Default::default()
+    };
+    let rs = powerliners::ported::segments::shell::last_status(&(), &info, true).unwrap();
+    assert_eq!(rs[0]["contents"], "SIGINT");
+}
+
+#[test]
+fn parity_shell_last_pipe_status_all_zero_returns_none() {
+    // py:64  if any(last_pipe_status): ...; else return None
+    let info = powerliners::ported::segments::shell::ShellSegmentInfo {
+        last_pipe_status: vec![0, 0, 0],
+        ..Default::default()
+    };
+    let rs = powerliners::ported::segments::shell::last_pipe_status(&(), &info, true);
+    assert!(rs.is_none(), "all-zero pipe status suppresses segment");
+}
+
+#[test]
+fn parity_shell_last_pipe_status_mixed_emits_per_status_segment() {
+    let info = powerliners::ported::segments::shell::ShellSegmentInfo {
+        last_pipe_status: vec![0, 1, 0],
+        ..Default::default()
+    };
+    let rs = powerliners::ported::segments::shell::last_pipe_status(&(), &info, true).unwrap();
+    assert_eq!(rs.len(), 3, "one segment per pipe status");
+    assert_eq!(rs[0]["contents"], "0");
+    assert_eq!(rs[1]["contents"], "1");
+    assert_eq!(rs[2]["contents"], "0");
+    assert_eq!(rs[0]["highlight_groups"][0], "exit_success");
+    assert_eq!(rs[1]["highlight_groups"][0], "exit_fail");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// colorscheme — get_attrs_flag every-combo + pick_gradient_value
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_colorscheme_get_attrs_flag_every_pair_combo() {
+    if !python_available() {
+        return;
+    }
+    let combos: &[&[&str]] = &[
+        &[],
+        &["bold"],
+        &["italic"],
+        &["underline"],
+        &["bold", "italic"],
+        &["bold", "underline"],
+        &["italic", "underline"],
+        &["bold", "italic", "underline"],
+    ];
+    for combo in combos {
+        let py_list = format!(
+            "[{}]",
+            combo
+                .iter()
+                .map(|s| format!("'{}'", s))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        let py = match py_eval(&format!(
+            "mod = __import__('powerline.colorscheme', fromlist=['get_attrs_flag']); \
+             print(mod.get_attrs_flag({list}), end='')",
+            list = py_list,
+        )) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_flag: u32 = py.parse().expect("py int");
+        let rs_attrs: Vec<String> = combo.iter().map(|s| s.to_string()).collect();
+        let rs_flag = powerliners::ported::colorscheme::get_attrs_flag(&rs_attrs);
+        assert_eq!(
+            rs_flag, py_flag,
+            "get_attrs_flag({:?}) mismatch py={} rs={}",
+            combo, py_flag, rs_flag
+        );
+    }
+}
+
+#[test]
+fn parity_colorscheme_pick_gradient_value_endpoints() {
+    if !python_available() {
+        return;
+    }
+    let grad = vec![10_u64, 20, 30, 40, 50];
+    for level in &[0.0_f64, 25.0, 50.0, 75.0, 100.0] {
+        let py = match py_eval(&format!(
+            "mod = __import__('powerline.colorscheme', fromlist=['pick_gradient_value']); \
+             print(mod.pick_gradient_value({grad:?}, {level}), end='')",
+            grad = grad,
+            level = level,
+        )) {
+            Some(v) => v,
+            None => return,
+        };
+        let py_val: u64 = py.parse().expect("py int");
+        let rs_val = powerliners::ported::colorscheme::pick_gradient_value(&grad, *level);
+        assert_eq!(
+            rs_val, py_val,
+            "pick_gradient_value(level={}) mismatch py={} rs={}",
+            level, py_val, rs_val
+        );
+    }
+}
+
+#[test]
+fn parity_colorscheme_pick_gradient_value_banker_rounding_2_5() {
+    // Python `round(2.5) == 2` (banker's), Rust `(2.5_f64).round() == 3.0`.
+    // The Rust port uses `round_ties_even` to match. Pin a level that
+    // produces exactly a *.5 raw index. For grad_list of len 5
+    // (len-1=4): raw = level * 4 / 100. To hit raw=2.5 need level=62.5.
+    if !python_available() {
+        return;
+    }
+    let grad = vec![100_u64, 101, 102, 103, 104];
+    let py = match py_eval(&format!(
+        "mod = __import__('powerline.colorscheme', fromlist=['pick_gradient_value']); \
+         print(mod.pick_gradient_value({grad:?}, 62.5), end='')",
+        grad = grad,
+    )) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_val: u64 = py.parse().expect("py int");
+    assert_eq!(py_val, 102, "Python banker's rounding picks 102 (idx 2)");
+    let rs = powerliners::ported::colorscheme::pick_gradient_value(&grad, 62.5);
+    assert_eq!(rs, py_val, "banker's-rounding parity at half-integer");
+}
+
+#[test]
+fn parity_colorscheme_pick_gradient_value_banker_rounding_3_5() {
+    // raw=3.5 → py_round=4 → grad[4]
+    if !python_available() {
+        return;
+    }
+    let grad = vec![200_u64, 201, 202, 203, 204];
+    let py = match py_eval(&format!(
+        "mod = __import__('powerline.colorscheme', fromlist=['pick_gradient_value']); \
+         print(mod.pick_gradient_value({grad:?}, 87.5), end='')",
+        grad = grad,
+    )) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_val: u64 = py.parse().expect("py int");
+    assert_eq!(py_val, 204);
+    let rs = powerliners::ported::colorscheme::pick_gradient_value(&grad, 87.5);
+    assert_eq!(rs, py_val);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/unicode — out_u + safe_unicode ASCII / unicode / bytes paths
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_lib_unicode_safe_unicode_str_passthrough_ascii() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "mod = __import__('powerline.lib.unicode', fromlist=['safe_unicode']); \
+         print(mod.safe_unicode('hello'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::lib::unicode::safe_unicode_str("hello");
+    assert_eq!(rs, py);
+}
+
+#[test]
+fn parity_lib_unicode_safe_unicode_str_passthrough_multibyte() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "mod = __import__('powerline.lib.unicode', fromlist=['safe_unicode']); \
+         print(mod.safe_unicode('日本語'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::lib::unicode::safe_unicode_str("日本語");
+    assert_eq!(rs, py);
+}
+
+#[test]
+fn parity_lib_unicode_out_u_str_identity_ascii() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "mod = __import__('powerline.lib.unicode', fromlist=['out_u']); \
+         print(mod.out_u('plain'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::lib::unicode::out_u_str("plain");
+    assert_eq!(rs, py);
+}
+
+#[test]
+fn parity_lib_unicode_out_u_bytes_decodes_utf8() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "mod = __import__('powerline.lib.unicode', fromlist=['out_u']); \
+         print(mod.out_u(b'hello'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::lib::unicode::out_u_bytes(b"hello");
+    assert_eq!(rs, py);
+}
+
+#[test]
+fn parity_lib_unicode_out_u_bytes_decodes_multibyte_utf8() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "mod = __import__('powerline.lib.unicode', fromlist=['out_u']); \
+         print(mod.out_u('日本'.encode('utf-8')), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::lib::unicode::out_u_bytes("日本".as_bytes());
+    assert_eq!(rs, py);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// bindings/config — deduce_command preferred binary
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_bindings_config_deduce_command_picks_first_available() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "mod = __import__('powerline.bindings.config', fromlist=['deduce_command']); \
+         r = mod.deduce_command(); \
+         print('None' if r is None else r, end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::bindings::config::deduce_command();
+    let rs_str = rs.unwrap_or_else(|| "None".to_string());
+    assert_eq!(rs_str, py, "deduce_command mismatch");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// segments/common/net — network_load_key contains interface
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_segment_net_network_load_key_includes_interface() {
+    // The cache key must depend on the interface; assert containment
+    // rather than exact equality since the prefix is a Rust-port
+    // implementation detail.
+    for iface in &["eth0", "lo", "en0"] {
+        let rs = powerliners::ported::segments::common::net::network_load_key(iface);
+        assert!(
+            rs.contains(iface),
+            "network_load_key({:?}) = {:?} doesn't contain iface",
+            iface,
+            rs,
+        );
+    }
+}
