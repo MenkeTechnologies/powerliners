@@ -13309,3 +13309,138 @@ fn parity_lib_shell_run_cmd_nonexistent_command_returns_none() {
         rs
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/dict::_clear_special_values — REMOVE sentinel cleanup
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_clear_special_values_removes_top_level_sentinel() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "import json; \
+         mod = __import__('powerline.lib.dict', fromlist=['_clear_special_values', 'REMOVE_THIS_KEY']); \
+         d = {'a': 1, 'b': mod.REMOVE_THIS_KEY, 'c': 3}; \
+         mod._clear_special_values(d); \
+         print(json.dumps(d, sort_keys=True), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let mut d = serde_json::Map::new();
+    d.insert("a".to_string(), serde_json::Value::from(1));
+    d.insert(
+        "b".to_string(),
+        powerliners::ported::lib::dict::REMOVE_THIS_KEY(),
+    );
+    d.insert("c".to_string(), serde_json::Value::from(3));
+    powerliners::ported::lib::dict::_clear_special_values(&mut d);
+    let rs = serde_json::to_string(&d).expect("serialize");
+    let py_compact = py.replace(", ", ",").replace(": ", ":");
+    assert_eq!(rs, py_compact, "_clear_special_values top-level mismatch");
+}
+
+#[test]
+fn parity_clear_special_values_recurses_into_nested_dict() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "import json; \
+         mod = __import__('powerline.lib.dict', fromlist=['_clear_special_values', 'REMOVE_THIS_KEY']); \
+         d = {'outer': {'kept': 1, 'gone': mod.REMOVE_THIS_KEY}}; \
+         mod._clear_special_values(d); \
+         print(json.dumps(d, sort_keys=True), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let mut inner = serde_json::Map::new();
+    inner.insert("kept".to_string(), serde_json::Value::from(1));
+    inner.insert(
+        "gone".to_string(),
+        powerliners::ported::lib::dict::REMOVE_THIS_KEY(),
+    );
+    let mut d = serde_json::Map::new();
+    d.insert("outer".to_string(), serde_json::Value::Object(inner));
+    powerliners::ported::lib::dict::_clear_special_values(&mut d);
+    let rs = serde_json::to_string(&d).expect("serialize");
+    let py_compact = py.replace(", ", ",").replace(": ", ":");
+    assert_eq!(rs, py_compact, "_clear_special_values nested mismatch");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// renderer::translate_np — control chars + multibyte
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_renderer_translate_np_passes_printable_unchanged() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.renderer import translate_np; \
+         print(translate_np('hello world'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::renderer::translate_np("hello world");
+    assert_eq!(rs, py, "printable ASCII should pass through unchanged");
+}
+
+#[test]
+fn parity_renderer_translate_np_control_char_0x01_to_caret_a() {
+    // 0x01 → ^A
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.renderer import translate_np; \
+         print(translate_np('\\x01hello'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::renderer::translate_np("\u{1}hello");
+    assert_eq!(rs, py, "0x01 should translate to caret-A");
+    assert!(
+        rs.starts_with("^A"),
+        "rs should start with '^A', got {:?}",
+        rs
+    );
+}
+
+#[test]
+fn parity_renderer_translate_np_preserves_multibyte_utf8() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.renderer import translate_np; \
+         print(translate_np('日本語'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::renderer::translate_np("日本語");
+    assert_eq!(rs, py, "CJK should pass through unchanged");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// renderer::strwidth — empty, ASCII, multibyte
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_renderer_strwidth_ascii_one_per_char() {
+    let rs = powerliners::ported::renderer::strwidth("hello");
+    assert_eq!(rs, 5, "ASCII strwidth should be char count");
+}
+
+#[test]
+fn parity_renderer_strwidth_empty_string_is_zero() {
+    let rs = powerliners::ported::renderer::strwidth("");
+    assert_eq!(rs, 0, "empty string width should be 0");
+}
