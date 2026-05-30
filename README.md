@@ -94,10 +94,10 @@ as NEAR; promoting them to DONE would require a classifier amendment.
 
 | Binary | Mirrors | What it does |
 |---|---|---|
-| `powerliners` | new — combined demo CLI | `version` / `attached-clients` / `tmux-version` / `humanize-bytes <N>` |
+| `powerline` | `vendor/powerline/client/powerline.c` | Native Rust client — forwards `argv + cwd + env` to the daemon over a Unix socket via the upstream wire format, falls back to `powerline-render` exec if the daemon is unreachable |
 | `powerline-config` | `scripts/powerline-config` | tmux / shell known-function dispatch |
-| `powerline-lint` | `scripts/powerline-lint` | argparse + check pipeline (markedjson loader + Spec checks live; orchestrator integration partial) |
-| `powerline-render` | `scripts/powerline-render` | argparse + ext lookup (full render path depends on the `Powerline` orchestrator) |
+| `powerline-lint` | `scripts/powerline-lint` | argparse + full check pipeline (markedjson loader + Spec checks + orchestrator integration) |
+| `powerline-render` | `scripts/powerline-render` | argparse + ext lookup + full direct-render path through the `Powerline` orchestrator (used as daemon-less fallback) |
 | `powerline-daemon` | `scripts/powerline-daemon` | UNIX-socket bind + daemonize + pidfile lock + accept loop + EOF shutdown + end-to-end statusline rendering against a real `~/.config/powerline/themes/...` JSON tree |
 
 ### End-to-end render
@@ -114,11 +114,14 @@ upstream Python `powerline` C client. The render path covers:
   hard/soft divider insertion and per-side outer padding
 - TmuxRenderer `#[…]` markup emission with `term_truecolor` cterm path
 
-Adapters wired in `src/bin/powerline-daemon.rs` (sanctioned bin location)
-cover the built-in segments: `hostname`, `date`, `cpu_load_percent`,
-`system_load`, `uptime`, `external_ip`, `internal_ip`, `vcs.branch`,
-`vcs.stash`, `bat.battery`, `net.network_load`, `players.spotify`, plus
-`powerlinemem.mem_usage` as a darwin/linux platform probe.
+30 segment adapters wired in `src/bin/shared/render_runtime.rs` (shared
+between `powerline-daemon` and `powerline-render`): `battery`, `branch`,
+`clementine`, `cmus`, `cpu_load_percent`, `cwd`, `date`, `dbus_player`,
+`email_imap_alert`, `environment`, `external_ip`, `fuzzy_time`,
+`hostname`, `internal_ip`, `itunes`, `jobnum`, `last_pipe_status`,
+`last_status`, `mem_usage`, `mocp`, `mpd`, `network_load`, `rhythmbox`,
+`spotify`, `stash`, `system_load`, `uptime`, `user`, `virtualenv`,
+`weather`.
 
 Point it at a config root via `POWERLINE_CONFIG_PATHS`:
 
@@ -149,17 +152,30 @@ python3 scripts/gen_port_report.py
 Drop-in replacement for the Python `powerline-daemon`. The C client
 shipped with `powerline-status` (installed via `pip install
 powerline-status`) talks to our daemon unchanged — same wire format,
-same `EOF\0\0` shutdown, same `/tmp/powerline-ipc-$UID` socket path.
+same `EOF\0\0` shutdown, same socket path (`/tmp/powerline-ipc-$UID`
+on macOS / BSD, abstract `\0powerline-ipc-$UID` on Linux).
 
-### Step 1: Build the Rust daemon
+### Step 1: Install or build
+
+Fastest path — Homebrew tap (auto-bumped by each release):
+
+```sh
+brew tap MenkeTechnologies/menketech
+brew install powerliners
+# installs powerline, powerline-daemon, powerline-config, powerline-render, powerline-lint
+```
+
+Or build from source (entire 5-binary suite):
 
 ```sh
 git clone https://github.com/MenkeTechnologies/powerliners
 cd powerliners
-cargo build --release --bin powerline-daemon
+cargo build --release --locked \
+  --bin powerline --bin powerline-daemon \
+  --bin powerline-config --bin powerline-render --bin powerline-lint
 ```
 
-The release binary lands at `target/release/powerline-daemon`.
+Release binaries land at `target/release/{powerline,powerline-daemon,powerline-config,powerline-render,powerline-lint}`.
 
 ### Step 2: Verify parity against your config
 
@@ -188,9 +204,9 @@ powerline-render tmux right -p ~/.config/powerline
 ```
 
 If the two outputs match byte-for-byte for your common segments,
-proceed. If they don't, file an issue with the divergence — the suite
-covers 36 byte-for-byte scenarios but real configs hit
-combinations we haven't asserted on.
+proceed. If they don't, file an issue with the divergence — the
+`daemon_parity` suite covers 45 byte-for-byte scenarios but real
+configs hit combinations we haven't asserted on.
 
 ### Step 3: Stop the Python daemon
 
