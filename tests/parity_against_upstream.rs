@@ -12082,3 +12082,166 @@ fn parity_memoize_default_cache_key_differs_for_different_kwargs() {
     let k2 = powerliners::ported::lib::memoize::default_cache_key(&kw2);
     assert_ne!(k1, k2, "rs keys should differ for different kwargs");
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// renderers/shell — bash escape rules + ksh inherited size
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_renderer_bash_character_translations_dollar() {
+    // py renderers/shell/bash.py:13  character_translations[ord('$')] = '\\$'
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.renderers.shell.bash import BashPromptRenderer; \
+         t = BashPromptRenderer.character_translations; \
+         print(t.get(ord('$'), 'missing'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "\\$");
+    let rs =
+        powerliners::ported::renderers::shell::bash::BashPromptRenderer::character_translations();
+    let v = rs.get(&'$').copied().expect("$ missing");
+    assert_eq!(v, py);
+}
+
+#[test]
+fn parity_renderer_bash_character_translations_backtick() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.renderers.shell.bash import BashPromptRenderer; \
+         t = BashPromptRenderer.character_translations; \
+         print(t.get(ord('`'), 'missing'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "\\`");
+    let rs =
+        powerliners::ported::renderers::shell::bash::BashPromptRenderer::character_translations();
+    let v = rs.get(&'`').copied().expect("` missing");
+    assert_eq!(v, py);
+}
+
+#[test]
+fn parity_renderer_bash_character_translations_backslash() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.renderers.shell.bash import BashPromptRenderer; \
+         t = BashPromptRenderer.character_translations; \
+         print(t.get(ord('\\\\'), 'missing'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "\\\\");
+    let rs =
+        powerliners::ported::renderers::shell::bash::BashPromptRenderer::character_translations();
+    let v = rs.get(&'\\').copied().expect("\\ missing");
+    assert_eq!(v, py);
+}
+
+#[test]
+fn parity_renderer_ksh_character_translations_table_size() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.renderers.shell.ksh import KshPromptRenderer; \
+         print(len(KshPromptRenderer.character_translations), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_n: usize = py.parse().expect("py int");
+    let rs_n =
+        powerliners::ported::renderers::shell::ksh::KshPromptRenderer::character_translations()
+            .len();
+    assert_eq!(rs_n, py_n, "ksh char translations size mismatch");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// theme — get_spaces / get_line_number invariants
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_theme_get_spaces_returns_stored_value() {
+    // py theme.py:120-121  def get_spaces(self): return self.spaces
+    for n in &[0_i64, 1, 2, 5] {
+        let theme = powerliners::ported::theme::Theme {
+            colorscheme: serde_json::Value::Null,
+            dividers: serde_json::Map::new(),
+            cursor_space_multiplier: None,
+            cursor_columns: None,
+            spaces: *n,
+            outer_padding: 1,
+            segments: vec![],
+            empty_segment: serde_json::Value::Null,
+            shutdown_called: std::sync::Mutex::new(Vec::new()),
+        };
+        assert_eq!(theme.get_spaces(), *n, "get_spaces({}) mismatch", n);
+    }
+}
+
+#[test]
+fn parity_theme_get_line_number_returns_segments_len() {
+    // py theme.py:123-124  return len(self.segments)
+    for seg_count in &[0_usize, 1, 3] {
+        let segs: Vec<serde_json::Map<String, serde_json::Value>> =
+            (0..*seg_count).map(|_| serde_json::Map::new()).collect();
+        let theme = powerliners::ported::theme::Theme {
+            colorscheme: serde_json::Value::Null,
+            dividers: serde_json::Map::new(),
+            cursor_space_multiplier: None,
+            cursor_columns: None,
+            spaces: 1,
+            outer_padding: 1,
+            segments: segs,
+            empty_segment: serde_json::Value::Null,
+            shutdown_called: std::sync::Mutex::new(Vec::new()),
+        };
+        assert_eq!(
+            theme.get_line_number(),
+            *seg_count,
+            "get_line_number({}) mismatch",
+            seg_count
+        );
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/path::realpath — os.path.realpath parity
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_lib_path_realpath_resolves_relative_dot() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval("import os; print(os.path.realpath('.'), end='')") {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::lib::path::realpath(".");
+    assert_eq!(rs.display().to_string(), py, "realpath('.') mismatch");
+}
+
+#[test]
+fn parity_lib_path_realpath_keeps_absolute_paths() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval("import os; print(os.path.realpath('/tmp'), end='')") {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::lib::path::realpath("/tmp");
+    assert_eq!(rs.display().to_string(), py, "realpath('/tmp') mismatch");
+}
