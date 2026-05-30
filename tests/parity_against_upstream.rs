@@ -11244,3 +11244,250 @@ fn parity_segment_net_network_load_key_includes_interface() {
         );
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/dict::mergeargs — chain of (key, value) pairs into nested dict
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_mergeargs_empty_iter_returns_none() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "mod = __import__('powerline.lib.dict', fromlist=['mergeargs']); \
+         r = mod.mergeargs(iter([])); \
+         print('None' if r is None else r, end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "None");
+    let rs: Option<serde_json::Map<String, serde_json::Value>> =
+        powerliners::ported::lib::dict::mergeargs(Vec::<(String, serde_json::Value)>::new(), false);
+    assert!(rs.is_none(), "rs should also return None for empty iter");
+}
+
+#[test]
+fn parity_mergeargs_three_pairs_disjoint_top_level_keys() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "import json; \
+         mod = __import__('powerline.lib.dict', fromlist=['mergeargs']); \
+         r = mod.mergeargs(iter([('a', 1), ('b', 2), ('c', 3)])); \
+         print(json.dumps(r, sort_keys=True), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let pairs = vec![
+        ("a".to_string(), serde_json::Value::from(1)),
+        ("b".to_string(), serde_json::Value::from(2)),
+        ("c".to_string(), serde_json::Value::from(3)),
+    ];
+    let rs = powerliners::ported::lib::dict::mergeargs(pairs, false).expect("mergeargs");
+    let rs_json = serde_json::to_string(&rs).expect("serialize");
+    let py_compact = py.replace(", ", ",").replace(": ", ":");
+    assert_eq!(rs_json, py_compact);
+}
+
+#[test]
+fn parity_mergeargs_overlapping_nested_dicts_merge_recursively() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "import json; \
+         mod = __import__('powerline.lib.dict', fromlist=['mergeargs']); \
+         r = mod.mergeargs(iter([('a', {'x': 1}), ('a', {'y': 2})])); \
+         print(json.dumps(r, sort_keys=True), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let mut first = serde_json::Map::new();
+    first.insert("x".to_string(), serde_json::Value::from(1));
+    let mut second = serde_json::Map::new();
+    second.insert("y".to_string(), serde_json::Value::from(2));
+    let pairs = vec![
+        ("a".to_string(), serde_json::Value::Object(first)),
+        ("a".to_string(), serde_json::Value::Object(second)),
+    ];
+    let rs = powerliners::ported::lib::dict::mergeargs(pairs, false).expect("mergeargs");
+    let rs_json = serde_json::to_string(&rs).expect("serialize");
+    let py_compact = py.replace(", ", ",").replace(": ", ":");
+    assert_eq!(rs_json, py_compact, "recursive merge mismatch");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// segments/common/wthr — conditions code → category mapping
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_segment_wthr_conditions_code_500_is_rainy() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "mod = __import__('powerline.segments.common.wthr', fromlist=['weather_conditions_codes']); \
+         d = mod.weather_conditions_codes; \
+         print(d[500][0] if 500 in d else 'missing', end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "rainy");
+    let codes = powerliners::ported::segments::common::wthr::weather_conditions_codes();
+    let rs = codes.get(&500).expect("code 500 missing in Rust")[0];
+    assert_eq!(rs, py);
+}
+
+#[test]
+fn parity_segment_wthr_conditions_code_800_is_sunny() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "mod = __import__('powerline.segments.common.wthr', fromlist=['weather_conditions_codes']); \
+         d = mod.weather_conditions_codes; \
+         print(d[800][0] if 800 in d else 'missing', end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "sunny");
+    let codes = powerliners::ported::segments::common::wthr::weather_conditions_codes();
+    assert_eq!(codes.get(&800).expect("code 800 missing")[0], py);
+}
+
+#[test]
+fn parity_segment_wthr_conditions_code_200_is_stormy() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "mod = __import__('powerline.segments.common.wthr', fromlist=['weather_conditions_codes']); \
+         d = mod.weather_conditions_codes; \
+         print(d[200][0] if 200 in d else 'missing', end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "stormy");
+    let codes = powerliners::ported::segments::common::wthr::weather_conditions_codes();
+    assert_eq!(codes.get(&200).expect("code 200 missing")[0], py);
+}
+
+#[test]
+fn parity_segment_wthr_conditions_code_600_is_snowy() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "mod = __import__('powerline.segments.common.wthr', fromlist=['weather_conditions_codes']); \
+         d = mod.weather_conditions_codes; \
+         print(d[600][0] if 600 in d else 'missing', end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "snowy");
+    let codes = powerliners::ported::segments::common::wthr::weather_conditions_codes();
+    assert_eq!(codes.get(&600).expect("code 600 missing")[0], py);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/url::urllib_urlencode — encoding edge cases
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_lib_url_urlencode_handles_spaces_via_plus() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from urllib.parse import urlencode; \
+         print(urlencode([('q', 'hello world')]), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::lib::url::urllib_urlencode([(
+        "q".to_string(),
+        "hello world".to_string(),
+    )]);
+    assert_eq!(rs, py, "space encoding mismatch");
+}
+
+#[test]
+fn parity_lib_url_urlencode_handles_ampersand_in_value() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from urllib.parse import urlencode; \
+         print(urlencode([('q', 'a&b')]), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs =
+        powerliners::ported::lib::url::urllib_urlencode([("q".to_string(), "a&b".to_string())]);
+    assert_eq!(rs, py);
+}
+
+#[test]
+fn parity_lib_url_urlencode_multiple_pairs_join_with_ampersand() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from urllib.parse import urlencode; \
+         print(urlencode([('a', '1'), ('b', '2'), ('c', '3')]), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs = powerliners::ported::lib::url::urllib_urlencode([
+        ("a".to_string(), "1".to_string()),
+        ("b".to_string(), "2".to_string()),
+        ("c".to_string(), "3".to_string()),
+    ]);
+    assert_eq!(rs, py);
+}
+
+#[test]
+fn parity_lib_url_urlencode_handles_percent_chars() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from urllib.parse import urlencode; \
+         print(urlencode([('q', '50%')]), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs =
+        powerliners::ported::lib::url::urllib_urlencode([("q".to_string(), "50%".to_string())]);
+    assert_eq!(rs, py);
+}
+
+#[test]
+fn parity_lib_url_urlencode_handles_unicode_value() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from urllib.parse import urlencode; \
+         print(urlencode([('q', '日本語')]), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let rs =
+        powerliners::ported::lib::url::urllib_urlencode([("q".to_string(), "日本語".to_string())]);
+    assert_eq!(rs, py);
+}
