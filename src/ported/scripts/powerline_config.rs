@@ -43,7 +43,9 @@ fn tmux_setup(args: &[String]) -> Result<(), String> {
     //   1. `POWERLINE_CONFIG_PATHS` env (colon-split)
     //   2. `--config-path` / `-p` flags (argparser sh:25 / py:get_argparser)
     //   3. `get_config_paths()` defaults (XDG + ~/.config)
-    //   4. bundled `vendor/powerline/powerline/config_files`
+    //   4. bundled `src/ported/config_files` (in-tree mirror of upstream
+    //      `vendor/powerline/powerline/config_files`; the vendor path is
+    //      excluded from the published crate so the mirror is what ships)
     // Mirror upstream `ShellPowerline.get_config_paths`
     // (shell.py:25-26): `args.config_path` (== --config-path /
     // POWERLINE_CONFIG_PATHS combined) REPLACES the default
@@ -72,7 +74,12 @@ fn tmux_setup(args: &[String]) -> Result<(), String> {
         // py:152  bundled `plugin_path` FIRST so user overrides win via
         // mergedicts in the load_cascade closure below.
         if let Some(manifest) = option_env!("CARGO_MANIFEST_DIR") {
-            let bundled = PathBuf::from(manifest).join("vendor/powerline/powerline/config_files");
+            let manifest = PathBuf::from(manifest);
+            let ported = manifest.join("src/ported/config_files");
+            if ported.is_dir() {
+                paths.push(ported);
+            }
+            let bundled = manifest.join("vendor/powerline/powerline/config_files");
             if bundled.is_dir() {
                 paths.push(bundled);
             }
