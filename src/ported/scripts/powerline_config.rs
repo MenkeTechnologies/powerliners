@@ -28,9 +28,7 @@ use crate::ported::commands::config::{get_argparser, StrFunction};
 /// (1, 9)` per py:204-206).
 fn tmux_setup(args: &[String]) -> Result<(), String> {
     use crate::ported::bindings::config::{init_tmux_environment, sorted_tmux_configs};
-    use crate::ported::bindings::tmux::{
-        get_tmux_version, set_tmux_environment, source_tmux_file,
-    };
+    use crate::ported::bindings::tmux::{get_tmux_version, set_tmux_environment, source_tmux_file};
     use crate::ported::colorscheme::Colorscheme;
     use crate::ported::config::TMUX_CONFIG_DIRECTORY;
     use crate::ported::lib::config::load_json_config;
@@ -90,31 +88,30 @@ fn tmux_setup(args: &[String]) -> Result<(), String> {
         let v = load_json_config(p).ok()?;
         v.as_object().cloned()
     };
-    let load_cascade =
-        |levels: &[String]| -> Option<serde_json::Map<String, serde_json::Value>> {
-            // py:191-200  load_config: iterate ALL matches per level and
-            // mergedicts in order; later matches (user) override earlier
-            // (bundled) per the search_paths layout above.
-            let mut out: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
-            let mut loaded = 0u32;
-            for level in levels {
-                if let Ok(matches) = _find_config_files(&search_paths, level) {
-                    for p in &matches {
-                        if let Ok(v) = load_json_config(p) {
-                            if let Some(o) = v.as_object().cloned() {
-                                mergedicts(&mut out, o, true);
-                                loaded += 1;
-                            }
+    let load_cascade = |levels: &[String]| -> Option<serde_json::Map<String, serde_json::Value>> {
+        // py:191-200  load_config: iterate ALL matches per level and
+        // mergedicts in order; later matches (user) override earlier
+        // (bundled) per the search_paths layout above.
+        let mut out: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+        let mut loaded = 0u32;
+        for level in levels {
+            if let Ok(matches) = _find_config_files(&search_paths, level) {
+                for p in &matches {
+                    if let Ok(v) = load_json_config(p) {
+                        if let Some(o) = v.as_object().cloned() {
+                            mergedicts(&mut out, o, true);
+                            loaded += 1;
                         }
                     }
                 }
             }
-            if loaded == 0 {
-                None
-            } else {
-                Some(out)
-            }
-        };
+        }
+        if loaded == 0 {
+            None
+        } else {
+            Some(out)
+        }
+    };
 
     let main = load_one("config").ok_or_else(|| "config.json not found".to_string())?;
     let colors_json = load_one("colors").ok_or_else(|| "colors.json not found".to_string())?;

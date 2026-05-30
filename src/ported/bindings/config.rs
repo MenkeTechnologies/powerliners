@@ -476,7 +476,10 @@ pub fn init_tmux_environment(
     // py:112-125  per-group fg/bg/attrs → hlstyle → strip `#[` … `]`
     const COLOR_GROUPS: &[(&str, &str)] = &[
         ("_POWERLINE_BACKGROUND_COLOR", "background"),
-        ("_POWERLINE_ACTIVE_WINDOW_STATUS_COLOR", "active_window_status"),
+        (
+            "_POWERLINE_ACTIVE_WINDOW_STATUS_COLOR",
+            "active_window_status",
+        ),
         ("_POWERLINE_WINDOW_STATUS_COLOR", "window_status"),
         ("_POWERLINE_ACTIVITY_STATUS_COLOR", "activity_status"),
         ("_POWERLINE_BELL_STATUS_COLOR", "bell_status"),
@@ -551,7 +554,11 @@ pub fn init_tmux_environment(
         ("_POWERLINE_ACTIVE_WINDOW_FG", "fg", "active_window_status"),
         ("_POWERLINE_WINDOW_STATUS_FG", "fg", "window_status"),
         ("_POWERLINE_ACTIVITY_STATUS_FG", "fg", "activity_status"),
-        ("_POWERLINE_ACTIVITY_STATUS_ATTR", "attrs", "activity_status"),
+        (
+            "_POWERLINE_ACTIVITY_STATUS_ATTR",
+            "attrs",
+            "activity_status",
+        ),
         ("_POWERLINE_BELL_STATUS_FG", "fg", "bell_status"),
         ("_POWERLINE_BELL_STATUS_ATTR", "attrs", "bell_status"),
         ("_POWERLINE_BACKGROUND_FG", "fg", "background"),
@@ -577,11 +584,7 @@ pub fn init_tmux_environment(
             let legacy_val = if legacy.is_empty() {
                 "none".to_string()
             } else {
-                legacy
-                    .into_iter()
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join(",")
+                legacy.into_iter().cloned().collect::<Vec<_>>().join(",")
             };
             env.push((format!("{}_LEGACY", varname), legacy_val));
         } else {
