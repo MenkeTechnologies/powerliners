@@ -28,5 +28,6 @@ pub mod disk;
 pub mod exec_segment;
 pub mod git_status;
 pub mod gpu;
+pub mod icons;
 pub mod mem_usage;
 pub mod thermal;

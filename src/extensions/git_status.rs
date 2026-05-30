@@ -107,18 +107,22 @@ pub fn read_git_state(cwd: &str) -> Option<GitState> {
     if state.branch == "(detached)" {
         state.branch.clear();
     }
-    if state.branch.is_empty() {
-        // Detached HEAD path: prefer a tag if one points at HEAD
-        // (p10k's `#<tag>` rule at p10k-lean.zsh:396-407), else fall
-        // back to short SHA (`@<sha[1,8]>` at p10k-lean.zsh:411-412).
-        if let Ok(out) = std::process::Command::new("git")
-            .args(["-C", cwd, "describe", "--tags", "--exact-match"])
-            .output()
-        {
-            if out.status.success() {
-                state.tag = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            }
+    // Tag at HEAD: probe unconditionally so it can render alongside
+    // the branch (p10k's lean.zsh ships the "always show tag" path as
+    // a documented opt-in at lines 397-399 — `&& -z $VCS_STATUS_LOCAL_BRANCH`).
+    // `git describe --tags --exact-match` returns non-zero when HEAD
+    // isn't at a tag; we silently leave `state.tag` empty in that case.
+    if let Ok(out) = std::process::Command::new("git")
+        .args(["-C", cwd, "describe", "--tags", "--exact-match"])
+        .output()
+    {
+        if out.status.success() {
+            state.tag = String::from_utf8_lossy(&out.stdout).trim().to_string();
         }
+    }
+    if state.branch.is_empty() {
+        // Detached HEAD path: short SHA fallback (`@<sha[1,8]>` at
+        // p10k-lean.zsh:411-412).
         if let Ok(out) = std::process::Command::new("git")
             .args(["-C", cwd, "rev-parse", "--short", "HEAD"])
             .output()
@@ -200,6 +204,7 @@ pub fn git_status(
     cwd: &str,
     branch_icon: &str,
     github_icon: &str,
+    tag_icon: &str,
     unstaged_icon: &str,
     untracked_icon: &str,
     staged_icon: &str,
@@ -224,9 +229,23 @@ pub fn git_status(
             s.push(' ');
         }
         s.push_str(&state.branch);
+        if !state.tag.is_empty() {
+            // Always-on tag display (the documented "delete the next
+            // line" tip in p10k-lean.zsh:399). Prefix with the tag
+            // glyph when configured; the segment-group separator
+            // already disambiguates visually otherwise.
+            s.push(' ');
+            if !tag_icon.is_empty() {
+                s.push_str(tag_icon);
+                s.push(' ');
+            }
+            s.push_str(&state.tag);
+        }
     } else if !state.tag.is_empty() {
-        // p10k:`#<tag>` when on no branch.
-        s.push('#');
+        if !tag_icon.is_empty() {
+            s.push_str(tag_icon);
+            s.push(' ');
+        }
         s.push_str(&state.tag);
     } else {
         // p10k:`@<sha[1,8]>` when on no branch and no tag.
@@ -317,6 +336,6 @@ mod tests {
         // /tmp is never a git work tree on CI; even if a stray
         // .git happens to sit there, the function still must not
         // panic. We only assert the no-panic contract here.
-        let _ = git_status("/tmp", "", "", "!", "?", "+", "~", "⇡", "⇣", "*", false);
+        let _ = git_status("/tmp", "", "", "", "!", "?", "+", "~", "⇡", "⇣", "*", false);
     }
 }
