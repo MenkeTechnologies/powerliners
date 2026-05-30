@@ -961,6 +961,15 @@ fn ad_spotify(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
 }
 
 fn ad_branch(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value> {
+    // py:18-39  BranchSegment.__call__:
+    //   name = segment_info['getcwd']()
+    //   if name: repo = guess(path=name, ...); if repo:
+    //     branch = repo.branch(); scol = ['branch']
+    //     if status_colors: status = tree_status(repo, pl) (or '?' on Exc);
+    //         if status in ignore_statuses: status = None
+    //         scol.insert(0, 'branch_dirty' if status else 'branch_clean')
+    //     return [{'contents': branch, 'highlight_groups': scol,
+    //              'divider_highlight_group': None}]
     let cwd = info
         .get("getcwd")
         .and_then(|v| v.as_str())
@@ -970,11 +979,13 @@ fn ad_branch(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Val
         .get("status_colors")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
+    let ignore_statuses: Vec<String> = args
+        .get("ignore_statuses")
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .unwrap_or_default();
 
-    // py:18-39  BranchSegment tries each registered VCS guesser in
-    // order (git → mercurial → bazaar). Mirror by probing the same
-    // three backends; first one to find a repo wins.
-    let (branch, dirty_opt) = git_branch(&cwd)
+    let (branch, status) = git_branch(&cwd)
         .or_else(|| hg_branch(&cwd))
         .or_else(|| bzr_branch(&cwd))?;
     if branch.is_empty() {
@@ -982,11 +993,20 @@ fn ad_branch(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Val
     }
     let mut groups: Vec<Value> = vec![Value::String("branch".to_string())];
     if status_colors {
-        let dirty = dirty_opt.unwrap_or(false);
+        // py:32-35: a None status means probe errored (== '?'), else
+        // trim and compare against ignore_statuses; if in ignore set,
+        // treat as clean.
+        let effective = status.as_deref().map(str::trim).map(String::from);
+        let is_dirty = match &effective {
+            Some(s) if s.is_empty() => false,
+            Some(s) if ignore_statuses.iter().any(|i| i == s) => false,
+            Some(_) => true,
+            None => true, // '?' fallback at py:30 — treated as truthy
+        };
         groups.insert(
             0,
             Value::String(
-                if dirty {
+                if is_dirty {
                     "branch_dirty"
                 } else {
                     "branch_clean"
@@ -1002,9 +1022,11 @@ fn ad_branch(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Val
     })]))
 }
 
-/// Probe git for the current branch + dirty flag.
+/// Probe git for current branch + working-tree status string.
+/// Status is the porcelain output (`M `, `??`, etc.) flattened to
+/// a single status letter string; empty when working tree is clean.
 /// Returns None when the cwd isn't a git repo.
-fn git_branch(cwd: &str) -> Option<(String, Option<bool>)> {
+fn git_branch(cwd: &str) -> Option<(String, Option<String>)> {
     let out = std::process::Command::new("git")
         .args(["-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"])
         .output()
@@ -1013,17 +1035,17 @@ fn git_branch(cwd: &str) -> Option<(String, Option<bool>)> {
         return None;
     }
     let branch = String::from_utf8(out.stdout).ok()?.trim().to_string();
-    let dirty = std::process::Command::new("git")
+    let status = std::process::Command::new("git")
         .args(["-C", cwd, "status", "--porcelain"])
         .output()
         .ok()
-        .map(|o| !o.stdout.is_empty());
-    Some((branch, dirty))
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string());
+    Some((branch, status))
 }
 
 /// Probe mercurial. `hg branch` prints the active branch (default
 /// "default"); `hg status` reports working-copy changes.
-fn hg_branch(cwd: &str) -> Option<(String, Option<bool>)> {
+fn hg_branch(cwd: &str) -> Option<(String, Option<String>)> {
     let out = std::process::Command::new("hg")
         .args(["--cwd", cwd, "branch"])
         .output()
@@ -1032,17 +1054,17 @@ fn hg_branch(cwd: &str) -> Option<(String, Option<bool>)> {
         return None;
     }
     let branch = String::from_utf8(out.stdout).ok()?.trim().to_string();
-    let dirty = std::process::Command::new("hg")
+    let status = std::process::Command::new("hg")
         .args(["--cwd", cwd, "status"])
         .output()
         .ok()
-        .map(|o| !o.stdout.is_empty());
-    Some((branch, dirty))
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string());
+    Some((branch, status))
 }
 
 /// Probe bazaar. `bzr nick` prints the nick of the current branch;
 /// `bzr status` reports working-tree changes.
-fn bzr_branch(cwd: &str) -> Option<(String, Option<bool>)> {
+fn bzr_branch(cwd: &str) -> Option<(String, Option<String>)> {
     let out = std::process::Command::new("bzr")
         .args(["--directory", cwd, "nick"])
         .output()
@@ -1051,12 +1073,12 @@ fn bzr_branch(cwd: &str) -> Option<(String, Option<bool>)> {
         return None;
     }
     let branch = String::from_utf8(out.stdout).ok()?.trim().to_string();
-    let dirty = std::process::Command::new("bzr")
+    let status = std::process::Command::new("bzr")
         .args(["--directory", cwd, "status"])
         .output()
         .ok()
-        .map(|o| !o.stdout.is_empty());
-    Some((branch, dirty))
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string());
+    Some((branch, status))
 }
 
 fn ad_stash(_args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value> {

@@ -9,7 +9,7 @@
 //! `vendor/powerline/client/powerline.c:115-124`.
 //!
 //! Wire format (per the C client, lines 126-148):
-//!   hex(argc-1) "\0" argv[0] "\0" argv[1] "\0" … cwd "\0" env[0] "\0" … "\0\0"
+//!   `hex(argc-1)` "\0" `argv[0]` "\0" `argv[1]` "\0" … cwd "\0" `env[0]` "\0" … "\0\0"
 //!
 //! Socket path:
 //!   - macOS / BSD: filesystem socket `/tmp/powerline-ipc-<uid>`
