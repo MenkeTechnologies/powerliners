@@ -12,13 +12,13 @@
 
 ---
 
-[![Status](https://img.shields.io/badge/status-134%2F137%20DONE-39ff14.svg)](#status)
-[![Tests](https://img.shields.io/badge/lib%20tests-2097%20passing-39ff14.svg)](#status)
-[![Parity](https://img.shields.io/badge/parity%20tests-397%20vs%20upstream-05d9e8.svg)](#status)
-[![Bugs Fixed](https://img.shields.io/badge/port%20bugs%20fixed-11-d300c5.svg)](#status)
+[![Status](https://img.shields.io/badge/status-134%2F137%20DONE-39ff14.svg)](#-status)
+[![Tests](https://img.shields.io/badge/lib%20tests-2097%20passing-39ff14.svg)](#-status)
+[![Parity](https://img.shields.io/badge/parity%20tests-397%20vs%20upstream-05d9e8.svg)](#-status)
+[![Bugs Fixed](https://img.shields.io/badge/port%20bugs%20fixed-11-d300c5.svg)](#-status)
 [![Source](https://img.shields.io/badge/port_of-powerline--status-05d9e8.svg)](https://github.com/powerline/powerline)
 [![Language](https://img.shields.io/badge/lang-rust-d300c5.svg)](https://www.rust-lang.org/)
-[![Target](https://img.shields.io/badge/target-tmux%20%7C%20zsh%20%7C%20vim-39ff14.svg)](#targets)
+[![Target](https://img.shields.io/badge/target-tmux%20%7C%20zsh%20%7C%20vim-39ff14.svg)](#-targets)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ### `[SIGNAL // POWERLINE WITHOUT THE PYTHON IMPORT COST]`
