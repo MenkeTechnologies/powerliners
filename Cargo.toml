@@ -2,7 +2,7 @@
 name = "powerliners"
 version = "0.2.4"
 edition = "2021"
-description = "1:1 Rust port of powerline/powerline. The ultimate statusline/prompt utility."
+description = "1:1 Rust port of powerline/powerline. The ultimate statusline/prompt utility"
 license = "MIT"
 authors = ["MenkeTechnologies <linux.dev25@gmail.com>"]
 repository = "https://github.com/MenkeTechnologies/powerliners"
