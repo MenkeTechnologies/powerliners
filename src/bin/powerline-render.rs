@@ -1,5 +1,5 @@
 // vim:fileencoding=utf-8:noet
-//! Thin shim for `vendor/powerline/scripts/powerline-render`.
+//! Thin shim for `scripts/powerline-render`.
 //!
 //! Delegates to [`powerliners::ported::scripts::powerline_render::main`]
 //! with a one-shot render closure backed by the shared render runtime

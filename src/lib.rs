@@ -9,7 +9,7 @@
 //!
 //! See `docs/PORT.md` for the full porting doctrine. Summary:
 //!
-//! - `src/ported/` mirrors `vendor/powerline/powerline/` 1:1 at file, name,
+//! - `src/ported/` mirrors `powerline/` 1:1 at file, name,
 //!   signature, control-flow, and comment level.
 //! - Every `fn` carries `/// Port of <name>() from powerline/<file>.py:<line>`.
 //! - Every Rust statement that ports a Python statement carries `// py:NNN`.

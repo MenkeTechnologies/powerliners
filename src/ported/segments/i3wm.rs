@@ -612,7 +612,7 @@ pub fn workspaces() -> &'static str {
     // py:172  if w.output == n \
     // py:173  if not (hide_empty_workspaces and is_empty_workspace(w, ws_containers))]
     // py:174  return res
-    "see vendor/powerline/powerline/segments/i3wm.py:65-174"
+    "see powerline/segments/i3wm.py:65-174"
 }
 
 #[cfg(test)]

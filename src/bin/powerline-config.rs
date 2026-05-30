@@ -1,5 +1,5 @@
 // vim:fileencoding=utf-8:noet
-//! Thin shim for `vendor/powerline/scripts/powerline-config`.
+//! Thin shim for `scripts/powerline-config`.
 //!
 //! Delegates to [`powerliners::ported::scripts::powerline_config::main`].
 
