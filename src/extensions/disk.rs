@@ -23,10 +23,16 @@ pub struct DiskUsage {
 
 impl DiskUsage {
     pub fn percent(&self) -> f64 {
-        if self.total == 0 {
+        // df's Capacity column = used / (used + avail). On APFS the
+        // raw `total` from statvfs includes reserved space that isn't
+        // available to userland, so `used/total` underreports vs what
+        // `df` and Finder show. Match df's denominator instead so the
+        // segment agrees with the tool the user actually runs.
+        let denom = self.used + self.free;
+        if denom == 0 {
             0.0
         } else {
-            100.0 * self.used as f64 / self.total as f64
+            100.0 * self.used as f64 / denom as f64
         }
     }
 }
@@ -34,6 +40,17 @@ impl DiskUsage {
 /// Probe one mountpoint via `df -k -P <mount>`. Returns bytes (not KB).
 /// Falls back to `None` when df fails or the mount is missing.
 pub fn read_disk_usage(mount: &str) -> Option<DiskUsage> {
+    // APFS quirk on macOS: `/` is the read-only sealed system volume
+    // (~12 GiB of OS). User data lives on `/System/Volumes/Data`.
+    // Probing `/` reports a misleadingly empty disk. Redirect when the
+    // caller asked for the root and the data volume is mounted —
+    // matches what Finder's "About This Mac" → Storage reports.
+    #[cfg(target_os = "macos")]
+    let mount = if mount == "/" && std::path::Path::new("/System/Volumes/Data").exists() {
+        "/System/Volumes/Data"
+    } else {
+        mount
+    };
     let out = std::process::Command::new("df")
         .args(["-k", "-P", mount])
         .output()
@@ -124,64 +141,75 @@ fn read_disk_io_linux(device: &str) -> Option<DiskIo> {
 }
 
 #[cfg(target_os = "macos")]
-fn read_disk_io_macos(device: &str) -> Option<DiskIo> {
-    // `iostat -dKw 1 -c 2 <device>` prints two samples; KB/s columns
-    // are the second-sample averages. -K forces KB units (default on
-    // macOS but explicit for parity), -w sets the seconds-per-sample,
-    // -c sets the count of samples. The first sample is the boot-time
-    // average and is discarded; the second is the 1-second delta.
-    let mut args: Vec<String> = vec![
-        "-dKw".to_string(),
-        "1".to_string(),
-        "-c".to_string(),
-        "2".to_string(),
-    ];
-    if device != "auto" {
-        args.push(device.to_string());
-    }
-    let out = std::process::Command::new("iostat")
-        .args(&args)
+fn read_disk_io_macos(_device: &str) -> Option<DiskIo> {
+    // `iostat -d` on macOS only reports combined MB/s — no R/W split
+    // without sudo. `ioreg -c IOBlockStorageDriver -r` exposes per-
+    // device cumulative `Bytes (Read)` / `Bytes (Write)` counters
+    // entitlement-free, but the kernel updates them in batches — a
+    // 500ms snap-sleep-snap window during a 2GB/s write commonly
+    // reports delta=0. Cache the previous snapshot across calls and
+    // compute the rate vs whatever time the daemon's render cadence
+    // actually gives us; the granularity then matches the user's
+    // tmux refresh, which is the true sample window anyway.
+    use std::sync::Mutex;
+    use std::time::Instant;
+    static LAST: std::sync::OnceLock<Mutex<Option<(Instant, u64, u64)>>> =
+        std::sync::OnceLock::new();
+    let cell = LAST.get_or_init(|| Mutex::new(None));
+    let (r, w) = read_ioreg_block_storage_totals()?;
+    let now = Instant::now();
+    let mut guard = cell.lock().ok()?;
+    let rate = match *guard {
+        Some((t0, r0, w0)) => {
+            let dt = now.duration_since(t0).as_secs_f64();
+            if dt > 0.0 {
+                Some(DiskIo {
+                    read_bytes_per_sec: r.saturating_sub(r0) as f64 / dt,
+                    write_bytes_per_sec: w.saturating_sub(w0) as f64 / dt,
+                })
+            } else {
+                Some(DiskIo::default())
+            }
+        }
+        None => Some(DiskIo::default()),
+    };
+    *guard = Some((now, r, w));
+    rate
+}
+
+#[cfg(target_os = "macos")]
+fn read_ioreg_block_storage_totals() -> Option<(u64, u64)> {
+    let out = std::process::Command::new("ioreg")
+        .args(["-c", "IOBlockStorageDriver", "-r"])
         .output()
         .ok()?;
     if !out.status.success() {
         return None;
     }
     let text = String::from_utf8(out.stdout).ok()?;
-    let lines: Vec<&str> = text.lines().collect();
-    // Layout:
-    //   <device-header row>    e.g. "          disk0       "
-    //   KB/t  tps  MB/s   ...
-    //   <sample 1 numbers>
-    //   <sample 2 numbers>   <- we want this
-    let last = lines.last()?;
-    let cols: Vec<&str> = last.split_whitespace().collect();
-    if cols.len() < 3 {
-        return None;
-    }
-    // iostat per-device triplet is "KB/t tps MB/s". When device=="auto"
-    // and multiple devices exist, iostat concatenates triplets — we
-    // average the MB/s across them so the bar shows aggregate IO.
-    let mut mbs_sum = 0.0f64;
-    let mut count = 0u32;
-    let mut i = 2;
-    while i < cols.len() {
-        if let Ok(v) = cols[i].parse::<f64>() {
-            mbs_sum += v;
-            count += 1;
+    let mut r = 0u64;
+    let mut w = 0u64;
+    for line in text.lines() {
+        if !line.contains("\"Statistics\"") {
+            continue;
         }
-        i += 3;
+        if let Some(v) = extract_ioreg_kv(line, "Bytes (Read)") {
+            r += v;
+        }
+        if let Some(v) = extract_ioreg_kv(line, "Bytes (Write)") {
+            w += v;
+        }
     }
-    if count == 0 {
-        return None;
-    }
-    // iostat doesn't break read vs write on macOS without -I; report
-    // the combined throughput on the read channel and 0 on write so
-    // theme formats stay stable. Linux path is fully split.
-    let total = mbs_sum * 1024.0 * 1024.0;
-    Some(DiskIo {
-        read_bytes_per_sec: total,
-        write_bytes_per_sec: 0.0,
-    })
+    Some((r, w))
+}
+
+#[cfg(target_os = "macos")]
+fn extract_ioreg_kv(line: &str, key: &str) -> Option<u64> {
+    let needle = format!("\"{}\"=", key);
+    let idx = line.find(&needle)?;
+    let rest = &line[idx + needle.len()..];
+    let num: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+    num.parse().ok()
 }
 
 /// Format `n` bytes the same way mem_usage / gpu do.
@@ -218,7 +246,12 @@ pub fn disk_usage(mount: &str, format: &str, short: bool) -> Vec<Value> {
     vec![json!({
         "contents": contents,
         "gradient_level": stats.percent(),
-        "highlight_groups": ["disk_usage_gradient", "disk_usage"],
+        "highlight_groups": [
+            "disk_usage_gradient",
+            "disk_usage",
+            "mem_usage_gradient",
+            "mem_usage",
+        ],
         "divider_highlight_group": "background:divider",
     })]
 }
@@ -237,7 +270,12 @@ pub fn disk_usage_percent(mount: &str, format: &str) -> Vec<Value> {
     vec![json!({
         "contents": contents,
         "gradient_level": pct,
-        "highlight_groups": ["disk_usage_gradient", "disk_usage"],
+        "highlight_groups": [
+            "disk_usage_gradient",
+            "disk_usage",
+            "mem_usage_gradient",
+            "mem_usage",
+        ],
         "divider_highlight_group": "background:divider",
     })]
 }
@@ -262,7 +300,12 @@ pub fn disk_io(
     vec![json!({
         "contents": contents,
         "gradient_level": gradient,
-        "highlight_groups": ["disk_io_gradient", "disk_io"],
+        "highlight_groups": [
+            "disk_io_gradient",
+            "disk_io",
+            "network_load_gradient",
+            "network_load",
+        ],
         "divider_highlight_group": "background:divider",
     })]
 }
