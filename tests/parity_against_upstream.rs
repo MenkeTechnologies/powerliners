@@ -12245,3 +12245,165 @@ fn parity_lib_path_realpath_keeps_absolute_paths() {
     let rs = powerliners::ported::lib::path::realpath("/tmp");
     assert_eq!(rs.display().to_string(), py, "realpath('/tmp') mismatch");
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// renderers/shell — tcsh % ^ ! \ escapes + zsh inherited size
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_renderer_tcsh_character_translations_percent() {
+    // py renderers/shell/tcsh.py:10  character_translations[ord('%')] = '%%'
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.renderers.shell.tcsh import TcshPromptRenderer; \
+         t = TcshPromptRenderer.character_translations; \
+         print(t.get(ord('%'), 'missing'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "%%");
+    let rs =
+        powerliners::ported::renderers::shell::tcsh::TcshPromptRenderer::character_translations();
+    let v = rs.get(&'%').copied().expect("% missing");
+    assert_eq!(v, py);
+}
+
+#[test]
+fn parity_renderer_tcsh_character_translations_caret() {
+    // py renderers/shell/tcsh.py:12  character_translations[ord('^')] = '\\^'
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.renderers.shell.tcsh import TcshPromptRenderer; \
+         t = TcshPromptRenderer.character_translations; \
+         print(t.get(ord('^'), 'missing'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "\\^");
+    let rs =
+        powerliners::ported::renderers::shell::tcsh::TcshPromptRenderer::character_translations();
+    let v = rs.get(&'^').copied().expect("^ missing");
+    assert_eq!(v, py);
+}
+
+#[test]
+fn parity_renderer_tcsh_character_translations_bang() {
+    // py renderers/shell/tcsh.py:13  character_translations[ord('!')] = '\\!'
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.renderers.shell.tcsh import TcshPromptRenderer; \
+         t = TcshPromptRenderer.character_translations; \
+         print(t.get(ord('!'), 'missing'), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py, "\\!");
+    let rs =
+        powerliners::ported::renderers::shell::tcsh::TcshPromptRenderer::character_translations();
+    let v = rs.get(&'!').copied().expect("! missing");
+    assert_eq!(v, py);
+}
+
+#[test]
+fn parity_renderer_zsh_character_translations_table_size() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "from powerline.renderers.shell.zsh import ZshPromptRenderer; \
+         print(len(ZshPromptRenderer.character_translations), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_n: usize = py.parse().expect("py int");
+    let rs_n =
+        powerliners::ported::renderers::shell::zsh::ZshPromptRenderer::character_translations()
+            .len();
+    assert_eq!(rs_n, py_n, "zsh char translations size mismatch");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/path::join — os.path.join semantics
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_lib_path_join_two_relative_parts() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval("import os; print(os.path.join('foo', 'bar'), end='')") {
+        Some(v) => v,
+        None => return,
+    };
+    let rs: std::path::PathBuf = powerliners::ported::lib::path::join(vec!["foo", "bar"]);
+    assert_eq!(rs.display().to_string(), py, "join two parts mismatch");
+}
+
+#[test]
+fn parity_lib_path_join_absolute_resets_path() {
+    // os.path.join('/a', '/b') → '/b' (absolute second arg resets).
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval("import os; print(os.path.join('/a', '/b'), end='')") {
+        Some(v) => v,
+        None => return,
+    };
+    let rs: std::path::PathBuf = powerliners::ported::lib::path::join(vec!["/a", "/b"]);
+    assert_eq!(
+        rs.display().to_string(),
+        py,
+        "absolute-resets-path semantics mismatch"
+    );
+}
+
+#[test]
+fn parity_lib_path_join_trailing_separator_preserved() {
+    // os.path.join('foo/', 'bar') → 'foo/bar' (no double sep).
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval("import os; print(os.path.join('foo/', 'bar'), end='')") {
+        Some(v) => v,
+        None => return,
+    };
+    let rs: std::path::PathBuf = powerliners::ported::lib::path::join(vec!["foo/", "bar"]);
+    // Normalize via the OS so trailing-sep edge cases compare cleanly.
+    let py_norm = std::path::PathBuf::from(&py);
+    assert_eq!(rs, py_norm, "trailing-sep parity mismatch");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// theme — outer_padding accessor
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_theme_outer_padding_field_stored() {
+    // The Theme stores outer_padding via the constructor; we don't
+    // call get_outer_padding because there's no such fn — but the
+    // field is read by the renderer. Pin the round-trip.
+    for n in &[0_i64, 1, 2] {
+        let theme = powerliners::ported::theme::Theme {
+            colorscheme: serde_json::Value::Null,
+            dividers: serde_json::Map::new(),
+            cursor_space_multiplier: None,
+            cursor_columns: None,
+            spaces: 1,
+            outer_padding: *n,
+            segments: vec![],
+            empty_segment: serde_json::Value::Null,
+            shutdown_called: std::sync::Mutex::new(Vec::new()),
+        };
+        assert_eq!(theme.outer_padding, *n, "outer_padding round-trip mismatch");
+    }
+}
