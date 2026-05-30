@@ -114,14 +114,14 @@ upstream Python `powerline` C client. The render path covers:
   hard/soft divider insertion and per-side outer padding
 - TmuxRenderer `#[…]` markup emission with `term_truecolor` cterm path
 
-30 segment adapters wired in `src/bin/shared/render_runtime.rs` (shared
+34 segment adapters wired in `src/bin/shared/render_runtime.rs` (shared
 between `powerline-daemon` and `powerline-render`): `battery`, `branch`,
 `clementine`, `cmus`, `cpu_load_percent`, `cwd`, `date`, `dbus_player`,
-`email_imap_alert`, `environment`, `external_ip`, `fuzzy_time`,
-`hostname`, `internal_ip`, `itunes`, `jobnum`, `last_pipe_status`,
-`last_status`, `mem_usage`, `mocp`, `mpd`, `network_load`, `rhythmbox`,
-`spotify`, `stash`, `system_load`, `uptime`, `user`, `virtualenv`,
-`weather`.
+`disk_io`, `disk_usage`, `email_imap_alert`, `environment`,
+`external_ip`, `fuzzy_time`, `gpu`, `hostname`, `internal_ip`, `itunes`,
+`jobnum`, `last_pipe_status`, `last_status`, `mem_usage`, `mocp`, `mpd`,
+`network_load`, `rhythmbox`, `spotify`, `stash`, `system_load`,
+`thermal`, `uptime`, `user`, `virtualenv`, `weather`.
 
 Point it at a config root via `POWERLINE_CONFIG_PATHS`:
 
@@ -308,6 +308,145 @@ cterm/truecolor encoding with falsy-hex fallback), attrs (bold +
 italics + underline bit-packed), `outer_padding`, `spaces`, left/right
 side handling, empty sides, `before`/`after` wrapping, Unicode contents
 — the byte stream is identical.
+
+---
+
+## `> CUSTOM SEGMENTS`
+
+Upstream Python powerline lets you drop a `.py` file in
+`~/.config/powerline/segments/` and reference it by dotted-path in
+theme JSON; `__import__` makes it callable. The Rust binary has no
+dynamic import, so the dispatch layer in
+`src/extensions/exec_segment.rs` (`src/bin/shared/render_runtime.rs`
+adapter wiring) provides two equivalent surfaces that fall through
+to a subprocess.
+
+### Pattern A — explicit `exec` adapter
+
+Reference the built-in `exec` adapter directly in theme JSON. Use
+when you want the script path, args, and format string spelled out
+inline:
+
+```json
+{
+  "function": "exec",
+  "args": {
+    "command": "/usr/local/bin/cpu_temp.sh",
+    "args": ["--unit", "C"],
+    "format": "%s°C",
+    "highlight_groups": ["cpu_load"]
+  }
+}
+```
+
+### Pattern B — dotted-path filesystem dispatch
+
+Reference your segment by dotted path and drop the script under
+`<config_path>/segments/`. The daemon resolves
+`myseg.cpu_temp` →
+`<config_path>/segments/myseg/cpu_temp.{sh,py,rb,pl,lua,js,executable}`
+(first hit wins; order documented in
+`src/extensions/exec_segment.rs::SCRIPT_EXTENSIONS`):
+
+```json
+{
+  "function": "myseg.cpu_temp"
+}
+```
+
+```sh
+mkdir -p ~/.config/powerline/segments/myseg
+cat > ~/.config/powerline/segments/myseg/cpu_temp.sh <<'EOF'
+#!/bin/sh
+echo "$(osx-cpu-temp | sed 's/°C//')"
+EOF
+chmod +x ~/.config/powerline/segments/myseg/cpu_temp.sh
+```
+
+The dotted-path resolution honors the daemon's full config-path
+cascade (`POWERLINE_CONFIG_PATHS`, `--config-path`, `~/.config/`),
+so segments dropped in any config root that's on the cascade
+become available.
+
+### Output protocol
+
+Both patterns parse the script's stdout on the first non-whitespace
+byte:
+
+| Stdout starts with | Treated as | Wrapped how |
+|---|---|---|
+| `[` (valid JSON array) | Verbatim segment list | Used directly — full control over `highlight_groups`, `gradient_level`, `divider_highlight_group`, multi-chunk output |
+| anything else | Plain text | `[{"contents": <trimmed-stdout>, "highlight_groups": [...]}]` — `format` template applies (`%s` → contents, `%%` → literal `%`) |
+
+Plain-text scripts:
+
+```sh
+#!/bin/sh
+echo "CPU $(cat /proc/loadavg | cut -d' ' -f1)"
+```
+
+JSON scripts (control gradient color, attach divider group, emit
+multiple chunks):
+
+```python
+#!/usr/bin/env python3
+import json, psutil
+print(json.dumps([
+    {"contents": "🌡 ", "highlight_groups": ["thermal_icon"]},
+    {"contents": f"{psutil.cpu_percent():.0f}%",
+     "highlight_groups": ["thermal_gradient", "background"],
+     "gradient_level": psutil.cpu_percent()}
+]))
+```
+
+### Highlight-group caveat (Rust-port divergence)
+
+The current Rust port's `gen_segment_getter` (at
+`src/ported/segment.rs:1011-1023`) uses the segment's `function_name`
+as the only highlight group for `"type": "function"` segments — it
+**ignores** the theme's `"highlight_groups"` override. Upstream Python
+respects the override.
+
+Practical impact: name your colorscheme group to match the function
+name (`"exec"` for pattern A, `"cpu_temp"` for pattern B), e.g.
+
+```json
+"groups": {
+  "exec": { "fg": "white", "bg": "gray0", "attrs": [] },
+  "cpu_temp": { "fg": "yellow", "bg": "black", "attrs": [] }
+}
+```
+
+Pattern B sidesteps this nicely because the dotted path's trailing
+component (the function name) is also a natural colorscheme group
+name. Pattern A requires either a literal `"exec"` group, or pinning
+the highlight via a JSON-array stdout that emits explicit
+`highlight_groups` inline.
+
+### Bundled extensions
+
+`src/extensions/` ships several net-new segments above what upstream
+powerline-status offers, dispatched as standard built-ins (no
+filesystem lookup needed):
+
+| Dotted path | What |
+|---|---|
+| `powerlinemem.mem_usage.mem_usage` | 1:1 port of `mKaloer/powerline_mem_segment`'s `USED/TOTAL` formatted bytes |
+| `powerlinemem.mem_usage.mem_usage_percent` | Percentage variant |
+| `powerlinemem.mem_usage.mem_swap` | Swap `USED/TOTAL` |
+| `powerlinemem.mem_usage.mem_swap_percentage` | Swap percent |
+| `powerliners.disk.disk_usage` | Filesystem `USED/TOTAL` for any mount |
+| `powerliners.disk.disk_usage_percent` | Filesystem percent-used |
+| `powerliners.disk.disk_io` | Live read/write throughput for any device |
+| `powerliners.gpu.gpu_usage_percent` | Vendor-dispatched GPU compute percent (nvidia-smi → rocm-smi → intel_gpu_top → ioreg fallback) |
+| `powerliners.gpu.gpu_vram` | GPU VRAM `USED/TOTAL` via same dispatch chain |
+| `powerliners.thermal.thermal` | CPU/GPU temp + fan RPM (`/sys/class/hwmon` on Linux, `powermetrics`/`istats` on macOS) |
+| `powerliners.exec.exec` | The explicit `exec` adapter (also resolves via bare `"function": "exec"`) |
+
+These each live in `src/extensions/<module>.rs` and are wired into
+the daemon's `ADAPTERS` table — adding more follows the same pattern
+(no new fn-name rules apply per `docs/PORT.md`'s `src/extensions/`
+carve-out).
 
 ---
 

@@ -31,6 +31,233 @@ use powerliners::ported::{_find_config_files, get_config_paths};
 /// chunk) as `Value`.
 type AdapterFn = fn(&Map<String, Value>, &Map<String, Value>) -> Option<Value>;
 
+/// Embed all 46 bundled JSON config files at compile time and extract
+/// them to `$XDG_CACHE_HOME/powerliners/config_files/` on first call.
+/// Returns the cache path so `search_paths()` can use it as the
+/// bundled base layer.
+///
+/// Before 0.2.5 we relied on `option_env!("CARGO_MANIFEST_DIR")` to
+/// locate `src/ported/config_files/` at runtime — that works for
+/// `cargo install --path .` (manifest dir = the local checkout) but
+/// silently breaks for any release tarball built in CI: the GHA
+/// runner's `/Users/runner/work/...` path gets baked into the
+/// binary and the `is_dir()` check fails on the user's machine,
+/// dropping the bundled fallback entirely. Same root cause as the
+/// tmux `.conf` install-path problem fixed in 0.2.3 via
+/// `include_str!`; same fix applied here for the 46-file
+/// colorscheme/theme/config JSON tree.
+fn bundled_config_dir() -> Option<PathBuf> {
+    const BUNDLED: &[(&str, &str)] = &[
+        (
+            "colors.json",
+            include_str!("../../ported/config_files/colors.json"),
+        ),
+        (
+            "config.json",
+            include_str!("../../ported/config_files/config.json"),
+        ),
+        (
+            "colorschemes/default.json",
+            include_str!("../../ported/config_files/colorschemes/default.json"),
+        ),
+        (
+            "colorschemes/solarized.json",
+            include_str!("../../ported/config_files/colorschemes/solarized.json"),
+        ),
+        (
+            "colorschemes/ipython/__main__.json",
+            include_str!("../../ported/config_files/colorschemes/ipython/__main__.json"),
+        ),
+        (
+            "colorschemes/pdb/__main__.json",
+            include_str!("../../ported/config_files/colorschemes/pdb/__main__.json"),
+        ),
+        (
+            "colorschemes/pdb/default.json",
+            include_str!("../../ported/config_files/colorschemes/pdb/default.json"),
+        ),
+        (
+            "colorschemes/pdb/solarized.json",
+            include_str!("../../ported/config_files/colorschemes/pdb/solarized.json"),
+        ),
+        (
+            "colorschemes/shell/__main__.json",
+            include_str!("../../ported/config_files/colorschemes/shell/__main__.json"),
+        ),
+        (
+            "colorschemes/shell/default.json",
+            include_str!("../../ported/config_files/colorschemes/shell/default.json"),
+        ),
+        (
+            "colorschemes/shell/solarized.json",
+            include_str!("../../ported/config_files/colorschemes/shell/solarized.json"),
+        ),
+        (
+            "colorschemes/tmux/default.json",
+            include_str!("../../ported/config_files/colorschemes/tmux/default.json"),
+        ),
+        (
+            "colorschemes/tmux/solarized.json",
+            include_str!("../../ported/config_files/colorschemes/tmux/solarized.json"),
+        ),
+        (
+            "colorschemes/vim/__main__.json",
+            include_str!("../../ported/config_files/colorschemes/vim/__main__.json"),
+        ),
+        (
+            "colorschemes/vim/default.json",
+            include_str!("../../ported/config_files/colorschemes/vim/default.json"),
+        ),
+        (
+            "colorschemes/vim/solarized.json",
+            include_str!("../../ported/config_files/colorschemes/vim/solarized.json"),
+        ),
+        (
+            "colorschemes/vim/solarizedlight.json",
+            include_str!("../../ported/config_files/colorschemes/vim/solarizedlight.json"),
+        ),
+        (
+            "themes/ascii.json",
+            include_str!("../../ported/config_files/themes/ascii.json"),
+        ),
+        (
+            "themes/powerline.json",
+            include_str!("../../ported/config_files/themes/powerline.json"),
+        ),
+        (
+            "themes/powerline_terminus.json",
+            include_str!("../../ported/config_files/themes/powerline_terminus.json"),
+        ),
+        (
+            "themes/powerline_unicode7.json",
+            include_str!("../../ported/config_files/themes/powerline_unicode7.json"),
+        ),
+        (
+            "themes/unicode.json",
+            include_str!("../../ported/config_files/themes/unicode.json"),
+        ),
+        (
+            "themes/unicode_terminus.json",
+            include_str!("../../ported/config_files/themes/unicode_terminus.json"),
+        ),
+        (
+            "themes/unicode_terminus_condensed.json",
+            include_str!("../../ported/config_files/themes/unicode_terminus_condensed.json"),
+        ),
+        (
+            "themes/ipython/in.json",
+            include_str!("../../ported/config_files/themes/ipython/in.json"),
+        ),
+        (
+            "themes/ipython/in2.json",
+            include_str!("../../ported/config_files/themes/ipython/in2.json"),
+        ),
+        (
+            "themes/ipython/out.json",
+            include_str!("../../ported/config_files/themes/ipython/out.json"),
+        ),
+        (
+            "themes/ipython/rewrite.json",
+            include_str!("../../ported/config_files/themes/ipython/rewrite.json"),
+        ),
+        (
+            "themes/pdb/default.json",
+            include_str!("../../ported/config_files/themes/pdb/default.json"),
+        ),
+        (
+            "themes/shell/__main__.json",
+            include_str!("../../ported/config_files/themes/shell/__main__.json"),
+        ),
+        (
+            "themes/shell/continuation.json",
+            include_str!("../../ported/config_files/themes/shell/continuation.json"),
+        ),
+        (
+            "themes/shell/default.json",
+            include_str!("../../ported/config_files/themes/shell/default.json"),
+        ),
+        (
+            "themes/shell/default_leftonly.json",
+            include_str!("../../ported/config_files/themes/shell/default_leftonly.json"),
+        ),
+        (
+            "themes/shell/select.json",
+            include_str!("../../ported/config_files/themes/shell/select.json"),
+        ),
+        (
+            "themes/tmux/default.json",
+            include_str!("../../ported/config_files/themes/tmux/default.json"),
+        ),
+        (
+            "themes/vim/__main__.json",
+            include_str!("../../ported/config_files/themes/vim/__main__.json"),
+        ),
+        (
+            "themes/vim/cmdwin.json",
+            include_str!("../../ported/config_files/themes/vim/cmdwin.json"),
+        ),
+        (
+            "themes/vim/default.json",
+            include_str!("../../ported/config_files/themes/vim/default.json"),
+        ),
+        (
+            "themes/vim/help.json",
+            include_str!("../../ported/config_files/themes/vim/help.json"),
+        ),
+        (
+            "themes/vim/plugin_commandt.json",
+            include_str!("../../ported/config_files/themes/vim/plugin_commandt.json"),
+        ),
+        (
+            "themes/vim/plugin_gundo-preview.json",
+            include_str!("../../ported/config_files/themes/vim/plugin_gundo-preview.json"),
+        ),
+        (
+            "themes/vim/plugin_gundo.json",
+            include_str!("../../ported/config_files/themes/vim/plugin_gundo.json"),
+        ),
+        (
+            "themes/vim/plugin_nerdtree.json",
+            include_str!("../../ported/config_files/themes/vim/plugin_nerdtree.json"),
+        ),
+        (
+            "themes/vim/quickfix.json",
+            include_str!("../../ported/config_files/themes/vim/quickfix.json"),
+        ),
+        (
+            "themes/vim/tabline.json",
+            include_str!("../../ported/config_files/themes/vim/tabline.json"),
+        ),
+        (
+            "themes/wm/default.json",
+            include_str!("../../ported/config_files/themes/wm/default.json"),
+        ),
+    ];
+    let cache = std::env::var_os("XDG_CACHE_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))
+        .unwrap_or_else(std::env::temp_dir)
+        .join("powerliners")
+        .join("config_files");
+    if std::fs::create_dir_all(&cache).is_err() {
+        return None;
+    }
+    for (rel, content) in BUNDLED {
+        let target = cache.join(rel);
+        if let Some(parent) = target.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        // Overwrite on every fresh process so an upgraded binary
+        // picks up new JSON contents — cheap (these are tiny).
+        let _ = std::fs::write(&target, content);
+    }
+    if cache.join("config.json").exists() {
+        Some(cache)
+    } else {
+        None
+    }
+}
+
 fn search_paths() -> Vec<PathBuf> {
     // Mirror upstream `ShellPowerline.get_config_paths`
     // (powerline/shell.py:25-26): `return self.args.config_path or
@@ -52,14 +279,31 @@ fn search_paths() -> Vec<PathBuf> {
     // load_cascade uses it as the base, then XDG / user_home come
     // AFTER so mergedicts(base, override) lets the user win.
     //
-    // `src/ported/config_files` carries the bundled defaults that
-    // ship in the published crate (powered by `option_env!` so the
-    // baked path resolves both for `cargo build` and `cargo install`).
+    // Source-of-truth for the bundled tree is
+    // `src/ported/config_files/` baked into the binary via
+    // `include_str!` and extracted to `$XDG_CACHE_HOME/powerliners/
+    // config_files/` on first call — install-method-agnostic
+    // (works for cargo install, brew, release tarball).
     let mut paths: Vec<PathBuf> = Vec::new();
+    // Prefer the live checkout when `cargo install --path .` baked
+    // a real CARGO_MANIFEST_DIR — dev iteration is faster when edits
+    // to `src/ported/config_files/*.json` show up without a
+    // rebuild-and-extract cycle.
     if let Some(manifest) = option_env!("CARGO_MANIFEST_DIR") {
         let ported = PathBuf::from(manifest).join("src/ported/config_files");
         if ported.is_dir() {
             paths.push(ported);
+        }
+    }
+    // Fallback: extracted-cache copy of the bundled tree. Always
+    // pushed so release-tarball installs (where the manifest path
+    // is unreachable, e.g. `/Users/runner/work/...`) still find a
+    // valid base layer.
+    if let Some(cache) = bundled_config_dir() {
+        // Avoid duplicate-load when manifest path === cache path
+        // (paranoid; they're never equal in practice).
+        if !paths.contains(&cache) {
+            paths.push(cache);
         }
     }
     paths.extend(get_config_paths());
@@ -390,12 +634,34 @@ pub fn build_configs(ext: &str) -> Result<Configs, String> {
 
 /// Look up the segment id (module + name) in the adapter registry.
 /// Returns the canonical "module.name" form on match, None on miss.
-pub fn adapter_id(module: &str, name: &str) -> Option<&'static str> {
+///
+/// Falls back to filesystem-resolved scripts under
+/// `<config_path>/segments/<module>/<name>.{sh,py,...}` per
+/// `extensions::exec_segment::resolve_dotted_path` semantics. This is
+/// what makes user-authored segments work without touching the binary:
+/// drop a script in `~/.config/powerline/segments/myseg/cpu_temp.sh`
+/// and theme JSON can reference `"function": "myseg.cpu_temp"`.
+pub fn adapter_id(module: &str, name: &str) -> Option<String> {
     let full = format!("{}.{}", module, name);
-    ADAPTERS
-        .iter()
-        .find(|(k, _)| *k == full.as_str())
-        .map(|(k, _)| *k)
+    if ADAPTERS.iter().any(|(k, _)| *k == full.as_str()) {
+        return Some(full);
+    }
+    // Bare-name fallback in ADAPTERS — theme JSON writes
+    // `"function": "exec"`, default_module expands to
+    // `powerline.segments.exec` which doesn't exist, retry with just
+    // `exec` so the short alias hits.
+    if ADAPTERS.iter().any(|(k, _)| *k == name) {
+        return Some(name.to_string());
+    }
+    // Fallback: filesystem-resolved script under <config_path>/segments/.
+    let paths = search_paths();
+    if powerliners::extensions::exec_segment::resolve_dotted_path(&full, &paths).is_some() {
+        return Some(full);
+    }
+    if powerliners::extensions::exec_segment::resolve_dotted_path(name, &paths).is_some() {
+        return Some(name.to_string());
+    }
+    None
 }
 
 pub fn invoke_adapter(
@@ -403,8 +669,56 @@ pub fn invoke_adapter(
     args: &Map<String, Value>,
     segment_info: &Map<String, Value>,
 ) -> Option<Value> {
-    let entry = ADAPTERS.iter().find(|(k, _)| *k == id)?;
-    entry.1(args, segment_info)
+    if let Some(entry) = ADAPTERS.iter().find(|(k, _)| *k == id) {
+        return entry.1(args, segment_info);
+    }
+    // Bare-name fallback in ADAPTERS — `gen_segment_getter` stamps
+    // the id as `<default_module>.<function_name>`, so a theme that
+    // writes `"function": "exec"` arrives here as
+    // `"powerline.segments.tmux.exec"`. Retry with the trailing
+    // component so the short-form alias hits.
+    if let Some(tail) = id.rsplit('.').next() {
+        if tail != id {
+            if let Some(entry) = ADAPTERS.iter().find(|(k, _)| *k == tail) {
+                return entry.1(args, segment_info);
+            }
+        }
+    }
+    // Fallback: dotted-path → script dispatch. Theme can pass `args`,
+    // `format`, `highlight_groups` through the segment kwargs (option
+    // B) — same surface as the explicit `exec` adapter (option A).
+    let script_args: Vec<String> = args
+        .get("args")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    let format = args.get("format").and_then(|v| v.as_str());
+    let highlight_groups: Vec<String> = args
+        .get("highlight_groups")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    let hg_slice: Option<&[String]> = if highlight_groups.is_empty() {
+        None
+    } else {
+        Some(&highlight_groups)
+    };
+    powerliners::extensions::exec_segment::exec_by_dotted_path(
+        id,
+        &search_paths(),
+        &script_args,
+        format,
+        hg_slice,
+    )
+    .map(Value::Array)
 }
 
 // =============================================================
@@ -564,6 +878,84 @@ fn ad_mem_swap(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<
     Some(Value::Array(mem_swap(format, mem_type, short)))
 }
 
+fn ad_gpu_usage_percent(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::gpu::gpu_usage_percent;
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("{0:d}%");
+    Some(Value::Array(gpu_usage_percent(format)))
+}
+
+fn ad_gpu_vram(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::gpu::gpu_vram;
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("%s/%s");
+    let short = args.get("short").and_then(|v| v.as_bool()).unwrap_or(false);
+    Some(Value::Array(gpu_vram(format, short)))
+}
+
+fn ad_disk_usage(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::disk::disk_usage;
+    let mount = args.get("mount").and_then(|v| v.as_str()).unwrap_or("/");
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("%s/%s");
+    let short = args.get("short").and_then(|v| v.as_bool()).unwrap_or(false);
+    Some(Value::Array(disk_usage(mount, format, short)))
+}
+
+fn ad_disk_usage_percent(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::disk::disk_usage_percent;
+    let mount = args.get("mount").and_then(|v| v.as_str()).unwrap_or("/");
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("{0:d}%");
+    Some(Value::Array(disk_usage_percent(mount, format)))
+}
+
+fn ad_disk_io(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::disk::disk_io;
+    let device = args
+        .get("device")
+        .and_then(|v| v.as_str())
+        .unwrap_or("auto");
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("R %s W %s");
+    let short = args.get("short").and_then(|v| v.as_bool()).unwrap_or(true);
+    let recv_max = args
+        .get("recv_max")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(100.0 * 1024.0 * 1024.0);
+    let sent_max = args
+        .get("sent_max")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(100.0 * 1024.0 * 1024.0);
+    Some(Value::Array(disk_io(
+        device, format, short, recv_max, sent_max,
+    )))
+}
+
+fn ad_thermal(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::thermal::thermal;
+    let family = args.get("family").and_then(|v| v.as_str()).unwrap_or("cpu");
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or("%s°C %sRPM");
+    let temp_max = args
+        .get("temp_max")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(95.0);
+    Some(Value::Array(thermal(family, format, temp_max)))
+}
+
 fn ad_mem_swap_percentage(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
     use powerliners::extensions::mem_usage::mem_swap_percentage;
     let format = args
@@ -575,6 +967,42 @@ fn ad_mem_swap_percentage(args: &Map<String, Value>, _info: &Map<String, Value>)
         .and_then(|v| v.as_str())
         .unwrap_or("used");
     Some(Value::Array(mem_swap_percentage(format, mem_type)))
+}
+
+fn ad_exec(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    // Option A — explicit `exec` adapter. Theme JSON:
+    //   { "function": "exec",
+    //     "args": { "command": "/path/to/script.sh",
+    //               "args": ["arg1", "arg2"],
+    //               "format": "cpu: %s%%",
+    //               "highlight_groups": ["cpu_load"] } }
+    use powerliners::extensions::exec_segment::exec_segment;
+    let command = args.get("command").and_then(|v| v.as_str())?;
+    let script_args: Vec<String> = args
+        .get("args")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    let format = args.get("format").and_then(|v| v.as_str());
+    let highlight_groups: Vec<String> = args
+        .get("highlight_groups")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    let hg_slice: Option<&[String]> = if highlight_groups.is_empty() {
+        None
+    } else {
+        Some(&highlight_groups)
+    };
+    exec_segment(command, &script_args, format, None, None, hg_slice).map(Value::Array)
 }
 
 fn ad_system_load(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
@@ -1728,6 +2156,23 @@ pub const ADAPTERS: &[(&str, AdapterFn)] = &[
         "powerlinemem.mem_usage.mem_swap_percentage",
         ad_mem_swap_percentage,
     ),
+    // GPU / Disk / Thermal extensions (src/extensions/{gpu,disk,thermal}.rs).
+    ("powerliners.gpu.gpu_usage_percent", ad_gpu_usage_percent),
+    ("powerliners.gpu.gpu_vram", ad_gpu_vram),
+    ("powerliners.disk.disk_usage", ad_disk_usage),
+    ("powerliners.disk.disk_usage_percent", ad_disk_usage_percent),
+    ("powerliners.disk.disk_io", ad_disk_io),
+    ("powerliners.thermal.thermal", ad_thermal),
+    // User-extensibility (`src/extensions/exec_segment.rs`):
+    //   Option A — explicit `exec` adapter spawns args.command + parses
+    //   stdout. Theme JSON references `"function": "exec"`.
+    ("powerliners.exec.exec", ad_exec),
+    // Short-form alias so theme authors can write `"function": "exec"`
+    // without the dotted-path prefix — gen_segment_getter's
+    // default-module lookup expands the bare name through every level
+    // of the resolver, but stamping the short form here makes the
+    // direct lookup hit succeed without the cascade.
+    ("exec", ad_exec),
     (
         "powerline.segments.common.net.network_load",
         ad_network_load,
