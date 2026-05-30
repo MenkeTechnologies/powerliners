@@ -13107,3 +13107,111 @@ fn parity_lib_encoding_preferred_environment_encoding_non_empty() {
     let rs = powerliners::ported::lib::encoding::get_preferred_environment_encoding();
     assert!(!rs.is_empty(), "environment encoding should be non-empty");
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/overrides::parsedotval_str — edge cases beyond existing 3 tests
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_parsedotval_str_value_with_equals_in_value() {
+    // 'a=b=c' — first '=' splits key from value; rest of '=' stays in value.
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "import json; \
+         mod = __import__('powerline.lib.overrides', fromlist=['parsedotval']); \
+         k, v = mod.parsedotval('a=b=c'); \
+         print(json.dumps([k, v]), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: Vec<serde_json::Value> = serde_json::from_str(&py).expect("parse");
+    let (k, v) = powerliners::ported::lib::overrides::parsedotval_str("a=b=c").expect("parse");
+    assert_eq!(k, py_v[0].as_str().unwrap());
+    assert_eq!(v, py_v[1]);
+}
+
+#[test]
+fn parity_parsedotval_str_value_omitted_returns_remove_sentinel() {
+    // py:91-92  if not value: value = REMOVE_THIS_KEY
+    if !python_available() {
+        return;
+    }
+    let py_present = match py_eval(
+        "mod = __import__('powerline.lib.overrides', fromlist=['parsedotval']); \
+         k, v = mod.parsedotval('foo='); \
+         from powerline.lib.dict import REMOVE_THIS_KEY; \
+         print(str(v is REMOVE_THIS_KEY), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    assert_eq!(py_present, "True");
+    let (_k, v) = powerliners::ported::lib::overrides::parsedotval_str("foo=").expect("parse");
+    let remove = powerliners::ported::lib::dict::REMOVE_THIS_KEY();
+    assert_eq!(v, remove, "missing value should produce REMOVE sentinel");
+}
+
+#[test]
+fn parity_parse_override_var_semicolon_separates_pairs() {
+    // py:175  parse_override_var splits on ';' into pairs.
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "import json; \
+         mod = __import__('powerline.lib.overrides', fromlist=['parse_override_var']); \
+         pairs = list(mod.parse_override_var('a=1;b=2;c=3')); \
+         print(json.dumps([[k, v] for k, v in pairs]), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    let py_v: Vec<Vec<serde_json::Value>> = serde_json::from_str(&py).expect("parse");
+    let rs = powerliners::ported::lib::overrides::parse_override_var("a=1;b=2;c=3");
+    assert_eq!(rs.len(), py_v.len(), "pair count mismatch");
+    for (i, (k, v)) in rs.iter().enumerate() {
+        assert_eq!(k, py_v[i][0].as_str().unwrap(), "key #{} mismatch", i);
+        assert_eq!(v, &py_v[i][1], "value #{} mismatch", i);
+    }
+}
+
+#[test]
+fn parity_parse_override_var_empty_string_returns_empty() {
+    if !python_available() {
+        return;
+    }
+    let py = match py_eval(
+        "mod = __import__('powerline.lib.overrides', fromlist=['parse_override_var']); \
+         print(list(mod.parse_override_var('')), end='')",
+    ) {
+        Some(v) => v,
+        None => return,
+    };
+    // Either '[]' or '' depending on Python's repr behavior; check both.
+    assert!(
+        py == "[]" || py.is_empty(),
+        "empty input should produce empty list, got {:?}",
+        py
+    );
+    let rs = powerliners::ported::lib::overrides::parse_override_var("");
+    assert!(rs.is_empty(), "rs empty input should produce empty result");
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// lib/url::urllib_read — stub return invariant
+// ─────────────────────────────────────────────────────────────────────
+
+#[test]
+fn parity_lib_url_urllib_read_returns_none_for_invalid_url() {
+    // The Rust port is stubbed (returns None always). Python's
+    // urllib_read would attempt a real HTTP fetch; the contract is
+    // "returns None on HTTPError" — pinning the Rust behavior for now.
+    let rs = powerliners::ported::lib::url::urllib_read("https://example.invalid/");
+    assert!(
+        rs.is_none(),
+        "urllib_read stub should return None for any URL"
+    );
+}
