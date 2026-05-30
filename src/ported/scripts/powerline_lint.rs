@@ -1,5 +1,5 @@
 // vim:fileencoding=utf-8:noet
-//! Port of `vendor/powerline/scripts/powerline-lint`.
+//! Port of `scripts/powerline-lint`.
 //!
 //! 13-line driver that calls `check(config_path, debug)` from
 //! `powerline.lint` and exits with its return value.
@@ -13,7 +13,7 @@
 use crate::ported::commands::lint::get_argparser;
 
 /// Port of the `if __name__ == '__main__':` block at
-/// `vendor/powerline/scripts/powerline-lint:11-13`.
+/// `scripts/powerline-lint:11-13`.
 ///
 /// Returns the process exit code Python would pass to `sys.exit()`.
 /// Python at sh:13 calls `sys.exit(check(args.config_path, args.debug))`

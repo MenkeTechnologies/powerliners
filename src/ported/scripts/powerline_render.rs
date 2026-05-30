@@ -1,5 +1,5 @@
 // vim:fileencoding=utf-8:noet
-//! Port of `vendor/powerline/scripts/powerline-render`.
+//! Port of `scripts/powerline-render`.
 //!
 //! Driver that builds a `ShellPowerline` and renders one prompt /
 //! statusline string to stdout.
@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use std::io::Write;
 
 /// Port of the `if __name__ == '__main__':` block at
-/// `vendor/powerline/scripts/powerline-render:25-31`.
+/// `scripts/powerline-render:25-31`.
 ///
 /// Builds the argparser, parses args, finishes the args dict, then
 /// hands off to `render_fn` for the actual `ShellPowerline` render and

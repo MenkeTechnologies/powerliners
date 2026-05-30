@@ -1,5 +1,5 @@
 // vim:fileencoding=utf-8:noet
-//! Port of `vendor/powerline/scripts/powerline-daemon`.
+//! Port of `scripts/powerline-daemon`.
 //!
 //! 495-line Python socket daemon. Faithful port: every Python function
 //! is preserved as a Rust function with the same name and shape. The
@@ -55,7 +55,7 @@ use std::time::{Duration, Instant};
 use crate::ported::commands::main::{finish_args, Args};
 
 /// Port of module-level `USE_FILESYSTEM` from
-/// `vendor/powerline/scripts/powerline-daemon:33`.
+/// `scripts/powerline-daemon:33`.
 ///
 /// Python: `USE_FILESYSTEM = not sys.platform.lower().startswith('linux')`.
 /// Linux gets the abstract socket namespace; other platforms get a
@@ -67,13 +67,13 @@ pub fn USE_FILESYSTEM() -> bool {
 }
 
 /// Port of `EOF` byte sentinel from
-/// `vendor/powerline/scripts/powerline-daemon:50`.
+/// `scripts/powerline-daemon:50`.
 ///
 /// Python: `EOF = b'EOF\0\0'`.
 pub const EOF: &[u8] = b"EOF\0\0";
 
 /// Port of `HOME` constant from
-/// `vendor/powerline/scripts/powerline-daemon:65`.
+/// `scripts/powerline-daemon:65`.
 ///
 /// Python: `HOME = os.path.expanduser('~')`. Computed lazily so
 /// tests don't depend on the test runner's `$HOME` at module load.
@@ -84,7 +84,7 @@ pub fn HOME() -> String {
 }
 
 /// Port of `NonInteractiveArgParser` from
-/// `vendor/powerline/scripts/powerline-daemon:36-47`.
+/// `scripts/powerline-daemon:36-47`.
 ///
 /// Python subclass of `ArgumentParser` whose `print_usage`/`print_help`/
 /// `error` raise `Exception` instead of writing to stdout/exiting.
@@ -170,7 +170,7 @@ pub struct WmHandle {
 }
 
 /// Port of `class State(object)` from
-/// `vendor/powerline/scripts/powerline-daemon:53-62`.
+/// `scripts/powerline-daemon:53-62`.
 ///
 /// `__slots__` declares `powerlines`, `logger`, `config_loader`,
 /// `started_wm_threads`, `ts_shutdown_event`. `powerlines` is keyed
@@ -201,7 +201,7 @@ impl State {
 }
 
 /// Port of `class NonDaemonShellPowerline(ShellPowerline)` from
-/// `vendor/powerline/scripts/powerline-daemon:68-70`.
+/// `scripts/powerline-daemon:68-70`.
 ///
 /// Subclass that overrides `get_log_handler` to return a
 /// `StreamHandler` (i.e. logs to stderr) instead of the
@@ -218,7 +218,7 @@ impl NonDaemonShellPowerline {
 }
 
 /// Port of `eintr_retry_call()` from
-/// `vendor/powerline/scripts/powerline-daemon:137-144`.
+/// `scripts/powerline-daemon:137-144`.
 pub fn eintr_retry_call<F, T>(mut func: F) -> std::io::Result<T>
 where
     F: FnMut() -> std::io::Result<T>,
@@ -236,7 +236,7 @@ where
 }
 
 /// Port of `safe_bytes()` from
-/// `vendor/powerline/scripts/powerline-daemon:175-190`.
+/// `scripts/powerline-daemon:175-190`.
 ///
 /// Any `&str` is already valid UTF-8 so the encode path collapses to
 /// `s.as_bytes().to_vec()`. The fallback recursion is not reachable
@@ -247,7 +247,7 @@ pub fn safe_bytes(s: &str) -> Vec<u8> {
 }
 
 /// Port of `parse_args()` from
-/// `vendor/powerline/scripts/powerline-daemon:193-200`.
+/// `scripts/powerline-daemon:193-200`.
 ///
 /// Wire format: `<numargs_hex>\0<arg>\0<arg>...\0<cwd>\0<env=val>\0...`.
 #[allow(clippy::type_complexity)]
@@ -288,7 +288,7 @@ pub fn parse_args(req: &[u8]) -> Option<(Vec<String>, HashMap<String, String>, S
 }
 
 /// Port of `do_read()` from
-/// `vendor/powerline/scripts/powerline-daemon:147-165`.
+/// `scripts/powerline-daemon:147-165`.
 ///
 /// Read until the running buffer ends with `\0\0` or the cumulative
 /// wall time hits `timeout` seconds. Returns `None` on timeout, error,
@@ -368,7 +368,7 @@ fn poll_readable(fd: RawFd, timeout: Duration) -> std::io::Result<bool> {
 }
 
 /// Port of `do_write()` from
-/// `vendor/powerline/scripts/powerline-daemon:168-172`.
+/// `scripts/powerline-daemon:168-172`.
 ///
 /// Best-effort send; Python swallows all exceptions.
 pub fn do_write(conn: &mut UnixStream, result: &[u8]) {
@@ -388,7 +388,7 @@ pub type SpawnWmFn =
     dyn Fn(&str, Arc<AtomicBool>, Arc<AtomicBool>) -> Option<WmHandle> + Send + Sync;
 
 /// Port of `start_wm()` from
-/// `vendor/powerline/scripts/powerline-daemon:73-85`.
+/// `scripts/powerline-daemon:73-85`.
 ///
 /// Idempotent thread spawn: short-circuits if `wm_name` already
 /// running.
@@ -424,7 +424,7 @@ pub fn start_wm(args: &Args, state: &mut State, spawn_wm_fn: &Arc<SpawnWmFn>) ->
 }
 
 /// Port of `render()` from
-/// `vendor/powerline/scripts/powerline-daemon:88-134`.
+/// `scripts/powerline-daemon:88-134`.
 ///
 /// Cache `ShellPowerline` per `PowerlineKey`; on a miss, the
 /// `render_fn` closure computes the rendered bytes. Python additionally
@@ -454,7 +454,7 @@ pub fn render(
 }
 
 /// Port of `get_answer()` from
-/// `vendor/powerline/scripts/powerline-daemon:203-212`.
+/// `scripts/powerline-daemon:203-212`.
 ///
 /// Parses request, runs `finish_args`, dispatches to `start_wm` for
 /// `wm.*` extensions or `render` for everything else. All exceptions
@@ -645,7 +645,7 @@ pub struct Conn {
 }
 
 /// Port of `do_one()` from
-/// `vendor/powerline/scripts/powerline-daemon:215-259`.
+/// `scripts/powerline-daemon:215-259`.
 ///
 /// One iteration of the select loop. Returns `Some(code)` to request
 /// `SystemExit(code)` from `main_loop`, `None` to continue.
@@ -801,7 +801,7 @@ pub fn do_one(
 }
 
 /// Port of `shutdown()` from
-/// `vendor/powerline/scripts/powerline-daemon:262-292`.
+/// `scripts/powerline-daemon:262-292`.
 pub fn shutdown(conns: &mut HashMap<RawFd, Conn>, state: &mut State) {
     // sh:275  total_wait_time = 2
     let total = Duration::from_secs(2);
@@ -847,7 +847,7 @@ pub fn shutdown(conns: &mut HashMap<RawFd, Conn>, state: &mut State) {
 }
 
 /// Port of `main_loop()` from
-/// `vendor/powerline/scripts/powerline-daemon:295-317`.
+/// `scripts/powerline-daemon:295-317`.
 ///
 /// Generic over `render_fn` and `spawn_wm_fn` so the lifecycle can be
 /// tested without requiring `ShellPowerline` or the WM thread registry.
@@ -916,7 +916,7 @@ fn install_sigint_flag(flag: Arc<AtomicBool>) {
 }
 
 /// Port of `daemonize()` from
-/// `vendor/powerline/scripts/powerline-daemon:320-352`.
+/// `scripts/powerline-daemon:320-352`.
 ///
 /// Double-fork + setsid + chdir / + umask 0 + dup2 to /dev/null. The
 /// first parent exits via `process::exit(0)` (Python `SystemExit(0)`)
@@ -1010,7 +1010,7 @@ fn redirect_std_to_devnull() {
 }
 
 /// Port of `check_existing()` from
-/// `vendor/powerline/scripts/powerline-daemon:355-371`.
+/// `scripts/powerline-daemon:355-371`.
 ///
 /// Returns `Some(listener)` if bind succeeded, `None` when EADDRINUSE.
 /// Faithful to the Python: only EADDRINUSE is swallowed; other errors
@@ -1035,7 +1035,7 @@ pub fn check_existing(address: &str) -> std::io::Result<Option<UnixListener>> {
 }
 
 /// Port of `kill_daemon()` from
-/// `vendor/powerline/scripts/powerline-daemon:374-385`.
+/// `scripts/powerline-daemon:374-385`.
 pub fn kill_daemon(address: &str) -> bool {
     // sh:375  sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     match UnixStream::connect(address) {
@@ -1050,7 +1050,7 @@ pub fn kill_daemon(address: &str) -> bool {
 }
 
 /// Port of `cleanup_lockfile()` from
-/// `vendor/powerline/scripts/powerline-daemon:388-398`.
+/// `scripts/powerline-daemon:388-398`.
 pub fn cleanup_lockfile(pidfile: &str, from_signal_handler: bool) -> std::io::Result<()> {
     // sh:391  os.unlink(pidfile)
     std::fs::remove_file(pidfile).ok();
@@ -1098,7 +1098,7 @@ impl Drop for PidLock {
 }
 
 /// Port of `lockpidfile()` from
-/// `vendor/powerline/scripts/powerline-daemon:401-419`.
+/// `scripts/powerline-daemon:401-419`.
 ///
 /// `open(pidfile, O_WRONLY | O_CREAT, 0644)` + `fcntl.lockf(LOCK_EX |
 /// LOCK_NB)` + truncate + write pid + fsync. Registers SIGTERM cleanup.
@@ -1210,7 +1210,7 @@ pub fn parse_daemon_argv(argv: &[String]) -> DaemonArgs {
 }
 
 /// Port of `main()` from
-/// `vendor/powerline/scripts/powerline-daemon:422-491`.
+/// `scripts/powerline-daemon:422-491`.
 ///
 /// `render_fn` and `spawn_wm_fn` are the injected closures wired by
 /// the `powerline-daemon` binary entry. Returns the process exit code.

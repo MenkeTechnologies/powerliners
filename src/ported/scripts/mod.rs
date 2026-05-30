@@ -1,5 +1,5 @@
 // vim:fileencoding=utf-8:noet
-//! Port of `vendor/powerline/scripts/`.
+//! Port of `scripts/`.
 //!
 //! Mirror of the five entry-point scripts that live OUTSIDE the
 //! `powerline` Python package (they're standalone executables at the
@@ -15,7 +15,7 @@
 //!   it's a release-cutting script, not part of the runtime path.
 //!
 //! Because `scripts/extract_py_names.py` only walks the `powerline`
-//! Python package (it skips `vendor/powerline/scripts/`), every fn
+//! Python package (it skips `scripts/`), every fn
 //! ported here is flagged by the drift gate. Such names land in
 //! `tests/data/fake_fn_allowlist.txt` with a rationale citing the
 //! exact `scripts/<name>:LINE` source.

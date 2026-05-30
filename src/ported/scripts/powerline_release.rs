@@ -1,5 +1,5 @@
 // vim:fileencoding=utf-8:noet
-//! Port of `vendor/powerline/scripts/powerline-release.py`.
+//! Port of `scripts/powerline-release.py`.
 //!
 //! Maintenance script for cutting a new powerline release. Ports the
 //! pure-functional helpers (`parse_version`, `setup_py_develop_filter`,
@@ -15,15 +15,15 @@
 // from github import Github                            // sh:13
 
 /// Port of `OVERLAY_NAME` constant at
-/// `vendor/powerline/scripts/powerline-release.py:16`.
+/// `scripts/powerline-release.py:16`.
 pub const OVERLAY_NAME: &str = "raiagent";
 
 /// Port of `OVERLAY` constant at
-/// `vendor/powerline/scripts/powerline-release.py:17`.
+/// `scripts/powerline-release.py:17`.
 pub const OVERLAY: &str = "leycec/raiagent";
 
 /// Port of `OVERLAY_BRANCH_FORMAT` template at
-/// `vendor/powerline/scripts/powerline-release.py:18`.
+/// `scripts/powerline-release.py:18`.
 ///
 /// Returns the branch name for a given version string. Python uses
 /// `.format(version)` on `'powerline-release-{0}'`.
@@ -33,7 +33,7 @@ pub fn overlay_branch_format(version: &str) -> String {
 }
 
 /// Port of `parse_version()` from
-/// `vendor/powerline/scripts/powerline-release.py:21-48`.
+/// `scripts/powerline-release.py:21-48`.
 ///
 /// Two modes:
 /// - Plain dotted version: parses `"1.2.3"` as `vec![1, 2, 3]`.
@@ -76,7 +76,7 @@ pub fn parse_version(s: &str, latest_version: Option<&[u32]>) -> Result<Vec<u32>
 }
 
 /// Port of `setup_py_develop_filter()` from
-/// `vendor/powerline/scripts/powerline-release.py:62-65`.
+/// `scripts/powerline-release.py:62-65`.
 ///
 /// Rewrites the `\tbase_version = '...'` line in `setup.py` to the
 /// new version string. Other lines pass through unchanged.
@@ -91,7 +91,7 @@ pub fn setup_py_develop_filter(line: &str, version_string: &str) -> String {
 }
 
 /// Port of `setup_py_master_filter()` from
-/// `vendor/powerline/scripts/powerline-release.py:68-73`.
+/// `scripts/powerline-release.py:68-73`.
 ///
 /// Rewrites two lines in `setup.py` for the master branch:
 /// - `\tversion='...'` gets the new version string.
@@ -112,7 +112,7 @@ pub fn setup_py_master_filter(line: &str, version_string: &str) -> String {
 }
 
 /// Port of the `stages` tuple at
-/// `vendor/powerline/scripts/powerline-release.py:206-212`.
+/// `scripts/powerline-release.py:206-212`.
 ///
 /// Each entry is `(stage_name, stage_callable)`. Rust port returns
 /// stage names only since the callables (`merge`, `push`, `upload`,
@@ -134,7 +134,7 @@ pub const STAGE_NAMES: &[&str] = &[
 ];
 
 /// Port of `create_release()` signature at
-/// `vendor/powerline/scripts/powerline-release.py:215-221`.
+/// `scripts/powerline-release.py:215-221`.
 ///
 /// Drives the release stages in order, skipping any whose names
 /// aren't in `run_stages` (or running all when `run_stages` is None).

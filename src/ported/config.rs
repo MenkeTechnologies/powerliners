@@ -64,12 +64,14 @@ pub fn BINDINGS_DIRECTORY() -> &'static PathBuf {
 /// in the installed package, so the `BINDINGS_DIRECTORY/tmux` derivation
 /// at py:9 always finds them.
 ///
-/// In the Rust port the binary lives at `~/.cargo/bin/powerline-config`,
-/// so `BINDINGS_DIRECTORY/tmux` resolves to `~/.cargo/powerline/bindings/tmux`
-/// which never exists. Fall back to the in-tree mirror at
-/// `src/ported/bindings/tmux/` (shipped in the published crate via
-/// `option_env!("CARGO_MANIFEST_DIR")`) — same pattern used by the
-/// daemon's `search_paths()` for `config_files/`.
+/// In the Rust port the binary may be installed anywhere (`cargo install`
+/// to `~/.cargo/bin/`, brew tap to `/opt/homebrew/bin/`, manual `cp` to
+/// `/usr/local/bin/`) and the `BINDINGS_DIRECTORY/tmux` derivation rarely
+/// points at real `.conf` files. To make tmux setup install-method-
+/// agnostic the contents of all 8 conf files are baked into the binary
+/// via `include_str!` and extracted to `$XDG_CACHE_HOME/powerliners/tmux/`
+/// (or `~/.cache/powerliners/tmux/`) on first call. The cached directory
+/// is returned as the canonical `TMUX_CONFIG_DIRECTORY`.
 #[allow(non_snake_case)]
 pub fn TMUX_CONFIG_DIRECTORY() -> &'static PathBuf {
     TMUX_CONFIG_DIRECTORY_CELL.get_or_init(|| {
@@ -78,16 +80,59 @@ pub fn TMUX_CONFIG_DIRECTORY() -> &'static PathBuf {
         if default.join("powerline-base.conf").exists() {
             return default;
         }
-        if let Some(manifest) = option_env!("CARGO_MANIFEST_DIR") {
-            let manifest = PathBuf::from(manifest);
-            let mirror = manifest.join("src/ported/bindings/tmux");
-            if mirror.join("powerline-base.conf").exists() {
-                return mirror;
+        // Bundled `.conf` contents baked into the binary at compile
+        // time so the runtime path resolution is install-method-
+        // agnostic (works for cargo install, brew, manual cp).
+        const BUNDLED: &[(&str, &str)] = &[
+            (
+                "powerline-base.conf",
+                include_str!("bindings/tmux/powerline-base.conf"),
+            ),
+            (
+                "powerline.conf",
+                include_str!("bindings/tmux/powerline.conf"),
+            ),
+            (
+                "powerline_tmux_1.7_plus.conf",
+                include_str!("bindings/tmux/powerline_tmux_1.7_plus.conf"),
+            ),
+            (
+                "powerline_tmux_1.8.conf",
+                include_str!("bindings/tmux/powerline_tmux_1.8.conf"),
+            ),
+            (
+                "powerline_tmux_1.8_minus.conf",
+                include_str!("bindings/tmux/powerline_tmux_1.8_minus.conf"),
+            ),
+            (
+                "powerline_tmux_1.8_plus.conf",
+                include_str!("bindings/tmux/powerline_tmux_1.8_plus.conf"),
+            ),
+            (
+                "powerline_tmux_1.9_plus.conf",
+                include_str!("bindings/tmux/powerline_tmux_1.9_plus.conf"),
+            ),
+            (
+                "powerline_tmux_2.1_plus.conf",
+                include_str!("bindings/tmux/powerline_tmux_2.1_plus.conf"),
+            ),
+        ];
+        let cache = std::env::var_os("XDG_CACHE_HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))
+            .unwrap_or_else(std::env::temp_dir)
+            .join("powerliners")
+            .join("tmux");
+        if std::fs::create_dir_all(&cache).is_ok() {
+            for (name, content) in BUNDLED {
+                let target = cache.join(name);
+                // Overwrite on every fresh process so an upgraded binary
+                // picks up new conf contents — cheap (these are tiny).
+                let _ = std::fs::write(&target, content);
             }
-            let vendor = manifest.join("vendor/powerline/powerline/bindings/tmux");
-            if vendor.join("powerline-base.conf").exists() {
-                return vendor;
-            }
+        }
+        if cache.join("powerline-base.conf").exists() {
+            return cache;
         }
         default
     })
@@ -118,20 +163,17 @@ mod tests {
         let system = DEFAULT_SYSTEM_CONFIG_DIR();
 
         assert_eq!(bindings, &root.join("powerline").join("bindings"));
-        // TMUX_CONFIG_DIRECTORY: either the upstream derivation
+        // TMUX_CONFIG_DIRECTORY is either the upstream derivation
         // (BINDINGS_DIRECTORY/tmux) when the conf files are present
-        // there, or the in-tree mirror under src/ported/bindings/tmux/
-        // when the binary is installed and the default path doesn't
-        // exist. Both are valid.
-        let upstream = bindings.join("tmux");
-        let mirror =
-            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/ported/bindings/tmux");
-        let vendor = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("vendor/powerline/powerline/bindings/tmux");
+        // there, or the extracted cache dir under
+        // $XDG_CACHE_HOME/powerliners/tmux (~/.cache/powerliners/tmux)
+        // when the default doesn't exist. Verify it ends in
+        // either '/tmux' OR '/powerliners/tmux' depending on resolution.
+        let s = tmux.to_string_lossy();
         assert!(
-            tmux == &upstream || tmux == &mirror || tmux == &vendor,
-            "TMUX_CONFIG_DIRECTORY {} not in {{upstream, mirror, vendor}}",
-            tmux.display()
+            s.ends_with("/tmux") || s.ends_with("\\tmux"),
+            "TMUX_CONFIG_DIRECTORY should end with /tmux, got {}",
+            s
         );
         // Python: `DEFAULT_SYSTEM_CONFIG_DIR = None` at py:10.
         assert!(system.is_none());

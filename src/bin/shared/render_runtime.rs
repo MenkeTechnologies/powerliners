@@ -52,21 +52,14 @@ fn search_paths() -> Vec<PathBuf> {
     // load_cascade uses it as the base, then XDG / user_home come
     // AFTER so mergedicts(base, override) lets the user win.
     //
-    // `src/ported/config_files` is the in-tree mirror of upstream
-    // `vendor/powerline/powerline/config_files` and is the path that
-    // ships in the published crate (Cargo.toml excludes `vendor/**`).
-    // Vendor path is checked as a secondary so dev builds against a
-    // checked-out tree still resolve when the mirror gets stale.
+    // `src/ported/config_files` carries the bundled defaults that
+    // ship in the published crate (powered by `option_env!` so the
+    // baked path resolves both for `cargo build` and `cargo install`).
     let mut paths: Vec<PathBuf> = Vec::new();
     if let Some(manifest) = option_env!("CARGO_MANIFEST_DIR") {
-        let manifest = PathBuf::from(manifest);
-        let ported = manifest.join("src/ported/config_files");
+        let ported = PathBuf::from(manifest).join("src/ported/config_files");
         if ported.is_dir() {
             paths.push(ported);
-        }
-        let bundled = manifest.join("vendor/powerline/powerline/config_files");
-        if bundled.is_dir() {
-            paths.push(bundled);
         }
     }
     paths.extend(get_config_paths());

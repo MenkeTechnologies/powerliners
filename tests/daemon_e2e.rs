@@ -169,10 +169,24 @@ fn build_request(args: &[&str], cwd: &str, env: &[(&str, &str)]) -> Vec<u8> {
 /// enough headroom for macOS CI cold-start + parallel CPU contention.
 fn render_once(socket: &PathBuf, args: &[&str], cwd: &str, env: &[(&str, &str)]) -> Vec<u8> {
     for _ in 0..30 {
-        let mut conn = UnixStream::connect(socket).expect("connect");
+        // Connect itself can race under `cargo test --tests` (multiple
+        // test binaries contend on socket FDs / fs lookups), so retry
+        // the connect alongside the empty-body retry.
+        let mut conn = match UnixStream::connect(socket) {
+            Ok(c) => c,
+            Err(_) => {
+                std::thread::sleep(Duration::from_millis(200));
+                continue;
+            }
+        };
         conn.set_read_timeout(Some(READ_TIMEOUT)).ok();
-        conn.write_all(&build_request(args, cwd, env))
-            .expect("send request");
+        if conn
+            .write_all(&build_request(args, cwd, env))
+            .is_err()
+        {
+            std::thread::sleep(Duration::from_millis(200));
+            continue;
+        }
         let mut buf = Vec::new();
         let _ = conn.read_to_end(&mut buf);
         if !buf.is_empty() {

@@ -1,12 +1,12 @@
 // vim:fileencoding=utf-8:noet
-//! Rust port of upstream's `vendor/powerline/client/powerline.c`.
+//! Rust port of upstream's `client/powerline.c`.
 //!
 //! The thin native client that tmux / shells invoke via
 //! `$POWERLINE_COMMAND`. Builds the powerline-daemon wire request from
 //! argv + cwd + env, sends it over the Unix socket, and copies the
 //! response to stdout. Falls back to `execvp("powerline-render", …)`
 //! when the daemon isn't reachable, mirroring upstream C client at
-//! `vendor/powerline/client/powerline.c:115-124`.
+//! `client/powerline.c:115-124`.
 //!
 //! Wire format (per the C client, lines 126-148):
 //!   `hex(argc-1)` "\0" `argv[0]` "\0" `argv[1]` "\0" … cwd "\0" `env[0]` "\0" … "\0\0"
@@ -150,7 +150,7 @@ fn main() -> ExitCode {
 }
 
 /// Mirror of the C client's `execvp("powerline-render", newargv)` at
-/// `vendor/powerline/client/powerline.c:121-123`. Replaces the
+/// `client/powerline.c:121-123`. Replaces the
 /// current process image, so on success this never returns.
 fn exec_render_fallback(argv: &[String]) -> ExitCode {
     let prog = CString::new("powerline-render").expect("nul in program name");
