@@ -16,5 +16,14 @@
 //! These names are wired into `ADAPTERS` in
 //! `src/bin/shared/render_runtime.rs` so the daemon's segment lookup
 //! finds them without a Python `__import__` round-trip.
+//!
+//! - [`gpu`]      — `powerliners.gpu.{gpu_usage_percent,gpu_vram}`
+//!   (vendor-dispatched: nvidia-smi → rocm-smi → ioreg → intel_gpu_top)
+//! - [`disk`]     — `powerliners.disk.{disk_usage,disk_usage_percent,disk_io}`
+//! - [`thermal`]  — `powerliners.thermal.thermal` (CPU/GPU temp + fan RPM)
 
+pub mod disk;
+pub mod exec_segment;
+pub mod gpu;
 pub mod mem_usage;
+pub mod thermal;
