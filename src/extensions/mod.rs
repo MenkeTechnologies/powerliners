@@ -23,8 +23,10 @@
 //! - [`thermal`]  — `powerliners.thermal.thermal` (CPU/GPU temp + fan RPM)
 
 pub mod bundled_config;
+pub mod diag_log;
 pub mod disk;
 pub mod exec_segment;
+pub mod git_status;
 pub mod gpu;
 pub mod mem_usage;
 pub mod thermal;

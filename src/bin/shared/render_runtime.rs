@@ -293,8 +293,20 @@ pub fn build_configs(ext: &str) -> Result<Configs, String> {
             if let Some(specs) = segdict.get(side).and_then(|v| v.as_array()) {
                 for spec in specs {
                     if let Some(spec_obj) = spec.as_object() {
-                        if let Some(prepared) = get_segment(spec_obj, side) {
-                            side_arr.push(Value::Object(prepared));
+                        let fn_name = spec_obj
+                            .get("function")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("?");
+                        match get_segment(spec_obj, side) {
+                            Some(prepared) => {
+                                side_arr.push(Value::Object(prepared));
+                            }
+                            None => {
+                                powerliners::extensions::diag_log::log(&format!(
+                                    "prepare_line side={} DROP fn={} (get_segment returned None — module lookup failed)",
+                                    side, fn_name
+                                ));
+                            }
                         }
                     }
                 }
@@ -562,10 +574,30 @@ fn ad_date(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Valu
 }
 
 fn read_cpu_percent() -> f64 {
-    // `top -l 1 -s 0 -n 0` prints one summary, including the CPU usage
-    // line. On darwin: `CPU usage: 3.4% user, 5.2% sys, 91.3% idle`.
-    // We sum user + sys for the "active" reading. Linux fallback parses
-    // /proc/stat first delta over a 100ms sleep.
+    // `top -l 1 -s 0 -n 0` takes ~300ms on macOS — too slow for a
+    // per-tick segment with tmux's `#()` ready threshold. Cache the
+    // last reading for 2 seconds (matches the typical
+    // `status-interval`); subsequent renders reuse the value.
+    use std::sync::Mutex;
+    use std::time::{Duration, Instant};
+    static CACHE: std::sync::OnceLock<Mutex<Option<(Instant, f64)>>> =
+        std::sync::OnceLock::new();
+    let cell = CACHE.get_or_init(|| Mutex::new(None));
+    if let Ok(guard) = cell.lock() {
+        if let Some((t, v)) = *guard {
+            if t.elapsed() < Duration::from_millis(1900) {
+                return v;
+            }
+        }
+    }
+    let pct = read_cpu_percent_uncached();
+    if let Ok(mut guard) = cell.lock() {
+        *guard = Some((Instant::now(), pct));
+    }
+    pct
+}
+
+fn read_cpu_percent_uncached() -> f64 {
     #[cfg(target_os = "macos")]
     {
         if let Ok(out) = std::process::Command::new("top")
@@ -734,6 +766,48 @@ fn ad_disk_io(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
     Some(Value::Array(disk_io(
         device, format, short, recv_max, sent_max,
     )))
+}
+
+fn ad_git_status(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::git_status::git_status;
+    let cwd = info.get("getcwd").and_then(|v| v.as_str()).unwrap_or("/");
+    let pick = |key: &str, default: &str| -> String {
+        args.get(key)
+            .and_then(|v| v.as_str())
+            .unwrap_or(default)
+            .to_string()
+    };
+    // Defaults mirror p10k-lean.zsh symbols + the Powerline branch
+    // glyph (U+E0A0). `github_icon` defaults to Nerd Font's
+    // nf-fa-github_alt (U+F09B) — empty string in the theme JSON
+    // disables the prefix for non-NF fonts.
+    let branch_icon = pick("branch_icon", "\u{E0A0}");
+    let github_icon = pick("github_icon", "\u{F09B}");
+    let unstaged_icon = pick("unstaged_icon", "!");
+    let untracked_icon = pick("untracked_icon", "?");
+    let staged_icon = pick("staged_icon", "+");
+    let conflict_icon = pick("conflict_icon", "~");
+    let ahead_icon = pick("ahead_icon", "⇡");
+    let behind_icon = pick("behind_icon", "⇣");
+    let stash_icon = pick("stash_icon", "*");
+    let status_colors = args
+        .get("status_colors")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    git_status(
+        cwd,
+        &branch_icon,
+        &github_icon,
+        &unstaged_icon,
+        &untracked_icon,
+        &staged_icon,
+        &conflict_icon,
+        &ahead_icon,
+        &behind_icon,
+        &stash_icon,
+        status_colors,
+    )
+    .map(Value::Array)
 }
 
 fn ad_thermal(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
@@ -952,52 +1026,69 @@ fn ad_network_load(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opt
         .to_string();
     // Darwin: netstat -ib gives per-interface byte counters.
     // Linux: /sys/class/net/<iface>/statistics/{rx,tx}_bytes via _get_bytes_sysfs.
+    // Stateful per-interface cache: snap1 = prior call's snapshot,
+    // snap2 = right now. Delta over the actual elapsed time. Avoids a
+    // 500ms snap-sleep-snap window per render — that alone blows
+    // through tmux's `#()` ready threshold and triggers <command 'not
+    // ready'> across the whole bar.
+    use std::sync::Mutex;
+    use std::time::Instant;
+    static LAST_NET: std::sync::OnceLock<Mutex<std::collections::HashMap<String, (Instant, u64, u64)>>> =
+        std::sync::OnceLock::new();
     #[cfg(target_os = "macos")]
-    let bytes = {
-        let read = || -> Option<(u64, u64)> {
-            let out = std::process::Command::new("netstat")
-                .args(["-ibn"])
-                .output()
-                .ok()?;
-            let text = String::from_utf8_lossy(&out.stdout);
-            for line in text.lines().skip(1) {
-                let cols: Vec<&str> = line.split_whitespace().collect();
-                if cols.first().map(|c| *c == interface).unwrap_or(false) {
-                    let rx: u64 = cols.get(6).and_then(|c| c.parse().ok())?;
-                    let tx: u64 = cols.get(9).and_then(|c| c.parse().ok())?;
-                    return Some((rx, tx));
-                }
+    let read = || -> Option<(u64, u64)> {
+        let out = std::process::Command::new("netstat")
+            .args(["-ibn"])
+            .output()
+            .ok()?;
+        let text = String::from_utf8_lossy(&out.stdout);
+        for line in text.lines().skip(1) {
+            let cols: Vec<&str> = line.split_whitespace().collect();
+            if cols.first().map(|c| *c == interface).unwrap_or(false) {
+                let rx: u64 = cols.get(6).and_then(|c| c.parse().ok())?;
+                let tx: u64 = cols.get(9).and_then(|c| c.parse().ok())?;
+                return Some((rx, tx));
             }
-            None
-        };
-        let snap1 = read()?;
-        std::thread::sleep(std::time::Duration::from_millis(500));
-        let snap2 = read()?;
-        let rx_rate = snap2.0.saturating_sub(snap1.0) as f64 * 2.0;
-        let tx_rate = snap2.1.saturating_sub(snap1.1) as f64 * 2.0;
-        (rx_rate, tx_rate)
+        }
+        None
     };
     #[cfg(target_os = "linux")]
+    let read = || -> Option<(u64, u64)> {
+        let rx = std::fs::read_to_string(format!(
+            "/sys/class/net/{}/statistics/rx_bytes",
+            interface
+        ))
+        .ok()?;
+        let tx = std::fs::read_to_string(format!(
+            "/sys/class/net/{}/statistics/tx_bytes",
+            interface
+        ))
+        .ok()?;
+        Some((rx.trim().parse().ok()?, tx.trim().parse().ok()?))
+    };
     let bytes = {
-        let read = || {
-            let rx = std::fs::read_to_string(format!(
-                "/sys/class/net/{}/statistics/rx_bytes",
-                interface
-            ))
-            .ok()?;
-            let tx = std::fs::read_to_string(format!(
-                "/sys/class/net/{}/statistics/tx_bytes",
-                interface
-            ))
-            .ok()?;
-            Some((rx.trim().parse().ok()?, tx.trim().parse().ok()?))
+        let (rx, tx) = read()?;
+        let now = Instant::now();
+        let cell = LAST_NET.get_or_init(|| Mutex::new(std::collections::HashMap::new()));
+        let mut guard = cell.lock().ok()?;
+        let rate = match guard.get(&interface).copied() {
+            Some((t0, rx0, tx0)) => {
+                let dt = now.duration_since(t0).as_secs_f64();
+                if dt > 0.0 {
+                    (
+                        rx.saturating_sub(rx0) as f64 / dt,
+                        tx.saturating_sub(tx0) as f64 / dt,
+                    )
+                } else {
+                    (0.0, 0.0)
+                }
+            }
+            None => (0.0, 0.0),
         };
-        let snap1: (u64, u64) = read()?;
-        std::thread::sleep(std::time::Duration::from_millis(500));
-        let snap2: (u64, u64) = read()?;
+        guard.insert(interface.clone(), (now, rx, tx));
         (
-            snap2.0.saturating_sub(snap1.0) as f64 * 2.0,
-            snap2.1.saturating_sub(snap1.1) as f64 * 2.0,
+            rate.0,
+            rate.1,
         )
     };
     let recv_format = args
@@ -1577,18 +1668,60 @@ fn ad_weather(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
     let weather = compute_state(&key)?;
     let unit = args.get("unit").and_then(|v| v.as_str()).unwrap_or("C");
     let temp_format = args.get("temp_format").and_then(|v| v.as_str());
+    // Upstream defaults (-30..40) are °C — the human cold-to-hot
+    // envelope. When the user picks F or K, convert those same
+    // semantic bounds into their unit so the blue→red gradient
+    // tracks perceived temperature instead of forcing every F-reading
+    // ≥40 (a chilly 40°F) into the red end.
+    let (default_cold, default_hot) = match unit {
+        "F" => (-22.0, 104.0),
+        "K" => (243.15, 313.15),
+        _ => (-30.0, 40.0),
+    };
     let temp_coldest = args
         .get("temp_coldest")
         .and_then(|v| v.as_f64())
-        .unwrap_or(-30.0);
+        .unwrap_or(default_cold);
     let temp_hottest = args
         .get("temp_hottest")
         .and_then(|v| v.as_f64())
-        .unwrap_or(40.0);
-    let icons = args.get("icons").and_then(|v| v.as_object());
+        .unwrap_or(default_hot);
+    // Default Unicode weather glyphs (text-presentation, render in any
+    // UTF-8 terminal). Upstream's ASCII fallbacks ("SUN", "RAIN", …)
+    // live one layer down in `weather_conditions_icons()` for strict
+    // 1:1 port behavior; the adapter sits in the non-port `extensions`
+    // territory and substitutes user-friendlier glyphs when the theme
+    // doesn't pin its own. Theme JSON can still override per-key.
+    let default_icons: Map<String, Value> = [
+        ("day", "☀"),
+        ("sunny", "☀"),
+        ("night", "☾"),
+        ("rainy", "☔"),
+        ("cloudy", "☁"),
+        ("snowy", "❄"),
+        ("stormy", "⛈"),
+        ("foggy", "🌫"),
+        ("windy", "🌬"),
+        ("blustery", "🌬"),
+        ("not_available", "?"),
+        ("unknown", "?"),
+    ]
+    .iter()
+    .map(|(k, v)| (k.to_string(), Value::String(v.to_string())))
+    .collect();
+    let user_icons = args.get("icons").and_then(|v| v.as_object()).cloned();
+    let merged_icons: Map<String, Value> = match user_icons {
+        Some(mut u) => {
+            for (k, v) in default_icons {
+                u.entry(k).or_insert(v);
+            }
+            u
+        }
+        None => default_icons,
+    };
     let chunks = render_one(
         Some(weather),
-        icons,
+        Some(&merged_icons),
         unit,
         temp_format,
         temp_coldest,
@@ -1957,6 +2090,7 @@ pub const ADAPTERS: &[(&str, AdapterFn)] = &[
     ("powerliners.disk.disk_usage_percent", ad_disk_usage_percent),
     ("powerliners.disk.disk_io", ad_disk_io),
     ("powerliners.thermal.thermal", ad_thermal),
+    ("powerliners.vcs.git_status", ad_git_status),
     // User-extensibility (`src/extensions/exec_segment.rs`):
     //   Option A — explicit `exec` adapter spawns args.command + parses
     //   stdout. Theme JSON references `"function": "exec"`.
@@ -2138,11 +2272,32 @@ pub fn render_once(
     configs: &Configs,
     renderer: &Renderer,
 ) -> Vec<u8> {
+    let __render_t0 = std::time::Instant::now();
     let side = args.side.clone().unwrap_or_default();
+    powerliners::extensions::diag_log::log(&format!(
+        "render_once START ext={} side={} cwd={}",
+        configs.ext, side, cwd
+    ));
 
     let mut environ_map: Map<String, Value> = Map::new();
     for (k, v) in environ {
         environ_map.insert(k.clone(), Value::String(v.clone()));
+    }
+    // py:234-235 (renderer.py) — `Renderer.get_segment_info` resets
+    // `getcwd` to `environ['PWD']` if present. That's the powerline
+    // *client's* shell PWD, which under tmux is unrelated to the
+    // *pane's* cwd. When a `-R pane_current_path=...` arg is in flight
+    // it must win over PWD, so rewrite PWD to match before the renderer
+    // sees the env. Without this the explicit `getcwd` override below
+    // is silently overwritten and `branch` / `stash` run `git rev-parse`
+    // in the wrong dir.
+    if let Some(pcp) = args
+        .renderer_arg_merged
+        .as_ref()
+        .and_then(|m| m.get("pane_current_path"))
+        .and_then(|v| v.as_str())
+    {
+        environ_map.insert("PWD".to_string(), Value::String(pcp.to_string()));
     }
     let mut segment_info: Map<String, Value> = Map::new();
     segment_info.insert("environ".to_string(), Value::Object(environ_map));
@@ -2151,6 +2306,29 @@ pub fn render_once(
         Value::String(environ.get("HOME").cloned().unwrap_or_default()),
     );
     segment_info.insert("getcwd".to_string(), Value::String(cwd.to_string()));
+
+    // py:185 commands/main.py — fold `-R k=v` pairs into segment_info
+    // so tmux's `pane_current_path` (and any other renderer arg)
+    // reaches the segments. The TmuxRenderer override at
+    // `renderers/tmux.rs:233-236` mirrors upstream's
+    // `pane_current_path` → `getcwd` rewrite but is never called from
+    // `Renderer::render`'s code path, so do the rewrite here. Without
+    // it `getcwd` stays pinned to the powerline client's own cwd
+    // (HOME under tmux), `branch` / `stash` run `git rev-parse` in
+    // the wrong dir, and the segments silently return None.
+    if let Some(ra) = args.renderer_arg_merged.as_ref() {
+        for (k, v) in ra {
+            segment_info.insert(k.clone(), v.clone());
+        }
+        if let Some(pcp) = ra.get("pane_current_path").and_then(|v| v.as_str()) {
+            segment_info.insert("getcwd".to_string(), Value::String(pcp.to_string()));
+        } else if let Some(pid) = ra.get("pane_id").and_then(|v| v.as_str()) {
+            let varname = format!("TMUX_PWD_{}", pid.trim_start_matches([' ', '%']));
+            if let Some(p) = environ.get(&varname) {
+                segment_info.insert("getcwd".to_string(), Value::String(p.clone()));
+            }
+        }
+    }
 
     let mut args_map: Map<String, Value> = Map::new();
     if let Some(j) = args.jobnum {
@@ -2227,7 +2405,18 @@ pub fn render_once(
 
     let contents_func =
         |id: &str, _pl: &(), si: &Map<String, Value>, args: &Map<String, Value>| -> Option<Value> {
-            invoke_adapter(id, args, si)
+            let t0 = std::time::Instant::now();
+            let r = invoke_adapter(id, args, si);
+            let dt = t0.elapsed().as_millis();
+            let cwd_dbg = si.get("getcwd").and_then(|v| v.as_str()).unwrap_or("?");
+            powerliners::extensions::diag_log::log(&format!(
+                "adapter id={} dt={}ms result={} cwd={}",
+                id,
+                dt,
+                if r.is_some() { "Some" } else { "None" },
+                cwd_dbg
+            ));
+            r
         };
 
     // Mode extraction: Python pulls it from `args.renderer_arg["mode"]`
@@ -2263,6 +2452,13 @@ pub fn render_once(
         RenderReturn::Plain(s) => s,
         RenderReturn::Tuple { highlighted, .. } => highlighted,
     };
+    powerliners::extensions::diag_log::log(&format!(
+        "render_once END ext={} side={} dt={}ms bytes={}",
+        configs.ext,
+        side,
+        __render_t0.elapsed().as_millis(),
+        statusline.len()
+    ));
 
     if configs.ext == "vim" {
         // Wire format for vim: every `:hi GroupName ...` command on

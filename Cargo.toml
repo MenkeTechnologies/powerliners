@@ -1,6 +1,6 @@
 [package]
 name = "powerliners"
-version = "0.2.5"
+version = "0.2.7"
 edition = "2021"
 description = "1:1 Rust port of powerline/powerline. The ultimate statusline/prompt utility"
 license = "MIT"
@@ -65,6 +65,7 @@ serde_yml = "0.0.12"          # active fork of serde_yaml
 regex = "1"
 libc = "0.2"
 log = "0.4"
+ureq = { version = "3", features = ["json", "rustls"], default-features = false }
 
 [dev-dependencies]
 walkdir = "2"
