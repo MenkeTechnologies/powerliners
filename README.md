@@ -67,9 +67,9 @@ Drop-in compatible with the existing `powerline/config` JSON theme + segment fil
 [remaining]       3 NEAR — class-only Python sources at classifier ceiling
 [partial/sparse]  0 / 0 — no degraded files
 [lib tests]       2097 passing, 0 failing, 0 ignored
-[parity tests]    397 against live upstream Python — every assertion runs the
-                  Python interpreter on the vendored powerline and compares
-                  byte/value identical with the Rust port
+[parity tests]    454 against live upstream Python — every assertion runs the
+                  Python interpreter on the upstream powerline source and
+                  compares byte/value identical with the Rust port
 [port bugs fixed] 11 surfaced by the parity harness and corrected in the
                   Rust port (see git log for the full list)
 [drift gate]      green — every ported fn name matches docs/powerline_py_functions.txt
@@ -94,7 +94,7 @@ as NEAR; promoting them to DONE would require a classifier amendment.
 
 | Binary | Mirrors | What it does |
 |---|---|---|
-| `powerline` | `vendor/powerline/client/powerline.c` | Native Rust client — forwards `argv + cwd + env` to the daemon over a Unix socket via the upstream wire format, falls back to `powerline-render` exec if the daemon is unreachable |
+| `powerline` | `client/powerline.c` | Native Rust client — forwards `argv + cwd + env` to the daemon over a Unix socket via the upstream wire format, falls back to `powerline-render` exec if the daemon is unreachable |
 | `powerline-config` | `scripts/powerline-config` | tmux / shell known-function dispatch |
 | `powerline-lint` | `scripts/powerline-lint` | argparse + full check pipeline (markedjson loader + Spec checks + orchestrator integration) |
 | `powerline-render` | `scripts/powerline-render` | argparse + ext lookup + full direct-render path through the `Powerline` orchestrator (used as daemon-less fallback) |
@@ -233,13 +233,22 @@ protocol to whichever daemon is bound to the socket.
 ### Step 5: Restart tmux
 
 Your existing `~/.tmux.conf` invocations work unchanged. The
-canonical line:
+canonical lines:
 
 ```tmux
+run-shell "powerline-config tmux setup"
 run-shell -b "powerline-daemon -q &>/dev/null || exit 0"
 ```
 
-now spawns the Rust binary. Kill and reattach tmux to confirm:
+`powerline-config tmux setup` is **install-method-agnostic** as of
+0.2.3 — the 8 tmux conf files (`powerline-base.conf` plus 7
+version-specific variants) are embedded into the binary via
+`include_str!` and extracted to `$XDG_CACHE_HOME/powerliners/tmux/`
+(default `~/.cache/powerliners/tmux/`) on first call. Works
+identically for `cargo install`, `brew install`, and manual `cp`
+into `$PATH` — no compile-time path baking required.
+
+Kill and reattach tmux to confirm:
 
 ```sh
 tmux kill-server
@@ -247,8 +256,8 @@ tmux new-session
 ```
 
 The status bar should look identical. The `powerline-daemon` process
-in `ps aux` should now be a `target/release/powerline-daemon` invocation
-rather than the Python shebang.
+in `ps aux` should now be a Rust-port invocation rather than the
+Python shebang.
 
 ### Step 6: Confirm
 
@@ -291,10 +300,6 @@ under the test suite's "inherent divergence" notes:
    `psutil` is missing and skips affected segments. Our daemon resolves
    the same data via OS subprocess probes (`top`, `vm_stat`,
    `netstat`, `pmset`, `uptime`) and renders successfully.
-4. **`-m mode` propagation**: The Rust client argv parser doesn't yet
-   route `-m insert` through to the renderer's mode parameter; without
-   an explicit mode, `mode_translations` colorscheme groups are inert
-   (matching Python's behavior with no mode).
 
 For everything else — markup, escaping (`#` → `##[]`, control chars
 via `translate_np`), dividers (hard/soft/multi-char/empty/single-char),
