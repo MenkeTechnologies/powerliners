@@ -401,6 +401,16 @@ pub fn build_configs(ext: &str) -> Result<Configs, String> {
 
     // Collect every config file path our cascade actually consumed so
     // `is_stale` can stat them on subsequent renders.
+    //
+    // BUG FIX: previously took `matches.first()` only. But search_paths()
+    // puts the BUNDLED fallback FIRST and the user's config LAST so that
+    // `load_cascade`'s mergedicts() lets user values override bundled
+    // ones. `matches.first()` therefore pinned the BUNDLED file's mtime
+    // (which never changes), so user edits to their personal
+    // `~/.config/powerline/themes/<ext>/default.json` went undetected
+    // and the daemon served stale parsed themes until restart. Mirror
+    // load_cascade's iteration: register EVERY match across the
+    // cascade, so editing any layer (user or bundled) trips is_stale.
     let mut loaded_paths: Vec<(PathBuf, std::time::SystemTime)> = Vec::new();
     let probe_levels: Vec<String> = vec![
         "config".to_string(),
@@ -414,7 +424,7 @@ pub fn build_configs(ext: &str) -> Result<Configs, String> {
     ];
     for level in &probe_levels {
         if let Ok(matches) = _find_config_files(&paths, level) {
-            if let Some(p) = matches.first().cloned() {
+            for p in matches {
                 let mt = mtime_or_epoch(&p);
                 loaded_paths.push((p, mt));
             }
