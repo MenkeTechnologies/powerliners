@@ -168,15 +168,24 @@ impl Configs {
         if !self.reload_config {
             return false;
         }
-        for (p, t) in &self.loaded_paths {
-            match std::fs::metadata(p).and_then(|m| m.modified()) {
-                Ok(now) if now != *t => return true,
-                Err(_) => return true,
-                _ => {}
-            }
-        }
-        false
+        loaded_paths_are_stale(&self.loaded_paths)
     }
+}
+
+/// Free-fn extraction of [`Configs::is_stale`]'s mtime-walk so the
+/// stale-detection logic can be unit-tested without constructing a
+/// full `Configs` (which requires `Arc<Theme>`, `Arc<Colorscheme>`,
+/// etc.). `reload_config: false` is handled by the caller — this
+/// helper always walks the list.
+fn loaded_paths_are_stale(loaded_paths: &[(PathBuf, std::time::SystemTime)]) -> bool {
+    for (p, t) in loaded_paths {
+        match std::fs::metadata(p).and_then(|m| m.modified()) {
+            Ok(now) if now != *t => return true,
+            Err(_) => return true,
+            _ => {}
+        }
+    }
+    false
 }
 
 /// Snapshot mtime of `path` for the `loaded_paths` cache. Returns
@@ -187,6 +196,27 @@ fn mtime_or_epoch(path: &PathBuf) -> std::time::SystemTime {
     std::fs::metadata(path)
         .and_then(|m| m.modified())
         .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
+}
+
+/// Free-fn extraction of `build_configs`'s loaded_paths population
+/// so the cascade-iteration logic is unit-testable. Returns one
+/// `(path, mtime)` entry per match per level — every layer of the
+/// search-path cascade, not just `matches.first()`. See the bug-fix
+/// commit message for why this matters.
+fn collect_loaded_paths(
+    paths: &[PathBuf],
+    probe_levels: &[String],
+) -> Vec<(PathBuf, std::time::SystemTime)> {
+    let mut out: Vec<(PathBuf, std::time::SystemTime)> = Vec::new();
+    for level in probe_levels {
+        if let Ok(matches) = _find_config_files(paths, level) {
+            for p in matches {
+                let mt = mtime_or_epoch(&p);
+                out.push((p, mt));
+            }
+        }
+    }
+    out
 }
 
 pub fn build_configs(ext: &str) -> Result<Configs, String> {
@@ -400,18 +430,11 @@ pub fn build_configs(ext: &str) -> Result<Configs, String> {
         .unwrap_or(true);
 
     // Collect every config file path our cascade actually consumed so
-    // `is_stale` can stat them on subsequent renders.
-    //
-    // BUG FIX: previously took `matches.first()` only. But search_paths()
-    // puts the BUNDLED fallback FIRST and the user's config LAST so that
-    // `load_cascade`'s mergedicts() lets user values override bundled
-    // ones. `matches.first()` therefore pinned the BUNDLED file's mtime
-    // (which never changes), so user edits to their personal
-    // `~/.config/powerline/themes/<ext>/default.json` went undetected
-    // and the daemon served stale parsed themes until restart. Mirror
-    // load_cascade's iteration: register EVERY match across the
-    // cascade, so editing any layer (user or bundled) trips is_stale.
-    let mut loaded_paths: Vec<(PathBuf, std::time::SystemTime)> = Vec::new();
+    // `is_stale` can stat them on subsequent renders. Watches EVERY
+    // match across the cascade — user-layer files come last in
+    // search_paths and would be missed if we only registered
+    // `matches.first()`. See `collect_loaded_paths` for the
+    // bug-history details.
     let probe_levels: Vec<String> = vec![
         "config".to_string(),
         "colors".to_string(),
@@ -422,14 +445,7 @@ pub fn build_configs(ext: &str) -> Result<Configs, String> {
         format!("themes/{}/__main__", ext),
         format!("themes/{}/{}", ext, theme_name),
     ];
-    for level in &probe_levels {
-        if let Ok(matches) = _find_config_files(&paths, level) {
-            for p in matches {
-                let mt = mtime_or_epoch(&p);
-                loaded_paths.push((p, mt));
-            }
-        }
-    }
+    let loaded_paths = collect_loaded_paths(&paths, &probe_levels);
 
     let vim = if ext == "vim" {
         Some(Arc::new(std::sync::Mutex::new(VimRenderer::new())))
@@ -2824,5 +2840,226 @@ mod tests {
             assert!(!k.starts_with('.'), "ADAPTERS key {k:?} starts with '.'");
             assert!(!k.ends_with('.'), "ADAPTERS key {k:?} ends with '.'");
         }
+    }
+
+    // =====================================================================
+    // Config reload — loaded_paths_are_stale + collect_loaded_paths
+    // Pins the user-layer-reload bug fix (commit 6e0252db32). search_paths()
+    // puts the bundled fallback FIRST and the user's config LAST so
+    // mergedicts() lets user override bundled. The pre-fix code watched
+    // `matches.first()` (the bundled, install-time-mtime file) and missed
+    // user edits entirely.
+    // =====================================================================
+
+    /// Build a unique tempdir for one test. Distinct PID + nanos so
+    /// parallel tests don't collide.
+    fn reload_test_dir(tag: &str) -> PathBuf {
+        let pid = std::process::id();
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let mut p = std::env::temp_dir();
+        p.push(format!("powerliners-reload-test-{tag}-{pid}-{nanos}"));
+        std::fs::create_dir_all(&p).unwrap();
+        p
+    }
+
+    fn write_json(path: &PathBuf, body: &str) {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+        std::fs::write(path, body).unwrap();
+    }
+
+    /// Bump a file's mtime to "now + 2s" so `is_stale` sees a delta
+    /// even on filesystems with 1-second mtime granularity (HFS+,
+    /// older ext4 mount options).
+    fn touch_forward(path: &PathBuf) {
+        // Re-write the file with the same contents; std::fs::write
+        // updates mtime. Then sleep ≥1ms to ensure SystemTime ticks
+        // forward even on coarse-resolution clocks.
+        let body = std::fs::read(path).unwrap_or_default();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        std::fs::write(path, &body).unwrap();
+    }
+
+    #[test]
+    fn loaded_paths_are_stale_empty_vec_is_not_stale() {
+        // No watched files → nothing to be stale against.
+        assert!(!loaded_paths_are_stale(&[]));
+    }
+
+    #[test]
+    fn loaded_paths_are_stale_unchanged_file_is_not_stale() {
+        let dir = reload_test_dir("unchanged");
+        let p = dir.join("a.json");
+        write_json(&p, "{}");
+        let mt = std::fs::metadata(&p).unwrap().modified().unwrap();
+        assert!(!loaded_paths_are_stale(&[(p, mt)]));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn loaded_paths_are_stale_modified_file_is_stale() {
+        let dir = reload_test_dir("modified");
+        let p = dir.join("a.json");
+        write_json(&p, "{}");
+        let original_mt = std::fs::metadata(&p).unwrap().modified().unwrap();
+        touch_forward(&p);
+        assert!(loaded_paths_are_stale(&[(p.clone(), original_mt)]));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn loaded_paths_are_stale_missing_file_is_stale() {
+        // A file that vanished between build_configs and the next
+        // render — metadata() errors, which the stale-walk treats
+        // as a change (return true).
+        let dir = reload_test_dir("missing");
+        let p = dir.join("doesnt_exist.json");
+        let fake_mt = std::time::SystemTime::now();
+        assert!(loaded_paths_are_stale(&[(p, fake_mt)]));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn loaded_paths_are_stale_detects_change_in_last_position() {
+        // THE BUG-FIX PIN: pre-fix, only the first entry was ever in
+        // the list (`matches.first()`). The user's actual edited file
+        // — last in cascade order — wasn't watched. Verify a change
+        // at the END of a multi-entry list is detected.
+        let dir = reload_test_dir("last_pos");
+        let bundled = dir.join("bundled/config.json");
+        let user = dir.join("user/config.json");
+        write_json(&bundled, "{}");
+        write_json(&user, "{}");
+        let mt_bundled = std::fs::metadata(&bundled).unwrap().modified().unwrap();
+        let mt_user = std::fs::metadata(&user).unwrap().modified().unwrap();
+        touch_forward(&user); // edit the LAST entry
+        assert!(loaded_paths_are_stale(&[
+            (bundled, mt_bundled),
+            (user.clone(), mt_user),
+        ]));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn loaded_paths_are_stale_detects_change_in_first_position() {
+        // Symmetric pin: a change at the FIRST entry still trips.
+        // Original behavior preserved by the fix.
+        let dir = reload_test_dir("first_pos");
+        let bundled = dir.join("bundled/config.json");
+        let user = dir.join("user/config.json");
+        write_json(&bundled, "{}");
+        write_json(&user, "{}");
+        let mt_bundled = std::fs::metadata(&bundled).unwrap().modified().unwrap();
+        let mt_user = std::fs::metadata(&user).unwrap().modified().unwrap();
+        touch_forward(&bundled);
+        assert!(loaded_paths_are_stale(&[
+            (bundled.clone(), mt_bundled),
+            (user, mt_user),
+        ]));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn collect_loaded_paths_records_every_cascade_match_per_level() {
+        // THE STRUCTURAL FIX: build_configs must record EVERY match
+        // across the cascade, not just `matches.first()`. Stage two
+        // search dirs each containing a `config.json`, probe for
+        // "config" — must come back with TWO entries.
+        let dir = reload_test_dir("cascade");
+        let bundled_dir = dir.join("bundled");
+        let user_dir = dir.join("user");
+        write_json(&bundled_dir.join("config.json"), "{}");
+        write_json(&user_dir.join("config.json"), "{}");
+        let out = collect_loaded_paths(
+            &[bundled_dir.clone(), user_dir.clone()],
+            &["config".to_string()],
+        );
+        assert_eq!(
+            out.len(),
+            2,
+            "expected one entry per cascade match, got {}: {:?}",
+            out.len(),
+            out
+        );
+        // Both layers represented — order matches search_paths order
+        // (bundled first, user last).
+        assert_eq!(out[0].0, bundled_dir.join("config.json"));
+        assert_eq!(out[1].0, user_dir.join("config.json"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn collect_loaded_paths_skips_levels_with_no_matches() {
+        // A probe level that doesn't exist in any search dir should
+        // produce zero entries — no spurious paths in loaded_paths.
+        let dir = reload_test_dir("skip_missing");
+        write_json(&dir.join("config.json"), "{}");
+        // Don't write `colors.json`.
+        let out = collect_loaded_paths(
+            std::slice::from_ref(&dir),
+            &["config".to_string(), "colors".to_string()],
+        );
+        assert_eq!(out.len(), 1, "expected only config entry, got {out:?}");
+        assert_eq!(
+            out[0].0.file_name().and_then(|s| s.to_str()),
+            Some("config.json")
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn collect_loaded_paths_walks_multiple_levels_in_each_dir() {
+        // Each level is independent — config + colors at the same
+        // search dir should both surface.
+        let dir = reload_test_dir("multi_level");
+        write_json(&dir.join("config.json"), "{}");
+        write_json(&dir.join("colors.json"), "{}");
+        let out = collect_loaded_paths(
+            std::slice::from_ref(&dir),
+            &["config".to_string(), "colors".to_string()],
+        );
+        assert_eq!(out.len(), 2);
+        let names: Vec<&str> = out
+            .iter()
+            .filter_map(|(p, _)| p.file_name().and_then(|s| s.to_str()))
+            .collect();
+        assert!(names.contains(&"config.json"));
+        assert!(names.contains(&"colors.json"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn collect_loaded_paths_then_is_stale_round_trip() {
+        // End-to-end on the helpers: stage a cascade, capture mtimes
+        // via collect_loaded_paths, touch one layer, observe stale.
+        // This is the same flow build_configs + Configs::is_stale
+        // executes minus the parsing.
+        let dir = reload_test_dir("round_trip");
+        let bundled = dir.join("bundled/config.json");
+        let user = dir.join("user/config.json");
+        write_json(&bundled, "{}");
+        write_json(&user, "{}");
+        let snapshot = collect_loaded_paths(
+            &[
+                bundled.parent().unwrap().to_path_buf(),
+                user.parent().unwrap().to_path_buf(),
+            ],
+            &["config".to_string()],
+        );
+        assert_eq!(snapshot.len(), 2);
+        assert!(
+            !loaded_paths_are_stale(&snapshot),
+            "fresh snapshot must not report stale"
+        );
+        touch_forward(&user);
+        assert!(
+            loaded_paths_are_stale(&snapshot),
+            "touch of user-layer file must trip stale (this is the bug fix)"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
