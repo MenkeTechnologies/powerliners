@@ -27,6 +27,11 @@
 //!   context + active namespace, honors KUBECONFIG cascade)
 //! - [`proc_count`] — `powerliners.proc.process_count` (POSIX `ps -eo
 //!   stat=` tally by state code: running/sleeping/zombie/dwait/stopped)
+//! - [`wthr_extensions`] — IP-based geolocation + on-disk
+//!   location cache for the weather segment. Upstream powerline takes
+//!   `location_query` only; these helpers let the segment render
+//!   without an explicit query and survive transient lookup failures.
+//!   Imported by `src/ported/segments/common/wthr.rs`.
 
 pub mod bundled_config;
 pub mod diag_log;
@@ -40,3 +45,4 @@ pub mod k8s;
 pub mod mem_usage;
 pub mod proc_count;
 pub mod thermal;
+pub mod wthr_extensions;
