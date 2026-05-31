@@ -580,8 +580,7 @@ fn read_cpu_percent() -> f64 {
     // `status-interval`); subsequent renders reuse the value.
     use std::sync::Mutex;
     use std::time::{Duration, Instant};
-    static CACHE: std::sync::OnceLock<Mutex<Option<(Instant, f64)>>> =
-        std::sync::OnceLock::new();
+    static CACHE: std::sync::OnceLock<Mutex<Option<(Instant, f64)>>> = std::sync::OnceLock::new();
     let cell = CACHE.get_or_init(|| Mutex::new(None));
     if let Ok(guard) = cell.lock() {
         if let Some((t, v)) = *guard {
@@ -864,10 +863,7 @@ fn ad_mem_swap_percentage(args: &Map<String, Value>, _info: &Map<String, Value>)
     Some(Value::Array(mem_swap_percentage(format, mem_type)))
 }
 
-fn ad_docker_containers(
-    args: &Map<String, Value>,
-    _info: &Map<String, Value>,
-) -> Option<Value> {
+fn ad_docker_containers(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
     use powerliners::extensions::docker::containers;
     use powerliners::extensions::icons;
     let default = format!("{} {{running}}/{{total}}", icons::docker());
@@ -1117,8 +1113,10 @@ fn ad_network_load(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opt
     // ready'> across the whole bar.
     use std::sync::Mutex;
     use std::time::Instant;
-    static LAST_NET: std::sync::OnceLock<Mutex<std::collections::HashMap<String, (Instant, u64, u64)>>> =
-        std::sync::OnceLock::new();
+    #[allow(clippy::type_complexity)]
+    static LAST_NET: std::sync::OnceLock<
+        Mutex<std::collections::HashMap<String, (Instant, u64, u64)>>,
+    > = std::sync::OnceLock::new();
     #[cfg(target_os = "macos")]
     let read = || -> Option<(u64, u64)> {
         let out = std::process::Command::new("netstat")
@@ -1138,16 +1136,12 @@ fn ad_network_load(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opt
     };
     #[cfg(target_os = "linux")]
     let read = || -> Option<(u64, u64)> {
-        let rx = std::fs::read_to_string(format!(
-            "/sys/class/net/{}/statistics/rx_bytes",
-            interface
-        ))
-        .ok()?;
-        let tx = std::fs::read_to_string(format!(
-            "/sys/class/net/{}/statistics/tx_bytes",
-            interface
-        ))
-        .ok()?;
+        let rx =
+            std::fs::read_to_string(format!("/sys/class/net/{}/statistics/rx_bytes", interface))
+                .ok()?;
+        let tx =
+            std::fs::read_to_string(format!("/sys/class/net/{}/statistics/tx_bytes", interface))
+                .ok()?;
         Some((rx.trim().parse().ok()?, tx.trim().parse().ok()?))
     };
     let bytes = {
@@ -1170,10 +1164,7 @@ fn ad_network_load(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opt
             None => (0.0, 0.0),
         };
         guard.insert(interface.clone(), (now, rx, tx));
-        (
-            rate.0,
-            rate.1,
-        )
+        (rate.0, rate.1)
     };
     let recv_format = args
         .get("recv_format")
@@ -1780,12 +1771,21 @@ fn ad_weather(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
     merged_icons.insert("sunny".into(), Value::String(icons::weather_sunny().into()));
     merged_icons.insert("night".into(), Value::String(icons::weather_night().into()));
     merged_icons.insert("rainy".into(), Value::String(icons::weather_rainy().into()));
-    merged_icons.insert("cloudy".into(), Value::String(icons::weather_cloudy().into()));
+    merged_icons.insert(
+        "cloudy".into(),
+        Value::String(icons::weather_cloudy().into()),
+    );
     merged_icons.insert("snowy".into(), Value::String(icons::weather_snowy().into()));
-    merged_icons.insert("stormy".into(), Value::String(icons::weather_stormy().into()));
+    merged_icons.insert(
+        "stormy".into(),
+        Value::String(icons::weather_stormy().into()),
+    );
     merged_icons.insert("foggy".into(), Value::String(icons::weather_foggy().into()));
     merged_icons.insert("windy".into(), Value::String(icons::weather_windy().into()));
-    merged_icons.insert("blustery".into(), Value::String(icons::weather_windy().into()));
+    merged_icons.insert(
+        "blustery".into(),
+        Value::String(icons::weather_windy().into()),
+    );
     merged_icons.insert(
         "not_available".into(),
         Value::String(icons::weather_unknown().into()),
@@ -2788,9 +2788,8 @@ mod tests {
             ("powerliners.k8s", "kubecontext"),
             ("powerliners.proc", "process_count"),
         ] {
-            let id = adapter_id(mod_, name).unwrap_or_else(|| {
-                panic!("extension adapter {mod_}.{name} missing from ADAPTERS")
-            });
+            let id = adapter_id(mod_, name)
+                .unwrap_or_else(|| panic!("extension adapter {mod_}.{name} missing from ADAPTERS"));
             assert_eq!(id, format!("{mod_}.{name}"));
         }
     }
@@ -2805,10 +2804,7 @@ mod tests {
         // any future merge that introduces collisions.
         let mut seen = std::collections::HashSet::new();
         for (k, _) in ADAPTERS {
-            assert!(
-                seen.insert(*k),
-                "duplicate ADAPTERS key: {k}"
-            );
+            assert!(seen.insert(*k), "duplicate ADAPTERS key: {k}");
         }
     }
 

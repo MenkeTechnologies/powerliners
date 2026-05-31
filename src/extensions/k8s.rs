@@ -65,13 +65,7 @@ pub fn read_kube_context(cli: &str) -> Option<KubeContext> {
     // `--minify` collapses to just the active context so the jsonpath
     // resolves against one entry. Empty namespace is fine.
     let ns_out = Command::new(cli)
-        .args([
-            "config",
-            "view",
-            "--minify",
-            "-o",
-            "jsonpath={..namespace}",
-        ])
+        .args(["config", "view", "--minify", "-o", "jsonpath={..namespace}"])
         .output()
         .ok()?;
     let namespace = if ns_out.status.success() {
@@ -172,11 +166,7 @@ mod tests {
 
     #[test]
     fn render_format_substitutes_context_and_namespace() {
-        let s = render_format(
-            "{context}:{namespace}",
-            "prod-cluster",
-            "kube-system",
-        );
+        let s = render_format("{context}:{namespace}", "prod-cluster", "kube-system");
         assert_eq!(s, "prod-cluster:kube-system");
     }
 
