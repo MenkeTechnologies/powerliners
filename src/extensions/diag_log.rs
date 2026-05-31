@@ -5,9 +5,9 @@
 //! `None`, etc.). Lives in `extensions` because it's not part of the
 //! upstream powerline contract.
 //!
-//! Rotation: when the active file exceeds [`MAX_BYTES`], it is renamed
-//! to `powerliners.log.1` and the existing `.1` → `.2`, … up to
-//! [`KEEP_ROTATIONS`]. The oldest file is dropped.
+//! Rotation: when the active file exceeds `MAX_BYTES` (5 MiB), it is
+//! renamed to `powerliners.log.1` and the existing `.1` → `.2`, … up
+//! to `KEEP_ROTATIONS` (3). The oldest file is dropped.
 
 use std::fs::{create_dir_all, rename, OpenOptions};
 use std::io::Write;
@@ -34,11 +34,7 @@ fn log_path() -> Option<PathBuf> {
 }
 
 fn open(path: &Path) -> Option<std::fs::File> {
-    OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)
-        .ok()
+    OpenOptions::new().create(true).append(true).open(path).ok()
 }
 
 fn rotate(path: &Path) {
@@ -82,13 +78,7 @@ pub fn log(msg: &str) {
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_secs_f64())
                 .unwrap_or(0.0);
-            let _ = writeln!(
-                state.file,
-                "[{:.3} pid={}] {}",
-                ts,
-                std::process::id(),
-                msg
-            );
+            let _ = writeln!(state.file, "[{:.3} pid={}] {}", ts, std::process::id(), msg);
             let _ = state.file.flush();
         }
     }
@@ -172,7 +162,8 @@ mod tests {
         rotate(&base);
         let post = fs::read(&eldest_path).unwrap();
         assert_ne!(
-            pre, post,
+            pre,
+            post,
             "eldest .log.{} should have been overwritten by .log.{}",
             KEEP_ROTATIONS,
             KEEP_ROTATIONS - 1
@@ -214,7 +205,10 @@ mod tests {
         }
         let text = fs::read_to_string(&base).unwrap();
         assert!(text.contains("first"), "append lost first write: {text:?}");
-        assert!(text.contains("second"), "append lost second write: {text:?}");
+        assert!(
+            text.contains("second"),
+            "append lost second write: {text:?}"
+        );
         fs::remove_dir_all(base.parent().unwrap()).ok();
     }
 }

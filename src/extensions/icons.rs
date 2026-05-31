@@ -181,11 +181,14 @@ mod tests {
         // already initialized the tier with a different env var. We
         // only assert the helper's selection logic for each variant
         // explicitly instead of relying on the global.
-        assert_eq!(super::pick("nf", "u", "a"), match tier() {
-            Tier::NerdFont => "nf",
-            Tier::Unicode => "u",
-            Tier::Ascii => "a",
-        });
+        assert_eq!(
+            super::pick("nf", "u", "a"),
+            match tier() {
+                Tier::NerdFont => "nf",
+                Tier::Unicode => "u",
+                Tier::Ascii => "a",
+            }
+        );
     }
 
     #[test]

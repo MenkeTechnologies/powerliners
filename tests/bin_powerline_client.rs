@@ -59,13 +59,10 @@ fn temp_socket_path(tag: &str) -> PathBuf {
 /// Spawn a single-shot mock daemon on `path`. Returns a receiver that
 /// yields `(request_bytes, ())` once the client disconnects, after the
 /// mock has written `response` back to the client.
-fn mock_daemon(
-    path: PathBuf,
-    response: Vec<u8>,
-) -> mpsc::Receiver<Vec<u8>> {
+fn mock_daemon(path: PathBuf, response: Vec<u8>) -> mpsc::Receiver<Vec<u8>> {
     let (tx, rx) = mpsc::channel();
-    let listener = UnixListener::bind(&path)
-        .unwrap_or_else(|e| panic!("bind {}: {e}", path.display()));
+    let listener =
+        UnixListener::bind(&path).unwrap_or_else(|e| panic!("bind {}: {e}", path.display()));
     thread::spawn(move || {
         let (mut stream, _) = listener.accept().expect("accept");
         // Read the full request — terminated by "\0\0".
@@ -188,7 +185,9 @@ fn hex_count_is_lowercase_hex_of_argc_minus_one() {
     let rx = mock_daemon(socket.clone(), b"resp\0".to_vec());
     let (_stdout, status) = run_client(&socket, &["render", "tmux", "left"]);
     assert!(status.success(), "client exit: {status:?}");
-    let raw = rx.recv_timeout(Duration::from_secs(5)).expect("got request");
+    let raw = rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("got request");
     let req = decode_request(&raw);
     // argv passed = ["render", "tmux", "left"] → 3 entries → 0x3 → "3"
     assert_eq!(req.hex_count, "3");
@@ -207,7 +206,9 @@ fn hex_count_uses_lowercase_for_values_above_9() {
     let many_refs: Vec<&str> = many.iter().map(String::as_str).collect();
     let (_stdout, status) = run_client(&socket, &many_refs);
     assert!(status.success());
-    let raw = rx.recv_timeout(Duration::from_secs(5)).expect("got request");
+    let raw = rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("got request");
     let req = decode_request(&raw);
     assert_eq!(req.hex_count, "10", "16 args must hex-encode as '10'");
     assert_eq!(req.argv.len(), 16);
@@ -219,7 +220,9 @@ fn cwd_appears_after_argv_in_wire_format() {
     let socket = temp_socket_path("cwd_pos");
     let rx = mock_daemon(socket.clone(), b"r".to_vec());
     let (_stdout, _) = run_client(&socket, &["render"]);
-    let raw = rx.recv_timeout(Duration::from_secs(5)).expect("got request");
+    let raw = rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("got request");
     let req = decode_request(&raw);
     // run_client sets cwd to temp_dir(); resolve symlinks for macOS's
     // /tmp → /private/tmp before comparing.
@@ -234,11 +237,13 @@ fn env_block_contains_key_equals_value_entries() {
     let socket = temp_socket_path("env_block");
     let rx = mock_daemon(socket.clone(), b"r".to_vec());
     let (_stdout, _) = run_client(&socket, &["render"]);
-    let raw = rx.recv_timeout(Duration::from_secs(5)).expect("got request");
+    let raw = rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("got request");
     let req = decode_request(&raw);
     // run_client env_clear's then sets PATH + POWERLINE_TEST.
     assert!(
-        req.env.iter().any(|e| *e == "POWERLINE_TEST=1"),
+        req.env.contains(&"POWERLINE_TEST=1"),
         "env missing POWERLINE_TEST=1: {:?}",
         req.env
     );
@@ -249,10 +254,7 @@ fn env_block_contains_key_equals_value_entries() {
     );
     // No bare keys, every entry has '='.
     for e in &req.env {
-        assert!(
-            e.contains('='),
-            "env entry without '=': {e:?}"
-        );
+        assert!(e.contains('='), "env entry without '=': {e:?}");
     }
 }
 
@@ -263,12 +265,14 @@ fn socket_flag_consumes_two_argv_slots() {
     let socket = temp_socket_path("socket_flag");
     let rx = mock_daemon(socket.clone(), b"r".to_vec());
     let (_stdout, _) = run_client(&socket, &["render", "tmux"]);
-    let raw = rx.recv_timeout(Duration::from_secs(5)).expect("got request");
+    let raw = rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("got request");
     let req = decode_request(&raw);
     assert_eq!(req.hex_count, "2", "--socket pair must not be in count");
     assert_eq!(req.argv, vec!["render", "tmux"]);
     assert!(
-        !req.argv.iter().any(|a| *a == "--socket"),
+        !req.argv.contains(&"--socket"),
         "--socket leaked into argv payload"
     );
 }
@@ -280,13 +284,14 @@ fn response_bytes_pass_through_to_stdout_verbatim() {
     // must not interpret the response.
     let socket = temp_socket_path("response");
     let payload: Vec<u8> = vec![
-        0x1b, b'[', b'3', b'1', b'm', b'h', b'i', 0x1b, b'[', b'0', b'm', b'\n',
-        0xff, 0x00, 0xfe,
+        0x1b, b'[', b'3', b'1', b'm', b'h', b'i', 0x1b, b'[', b'0', b'm', b'\n', 0xff, 0x00, 0xfe,
     ];
     let rx = mock_daemon(socket.clone(), payload.clone());
     let (stdout, status) = run_client(&socket, &["render"]);
     assert!(status.success(), "client exit: {status:?}");
-    let _ = rx.recv_timeout(Duration::from_secs(5)).expect("daemon recv");
+    let _ = rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("daemon recv");
     assert_eq!(
         stdout, payload,
         "stdout passthrough must be byte-exact, got {:?}",
@@ -365,7 +370,10 @@ fn separator_nul_after_hex_count() {
             prefix
         );
     }
-    assert_eq!(raw[first_nul], 0, "expected NUL separator at position {first_nul}");
+    assert_eq!(
+        raw[first_nul], 0,
+        "expected NUL separator at position {first_nul}"
+    );
 }
 
 // =====================================================================
