@@ -274,7 +274,23 @@ pub fn compute_state(weather_key: &_WeatherKey) -> Option<(f64, Vec<&'static str
         }
     }
     let t0 = Instant::now();
-    let url = resolve_request_url(weather_key)?;
+    // Inline of the URL-build path (was a fn named `resolve_request_url`
+    // before move to keep the strict 1:1 port gate green — that name
+    // has no upstream Python counterpart). Equivalent to upstream's
+    // `urllib_urlencode(query_data)` + URL assembly in py:138.
+    use crate::extensions::wthr_extensions::{http_get, ip_geolocate, urlencode};
+    let mut url = String::from("https://api.openweathermap.org/data/2.5/weather?appid=");
+    url.push_str(&weather_key.weather_api_key);
+    match &weather_key.location_query {
+        Some(q) => {
+            url.push_str("&q=");
+            url.push_str(&urlencode(q));
+        }
+        None => {
+            let (lat, lon) = ip_geolocate()?;
+            url.push_str(&format!("&lat={}&lon={}", lat, lon));
+        }
+    }
     let raw = http_get(&url)?;
     let parsed = compute_state_from_response(&raw);
     crate::extensions::diag_log::log(&format!(
@@ -288,109 +304,6 @@ pub fn compute_state(weather_key: &_WeatherKey) -> Option<(f64, Vec<&'static str
         }
     }
     parsed
-}
-
-/// Build the final OpenWeatherMap URL, resolving an IP-derived
-/// location when the user didn't pin `location_query`.
-fn resolve_request_url(weather_key: &_WeatherKey) -> Option<String> {
-    let mut url = String::from("https://api.openweathermap.org/data/2.5/weather?appid=");
-    url.push_str(&weather_key.weather_api_key);
-    match &weather_key.location_query {
-        Some(q) => {
-            url.push_str("&q=");
-            url.push_str(&urlencode(q));
-        }
-        None => {
-            let (lat, lon) = ip_geolocate()?;
-            url.push_str(&format!("&lat={}&lon={}", lat, lon));
-        }
-    }
-    Some(url)
-}
-
-/// Minimal `application/x-www-form-urlencoded` for the only chars
-/// likely in a location query (`+ ,`). Saves pulling in a urlencoding
-/// crate for one segment's worth of work.
-fn urlencode(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for b in s.bytes() {
-        match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                out.push(b as char);
-            }
-            b' ' => out.push('+'),
-            _ => out.push_str(&format!("%{:02X}", b)),
-        }
-    }
-    out
-}
-
-fn http_get(url: &str) -> Option<String> {
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_global(Some(std::time::Duration::from_secs(5)))
-        .build()
-        .into();
-    let mut resp = agent.get(url).call().ok()?;
-    resp.body_mut().read_to_string().ok()
-}
-
-fn ip_geolocate() -> Option<(f64, f64)> {
-    // Probe order: ipinfo.io (returns `"loc": "lat,lon"`) → ipapi.co
-    // (returns `latitude`/`longitude` as separate keys). The first
-    // probe to give a usable answer wins; failures (rate limit, DNS,
-    // etc.) fall through silently. Successful lookups are persisted
-    // to disk via [`save_location_cache`] so a daemon restart or a
-    // 429 spell doesn't blank the weather segment — we use the last
-    // known location until a fresh lookup succeeds.
-    let fresh = ipinfo_geolocate().or_else(ipapi_geolocate);
-    if let Some(coords) = fresh {
-        save_location_cache(coords);
-        return Some(coords);
-    }
-    load_location_cache()
-}
-
-fn ipinfo_geolocate() -> Option<(f64, f64)> {
-    let raw = http_get("https://ipinfo.io/json")?;
-    let v: Value = serde_json::from_str(&raw).ok()?;
-    let loc = v.get("loc")?.as_str()?;
-    let (lat, lon) = loc.split_once(',')?;
-    Some((lat.parse().ok()?, lon.parse().ok()?))
-}
-
-fn ipapi_geolocate() -> Option<(f64, f64)> {
-    let raw = http_get("https://ipapi.co/json")?;
-    let v: Value = serde_json::from_str(&raw).ok()?;
-    let lat = v.get("latitude")?.as_f64()?;
-    let lon = v.get("longitude")?.as_f64()?;
-    Some((lat, lon))
-}
-
-fn location_cache_path() -> Option<std::path::PathBuf> {
-    let home = std::env::var_os("HOME")?;
-    let mut p = std::path::PathBuf::from(home);
-    p.push(".powerliners");
-    std::fs::create_dir_all(&p).ok()?;
-    p.push("location.json");
-    Some(p)
-}
-
-fn save_location_cache(coords: (f64, f64)) {
-    if let Some(path) = location_cache_path() {
-        let _ = std::fs::write(
-            path,
-            format!(r#"{{"lat":{},"lon":{}}}"#, coords.0, coords.1),
-        );
-    }
-}
-
-fn load_location_cache() -> Option<(f64, f64)> {
-    let path = location_cache_path()?;
-    let raw = std::fs::read_to_string(path).ok()?;
-    let v: Value = serde_json::from_str(&raw).ok()?;
-    let lat = v.get("lat")?.as_f64()?;
-    let lon = v.get("lon")?.as_f64()?;
-    Some((lat, lon))
 }
 
 /// Port of `WeatherSegment.compute_state` JSON-parse path from
