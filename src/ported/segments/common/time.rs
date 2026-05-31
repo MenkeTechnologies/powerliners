@@ -20,8 +20,13 @@ fn format_strftime(fmt: &str, ts: libc::time_t) -> String {
     if p.is_null() {
         return String::new();
     }
-    // Allocate a reasonable buffer for the formatted output.
-    let mut buf = vec![0i8; 256];
+    // Allocate a reasonable buffer for the formatted output. Use
+    // libc::c_char as the element type because its signedness varies
+    // by platform (i8 on x86_64-linux + Darwin, u8 on aarch64-linux,
+    // arm-musl, etc.). Hardcoding `i8` here compiles on x86_64 but
+    // fails E0308 on aarch64-linux where the strftime sig expects
+    // `*mut u8`.
+    let mut buf = vec![0 as libc::c_char; 256];
     let cfmt = std::ffi::CString::new(fmt).unwrap_or_default();
     // SAFETY: cfmt is a NUL-terminated C string, buf has 256 bytes,
     // tm is a populated struct tm.
@@ -29,7 +34,9 @@ fn format_strftime(fmt: &str, ts: libc::time_t) -> String {
     if n == 0 {
         return String::new();
     }
-    // Convert i8 → u8 + take only n bytes.
+    // c_char → u8 via the unsigned reinterpret; signedness is
+    // preserved-as-bits, which is what strftime emitted anyway
+    // (ASCII).
     let bytes: Vec<u8> = buf[..n].iter().map(|&b| b as u8).collect();
     String::from_utf8_lossy(&bytes).into_owned()
 }
