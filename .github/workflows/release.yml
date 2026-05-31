@@ -29,13 +29,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # --- macOS native (tier 1) -----------------------------------
+          # --- macOS native ---
           - os: macos-latest
             target: aarch64-apple-darwin
           - os: macos-13
             target: x86_64-apple-darwin
-
-          # --- Linux glibc native (tier 1) -----------------------------
+          # --- Linux glibc native ---
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
           - os: ubuntu-24.04-arm
@@ -43,87 +42,13 @@ jobs:
             # GA arm64 runner since Aug 2025 (free for public repos).
             # Allow failure: arm runners occasionally evict mid-build.
             allow_failure: true
-
-          # --- Linux musl static (tier 1, portable across distros) -----
+          # --- Linux musl static (portable across glibc/musl distros) ---
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             allow_failure: true
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
             allow_failure: true
-
-          # --- Linux 32-bit ARM (cross via Docker) ---------------------
-          # armv7-gnu  : Raspberry Pi 2/3/4 32-bit (Raspbian glibc)
-          # armv7-musl : same, fully static for distroless / Alpine ARM
-          # arm-gnu    : older armv6 Pi Zero / BeagleBone Black
-          - os: ubuntu-latest
-            target: armv7-unknown-linux-gnueabihf
-            use_cross: true
-            allow_failure: true
-          - os: ubuntu-latest
-            target: armv7-unknown-linux-musleabihf
-            use_cross: true
-            allow_failure: true
-          - os: ubuntu-latest
-            target: arm-unknown-linux-gnueabihf
-            use_cross: true
-            allow_failure: true
-
-          # --- Linux 32-bit x86 (cross) --------------------------------
-          # Old hardware + 32-bit distro containers (Alpine i386, Debian i386).
-          - os: ubuntu-latest
-            target: i686-unknown-linux-gnu
-            use_cross: true
-            allow_failure: true
-          - os: ubuntu-latest
-            target: i686-unknown-linux-musl
-            use_cross: true
-            allow_failure: true
-
-          # --- Linux RISC-V (cross) ------------------------------------
-          # Tier 2 stable since Rust 1.59 — runs on HiFive, VisionFive,
-          # SiFive Unmatched. Allow failure: rustc tier-2 occasionally
-          # regresses for these.
-          - os: ubuntu-latest
-            target: riscv64gc-unknown-linux-gnu
-            use_cross: true
-            allow_failure: true
-
-          # --- Linux POWER (cross) -------------------------------------
-          # Tier 2 — IBM POWER8+ little-endian. Used in OpenPOWER + IBM
-          # Cloud bare-metal.
-          - os: ubuntu-latest
-            target: powerpc64le-unknown-linux-gnu
-            use_cross: true
-            allow_failure: true
-
-          # --- Linux IBM Z mainframe (cross) ---------------------------
-          # Tier 2 — IBM Z (s390x) for legacy enterprise + LinuxONE.
-          - os: ubuntu-latest
-            target: s390x-unknown-linux-gnu
-            use_cross: true
-            allow_failure: true
-
-          # --- Linux LoongArch (cross) ---------------------------------
-          # Tier 2 since Rust 1.71 — Chinese-domestic 64-bit ISA.
-          - os: ubuntu-latest
-            target: loongarch64-unknown-linux-gnu
-            use_cross: true
-            allow_failure: true
-
-          # --- FreeBSD / NetBSD (cross) --------------------------------
-          # No native runners; cross provides the BSD SDK in its
-          # container image. Most upstream powerline users on BSD run
-          # under bash/zsh inside tmux, so this slot is requested.
-          - os: ubuntu-latest
-            target: x86_64-unknown-freebsd
-            use_cross: true
-            allow_failure: true
-          - os: ubuntu-latest
-            target: x86_64-unknown-netbsd
-            use_cross: true
-            allow_failure: true
-
     steps:
       - uses: actions/checkout@v6
         with:
@@ -134,25 +59,12 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install musl tools
-        if: contains(matrix.target, 'musl') && !matrix.use_cross
+        if: contains(matrix.target, 'musl')
         run: sudo apt-get update && sudo apt-get install -y musl-tools
 
-      - name: Install cross
-        if: matrix.use_cross
-        run: |
-          # Prefer the prebuilt binary release over `cargo install`
-          # to save ~5 min of compile time per cross-build runner.
-          CROSS_VER="v0.2.5"
-          curl -sSL -o /tmp/cross.tar.gz \
-            "https://github.com/cross-rs/cross/releases/download/${CROSS_VER}/cross-x86_64-unknown-linux-gnu.tar.gz"
-          tar -C /tmp -xzf /tmp/cross.tar.gz
-          sudo install -m 755 /tmp/cross /usr/local/bin/cross
-
       - uses: Swatinem/rust-cache@v2
-        if: '!matrix.use_cross'
 
-      - name: Build all binaries (native)
-        if: '!matrix.use_cross'
+      - name: Build all binaries
         run: |
           cargo build --release --locked --target ${{ matrix.target }} \
             --bin powerline \
@@ -161,34 +73,44 @@ jobs:
             --bin powerline-render \
             --bin powerline-lint
 
-      - name: Build all binaries (cross)
-        if: matrix.use_cross
-        run: |
-          cross build --release --locked --target ${{ matrix.target }} \
-            --bin powerline \
-            --bin powerline-daemon \
-            --bin powerline-config \
-            --bin powerline-render \
-            --bin powerline-lint
-
       - name: Package
         shell: bash
+        # Per target, emit BOTH:
+        #   (a) the bundled tarball (all 5 bins) — what the Homebrew
+        #       formula installs via a single download
+        #   (b) one per-binary tarball — for users who only need one
+        #       binary (e.g. embedding powerline-render in a thin
+        #       client container, or scripting against powerline-lint
+        #       without dragging in the daemon). Cuts per-bin download
+        #       size by ~5x vs the bundle and lets release-asset
+        #       caching (homebrew bottle mirrors, distro repackagers)
+        #       grab exactly what they need.
+        # Net artifacts per target = 1 bundle + 5 per-bin = 6 tarballs.
+        # Total across 6 targets = 36 release assets per tag.
         run: |
           cd target/${{ matrix.target }}/release
-          # `strip` invocation is best-effort. Cross targets don't ship
-          # host `strip` capable of the target arch; LTO+strip=symbols
-          # in Cargo.toml [profile.release] already removed most.
           for b in powerline powerline-daemon powerline-config powerline-render powerline-lint; do
             strip "$b" 2>/dev/null || true
           done
+          # (a) bundled
           tar czf ../../../powerliners-${{ github.ref_name }}-${{ matrix.target }}.tar.gz \
             powerline powerline-daemon powerline-config powerline-render powerline-lint
+          # (b) per-binary
+          for b in powerline powerline-daemon powerline-config powerline-render powerline-lint; do
+            tar czf ../../../${b}-${{ github.ref_name }}-${{ matrix.target }}.tar.gz "$b"
+          done
           cd ../../..
 
       - uses: actions/upload-artifact@v6
         with:
           name: powerliners-${{ matrix.target }}
-          path: powerliners-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+          path: |
+            powerliners-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+            powerline-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+            powerline-daemon-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+            powerline-config-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+            powerline-render-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+            powerline-lint-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
 
   publish:
     name: Publish GitHub Release
@@ -206,6 +128,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Glob picks up both bundled `powerliners-*.tar.gz` AND each
+          # per-binary `<bin>-*.tar.gz`. With 6 targets the release
+          # page will list up to 36 assets — 6 bundles + 30 per-bin —
+          # each individually addressable by URL for downstream
+          # repackagers (Nix, Arch AUR, Alpine APKBUILD, distroless
+          # container images, scratch ARM images, etc.).
           gh release create ${{ github.ref_name }} \
             --title "${{ github.ref_name }}" \
             --generate-notes \
@@ -224,14 +152,18 @@ jobs:
       - name: Compute SHA256 sums
         id: sha
         shell: bash
+        # The Homebrew formula installs from the BUNDLED tarball only
+        # (`powerliners-vX-<triple>.tar.gz`). Per-bin tarballs are
+        # released for direct download but not surfaced in the
+        # formula. We compute SHAs only for the bundles to keep the
+        # formula-update step tight.
         run: |
-          # Emit one $key=$sha line per artifact, with the key being
-          # the underscore-mangled target triple (e.g.
-          # aarch64_apple_darwin). Downstream consumers reference any
-          # subset of these.
-          for f in artifacts/*.tar.gz; do
+          for f in artifacts/powerliners-v*.tar.gz; do
+            [ -f "$f" ] || continue
             base=$(basename "$f")
             sum=$(sha256sum "$f" | awk '{print $1}')
+            # base = powerliners-v0.2.8-aarch64-apple-darwin.tar.gz
+            #   → strip → aarch64-apple-darwin → aarch64_apple_darwin
             key=$(echo "$base" | sed 's/powerliners-v[^-]*-//; s/\.tar\.gz//; s/-/_/g; s/\./_/g')
             echo "${key}=${sum}" >> "$GITHUB_OUTPUT"
           done
@@ -246,30 +178,12 @@ jobs:
         shell: bash
         env:
           VERSION: ${{ github.ref_name }}
-          # Homebrew on_arm/on_intel covers 64-bit only; the formula
-          # references the 4 Homebrew-installable arches.
           SHA_ARM_MACOS: ${{ steps.sha.outputs.aarch64_apple_darwin }}
           SHA_X86_MACOS: ${{ steps.sha.outputs.x86_64_apple_darwin }}
           SHA_X86_LINUX: ${{ steps.sha.outputs.x86_64_unknown_linux_gnu }}
           SHA_ARM_LINUX: ${{ steps.sha.outputs.aarch64_unknown_linux_gnu }}
-          # Static musl + the cross-built arches are listed in the
-          # formula trailing comment so users on Alpine / scratch /
-          # distroless / RPi / RISC-V / POWER / IBM-Z / FreeBSD can
-          # find the right artifact via the formula even though
-          # Homebrew can't auto-install them.
           SHA_X86_LINUX_MUSL: ${{ steps.sha.outputs.x86_64_unknown_linux_musl }}
           SHA_ARM_LINUX_MUSL: ${{ steps.sha.outputs.aarch64_unknown_linux_musl }}
-          SHA_ARMV7_GNU: ${{ steps.sha.outputs.armv7_unknown_linux_gnueabihf }}
-          SHA_ARMV7_MUSL: ${{ steps.sha.outputs.armv7_unknown_linux_musleabihf }}
-          SHA_ARM_GNU: ${{ steps.sha.outputs.arm_unknown_linux_gnueabihf }}
-          SHA_I686_GNU: ${{ steps.sha.outputs.i686_unknown_linux_gnu }}
-          SHA_I686_MUSL: ${{ steps.sha.outputs.i686_unknown_linux_musl }}
-          SHA_RISCV64_GNU: ${{ steps.sha.outputs.riscv64gc_unknown_linux_gnu }}
-          SHA_PPC64LE_GNU: ${{ steps.sha.outputs.powerpc64le_unknown_linux_gnu }}
-          SHA_S390X_GNU: ${{ steps.sha.outputs.s390x_unknown_linux_gnu }}
-          SHA_LOONGARCH64_GNU: ${{ steps.sha.outputs.loongarch64_unknown_linux_gnu }}
-          SHA_FREEBSD: ${{ steps.sha.outputs.x86_64_unknown_freebsd }}
-          SHA_NETBSD: ${{ steps.sha.outputs.x86_64_unknown_netbsd }}
         run: |
           set -eu
           V="${VERSION#v}"
@@ -280,24 +194,6 @@ jobs:
           # block if zero arches succeeded for that OS.
           mac_blocks=$( { emit on_arm aarch64-apple-darwin "$SHA_ARM_MACOS"; emit on_intel x86_64-apple-darwin "$SHA_X86_MACOS"; } )
           linux_blocks=$( { emit on_intel x86_64-unknown-linux-gnu "$SHA_X86_LINUX"; emit on_arm aarch64-unknown-linux-gnu "$SHA_ARM_LINUX"; } )
-          # Trailing-comment block — same emit helper but as Ruby
-          # comments. Lists every supplementary arch that built.
-          comment() { local triple="$1" sha="$2"; [ -n "$sha" ] || return 0; printf '  #   powerliners-v%s-%s.tar.gz  sha256: %s\n' "$V" "$triple" "$sha"; }
-          extra=$( {
-            comment x86_64-unknown-linux-musl       "$SHA_X86_LINUX_MUSL"
-            comment aarch64-unknown-linux-musl      "$SHA_ARM_LINUX_MUSL"
-            comment armv7-unknown-linux-gnueabihf   "$SHA_ARMV7_GNU"
-            comment armv7-unknown-linux-musleabihf  "$SHA_ARMV7_MUSL"
-            comment arm-unknown-linux-gnueabihf     "$SHA_ARM_GNU"
-            comment i686-unknown-linux-gnu          "$SHA_I686_GNU"
-            comment i686-unknown-linux-musl         "$SHA_I686_MUSL"
-            comment riscv64gc-unknown-linux-gnu     "$SHA_RISCV64_GNU"
-            comment powerpc64le-unknown-linux-gnu   "$SHA_PPC64LE_GNU"
-            comment s390x-unknown-linux-gnu         "$SHA_S390X_GNU"
-            comment loongarch64-unknown-linux-gnu   "$SHA_LOONGARCH64_GNU"
-            comment x86_64-unknown-freebsd          "$SHA_FREEBSD"
-            comment x86_64-unknown-netbsd           "$SHA_NETBSD"
-          } )
           {
             printf 'class Powerliners < Formula\n'
             printf '  desc "1:1 Rust port of powerline-status — daemon + client + config + render + lint"\n'
@@ -320,11 +216,23 @@ jobs:
             printf '  test do\n'
             printf '    assert_match "ext is required", shell_output("#{bin}/powerline-render 2>&1", 2)\n'
             printf '  end\n'
-            if [ -n "$extra" ]; then
-              printf '\n  # Supplementary release tarballs (Homebrew can'"'"'t auto-select,\n'
-              printf '  # but each is published at this tag for the listed target triple):\n'
-              printf '%s' "$extra"
+            # musl tarballs as trailing comment — Homebrew has no
+            # on_libc gate, so static binaries are referenced by URL
+            # for users targeting Alpine / scratch / distroless.
+            if [ -n "$SHA_X86_LINUX_MUSL" ] || [ -n "$SHA_ARM_LINUX_MUSL" ]; then
+              printf '\n  # Static musl tarballs also published at this release:\n'
+              [ -n "$SHA_X86_LINUX_MUSL" ] && printf '  #   powerliners-v%s-x86_64-unknown-linux-musl.tar.gz  sha256: %s\n' "$V" "$SHA_X86_LINUX_MUSL"
+              [ -n "$SHA_ARM_LINUX_MUSL" ] && printf '  #   powerliners-v%s-aarch64-unknown-linux-musl.tar.gz  sha256: %s\n' "$V" "$SHA_ARM_LINUX_MUSL"
             fi
+            # Per-binary tarballs are also published at this release
+            # for users who want just one binary (5x smaller than the
+            # bundle). Filenames follow:
+            #   <bin>-v<VERSION>-<triple>.tar.gz
+            # where <bin> ∈ {powerline, powerline-daemon, powerline-
+            # config, powerline-render, powerline-lint}. SHA256 sums
+            # are listed on the GitHub Release page.
+            printf '\n  # Per-binary tarballs also published — see release page for sha256:\n'
+            printf '  #   https://github.com/MenkeTechnologies/powerliners/releases/tag/v%s\n' "$V"
             printf 'end\n'
           } > tap/Formula/powerliners.rb
 
