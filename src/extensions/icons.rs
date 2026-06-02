@@ -179,12 +179,14 @@ pub fn io() -> &'static str {
     pick("\u{F0E79}", "⇅", "IO:")
 }
 
-/// fusevm / JIT glyph. Reuse the microchip (matches `gpu()` family —
-/// fusevm compiles to native via Cranelift, microchip evokes the
-/// machine-code level). NF: nf-fa-microchip (U+F2DB). Unicode: ⎚.
-/// ASCII: `jit:`.
+/// fusevm / JIT runtime glyph. NF: nf-md-engine (U+F01FA) — the
+/// engine-block symbol from Material Design. Semantic match: fusevm
+/// IS a VM engine (Cranelift-backed JIT shared between zshrs and
+/// stryke). Previously reused nf-fa-microchip (U+F2DB) which is the
+/// CPU/chip glyph and collided with `gpu()` — fixed in the icon-audit
+/// pass. Unicode: ⚙ gear with text presentation. ASCII: `jit:`.
 pub fn fusevm() -> &'static str {
-    pick("\u{F2DB}", "⎚", "jit:")
+    pick("\u{F01FA}", "⚙\u{FE0E}", "jit:")
 }
 
 // --- Weather glyphs, keyed by upstream condition name ----------
