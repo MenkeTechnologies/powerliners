@@ -118,10 +118,18 @@ fn start_daemon(scenario: &str) -> DaemonHandle {
     let deadline = Instant::now() + Duration::from_secs(15);
     while Instant::now() < deadline {
         if let Ok(probe) = UnixStream::connect(&socket) {
-            // Connect-only probe; close without sending anything so we
-            // don't trigger a render. The daemon's `do_read` will time
-            // out and close the conn.
-            let _ = probe.shutdown(std::net::Shutdown::Both);
+            // Connect-only probe; let the plain Drop close the fd
+            // instead of calling shutdown(Both). On macOS, an explicit
+            // shutdown(Both) on the accept-queue side can briefly flip
+            // the listener's POLLERR bit, which the daemon's `do_one`
+            // treats as a fatal listener error → SystemExit(1)
+            // (sh:224-226). Plain drop sends the FIN at fd-close
+            // without that side-effect, and is the path the upstream
+            // C client's probe takes. Caused
+            // `eof_sentinel_terminates_daemon_cleanly` to flake on the
+            // macos-latest runner — passes 5/5 locally but flipped to
+            // exit code 1 once on CI. Drop is enough.
+            drop(probe);
             return DaemonHandle { child, socket };
         }
         std::thread::sleep(Duration::from_millis(25));
