@@ -118,10 +118,11 @@ pub fn process() -> &'static str {
     pick("\u{F0493}", "⚙\u{FE0E}", "P:")
 }
 
-/// AWS cloud. NF: nf-fa-amazon (U+F270). Unicode: no canonical glyph,
-/// fall back to the ASCII label. ASCII: `aws`.
+/// AWS cloud. NF: nf-md-aws (U+F0E0F) — the AWS-specific glyph (not
+/// nf-fa-amazon, which is the parent-company logo). Unicode: no
+/// canonical glyph, fall back to the ASCII label. ASCII: `aws`.
 pub fn aws() -> &'static str {
-    pick("\u{F270}", "aws", "aws")
+    pick("\u{F0E0F}", "aws", "aws")
 }
 
 /// GCP / Google Cloud. NF: nf-md-google_cloud (U+F11F6). Unicode: no
@@ -136,16 +137,16 @@ pub fn ci_ok() -> &'static str {
     pick("\u{F42E}", "✓", "ok")
 }
 
-/// CI failure cross. NF: nf-oct-x (U+F2D7). Unicode: ✗. ASCII: `x`.
+/// CI failure cross. NF: nf-oct-x (U+F467). Unicode: ✗. ASCII: `x`.
 pub fn ci_fail() -> &'static str {
-    pick("\u{F2D7}", "✗", "x")
+    pick("\u{F467}", "✗", "x")
 }
 
-/// CI running / pending dot. NF: nf-cod-circle_filled (U+EBB4 — solid
+/// CI running / pending dot. NF: nf-cod-circle_filled (U+EA71 — solid
 /// circle as a "spinning" stand-in; Powerline segments don't animate).
 /// Unicode: ●. ASCII: `~`.
 pub fn ci_run() -> &'static str {
-    pick("\u{EBB4}", "●", "~")
+    pick("\u{EA71}", "●", "~")
 }
 
 /// fusevm / JIT glyph. Reuse the microchip (matches `gpu()` family —
