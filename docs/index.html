@@ -298,6 +298,9 @@ ls target/debug/powerliners target/debug/powerline-{render,lint,config,daemon}</
           <tr><td><code>powerliners.zshrs.rkyv_cache</code></td><td>Single-file stat of the zshrs authoritative rkyv archive at <code>$ZSHRS_RKYV_CACHE</code> / <code>$ZSHRS_HOME/scripts.rkyv</code> / <code>$XDG_DATA_HOME/zshrs/scripts.rkyv</code> / <code>~/.zshrs/scripts.rkyv</code>. Same <code>{size}</code> / <code>{bytes}</code> / <code>{logical_*}</code> token surface as <code>fusevm.jit_cache</code>.</td></tr>
           <tr><td><code>powerliners.stryke.rkyv_cache</code></td><td>Single-file stat of <code>~/.stryke/scripts.rkyv</code> (stryke's bytecode store, Cranelift-JIT'd via the shared fusevm runtime).</td></tr>
           <tr><td><code>powerliners.awkrs.rkyv_cache</code></td><td>Single-file stat of <code>~/.awkrs/scripts.rkyv</code>.</td></tr>
+          <tr><td><code>powerliners.zshrs.version</code></td><td>Latest installed zshrs version (parsed from <code>&lt;bin&gt; --version</code>). In-process TTL cache (default 300 s, configurable via <code>ttl_secs</code>) so the daemon doesn't fork on every prompt tick. Tokens: <code>{icon}</code>/<code>{version}</code>. Returns <code>None</code> when the binary isn't on PATH.</td></tr>
+          <tr><td><code>powerliners.stryke.version</code></td><td>Same as <code>zshrs.version</code> for the <code>stryke</code> binary — handles the <code>This is stryke vX.Y.Z — ...</code> prefix shape via the shared <code>extract_version</code> SemVer scanner.</td></tr>
+          <tr><td><code>powerliners.awkrs.version</code></td><td>Same shared helper, default binary <code>awkrs</code>.</td></tr>
           <tr><td><code>powerliners.exec.exec</code></td><td>User-defined exec adapter — spawn an arbitrary script, parse stdout, render with a user-supplied format. Resolves via bare <code>"function": "exec"</code> as well as the dotted path.</td></tr>
         </tbody>
       </table>
@@ -352,7 +355,7 @@ ls target/debug/powerliners target/debug/powerline-{render,lint,config,daemon}</
         </tbody>
       </table>
 
-      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.6rem 0 0.4rem;">B. Segment defaults (21)</h3>
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.6rem 0 0.4rem;">B. Segment defaults (24)</h3>
       <p style="margin:0 0 0.5rem;">Default format strings shipped by each <code>powerliners.*</code> / <code>powerlinemem.*</code> adapter when the theme JSON omits <code>format</code>. Live NF render uses the same glyphs as Table A.</p>
       <table class="audit-tbl">
         <thead><tr><th>segment name</th><th class="nf-cell">icons used</th><th class="nf-cell">live NF render</th></tr></thead>
@@ -374,6 +377,9 @@ ls target/debug/powerliners target/debug/powerline-{render,lint,config,daemon}</
           <tr><td><code>powerliners.zshrs.rkyv_cache</code></td><td class="nf-cell">󰞷</td><td class="nf-cell">󰞷 4.00K</td></tr>
           <tr><td><code>powerliners.stryke.rkyv_cache</code></td><td class="nf-cell"></td><td class="nf-cell"> 34.9M</td></tr>
           <tr><td><code>powerliners.awkrs.rkyv_cache</code></td><td class="nf-cell"></td><td class="nf-cell"> 8.00K</td></tr>
+          <tr><td><code>powerliners.zshrs.version</code></td><td class="nf-cell">󰞷</td><td class="nf-cell">󰞷 0.11.26</td></tr>
+          <tr><td><code>powerliners.stryke.version</code></td><td class="nf-cell"></td><td class="nf-cell"> 0.16.8</td></tr>
+          <tr><td><code>powerliners.awkrs.version</code></td><td class="nf-cell"></td><td class="nf-cell"> 0.4.13</td></tr>
           <tr><td><code>powerlinemem.mem_usage.mem_usage</code></td><td class="nf-cell"></td><td class="nf-cell"> 12G/32G</td></tr>
           <tr><td><code>powerlinemem.mem_usage.mem_usage_percent</code></td><td class="nf-cell"></td><td class="nf-cell"> 47%</td></tr>
           <tr><td><code>powerlinemem.mem_usage.mem_swap</code></td><td class="nf-cell">󰓡</td><td class="nf-cell">󰓡 1.2G/4G</td></tr>
