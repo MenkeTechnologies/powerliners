@@ -3,6 +3,27 @@
  * Do not use @import here: the i18n audit inlines this file in a single <style> block, and a leading
  * @import against https from file:// makes WebKit skip the rest of the stylesheet (HUD + color schemes vanish).
  */
+
+/*
+ * Nerd Font Symbols (PUA glyph rendering for the icon audit table on
+ * index.html). The `unicode-range` directive gates the font load to
+ * PUA ranges only — body / monospace text continues to render in
+ * Share Tech Mono. NF symbols (E000-F8FF basic PUA + F0000-FFFFD
+ * supplementary PUA where Material Design Icons live) resolve via the
+ * Symbols-Only Nerd Font subset, ~270KB from jsdelivr.
+ */
+@font-face {
+  font-family: 'SymbolsNerdFont';
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/gh/ryanoasis/nerd-fonts@master/patched-fonts/NerdFontsSymbolsOnly/SymbolsNerdFont-Regular.ttf') format('truetype');
+  unicode-range: U+E000-F8FF, U+F0000-FFFFD;
+}
+
+.nf, .nf-cell {
+  font-family: 'SymbolsNerdFont', 'Share Tech Mono', ui-monospace, monospace;
+  font-feature-settings: 'liga' 0;
+}
+
 html {
   color-scheme: dark;
 }
