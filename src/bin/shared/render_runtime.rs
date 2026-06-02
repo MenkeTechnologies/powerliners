@@ -932,7 +932,11 @@ fn ad_github_ci(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<
     use powerliners::extensions::github_ci::ci_status;
     use powerliners::extensions::icons;
     let cwd = info.get("getcwd").and_then(|v| v.as_str()).unwrap_or("/");
-    let default = format!("{} {{state}} {{passed}}/{{total}}", icons::github());
+    // Default template: github prefix + state-picked CI glyph + passed/total.
+    // The `{icon}` token is the check_circle / x_circle / sync glyph
+    // picked by `ci_status()` so the user sees " ✓ 5/5" / " ✗ 2/5" /
+    // " ⟳ 3/5" — no "ok"/"fail" text word to decode.
+    let default = format!("{} {{icon}} {{passed}}/{{total}}", icons::github());
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
@@ -1002,7 +1006,15 @@ fn ad_gcp_context(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opti
 fn ad_fusevm_jit_cache(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
     use powerliners::extensions::fusevm_jit::jit_cache;
     use powerliners::extensions::icons;
-    let default = format!("{} {{entries}} {{size}}", icons::fusevm());
+    // Prefix each number with a label-glyph so "142" is clearly an
+    // entry count and "18.4M" is clearly on-disk size. Without these
+    // prefixes the segment renders as " 142 18.4M" — unreadable.
+    let default = format!(
+        "{} {} {{entries}} {} {{size}}",
+        icons::fusevm(),
+        icons::count(),
+        icons::harddisk(),
+    );
     let format = args
         .get("format")
         .and_then(|v| v.as_str())

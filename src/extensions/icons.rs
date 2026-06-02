@@ -131,22 +131,35 @@ pub fn gcp() -> &'static str {
     pick("\u{F11F6}", "gcp", "gcp")
 }
 
-/// CI success check-mark. NF: nf-oct-check (U+F42E). Unicode: ✓.
-/// ASCII: `ok`.
+/// CI success — circled check (the GitHub UI's success badge shape).
+/// NF: nf-oct-check_circle (U+F49E). Unicode: ✅ + VS-15. ASCII: `OK`.
 pub fn ci_ok() -> &'static str {
-    pick("\u{F42E}", "✓", "ok")
+    pick("\u{F49E}", "✅\u{FE0E}", "OK")
 }
 
-/// CI failure cross. NF: nf-oct-x (U+F467). Unicode: ✗. ASCII: `x`.
+/// CI failure — circled x (the GitHub UI's failure badge shape).
+/// NF: nf-oct-x_circle (U+F52F). Unicode: ❌ + VS-15. ASCII: `FAIL`.
 pub fn ci_fail() -> &'static str {
-    pick("\u{F467}", "✗", "x")
+    pick("\u{F52F}", "❌\u{FE0E}", "FAIL")
 }
 
-/// CI running / pending dot. NF: nf-cod-circle_filled (U+EA71 — solid
-/// circle as a "spinning" stand-in; Powerline segments don't animate).
-/// Unicode: ●. ASCII: `~`.
+/// CI running — sync arrows (the GitHub UI's "in progress" badge).
+/// NF: nf-oct-sync (U+F46A). Unicode: 🔄 + VS-15. ASCII: `RUN`.
 pub fn ci_run() -> &'static str {
-    pick("\u{EA71}", "●", "~")
+    pick("\u{F46A}", "🔄\u{FE0E}", "RUN")
+}
+
+/// Count / file-multiple — labels an entry-count number so the user
+/// reads "142 entries", not just "142". NF: nf-md-file_multiple
+/// (U+F0222). Unicode: ▤ stack glyph. ASCII: `n=`.
+pub fn count() -> &'static str {
+    pick("\u{F0222}", "▤", "n=")
+}
+
+/// Hard disk — labels an on-disk byte-size number. NF: nf-md-harddisk
+/// (U+F02CA). Unicode: ⛁ stacked disks. ASCII: `d=`.
+pub fn harddisk() -> &'static str {
+    pick("\u{F02CA}", "⛁", "d=")
 }
 
 /// fusevm / JIT glyph. Reuse the microchip (matches `gpu()` family —
