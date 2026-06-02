@@ -248,17 +248,27 @@ pub fn ci_status(
         .replace("{failed}", &state.failed.to_string())
         .replace("{running}", &state.running.to_string())
         .replace("{total}", &state.total.to_string());
+    Some(vec![json!({
+        "contents": contents,
+        "highlight_groups": pick_highlight_groups(&state),
+        "divider_highlight_group": "background:divider",
+    })])
+}
+
+/// Fallback chain: state-specific group → family → neutral.
+/// The renderer drops chunks whose highlight chain doesn't resolve
+/// in the colorscheme; 'information:regular' is defined in every
+/// standard powerline colorscheme so the chunk renders even when
+/// the user hasn't themed github_ci_* explicitly. Without this the
+/// segment vanishes from the bar in any uncustomized theme.
+pub fn pick_highlight_groups(state: &CiState) -> Vec<&'static str> {
     let primary = match state.label() {
         "ok" => "github_ci_success",
         "fail" => "github_ci_failure",
         "run" => "github_ci_pending",
         _ => "github_ci",
     };
-    Some(vec![json!({
-        "contents": contents,
-        "highlight_groups": [primary, "github_ci"],
-        "divider_highlight_group": "background:divider",
-    })])
+    vec![primary, "github_ci", "information:regular"]
 }
 
 /// Touch UNIX_EPOCH so the `unused` warning on the re-export is
@@ -412,5 +422,47 @@ mod tests {
     #[test]
     fn ci_status_outside_repo_returns_none() {
         assert!(ci_status("/tmp", "/nonexistent/gh", "{state}", 30, "v", "x", "~").is_none());
+    }
+
+    #[test]
+    fn pick_highlight_groups_success_chain() {
+        let s = CiState { passed: 5, failed: 0, running: 0, total: 5 };
+        assert_eq!(
+            pick_highlight_groups(&s),
+            vec!["github_ci_success", "github_ci", "information:regular"]
+        );
+    }
+
+    #[test]
+    fn pick_highlight_groups_failure_chain() {
+        let s = CiState { passed: 2, failed: 3, running: 0, total: 5 };
+        assert_eq!(
+            pick_highlight_groups(&s),
+            vec!["github_ci_failure", "github_ci", "information:regular"]
+        );
+    }
+
+    #[test]
+    fn pick_highlight_groups_running_chain() {
+        let s = CiState { passed: 2, failed: 0, running: 3, total: 5 };
+        assert_eq!(
+            pick_highlight_groups(&s),
+            vec!["github_ci_pending", "github_ci", "information:regular"]
+        );
+    }
+
+    #[test]
+    fn pick_highlight_groups_always_ends_in_neutral_fallback() {
+        // Every state's chain must end in 'information:regular' so
+        // the renderer never drops the chunk for an unresolved
+        // highlight group — pins the fusevm_jit-mirror invariant.
+        for s in [
+            CiState::default(),
+            CiState { passed: 5, failed: 0, running: 0, total: 5 },
+            CiState { passed: 1, failed: 4, running: 0, total: 5 },
+            CiState { passed: 1, failed: 0, running: 4, total: 5 },
+        ] {
+            assert_eq!(*pick_highlight_groups(&s).last().unwrap(), "information:regular");
+        }
     }
 }
