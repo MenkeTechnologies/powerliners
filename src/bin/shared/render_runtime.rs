@@ -958,10 +958,7 @@ fn ad_github_ci(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<
         .and_then(|v| v.as_str())
         .unwrap_or(&default);
     let cli = args.get("cli").and_then(|v| v.as_str()).unwrap_or("gh");
-    let ttl_secs = args
-        .get("ttl_secs")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(30);
+    let ttl_secs = args.get("ttl_secs").and_then(|v| v.as_u64()).unwrap_or(30);
     let ok_icon = args
         .get("ok_icon")
         .and_then(|v| v.as_str())

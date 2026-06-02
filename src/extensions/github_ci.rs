@@ -73,14 +73,10 @@ pub fn parse_owner_repo(url: &str) -> Option<(String, String)> {
     let url = url.trim();
     let tail = if let Some(t) = url.strip_prefix("git@github.com:") {
         t
-    } else if let Some(t) = url
-        .strip_prefix("https://github.com/")
-        .or_else(|| url.strip_prefix("http://github.com/"))
-        .or_else(|| url.strip_prefix("ssh://git@github.com/"))
-    {
-        t
     } else {
-        return None;
+        url.strip_prefix("https://github.com/")
+            .or_else(|| url.strip_prefix("http://github.com/"))
+            .or_else(|| url.strip_prefix("ssh://git@github.com/"))?
     };
     let tail = tail.strip_suffix(".git").unwrap_or(tail);
     let mut parts = tail.splitn(2, '/');
@@ -426,7 +422,12 @@ mod tests {
 
     #[test]
     fn pick_highlight_groups_success_chain() {
-        let s = CiState { passed: 5, failed: 0, running: 0, total: 5 };
+        let s = CiState {
+            passed: 5,
+            failed: 0,
+            running: 0,
+            total: 5,
+        };
         assert_eq!(
             pick_highlight_groups(&s),
             vec!["github_ci_success", "github_ci", "information:regular"]
@@ -435,7 +436,12 @@ mod tests {
 
     #[test]
     fn pick_highlight_groups_failure_chain() {
-        let s = CiState { passed: 2, failed: 3, running: 0, total: 5 };
+        let s = CiState {
+            passed: 2,
+            failed: 3,
+            running: 0,
+            total: 5,
+        };
         assert_eq!(
             pick_highlight_groups(&s),
             vec!["github_ci_failure", "github_ci", "information:regular"]
@@ -444,7 +450,12 @@ mod tests {
 
     #[test]
     fn pick_highlight_groups_running_chain() {
-        let s = CiState { passed: 2, failed: 0, running: 3, total: 5 };
+        let s = CiState {
+            passed: 2,
+            failed: 0,
+            running: 3,
+            total: 5,
+        };
         assert_eq!(
             pick_highlight_groups(&s),
             vec!["github_ci_pending", "github_ci", "information:regular"]
@@ -458,11 +469,29 @@ mod tests {
         // highlight group — pins the fusevm_jit-mirror invariant.
         for s in [
             CiState::default(),
-            CiState { passed: 5, failed: 0, running: 0, total: 5 },
-            CiState { passed: 1, failed: 4, running: 0, total: 5 },
-            CiState { passed: 1, failed: 0, running: 4, total: 5 },
+            CiState {
+                passed: 5,
+                failed: 0,
+                running: 0,
+                total: 5,
+            },
+            CiState {
+                passed: 1,
+                failed: 4,
+                running: 0,
+                total: 5,
+            },
+            CiState {
+                passed: 1,
+                failed: 0,
+                running: 4,
+                total: 5,
+            },
         ] {
-            assert_eq!(*pick_highlight_groups(&s).last().unwrap(), "information:regular");
+            assert_eq!(
+                *pick_highlight_groups(&s).last().unwrap(),
+                "information:regular"
+            );
         }
     }
 }

@@ -30,10 +30,12 @@
 //! ```
 //!
 //! Format tokens:
-//! - `{icon}`    — fusevm/JIT glyph
-//! - `{entries}` — file count under the cache root (recursive)
-//! - `{size}`    — total bytes, human-formatted (K/M/G suffix)
-//! - `{bytes}`   — total bytes, raw integer (useful for custom format)
+//! - `{icon}`          — fusevm/JIT glyph
+//! - `{entries}`       — file count under the cache root (recursive)
+//! - `{size}`          — on-disk allocation, human-formatted (matches `du -sh`)
+//! - `{bytes}`         — on-disk allocation, raw integer
+//! - `{logical_size}`  — sum of file content sizes, human-formatted (`stat`-style)
+//! - `{logical_bytes}` — sum of file content sizes, raw integer
 
 use serde_json::{json, Value};
 use std::fs;
@@ -42,7 +44,30 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct JitStats {
     pub entries: u64,
+    /// Sum of logical content sizes (`meta.len()`). Matches what the
+    /// fjit files were *written* to disk as.
     pub bytes: u64,
+    /// Sum of on-disk block allocations (`meta.blocks() * 512` on Unix,
+    /// rounded up to the filesystem block size). Matches `du -sh`,
+    /// which is the user mental model for "how much disk is the cache
+    /// using" — for many tiny files this is 10-40x larger than `bytes`
+    /// because each file pads to one filesystem block (commonly 4 KB).
+    /// On Windows, equals `bytes` (no `st_blocks` equivalent without
+    /// FSCTL_QUERY_FILE_REGIONS).
+    pub disk_bytes: u64,
+}
+
+#[cfg(unix)]
+fn block_bytes(meta: &std::fs::Metadata) -> u64 {
+    use std::os::unix::fs::MetadataExt;
+    // st_blocks is in POSIX-mandated 512-byte units regardless of the
+    // filesystem's actual block size.
+    meta.blocks() * 512
+}
+
+#[cfg(not(unix))]
+fn block_bytes(meta: &std::fs::Metadata) -> u64 {
+    meta.len()
 }
 
 fn default_root() -> PathBuf {
@@ -101,6 +126,7 @@ pub fn scan_dir(root: &Path) -> Option<JitStats> {
             } else if ft.is_file() {
                 stats.entries += 1;
                 stats.bytes = stats.bytes.saturating_add(meta.len());
+                stats.disk_bytes = stats.disk_bytes.saturating_add(block_bytes(&meta));
             }
         }
     }
@@ -144,10 +170,18 @@ pub fn jit_cache(path: &str, format: &str, show_when_empty: bool) -> Option<Vec<
     if stats.entries == 0 && !show_when_empty {
         return None;
     }
+    // {size} and {bytes} report on-disk allocation (matches `du -sh`),
+    // not logical content sum — for caches of many tiny files the
+    // logical sum can be 10-40x smaller than disk usage and the
+    // resulting "23K" reads as fake when the user can see `du` says
+    // 972K. {logical_size}/{logical_bytes} expose the old behavior
+    // for callers that want it.
     let contents = format
         .replace("{entries}", &stats.entries.to_string())
-        .replace("{bytes}", &stats.bytes.to_string())
-        .replace("{size}", &human_bytes(stats.bytes));
+        .replace("{bytes}", &stats.disk_bytes.to_string())
+        .replace("{size}", &human_bytes(stats.disk_bytes))
+        .replace("{logical_bytes}", &stats.bytes.to_string())
+        .replace("{logical_size}", &human_bytes(stats.bytes));
     Some(vec![json!({
         "contents": contents,
         // Fallback chain: theme-specific fusevm_jit_cache → fusevm
@@ -192,13 +226,36 @@ mod tests {
     }
 
     #[test]
-    fn scan_dir_counts_files_and_bytes() {
+    fn scan_dir_counts_files_and_logical_bytes() {
         let d = tmpdir("counts");
         writef(&d.join("a"), &[0u8; 100]);
         writef(&d.join("b"), &[0u8; 250]);
         let s = scan_dir(&d).unwrap();
         assert_eq!(s.entries, 2);
+        // .bytes is the sum of `meta.len()` — deterministic across
+        // filesystems.
         assert_eq!(s.bytes, 350);
+    }
+
+    #[test]
+    fn scan_dir_disk_bytes_is_at_least_logical_bytes() {
+        // .disk_bytes counts block allocation, which on every real
+        // filesystem rounds up to the block size — so for any
+        // non-empty file with content, disk_bytes >= bytes. The exact
+        // multiplier depends on the FS (4K blocks → 100B file padded
+        // to 4096 disk bytes); we only assert the invariant here so
+        // the test is portable.
+        let d = tmpdir("disk-vs-logical");
+        writef(&d.join("a"), &[0u8; 100]);
+        writef(&d.join("b"), &[0u8; 250]);
+        let s = scan_dir(&d).unwrap();
+        assert_eq!(s.entries, 2);
+        assert!(
+            s.disk_bytes >= s.bytes,
+            "disk_bytes ({}) must be ≥ logical bytes ({})",
+            s.disk_bytes,
+            s.bytes
+        );
     }
 
     #[test]
@@ -211,6 +268,29 @@ mod tests {
         let s = scan_dir(&d).unwrap();
         assert_eq!(s.entries, 3);
         assert_eq!(s.bytes, 60);
+    }
+
+    #[test]
+    fn jit_cache_size_token_renders_disk_allocation() {
+        // {size} must match the du-style on-disk allocation, not the
+        // logical content sum — the user reported the segment was
+        // "fake" because it showed 23K when `du -sh` said 972K.
+        // Pin: for any populated cache, the rendered {size} reflects
+        // disk_bytes (≥ logical bytes).
+        let d = tmpdir("size-token");
+        writef(&d.join("a"), &[0u8; 100]);
+        let r = jit_cache(d.to_str().unwrap(), "{bytes}/{logical_bytes}", false).unwrap();
+        let s = r[0]["contents"].as_str().unwrap();
+        let (disk, logical) = s.split_once('/').unwrap();
+        let disk: u64 = disk.parse().unwrap();
+        let logical: u64 = logical.parse().unwrap();
+        assert_eq!(logical, 100);
+        assert!(
+            disk >= logical,
+            "disk ({}) must be ≥ logical ({})",
+            disk,
+            logical
+        );
     }
 
     #[test]
@@ -246,11 +326,14 @@ mod tests {
 
     #[test]
     fn jit_cache_format_tokens_render() {
+        // Drive through {logical_size}/{logical_bytes} so the test is
+        // independent of filesystem block size. {size}/{bytes} are
+        // covered by the dedicated disk-allocation test.
         let d = tmpdir("format");
         writef(&d.join("a"), &[0u8; 2048]);
         let r = jit_cache(
             d.to_str().unwrap(),
-            "{entries}/{size}/{bytes}",
+            "{entries}/{logical_size}/{logical_bytes}",
             false,
         )
         .unwrap();
@@ -260,11 +343,7 @@ mod tests {
 
     #[test]
     fn jit_cache_missing_root_returns_none_when_hidden() {
-        let r = jit_cache(
-            "/nonexistent/fusevm-zzz-yyy",
-            "{entries} {size}",
-            false,
-        );
+        let r = jit_cache("/nonexistent/fusevm-zzz-yyy", "{entries} {size}", false);
         assert!(r.is_none());
     }
 
@@ -272,12 +351,7 @@ mod tests {
     fn jit_cache_missing_root_renders_zero_when_show_when_empty() {
         // Pre-cache state — fusevm hasn't populated anything yet but
         // the user wants the segment slot visible. Render 0/0B.
-        let r = jit_cache(
-            "/nonexistent/fusevm-zzz-yyy",
-            "{entries} {size}",
-            true,
-        )
-        .unwrap();
+        let r = jit_cache("/nonexistent/fusevm-zzz-yyy", "{entries} {size}", true).unwrap();
         let s = r[0]["contents"].as_str().unwrap();
         assert_eq!(s, "0 0B");
     }

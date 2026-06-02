@@ -184,9 +184,7 @@ fn drop_account(fmt: &str, project: &str, config: &str) -> String {
     ] {
         if s.contains(sep) {
             s = s.replace(sep, "");
-            return s
-                .replace("{project}", project)
-                .replace("{config}", config);
+            return s.replace("{project}", project).replace("{config}", config);
         }
     }
     s.replace("{account}", "")
@@ -245,16 +243,10 @@ mod tests {
 
     #[test]
     fn resolve_falls_back_to_file() {
-        let s = resolve(
-            None,
-            None,
-            None,
-            Some("default\n"),
-            |name| {
-                assert_eq!(name, "default");
-                Some("[core]\nproject = file-proj\naccount = file@e.com\n".to_string())
-            },
-        )
+        let s = resolve(None, None, None, Some("default\n"), |name| {
+            assert_eq!(name, "default");
+            Some("[core]\nproject = file-proj\naccount = file@e.com\n".to_string())
+        })
         .unwrap();
         assert_eq!(s.config, "default");
         assert_eq!(s.project, "file-proj");
