@@ -311,26 +311,26 @@ ls target/debug/powerliners target/debug/powerline-{render,lint,config,daemon}</
       <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.6rem 0 0.4rem;">B. Segment defaults (18)</h3>
       <p style="margin:0 0 0.5rem;">Default format strings shipped by each <code>powerliners.*</code> / <code>powerlinemem.*</code> adapter when the theme JSON omits <code>format</code>. Live NF render uses the same glyphs as Table A.</p>
       <table class="audit-tbl">
-        <thead><tr><th>dotted path</th><th>segment name</th><th class="nf-cell">icons used</th><th class="nf-cell">live NF render</th></tr></thead>
+        <thead><tr><th>segment name</th><th class="nf-cell">icons used</th><th class="nf-cell">live NF render</th></tr></thead>
         <tbody>
-          <tr><td><code>powerliners.gpu.gpu_usage_percent</code></td><td><code>gpu_usage_percent</code></td><td class="nf-cell"></td><td class="nf-cell"> 47%</td></tr>
-          <tr><td><code>powerliners.gpu.gpu_vram</code></td><td><code>gpu_vram</code></td><td class="nf-cell"> </td><td class="nf-cell"> 8.2G/12G</td></tr>
-          <tr><td><code>powerliners.disk.disk_usage</code></td><td><code>disk_usage</code></td><td class="nf-cell"></td><td class="nf-cell"> 142G/512G</td></tr>
-          <tr><td><code>powerliners.disk.disk_usage_percent</code></td><td><code>disk_usage_percent</code></td><td class="nf-cell"></td><td class="nf-cell"> 28%</td></tr>
-          <tr><td><code>powerliners.disk.disk_io</code></td><td><code>disk_io</code></td><td class="nf-cell"> 󰹹</td><td class="nf-cell"> 󰹹 R 23M W 5M</td></tr>
-          <tr><td><code>powerliners.thermal.thermal</code></td><td><code>thermal</code></td><td class="nf-cell"></td><td class="nf-cell"> 67°C 1240RPM</td></tr>
-          <tr><td><code>powerliners.vcs.git_status</code></td><td><code>git_status</code></td><td class="nf-cell"> </td><td class="nf-cell">  main ⇡2</td></tr>
-          <tr><td><code>powerliners.docker.containers</code></td><td><code>containers</code></td><td class="nf-cell">󰡨</td><td class="nf-cell">󰡨 4/7</td></tr>
-          <tr><td><code>powerliners.k8s.kubecontext</code></td><td><code>kubecontext</code></td><td class="nf-cell">󱃾</td><td class="nf-cell">󱃾 prod:default</td></tr>
-          <tr><td><code>powerliners.proc.process_count</code></td><td><code>process_count</code></td><td class="nf-cell">󰒓</td><td class="nf-cell">󰒓 348</td></tr>
-          <tr><td><code>powerliners.github.ci_status</code></td><td><code>ci_status</code></td><td class="nf-cell"> </td><td class="nf-cell">  5/5</td></tr>
-          <tr><td><code>powerliners.aws.context</code></td><td><code>context</code></td><td class="nf-cell">󰸏</td><td class="nf-cell">󰸏 prod@us-east-1</td></tr>
-          <tr><td><code>powerliners.gcp.context</code></td><td><code>context</code></td><td class="nf-cell">󱇶</td><td class="nf-cell">󱇶 my-proj:me@e.com</td></tr>
-          <tr><td><code>powerliners.fusevm.jit_cache</code></td><td><code>jit_cache</code></td><td class="nf-cell">󰇺 󰈢 󰋊</td><td class="nf-cell">󰇺 󰈢 142 󰋊 18.4M</td></tr>
-          <tr><td><code>powerlinemem.mem_usage.mem_usage</code></td><td><code>mem_usage</code></td><td class="nf-cell"></td><td class="nf-cell"> 12G/32G</td></tr>
-          <tr><td><code>powerlinemem.mem_usage.mem_usage_percent</code></td><td><code>mem_usage_percent</code></td><td class="nf-cell"></td><td class="nf-cell"> 47%</td></tr>
-          <tr><td><code>powerlinemem.mem_usage.mem_swap</code></td><td><code>mem_swap</code></td><td class="nf-cell">󰓡</td><td class="nf-cell">󰓡 1.2G/4G</td></tr>
-          <tr><td><code>powerlinemem.mem_usage.mem_swap_percent</code></td><td><code>mem_swap_percentage</code></td><td class="nf-cell">󰓡</td><td class="nf-cell">󰓡 30%</td></tr>
+          <tr><td><code>powerliners.gpu.gpu_usage_percent</code></td><td class="nf-cell"></td><td class="nf-cell"> 47%</td></tr>
+          <tr><td><code>powerliners.gpu.gpu_vram</code></td><td class="nf-cell"> </td><td class="nf-cell"> 8.2G/12G</td></tr>
+          <tr><td><code>powerliners.disk.disk_usage</code></td><td class="nf-cell"></td><td class="nf-cell"> 142G/512G</td></tr>
+          <tr><td><code>powerliners.disk.disk_usage_percent</code></td><td class="nf-cell"></td><td class="nf-cell"> 28%</td></tr>
+          <tr><td><code>powerliners.disk.disk_io</code></td><td class="nf-cell"> 󰹹</td><td class="nf-cell"> 󰹹 R 23M W 5M</td></tr>
+          <tr><td><code>powerliners.thermal.thermal</code></td><td class="nf-cell"></td><td class="nf-cell"> 67°C 1240RPM</td></tr>
+          <tr><td><code>powerliners.vcs.git_status</code></td><td class="nf-cell"> </td><td class="nf-cell">  main ⇡2</td></tr>
+          <tr><td><code>powerliners.docker.containers</code></td><td class="nf-cell">󰡨</td><td class="nf-cell">󰡨 4/7</td></tr>
+          <tr><td><code>powerliners.k8s.kubecontext</code></td><td class="nf-cell">󱃾</td><td class="nf-cell">󱃾 prod:default</td></tr>
+          <tr><td><code>powerliners.proc.process_count</code></td><td class="nf-cell">󰒓</td><td class="nf-cell">󰒓 348</td></tr>
+          <tr><td><code>powerliners.github.ci_status</code></td><td class="nf-cell"> </td><td class="nf-cell">  5/5</td></tr>
+          <tr><td><code>powerliners.aws.context</code></td><td class="nf-cell">󰸏</td><td class="nf-cell">󰸏 prod@us-east-1</td></tr>
+          <tr><td><code>powerliners.gcp.context</code></td><td class="nf-cell">󱇶</td><td class="nf-cell">󱇶 my-proj:me@e.com</td></tr>
+          <tr><td><code>powerliners.fusevm.jit_cache</code></td><td class="nf-cell">󰇺 󰈢 󰋊</td><td class="nf-cell">󰇺 󰈢 142 󰋊 18.4M</td></tr>
+          <tr><td><code>powerlinemem.mem_usage.mem_usage</code></td><td class="nf-cell"></td><td class="nf-cell"> 12G/32G</td></tr>
+          <tr><td><code>powerlinemem.mem_usage.mem_usage_percent</code></td><td class="nf-cell"></td><td class="nf-cell"> 47%</td></tr>
+          <tr><td><code>powerlinemem.mem_usage.mem_swap</code></td><td class="nf-cell">󰓡</td><td class="nf-cell">󰓡 1.2G/4G</td></tr>
+          <tr><td><code>powerlinemem.mem_usage.mem_swap_percent</code></td><td class="nf-cell">󰓡</td><td class="nf-cell">󰓡 30%</td></tr>
         </tbody>
       </table>
 
