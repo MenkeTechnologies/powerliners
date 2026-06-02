@@ -80,10 +80,11 @@ pub fn thermometer() -> &'static str {
 }
 
 /// Git branch icon. NF: nf-pl-branch (Powerline ext, U+E0A0).
-/// Unicode: empty (no clean equivalent; segment dividers carry the
-/// boundary). ASCII: `b:`.
+/// Unicode: ⎇ alternative-key-symbol (U+2387) — canonical text-tier
+/// git-branch glyph (vim's statusline, gitprompt.sh, oh-my-bash all
+/// use it). ASCII: `b:`.
 pub fn branch() -> &'static str {
-    pick("\u{E0A0}", "", "b:")
+    pick("\u{E0A0}", "⎇", "b:")
 }
 
 /// GitHub octocat. NF: nf-fa-github_alt (U+F09B). Unicode: no
@@ -160,6 +161,19 @@ pub fn count() -> &'static str {
 /// (U+F02CA). Unicode: ⛁ stacked disks. ASCII: `d=`.
 pub fn harddisk() -> &'static str {
     pick("\u{F02CA}", "⛁", "d=")
+}
+
+/// Swap — paired horizontal arrows, the canonical "swap" glyph
+/// (memory page-in/page-out). NF: nf-md-swap_horizontal (U+F04E1).
+/// Unicode: ⇄ leftwards-arrow-over-rightwards-arrow. ASCII: `SWAP:`.
+pub fn swap() -> &'static str {
+    pick("\u{F04E1}", "⇄", "SWAP:")
+}
+
+/// I/O throughput — vertical up/down arrows for read/write rate.
+/// NF: nf-md-arrow_up_down (U+F0E79). Unicode: ⇅. ASCII: `IO:`.
+pub fn io() -> &'static str {
+    pick("\u{F0E79}", "⇅", "IO:")
 }
 
 /// fusevm / JIT glyph. Reuse the microchip (matches `gpu()` family —
