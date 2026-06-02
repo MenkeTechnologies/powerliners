@@ -32,13 +32,25 @@
 //!   `location_query` only; these helpers let the segment render
 //!   without an explicit query and survive transient lookup failures.
 //!   Imported by `src/ported/segments/common/wthr.rs`.
+//! - [`github_ci`]  — `powerliners.github.ci_status` (current branch's
+//!   HEAD check-runs via `gh api`, cached on disk by SHA)
+//! - [`aws_ctx`]    — `powerliners.aws.context` (active AWS profile +
+//!   region, pure-fs read of env + `~/.aws/config`)
+//! - [`gcp_ctx`]    — `powerliners.gcp.context` (active gcloud config's
+//!   project + account, pure-fs read of `~/.config/gcloud`)
+//! - [`fusevm_jit`] — `powerliners.fusevm.jit_cache` (entry count +
+//!   bytes under the fusevm Cranelift JIT cache root)
 
+pub mod aws_ctx;
 pub mod bundled_config;
 pub mod diag_log;
 pub mod disk;
 pub mod docker;
 pub mod exec_segment;
+pub mod fusevm_jit;
+pub mod gcp_ctx;
 pub mod git_status;
+pub mod github_ci;
 pub mod gpu;
 pub mod icons;
 pub mod k8s;

@@ -928,6 +928,93 @@ fn ad_kubecontext(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opti
     kubecontext(cli, format, default_namespace, hide_default).map(Value::Array)
 }
 
+fn ad_github_ci(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::github_ci::ci_status;
+    use powerliners::extensions::icons;
+    let cwd = info.get("getcwd").and_then(|v| v.as_str()).unwrap_or("/");
+    let default = format!("{} {{state}} {{passed}}/{{total}}", icons::github());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&default);
+    let cli = args.get("cli").and_then(|v| v.as_str()).unwrap_or("gh");
+    let ttl_secs = args
+        .get("ttl_secs")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(30);
+    let ok_icon = args
+        .get("ok_icon")
+        .and_then(|v| v.as_str())
+        .unwrap_or(icons::ci_ok());
+    let fail_icon = args
+        .get("fail_icon")
+        .and_then(|v| v.as_str())
+        .unwrap_or(icons::ci_fail());
+    let run_icon = args
+        .get("run_icon")
+        .and_then(|v| v.as_str())
+        .unwrap_or(icons::ci_run());
+    ci_status(cwd, cli, format, ttl_secs, ok_icon, fail_icon, run_icon).map(Value::Array)
+}
+
+fn ad_aws_context(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::aws_ctx::context;
+    use powerliners::extensions::icons;
+    let default = format!("{} {{profile}}@{{region}}", icons::aws());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&default);
+    let hide_default_profile = args
+        .get("hide_default_profile")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    // Honor the AWS icon override the same way k8s lets themes pin a
+    // custom glyph — strips the leading `{icon}` swap once if present.
+    let format = if let Some(custom) = args.get("icon").and_then(|v| v.as_str()) {
+        format.replacen(icons::aws(), custom, 1)
+    } else {
+        format.to_string()
+    };
+    context(&format, hide_default_profile).map(Value::Array)
+}
+
+fn ad_gcp_context(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::gcp_ctx::context;
+    use powerliners::extensions::icons;
+    let default = format!("{} {{project}}:{{account}}", icons::gcp());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&default);
+    let hide_account = args
+        .get("hide_account")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let format = if let Some(custom) = args.get("icon").and_then(|v| v.as_str()) {
+        format.replacen(icons::gcp(), custom, 1)
+    } else {
+        format.to_string()
+    };
+    context(&format, hide_account).map(Value::Array)
+}
+
+fn ad_fusevm_jit_cache(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::fusevm_jit::jit_cache;
+    use powerliners::extensions::icons;
+    let default = format!("{} {{entries}} {{size}}", icons::fusevm());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&default);
+    let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+    let show_when_empty = args
+        .get("show_when_empty")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    jit_cache(path, format, show_when_empty).map(Value::Array)
+}
+
 fn ad_process_count(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
     use powerliners::extensions::icons;
     use powerliners::extensions::proc_count::process_count;
@@ -2228,6 +2315,14 @@ pub const ADAPTERS: &[(&str, AdapterFn)] = &[
     ("powerliners.k8s.kubecontext", ad_kubecontext),
     // POSIX process tally — src/extensions/proc_count.rs
     ("powerliners.proc.process_count", ad_process_count),
+    // GitHub CI status — src/extensions/github_ci.rs
+    ("powerliners.github.ci_status", ad_github_ci),
+    // AWS active profile + region — src/extensions/aws_ctx.rs
+    ("powerliners.aws.context", ad_aws_context),
+    // GCP active configuration — src/extensions/gcp_ctx.rs
+    ("powerliners.gcp.context", ad_gcp_context),
+    // fusevm Cranelift JIT cache stats — src/extensions/fusevm_jit.rs
+    ("powerliners.fusevm.jit_cache", ad_fusevm_jit_cache),
     // User-extensibility (`src/extensions/exec_segment.rs`):
     //   Option A — explicit `exec` adapter spawns args.command + parses
     //   stdout. Theme JSON references `"function": "exec"`.
@@ -2813,6 +2908,10 @@ mod tests {
             ("powerliners.docker", "containers"),
             ("powerliners.k8s", "kubecontext"),
             ("powerliners.proc", "process_count"),
+            ("powerliners.github", "ci_status"),
+            ("powerliners.aws", "context"),
+            ("powerliners.gcp", "context"),
+            ("powerliners.fusevm", "jit_cache"),
         ] {
             let id = adapter_id(mod_, name)
                 .unwrap_or_else(|| panic!("extension adapter {mod_}.{name} missing from ADAPTERS"));
