@@ -275,6 +275,47 @@ cargo build
 ls target/debug/powerliners target/debug/powerline-{render,lint,config,daemon}</pre>
       <p>Five binaries land in <code>target/debug/</code>: <code>powerliners</code> (demo CLI for ported leaf utilities), <code>powerline-render</code>, <code>powerline-lint</code>, <code>powerline-config</code>, and <code>powerline-daemon</code>. The daemon lifecycle (UNIX socket bind, daemonize, pidfile lock, accept loop, EOF shutdown) is fully functional; render returns a placeholder string until the <code>Powerline</code> orchestrator integration completes. <code>powerline-render</code> / <code>powerline-lint</code> / <code>powerline-config</code> shim through the ported <code>scripts/</code> module mains — argparse and dispatch live, full pipelines depend on the same orchestrator chain.</p>
     </section>
+    <section class="tutorial-section">
+      <h2>Bundled segments</h2>
+      <p><code>src/extensions/</code> ships net-new segments above upstream powerline-status, dispatched as standard built-ins via the daemon's <code>ADAPTERS</code> table. All accept a <code>format</code> theme arg and ship NF-default icons with Unicode + ASCII fallbacks (controlled by <code>POWERLINERS_ICONS</code>).</p>
+      <table class="audit-tbl" style="margin-top:0.8rem;">
+        <thead><tr><th>segment</th><th>summary</th></tr></thead>
+        <tbody>
+          <tr><td><code>powerliners.gpu.gpu_usage_percent</code></td><td>Vendor-dispatched GPU compute % (nvidia-smi → rocm-smi → intel_gpu_top → ioreg fallback).</td></tr>
+          <tr><td><code>powerliners.gpu.gpu_vram</code></td><td>GPU VRAM <code>USED/TOTAL</code> via the same dispatch chain.</td></tr>
+          <tr><td><code>powerliners.disk.disk_usage</code></td><td>Filesystem <code>USED/TOTAL</code> for any mount.</td></tr>
+          <tr><td><code>powerliners.disk.disk_usage_percent</code></td><td>Filesystem percent-used.</td></tr>
+          <tr><td><code>powerliners.disk.disk_io</code></td><td>Live read/write throughput for any device. Tokens: <code>{recv}</code>/<code>{sent}</code> (human-formatted) / <code>{recv_bytes}</code>/<code>{sent_bytes}</code>.</td></tr>
+          <tr><td><code>powerliners.thermal.thermal</code></td><td>CPU/GPU temp + fan RPM. <code>/sys/class/hwmon</code> on Linux, <code>powermetrics</code>/<code>istats</code> on macOS.</td></tr>
+          <tr><td><code>powerliners.vcs.git_status</code></td><td>Single-probe git status — branch, ahead/behind, dirty/staged/untracked, stash count, action (rebase/merge/cherry-pick), tag at HEAD. github-remote detection prepends the octocat glyph.</td></tr>
+          <tr><td><code>powerliners.docker.containers</code></td><td>Container counts via <code>docker ps</code>. Tokens: <code>{running}</code> / <code>{total}</code> / <code>{images}</code> / <code>{stopped}</code>. Falls through silently when the daemon is unreachable.</td></tr>
+          <tr><td><code>powerliners.k8s.kubecontext</code></td><td>Current kubectl context + active namespace. Honors <code>$KUBECONFIG</code> cascade; <code>hide_default</code> arg suppresses the namespace fragment when it equals the configured default.</td></tr>
+          <tr><td><code>powerliners.proc.process_count</code></td><td>POSIX process tally via <code>ps -eo stat=</code>. Tokens: <code>{total}</code>/<code>{running}</code>/<code>{sleeping}</code>/<code>{zombie}</code>/<code>{dwait}</code>/<code>{stopped}</code>. <code>warn_zombie</code> flips the highlight group when defunct processes are present.</td></tr>
+          <tr><td><code>powerliners.github.ci_status</code></td><td>Current branch's HEAD check-runs via <code>gh api repos/:o/:r/commits/:sha/check-runs</code>, disk-cached by SHA (default <code>ttl_secs</code>=30). Tokens: <code>{icon}</code>/<code>{state}</code>/<code>{passed}</code>/<code>{failed}</code>/<code>{running}</code>/<code>{total}</code>. State-picked highlight group plus <code>information:regular</code> neutral fallback so the chunk renders in any colorscheme.</td></tr>
+          <tr><td><code>powerliners.aws.context</code></td><td>Active AWS profile + region. Pure-fs probe of <code>$AWS_PROFILE</code>/<code>$AWS_REGION</code>/<code>$AWS_DEFAULT_REGION</code> then <code>~/.aws/config</code> (handles the <code>[profile NAME]</code> quirk). Tokens: <code>{icon}</code>/<code>{profile}</code>/<code>{region}</code>. <code>hide_default_profile</code> strips the profile fragment when it equals <code>default</code>.</td></tr>
+          <tr><td><code>powerliners.gcp.context</code></td><td>Active gcloud configuration's project + account. Pure-fs probe of <code>~/.config/gcloud/active_config</code> + <code>configurations/config_&lt;NAME&gt;</code>. Env overrides <code>$CLOUDSDK_ACTIVE_CONFIG_NAME</code> / <code>$CLOUDSDK_CORE_PROJECT</code> / <code>$CLOUDSDK_CORE_ACCOUNT</code> win.</td></tr>
+          <tr><td><code>powerliners.fusevm.jit_cache</code></td><td>fusevm Cranelift JIT cache stats — recursively walks <code>$FUSEVM_JIT_CACHE</code> / <code>$XDG_CACHE_HOME/fusevm-jit</code> / <code>~/.cache/fusevm-jit</code>. Tokens: <code>{icon}</code>/<code>{count}</code>/<code>{entries}</code>/<code>{harddisk}</code>/<code>{size}</code> (<code>du -sh</code>-style block allocation)/<code>{bytes}</code> (raw disk bytes)/<code>{logical_size}</code>/<code>{logical_bytes}</code> (stat-style content sum).</td></tr>
+          <tr><td><code>powerliners.zshrs.rkyv_cache</code></td><td>Single-file stat of the zshrs authoritative rkyv archive at <code>$ZSHRS_RKYV_CACHE</code> / <code>$ZSHRS_HOME/scripts.rkyv</code> / <code>$XDG_DATA_HOME/zshrs/scripts.rkyv</code> / <code>~/.zshrs/scripts.rkyv</code>. Same <code>{size}</code> / <code>{bytes}</code> / <code>{logical_*}</code> token surface as <code>fusevm.jit_cache</code>.</td></tr>
+          <tr><td><code>powerliners.stryke.rkyv_cache</code></td><td>Single-file stat of <code>~/.stryke/scripts.rkyv</code> (stryke's bytecode store, Cranelift-JIT'd via the shared fusevm runtime).</td></tr>
+          <tr><td><code>powerliners.awkrs.rkyv_cache</code></td><td>Single-file stat of <code>~/.awkrs/scripts.rkyv</code>.</td></tr>
+          <tr><td><code>powerliners.exec.exec</code></td><td>User-defined exec adapter — spawn an arbitrary script, parse stdout, render with a user-supplied format. Resolves via bare <code>"function": "exec"</code> as well as the dotted path.</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:0.8rem;">All segments live under <code>src/extensions/&lt;module&gt;.rs</code> and register through the daemon's <code>ADAPTERS</code> table in <code>src/bin/shared/render_runtime.rs</code> — see the audit section below for the live icon → segment cross-reference.</p>
+    </section>
+
+    <section class="tutorial-section">
+      <h2>Glyph rendering</h2>
+      <p>Every glyph below is a real Nerd Font codepoint loaded into this page via the <code>@font-face</code> block in <code>docs/hud-static.css</code>. The font is the official <a href="https://github.com/ryanoasis/nerd-fonts/tree/master/patched-fonts/NerdFontsSymbolsOnly"><code>SymbolsNerdFont</code></a> subset (~270 KB) served from jsdelivr CDN, with a <code>unicode-range</code> directive gating the load to PUA ranges only (<code>U+E000-F8FF</code> + <code>U+F0000-FFFFD</code>):</p>
+      <pre>@font-face {
+  font-family: 'SymbolsNerdFont';
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/gh/ryanoasis/nerd-fonts@master/patched-fonts/NerdFontsSymbolsOnly/SymbolsNerdFont-Regular.ttf') format('truetype');
+  unicode-range: U+E000-F8FF, U+F0000-FFFFD;
+}</pre>
+      <p>Body text and code blocks continue to render in Share Tech Mono / Orbitron — only PUA codepoints resolve through the NF subset, so the font swap has no layout impact. The same chain operates at runtime via <code>POWERLINERS_ICONS</code>: unset/default → NF glyph, <code>=unicode</code> → text-presentation Unicode fallback (e.g. ✓ ✗ 🐳 ⎈ ⛁), <code>=ascii</code> → label-style ASCII (e.g. <code>OK</code> <code>FAIL</code> <code>D:</code> <code>k8s:</code> <code>D:</code>).</p>
+    </section>
+
     <section class="tutorial-section icon-audit">
       <h2>Icon audit</h2>
       <p>Every Nerd Font codepoint shipped by <code>src/extensions/icons.rs</code> is listed here with its canonical upstream identity (verified against <a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_all.sh"><code>ryanoasis/nerd-fonts</code> master</a>, NF 3.4.0 default load order, legacy <code>i_material.sh</code> excluded). Each glyph below renders live via the <code>SymbolsNerdFont</code> @font-face declaration in <code>hud-static.css</code> — if a shipped glyph fails to match its claimed identity, it would be immediately visible in this table.</p>
