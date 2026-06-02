@@ -87,11 +87,12 @@ pub fn branch() -> &'static str {
     pick("\u{E0A0}", "⎇", "b:")
 }
 
-/// GitHub octocat. NF: nf-fa-github_alt (U+F09B). Unicode: no
-/// equivalent — return empty so the segment falls through to just
-/// branch. ASCII: `gh:`.
+/// GitHub octocat. NF: nf-fa-github_alt (U+F09B). Unicode: 🐙
+/// (U+1F419) + VS-15 for text presentation — evokes the octocat
+/// mascot without needing NF. Mirrors the docker() pattern (🐳 +
+/// VS-15 for the same reason). ASCII: `gh:`.
 pub fn github() -> &'static str {
-    pick("\u{F09B}", "", "gh:")
+    pick("\u{F09B}", "🐙\u{FE0E}", "gh:")
 }
 
 /// Git tag. NF: nf-fa-tag (U+F02B). Unicode: ⚑ black flag. ASCII:
