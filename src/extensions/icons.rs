@@ -180,6 +180,28 @@ pub fn io() -> &'static str {
     pick("\u{F0E79}", "⇅", "IO:")
 }
 
+/// zshrs — the Rust rewrite of zsh. NF: nf-md-console_line (U+F07B7)
+/// — the `_` underscore/prompt-cursor shape, evokes a shell prompt.
+/// Unicode: ❯ (rightwards prompt). ASCII: `zshrs:`.
+pub fn zshrs() -> &'static str {
+    pick("\u{F07B7}", "❯", "zshrs:")
+}
+
+/// stryke — the Perl-superset / Clojure-threading scripting language.
+/// NF: nf-dev-perl (U+E769) — the Perl camel, acknowledging stryke's
+/// `--compat` Perl heritage. Unicode: λ (lambda — fits Clojure/Scala
+/// lineage). ASCII: `stryke:`.
+pub fn stryke() -> &'static str {
+    pick("\u{E769}", "λ", "stryke:")
+}
+
+/// awkrs — the Rust awk reimplementation. NF: nf-dev-awk (U+E741) —
+/// the literal `awk` wordmark glyph from the dev icon set. Unicode:
+/// $0 (the awk current-record symbol). ASCII: `awkrs:`.
+pub fn awkrs() -> &'static str {
+    pick("\u{E741}", "$0", "awkrs:")
+}
+
 /// fusevm / JIT runtime glyph. NF: nf-md-engine (U+F01FA) — the
 /// engine-block symbol from Material Design. Semantic match: fusevm
 /// IS a VM engine (Cranelift-backed JIT shared between zshrs and
