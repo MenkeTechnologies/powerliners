@@ -710,11 +710,13 @@ fn ad_mem_usage(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option
 }
 
 fn ad_mem_usage_percent(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::icons;
     use powerliners::extensions::mem_usage::mem_usage_percent;
+    let default = format!("{} %d%%", icons::memory());
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
-        .unwrap_or("%d%%");
+        .unwrap_or(&default);
     let mem_type = args
         .get("mem_type")
         .and_then(|v| v.as_str())
@@ -723,11 +725,13 @@ fn ad_mem_usage_percent(args: &Map<String, Value>, _info: &Map<String, Value>) -
 }
 
 fn ad_mem_swap(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::icons;
     use powerliners::extensions::mem_usage::mem_swap;
+    let default = format!("{} %s/%s", icons::swap());
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
-        .unwrap_or("%s/%s");
+        .unwrap_or(&default);
     let mem_type = args
         .get("mem_type")
         .and_then(|v| v.as_str())
@@ -786,14 +790,16 @@ fn ad_disk_usage_percent(args: &Map<String, Value>, _info: &Map<String, Value>) 
 
 fn ad_disk_io(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
     use powerliners::extensions::disk::disk_io;
+    use powerliners::extensions::icons;
     let device = args
         .get("device")
         .and_then(|v| v.as_str())
         .unwrap_or("auto");
+    let default = format!("{} {} R %s W %s", icons::disk(), icons::io());
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
-        .unwrap_or("R %s W %s");
+        .unwrap_or(&default);
     let short = args.get("short").and_then(|v| v.as_bool()).unwrap_or(true);
     let recv_max = args
         .get("recv_max")
@@ -877,11 +883,13 @@ fn ad_thermal(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
 }
 
 fn ad_mem_swap_percentage(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::icons;
     use powerliners::extensions::mem_usage::mem_swap_percentage;
+    let default = format!("{} %d%%", icons::swap());
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
-        .unwrap_or("%d%%");
+        .unwrap_or(&default);
     let mem_type = args
         .get("mem_type")
         .and_then(|v| v.as_str())
@@ -936,7 +944,15 @@ fn ad_github_ci(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<
     // The `{icon}` token is the check_circle / x_circle / sync glyph
     // picked by `ci_status()` so the user sees " ✓ 5/5" / " ✗ 2/5" /
     // " ⟳ 3/5" — no "ok"/"fail" text word to decode.
-    let default = format!("{} {{icon}} {{passed}}/{{total}}", icons::github());
+    // Unicode tier returns an empty github glyph (no canonical text
+    // equivalent exists); skip the leading prefix in that case to
+    // avoid a stray leading space.
+    let gh = icons::github();
+    let default = if gh.is_empty() {
+        "{icon} {passed}/{total}".to_string()
+    } else {
+        format!("{gh} {{icon}} {{passed}}/{{total}}")
+    };
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
