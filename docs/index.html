@@ -280,7 +280,7 @@ ls target/debug/powerliners target/debug/powerline-{render,lint,config,daemon}</
       <p>Every Nerd Font codepoint shipped by <code>src/extensions/icons.rs</code> is listed here with its canonical upstream identity (verified against <a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_all.sh"><code>ryanoasis/nerd-fonts</code> master</a>, NF 3.4.0 default load order, legacy <code>i_material.sh</code> excluded). Each glyph below renders live via the <code>SymbolsNerdFont</code> @font-face declaration in <code>hud-static.css</code> — if a shipped glyph fails to match its claimed identity, it would be immediately visible in this table.</p>
       <p style="margin-top:0.6rem;">Three-tier fallback chain: <strong>Nerd Font</strong> (default) → <strong>Unicode</strong> (<code>POWERLINERS_ICONS=unicode</code>, text-presentation only) → <strong>ASCII</strong> (<code>POWERLINERS_ICONS=ascii</code>, label-style for non-UTF8 terminals).</p>
 
-      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">A. Icon getters (21)</h3>
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">A. Icon getters (24)</h3>
       <table class="audit-tbl">
         <thead><tr><th>fn</th><th>codepoint</th><th>NF name</th><th>source</th><th class="nf-cell">NF</th><th>Unicode</th><th>ASCII</th><th>used by segment</th></tr></thead>
         <tbody>
@@ -305,10 +305,13 @@ ls target/debug/powerliners target/debug/powerline-{render,lint,config,daemon}</
           <tr><td><code>icons::swap()</code></td><td><code>U+F04E1</code></td><td><code>i_md_swap_horizontal</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_md.sh"><code>i_md.sh</code></a></td><td class="nf-cell">󰓡</td><td>⇄</td><td><code>SWAP:</code></td><td><code>ad_mem_swap_percentage, mem_swap</code></td></tr>
           <tr><td><code>icons::io()</code></td><td><code>U+F0E79</code></td><td><code>i_md_arrow_up_down</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_md.sh"><code>i_md.sh</code></a></td><td class="nf-cell">󰹹</td><td>⇅</td><td><code>IO:</code></td><td><code>disk_io</code></td></tr>
           <tr><td><code>icons::fusevm()</code></td><td><code>U+F01FA</code></td><td><code>i_md_engine</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_md.sh"><code>i_md.sh</code></a></td><td class="nf-cell">󰇺</td><td>⚙</td><td><code>jit:</code></td><td><code>jit_cache</code></td></tr>
+          <tr><td><code>icons::zshrs()</code></td><td><code>U+F07B7</code></td><td><code>i_md_console_line</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_md.sh"><code>i_md.sh</code></a></td><td class="nf-cell">󰞷</td><td>❯</td><td><code>zshrs:</code></td><td><code>rkyv_cache</code></td></tr>
+          <tr><td><code>icons::stryke()</code></td><td><code>U+E769</code></td><td><code>i_dev_perl</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_dev.sh"><code>i_dev.sh</code></a></td><td class="nf-cell"></td><td>λ</td><td><code>stryke:</code></td><td><code>rkyv_cache</code></td></tr>
+          <tr><td><code>icons::awkrs()</code></td><td><code>U+E741</code></td><td><code>i_dev_awk</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_dev.sh"><code>i_dev.sh</code></a></td><td class="nf-cell"></td><td>$0</td><td><code>awkrs:</code></td><td><code>rkyv_cache</code></td></tr>
         </tbody>
       </table>
 
-      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.6rem 0 0.4rem;">B. Segment defaults (18)</h3>
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.6rem 0 0.4rem;">B. Segment defaults (21)</h3>
       <p style="margin:0 0 0.5rem;">Default format strings shipped by each <code>powerliners.*</code> / <code>powerlinemem.*</code> adapter when the theme JSON omits <code>format</code>. Live NF render uses the same glyphs as Table A.</p>
       <table class="audit-tbl">
         <thead><tr><th>segment name</th><th class="nf-cell">icons used</th><th class="nf-cell">live NF render</th></tr></thead>
@@ -326,7 +329,10 @@ ls target/debug/powerliners target/debug/powerline-{render,lint,config,daemon}</
           <tr><td><code>powerliners.github.ci_status</code></td><td class="nf-cell"> </td><td class="nf-cell">  5/5</td></tr>
           <tr><td><code>powerliners.aws.context</code></td><td class="nf-cell">󰸏</td><td class="nf-cell">󰸏 prod@us-east-1</td></tr>
           <tr><td><code>powerliners.gcp.context</code></td><td class="nf-cell">󱇶</td><td class="nf-cell">󱇶 my-proj:me@e.com</td></tr>
-          <tr><td><code>powerliners.fusevm.jit_cache</code></td><td class="nf-cell">󰇺 󰈢 󰋊</td><td class="nf-cell">󰇺 󰈢 142 󰋊 18.4M</td></tr>
+          <tr><td><code>powerliners.fusevm.jit_cache</code></td><td class="nf-cell">󰇺 󰈢 󰋊</td><td class="nf-cell">󰇺 󰈢 207 󰋊 828K</td></tr>
+          <tr><td><code>powerliners.zshrs.rkyv_cache</code></td><td class="nf-cell">󰞷</td><td class="nf-cell">󰞷 4.00K</td></tr>
+          <tr><td><code>powerliners.stryke.rkyv_cache</code></td><td class="nf-cell"></td><td class="nf-cell"> 34.9M</td></tr>
+          <tr><td><code>powerliners.awkrs.rkyv_cache</code></td><td class="nf-cell"></td><td class="nf-cell"> 8.00K</td></tr>
           <tr><td><code>powerlinemem.mem_usage.mem_usage</code></td><td class="nf-cell"></td><td class="nf-cell"> 12G/32G</td></tr>
           <tr><td><code>powerlinemem.mem_usage.mem_usage_percent</code></td><td class="nf-cell"></td><td class="nf-cell"> 47%</td></tr>
           <tr><td><code>powerlinemem.mem_usage.mem_swap</code></td><td class="nf-cell">󰓡</td><td class="nf-cell">󰓡 1.2G/4G</td></tr>

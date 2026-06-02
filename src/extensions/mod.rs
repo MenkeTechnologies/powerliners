@@ -41,6 +41,7 @@
 //! - [`fusevm_jit`] — `powerliners.fusevm.jit_cache` (entry count +
 //!   bytes under the fusevm Cranelift JIT cache root)
 
+pub mod awkrs_rkyv;
 pub mod aws_ctx;
 pub mod bundled_config;
 pub mod diag_log;
@@ -56,5 +57,7 @@ pub mod icons;
 pub mod k8s;
 pub mod mem_usage;
 pub mod proc_count;
+pub mod stryke_rkyv;
 pub mod thermal;
 pub mod wthr_extensions;
+pub mod zshrs_rkyv;

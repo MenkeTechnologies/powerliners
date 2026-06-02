@@ -1016,6 +1016,54 @@ fn ad_gcp_context(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opti
     context(&format, hide_account).map(Value::Array)
 }
 
+fn ad_awkrs_rkyv_cache(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::awkrs_rkyv::rkyv_cache;
+    use powerliners::extensions::icons;
+    let default = format!("{} {{size}}", icons::awkrs());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&default);
+    let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+    let show_when_empty = args
+        .get("show_when_empty")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    rkyv_cache(path, format, show_when_empty).map(Value::Array)
+}
+
+fn ad_zshrs_rkyv_cache(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::icons;
+    use powerliners::extensions::zshrs_rkyv::rkyv_cache;
+    let default = format!("{} {{size}}", icons::zshrs());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&default);
+    let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+    let show_when_empty = args
+        .get("show_when_empty")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    rkyv_cache(path, format, show_when_empty).map(Value::Array)
+}
+
+fn ad_stryke_rkyv_cache(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::icons;
+    use powerliners::extensions::stryke_rkyv::rkyv_cache;
+    let default = format!("{} {{size}}", icons::stryke());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&default);
+    let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+    let show_when_empty = args
+        .get("show_when_empty")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    rkyv_cache(path, format, show_when_empty).map(Value::Array)
+}
+
 fn ad_fusevm_jit_cache(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
     use powerliners::extensions::fusevm_jit::jit_cache;
     use powerliners::extensions::icons;
@@ -2348,6 +2396,12 @@ pub const ADAPTERS: &[(&str, AdapterFn)] = &[
     ("powerliners.gcp.context", ad_gcp_context),
     // fusevm Cranelift JIT cache stats — src/extensions/fusevm_jit.rs
     ("powerliners.fusevm.jit_cache", ad_fusevm_jit_cache),
+    // zshrs rkyv cache stats — src/extensions/zshrs_rkyv.rs
+    ("powerliners.zshrs.rkyv_cache", ad_zshrs_rkyv_cache),
+    // stryke rkyv cache stats — src/extensions/stryke_rkyv.rs
+    ("powerliners.stryke.rkyv_cache", ad_stryke_rkyv_cache),
+    // awkrs rkyv cache stats — src/extensions/awkrs_rkyv.rs
+    ("powerliners.awkrs.rkyv_cache", ad_awkrs_rkyv_cache),
     // User-extensibility (`src/extensions/exec_segment.rs`):
     //   Option A — explicit `exec` adapter spawns args.command + parses
     //   stdout. Theme JSON references `"function": "exec"`.
@@ -2937,6 +2991,9 @@ mod tests {
             ("powerliners.aws", "context"),
             ("powerliners.gcp", "context"),
             ("powerliners.fusevm", "jit_cache"),
+            ("powerliners.zshrs", "rkyv_cache"),
+            ("powerliners.stryke", "rkyv_cache"),
+            ("powerliners.awkrs", "rkyv_cache"),
         ] {
             let id = adapter_id(mod_, name)
                 .unwrap_or_else(|| panic!("extension adapter {mod_}.{name} missing from ADAPTERS"));
