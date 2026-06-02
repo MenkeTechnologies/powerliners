@@ -100,10 +100,13 @@ pub fn tag() -> &'static str {
     pick("\u{F02B}", "⚑", "tag:")
 }
 
-/// Docker / OCI container. NF: nf-md-docker (U+ED7E). Unicode: 🐳
-/// + VS-15 for text presentation. ASCII: `D:`.
+/// Docker / OCI container. NF: nf-md-docker (U+F0868) — the
+/// canonical Material Design docker glyph. U+ED7E was used here
+/// previously but that codepoint is `i_fa_dolly` (a hand truck) in
+/// nerd-fonts master, not docker — fixed in the icon-audit pass.
+/// Unicode: 🐳 + VS-15 for text presentation. ASCII: `D:`.
 pub fn docker() -> &'static str {
-    pick("\u{ED7E}", "🐳\u{FE0E}", "D:")
+    pick("\u{F0868}", "🐳\u{FE0E}", "D:")
 }
 
 /// Kubernetes helm-wheel. NF: nf-md-kubernetes (U+F10FE). Unicode:

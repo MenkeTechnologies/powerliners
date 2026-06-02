@@ -145,6 +145,40 @@
       font-size: 9.5px; letter-spacing: 1.5px;
       color: var(--text-muted); text-transform: uppercase; margin-top: 2px;
     }
+    .audit-tbl {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'Share Tech Mono', ui-monospace, monospace;
+      font-size: 11.5px;
+      margin: 0.4rem 0 0.2rem;
+    }
+    .audit-tbl thead th {
+      text-align: left;
+      padding: 0.4rem 0.6rem;
+      border-bottom: 1px solid var(--cyan);
+      color: var(--cyan);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      background: color-mix(in srgb, var(--bg-card) 60%, transparent);
+    }
+    .audit-tbl tbody td {
+      padding: 0.32rem 0.6rem;
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+      color: var(--text);
+      vertical-align: middle;
+    }
+    .audit-tbl tbody tr:hover td {
+      background: color-mix(in srgb, var(--cyan-dim) 50%, transparent);
+    }
+    .audit-tbl td.nf-cell {
+      font-size: 16px;
+      color: var(--accent-light);
+      text-align: center;
+      letter-spacing: 0.1em;
+    }
+    .audit-tbl code { font-size: 11px; }
   </style>
 </head>
 <body class="crt">
@@ -241,6 +275,68 @@ cargo build
 ls target/debug/powerliners target/debug/powerline-{render,lint,config,daemon}</pre>
       <p>Five binaries land in <code>target/debug/</code>: <code>powerliners</code> (demo CLI for ported leaf utilities), <code>powerline-render</code>, <code>powerline-lint</code>, <code>powerline-config</code>, and <code>powerline-daemon</code>. The daemon lifecycle (UNIX socket bind, daemonize, pidfile lock, accept loop, EOF shutdown) is fully functional; render returns a placeholder string until the <code>Powerline</code> orchestrator integration completes. <code>powerline-render</code> / <code>powerline-lint</code> / <code>powerline-config</code> shim through the ported <code>scripts/</code> module mains — argparse and dispatch live, full pipelines depend on the same orchestrator chain.</p>
     </section>
+    <section class="tutorial-section icon-audit">
+      <h2>Icon audit</h2>
+      <p>Every Nerd Font codepoint shipped by <code>src/extensions/icons.rs</code> is listed here with its canonical upstream identity (verified against <a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_all.sh"><code>ryanoasis/nerd-fonts</code> master</a>, NF 3.4.0 default load order, legacy <code>i_material.sh</code> excluded). Each glyph below renders live via the <code>SymbolsNerdFont</code> @font-face declaration in <code>hud-static.css</code> — if a shipped glyph fails to match its claimed identity, it would be immediately visible in this table.</p>
+      <p style="margin-top:0.6rem;">Three-tier fallback chain: <strong>Nerd Font</strong> (default) → <strong>Unicode</strong> (<code>POWERLINERS_ICONS=unicode</code>, text-presentation only) → <strong>ASCII</strong> (<code>POWERLINERS_ICONS=ascii</code>, label-style for non-UTF8 terminals).</p>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">A. Icon getters (21)</h3>
+      <table class="audit-tbl">
+        <thead><tr><th>fn</th><th>codepoint</th><th>NF name</th><th>source</th><th class="nf-cell">NF</th><th>Unicode</th><th>ASCII</th></tr></thead>
+        <tbody>
+          <tr><td><code>icons::disk()</code></td><td><code>U+F0A0</code></td><td><code>i_fa_hard_drive</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_fa.sh"><code>i_fa.sh</code></a></td><td class="nf-cell"></td><td>⛁</td><td><code>D:</code></td></tr>
+          <tr><td><code>icons::cpu()</code></td><td><code>U+F4BC</code></td><td><code>i_oct_cpu</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_oct.sh"><code>i_oct.sh</code></a></td><td class="nf-cell"></td><td>⚙</td><td><code>CPU:</code></td></tr>
+          <tr><td><code>icons::gpu()</code></td><td><code>U+F2DB</code></td><td><code>i_fa_microchip</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_fa.sh"><code>i_fa.sh</code></a></td><td class="nf-cell"></td><td>⎚</td><td><code>GPU:</code></td></tr>
+          <tr><td><code>icons::memory()</code></td><td><code>U+EFC5</code></td><td><code>i_fa_memory</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_fa.sh"><code>i_fa.sh</code></a></td><td class="nf-cell"></td><td>▤</td><td><code>MEM:</code></td></tr>
+          <tr><td><code>icons::thermometer()</code></td><td><code>U+F2C8</code></td><td><code>i_fa_temperature_three_quarters</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_fa.sh"><code>i_fa.sh</code></a></td><td class="nf-cell"></td><td>🌡</td><td><code>T:</code></td></tr>
+          <tr><td><code>icons::branch()</code></td><td><code>U+E0A0</code></td><td><code>i_pl_branch</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_ple.sh"><code>i_ple.sh</code></a></td><td class="nf-cell"></td><td>⎇</td><td><code>b:</code></td></tr>
+          <tr><td><code>icons::github()</code></td><td><code>U+F09B</code></td><td><code>i_fa_github</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_fa.sh"><code>i_fa.sh</code></a></td><td class="nf-cell"></td><td></td><td><code>gh:</code></td></tr>
+          <tr><td><code>icons::tag()</code></td><td><code>U+F02B</code></td><td><code>i_fa_tag</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_fa.sh"><code>i_fa.sh</code></a></td><td class="nf-cell"></td><td>⚑</td><td><code>tag:</code></td></tr>
+          <tr><td><code>icons::docker()</code></td><td><code>U+F0868</code></td><td><code>i_md_docker</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_md.sh"><code>i_md.sh</code></a></td><td class="nf-cell">󰡨</td><td>🐳</td><td><code>D:</code></td></tr>
+          <tr><td><code>icons::kubernetes()</code></td><td><code>U+F10FE</code></td><td><code>i_md_kubernetes</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_md.sh"><code>i_md.sh</code></a></td><td class="nf-cell">󱃾</td><td>⎈</td><td><code>k8s:</code></td></tr>
+          <tr><td><code>icons::process()</code></td><td><code>U+F0493</code></td><td><code>i_md_cog</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_md.sh"><code>i_md.sh</code></a></td><td class="nf-cell">󰒓</td><td>⚙</td><td><code>P:</code></td></tr>
+          <tr><td><code>icons::aws()</code></td><td><code>U+F0E0F</code></td><td><code>i_md_aws</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_md.sh"><code>i_md.sh</code></a></td><td class="nf-cell">󰸏</td><td>aws</td><td><code>aws</code></td></tr>
+          <tr><td><code>icons::gcp()</code></td><td><code>U+F11F6</code></td><td><code>i_md_google_cloud</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_md.sh"><code>i_md.sh</code></a></td><td class="nf-cell">󱇶</td><td>gcp</td><td><code>gcp</code></td></tr>
+          <tr><td><code>icons::ci_ok()</code></td><td><code>U+F49E</code></td><td><code>i_oct_check_circle</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_oct.sh"><code>i_oct.sh</code></a></td><td class="nf-cell"></td><td>✅</td><td><code>OK</code></td></tr>
+          <tr><td><code>icons::ci_fail()</code></td><td><code>U+F52F</code></td><td><code>i_oct_x_circle</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_oct.sh"><code>i_oct.sh</code></a></td><td class="nf-cell"></td><td>❌</td><td><code>FAIL</code></td></tr>
+          <tr><td><code>icons::ci_run()</code></td><td><code>U+F46A</code></td><td><code>i_oct_sync</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_oct.sh"><code>i_oct.sh</code></a></td><td class="nf-cell"></td><td>🔄</td><td><code>RUN</code></td></tr>
+          <tr><td><code>icons::count()</code></td><td><code>U+F0222</code></td><td><code>i_md_file_multiple</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_md.sh"><code>i_md.sh</code></a></td><td class="nf-cell">󰈢</td><td>▤</td><td><code>n=</code></td></tr>
+          <tr><td><code>icons::harddisk()</code></td><td><code>U+F02CA</code></td><td><code>i_md_harddisk</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_md.sh"><code>i_md.sh</code></a></td><td class="nf-cell">󰋊</td><td>⛁</td><td><code>d=</code></td></tr>
+          <tr><td><code>icons::swap()</code></td><td><code>U+F04E1</code></td><td><code>i_md_swap_horizontal</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_md.sh"><code>i_md.sh</code></a></td><td class="nf-cell">󰓡</td><td>⇄</td><td><code>SWAP:</code></td></tr>
+          <tr><td><code>icons::io()</code></td><td><code>U+F0E79</code></td><td><code>i_md_arrow_up_down</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_md.sh"><code>i_md.sh</code></a></td><td class="nf-cell">󰹹</td><td>⇅</td><td><code>IO:</code></td></tr>
+          <tr><td><code>icons::fusevm()</code></td><td><code>U+F2DB</code></td><td><code>i_fa_microchip</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_fa.sh"><code>i_fa.sh</code></a></td><td class="nf-cell"></td><td>⎚</td><td><code>jit:</code></td></tr>
+        </tbody>
+      </table>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.6rem 0 0.4rem;">B. Segment defaults (18)</h3>
+      <p style="margin:0 0 0.5rem;">Default format strings shipped by each <code>powerliners.*</code> / <code>powerlinemem.*</code> adapter when the theme JSON omits <code>format</code>. Live NF render uses the same glyphs as Table A.</p>
+      <table class="audit-tbl">
+        <thead><tr><th>dotted path</th><th>icon getters used</th><th class="nf-cell">live NF render</th></tr></thead>
+        <tbody>
+          <tr><td><code>powerliners.gpu.gpu_usage_percent</code></td><td class="nf-cell"></td><td class="nf-cell"> 47%</td></tr>
+          <tr><td><code>powerliners.gpu.gpu_vram</code></td><td class="nf-cell"> </td><td class="nf-cell"> 8.2G/12G</td></tr>
+          <tr><td><code>powerliners.disk.disk_usage</code></td><td class="nf-cell"></td><td class="nf-cell"> 142G/512G</td></tr>
+          <tr><td><code>powerliners.disk.disk_usage_percent</code></td><td class="nf-cell"></td><td class="nf-cell"> 28%</td></tr>
+          <tr><td><code>powerliners.disk.disk_io</code></td><td class="nf-cell"> 󰹹</td><td class="nf-cell"> 󰹹 R 23M W 5M</td></tr>
+          <tr><td><code>powerliners.thermal.thermal</code></td><td class="nf-cell"></td><td class="nf-cell"> 67°C 1240RPM</td></tr>
+          <tr><td><code>powerliners.vcs.git_status</code></td><td class="nf-cell"> </td><td class="nf-cell">  main ⇡2</td></tr>
+          <tr><td><code>powerliners.docker.containers</code></td><td class="nf-cell">󰡨</td><td class="nf-cell">󰡨 4/7</td></tr>
+          <tr><td><code>powerliners.k8s.kubecontext</code></td><td class="nf-cell">󱃾</td><td class="nf-cell">󱃾 prod:default</td></tr>
+          <tr><td><code>powerliners.proc.process_count</code></td><td class="nf-cell">󰒓</td><td class="nf-cell">󰒓 348</td></tr>
+          <tr><td><code>powerliners.github.ci_status</code></td><td class="nf-cell"> </td><td class="nf-cell">  5/5</td></tr>
+          <tr><td><code>powerliners.aws.context</code></td><td class="nf-cell">󰸏</td><td class="nf-cell">󰸏 prod@us-east-1</td></tr>
+          <tr><td><code>powerliners.gcp.context</code></td><td class="nf-cell">󱇶</td><td class="nf-cell">󱇶 my-proj:me@e.com</td></tr>
+          <tr><td><code>powerliners.fusevm.jit_cache</code></td><td class="nf-cell"> 󰈢 󰋊</td><td class="nf-cell"> 󰈢 142 󰋊 18.4M</td></tr>
+          <tr><td><code>powerlinemem.mem_usage.mem_usage</code></td><td class="nf-cell"></td><td class="nf-cell"> 12G/32G</td></tr>
+          <tr><td><code>powerlinemem.mem_usage.mem_usage_percent</code></td><td class="nf-cell"></td><td class="nf-cell"> 47%</td></tr>
+          <tr><td><code>powerlinemem.mem_usage.mem_swap</code></td><td class="nf-cell">󰓡</td><td class="nf-cell">󰓡 1.2G/4G</td></tr>
+          <tr><td><code>powerlinemem.mem_usage.mem_swap_percent</code></td><td class="nf-cell">󰓡</td><td class="nf-cell">󰓡 30%</td></tr>
+        </tbody>
+      </table>
+
+      <p style="margin-top:1rem; font-size:11px; color:var(--text-dim);">Anti-fakery rationale: a future maintainer who swaps a glyph (intentionally or by typo) without updating both the code AND this audit table will produce visibly wrong rendering on this page — the symptom is observable, not hidden behind a Rust unit test. The <code>i_material.sh</code> legacy MDI set is intentionally excluded from verification since NF 3.4.0 does not load it by default; codepoints that collide between <code>i_oct.sh</code> and legacy <code>i_material.sh</code> (e.g. <code>U+F52F</code>) resolve via the Octicons subset in any standard Nerd Font install.</p>
+    </section>
+
   </main>
 </body>
 </html>
