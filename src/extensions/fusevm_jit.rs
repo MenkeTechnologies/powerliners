@@ -11,8 +11,8 @@
 //!
 //! Default cache root resolution:
 //! 1. `$FUSEVM_JIT_CACHE`
-//! 2. `$XDG_CACHE_HOME/fusevm/jit`
-//! 3. `~/.cache/fusevm/jit`
+//! 2. `$XDG_CACHE_HOME/fusevm-jit`
+//! 3. `~/.cache/fusevm-jit`
 //!
 //! Returns `None` when the cache root doesn't exist (cache never
 //! warmed) — the segment is informational, not load-bearing.
@@ -54,7 +54,7 @@ fn default_root() -> PathBuf {
     let base = xdg
         .or_else(|| home.map(|h| h.join(".cache")))
         .unwrap_or_else(|| PathBuf::from("/tmp"));
-    base.join("fusevm").join("jit")
+    base.join("fusevm-jit")
 }
 
 /// Expand a leading `~/` against `$HOME`. Themes write `~/...` paths
@@ -136,7 +136,11 @@ pub fn jit_cache(path: &str, format: &str, show_when_empty: bool) -> Option<Vec<
     } else {
         expand_tilde(path)
     };
-    let stats = scan_dir(&root)?;
+    let stats = match scan_dir(&root) {
+        Some(s) => s,
+        None if show_when_empty => JitStats::default(),
+        None => return None,
+    };
     if stats.entries == 0 && !show_when_empty {
         return None;
     }
@@ -146,7 +150,13 @@ pub fn jit_cache(path: &str, format: &str, show_when_empty: bool) -> Option<Vec<
         .replace("{size}", &human_bytes(stats.bytes));
     Some(vec![json!({
         "contents": contents,
-        "highlight_groups": ["fusevm_jit_cache", "fusevm"],
+        // Fallback chain: theme-specific fusevm_jit_cache → fusevm
+        // family group → information:regular (always defined in any
+        // standard powerline colorscheme). The terminal fallback
+        // means the chunk renders even when the user hasn't themed
+        // fusevm explicitly — instead of being silently dropped by
+        // the renderer for an unknown highlight group.
+        "highlight_groups": ["fusevm_jit_cache", "fusevm", "information:regular"],
         "divider_highlight_group": "background:divider",
     })])
 }
@@ -249,13 +259,42 @@ mod tests {
     }
 
     #[test]
-    fn jit_cache_missing_root_returns_none() {
+    fn jit_cache_missing_root_returns_none_when_hidden() {
+        let r = jit_cache(
+            "/nonexistent/fusevm-zzz-yyy",
+            "{entries} {size}",
+            false,
+        );
+        assert!(r.is_none());
+    }
+
+    #[test]
+    fn jit_cache_missing_root_renders_zero_when_show_when_empty() {
+        // Pre-cache state — fusevm hasn't populated anything yet but
+        // the user wants the segment slot visible. Render 0/0B.
         let r = jit_cache(
             "/nonexistent/fusevm-zzz-yyy",
             "{entries} {size}",
             true,
-        );
-        assert!(r.is_none());
+        )
+        .unwrap();
+        let s = r[0]["contents"].as_str().unwrap();
+        assert_eq!(s, "0 0B");
+    }
+
+    #[test]
+    fn jit_cache_highlight_groups_have_neutral_fallback() {
+        // Renderers silently drop chunks whose highlight group isn't
+        // defined in the colorscheme. The chain must end in a group
+        // ('information:regular') that exists in every standard
+        // powerline colorscheme — otherwise the segment vanishes from
+        // the bar in any theme that hasn't been customized for fusevm.
+        let d = tmpdir("hl-fallback");
+        writef(&d.join("a"), &[0u8; 1]);
+        let r = jit_cache(d.to_str().unwrap(), "{entries}", false).unwrap();
+        let groups = r[0]["highlight_groups"].as_array().unwrap();
+        let last = groups.last().unwrap().as_str().unwrap();
+        assert_eq!(last, "information:regular");
     }
 
     #[test]
