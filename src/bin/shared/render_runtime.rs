@@ -1016,6 +1016,45 @@ fn ad_gcp_context(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opti
     context(&format, hide_account).map(Value::Array)
 }
 
+fn ad_zshrs_version(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::icons;
+    use powerliners::extensions::zshrs_version::version;
+    let default = format!("{} {{version}}", icons::zshrs());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&default);
+    let bin = args.get("bin").and_then(|v| v.as_str()).unwrap_or("zshrs");
+    let ttl_secs = args.get("ttl_secs").and_then(|v| v.as_u64()).unwrap_or(300);
+    version(bin, format, ttl_secs).map(Value::Array)
+}
+
+fn ad_stryke_version(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::icons;
+    use powerliners::extensions::stryke_version::version;
+    let default = format!("{} {{version}}", icons::stryke());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&default);
+    let bin = args.get("bin").and_then(|v| v.as_str()).unwrap_or("stryke");
+    let ttl_secs = args.get("ttl_secs").and_then(|v| v.as_u64()).unwrap_or(300);
+    version(bin, format, ttl_secs).map(Value::Array)
+}
+
+fn ad_awkrs_version(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::awkrs_version::version;
+    use powerliners::extensions::icons;
+    let default = format!("{} {{version}}", icons::awkrs());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&default);
+    let bin = args.get("bin").and_then(|v| v.as_str()).unwrap_or("awkrs");
+    let ttl_secs = args.get("ttl_secs").and_then(|v| v.as_u64()).unwrap_or(300);
+    version(bin, format, ttl_secs).map(Value::Array)
+}
+
 fn ad_awkrs_rkyv_cache(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
     use powerliners::extensions::awkrs_rkyv::rkyv_cache;
     use powerliners::extensions::icons;
@@ -2402,6 +2441,12 @@ pub const ADAPTERS: &[(&str, AdapterFn)] = &[
     ("powerliners.stryke.rkyv_cache", ad_stryke_rkyv_cache),
     // awkrs rkyv cache stats — src/extensions/awkrs_rkyv.rs
     ("powerliners.awkrs.rkyv_cache", ad_awkrs_rkyv_cache),
+    // zshrs version — src/extensions/zshrs_version.rs
+    ("powerliners.zshrs.version", ad_zshrs_version),
+    // stryke version — src/extensions/stryke_version.rs
+    ("powerliners.stryke.version", ad_stryke_version),
+    // awkrs version — src/extensions/awkrs_version.rs
+    ("powerliners.awkrs.version", ad_awkrs_version),
     // User-extensibility (`src/extensions/exec_segment.rs`):
     //   Option A — explicit `exec` adapter spawns args.command + parses
     //   stdout. Theme JSON references `"function": "exec"`.
@@ -2994,6 +3039,9 @@ mod tests {
             ("powerliners.zshrs", "rkyv_cache"),
             ("powerliners.stryke", "rkyv_cache"),
             ("powerliners.awkrs", "rkyv_cache"),
+            ("powerliners.zshrs", "version"),
+            ("powerliners.stryke", "version"),
+            ("powerliners.awkrs", "version"),
         ] {
             let id = adapter_id(mod_, name)
                 .unwrap_or_else(|| panic!("extension adapter {mod_}.{name} missing from ADAPTERS"));

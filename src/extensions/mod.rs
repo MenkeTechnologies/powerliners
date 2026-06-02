@@ -42,7 +42,9 @@
 //!   bytes under the fusevm Cranelift JIT cache root)
 
 pub mod awkrs_rkyv;
+pub mod awkrs_version;
 pub mod aws_ctx;
+pub mod bin_version;
 pub mod bundled_config;
 pub mod diag_log;
 pub mod disk;
@@ -58,6 +60,8 @@ pub mod k8s;
 pub mod mem_usage;
 pub mod proc_count;
 pub mod stryke_rkyv;
+pub mod stryke_version;
 pub mod thermal;
 pub mod wthr_extensions;
 pub mod zshrs_rkyv;
+pub mod zshrs_version;

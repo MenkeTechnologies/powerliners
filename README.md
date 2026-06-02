@@ -453,6 +453,9 @@ filesystem lookup needed):
 | `powerliners.zshrs.rkyv_cache` | Single-file stat of the zshrs authoritative rkyv archive at `$ZSHRS_RKYV_CACHE` / `$ZSHRS_HOME/scripts.rkyv` / `$XDG_DATA_HOME/zshrs/scripts.rkyv` / `~/.zshrs/scripts.rkyv`. Same `{size}` / `{bytes}` / `{logical_*}` token surface as `fusevm.jit_cache`. Disk-bytes default matches `du -sh` |
 | `powerliners.stryke.rkyv_cache` | Single-file stat of `~/.stryke/scripts.rkyv` (stryke's authoritative bytecode store, Cranelift-JIT'd via the shared fusevm runtime). Same token surface |
 | `powerliners.awkrs.rkyv_cache` | Single-file stat of `~/.awkrs/scripts.rkyv`. Same token surface |
+| `powerliners.zshrs.version` | Latest installed zshrs version (parsed from `<bin> --version`). In-process TTL cache (default 300 s) so the daemon doesn't fork on every prompt tick. Tokens: `{icon}`/`{version}` |
+| `powerliners.stryke.version` | Same for stryke (handles the `This is stryke vX.Y.Z — ...` prefix shape). |
+| `powerliners.awkrs.version` | Same for awkrs. |
 | `powerliners.exec.exec` | The explicit `exec` adapter (also resolves via bare `"function": "exec"`) |
 
 These each live in `src/extensions/<module>.rs` and are wired into
