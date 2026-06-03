@@ -13,7 +13,7 @@
 ---
 
 [![Status](https://img.shields.io/badge/status-134%2F137%20DONE-39ff14.svg)](#-status)
-[![Tests](https://img.shields.io/badge/lib%20tests-2152%20passing-39ff14.svg)](#-status)
+[![Tests](https://img.shields.io/badge/lib%20tests-2411%20passing-39ff14.svg)](#-status)
 [![Parity](https://img.shields.io/badge/parity%20tests-462%20vs%20upstream-05d9e8.svg)](#-status)
 [![Bugs Fixed](https://img.shields.io/badge/port%20bugs%20fixed-11-d300c5.svg)](#-status)
 [![Source](https://img.shields.io/badge/port_of-powerline--status-05d9e8.svg)](https://github.com/powerline/powerline)
@@ -64,9 +64,9 @@ Drop-in compatible with the existing `powerline/config` JSON theme + segment fil
 
 ```
 [port progress]   134 / 137 upstream .py files at DONE tier (97.8%)
-[remaining]       3 NEAR — class-only Python sources at classifier ceiling
+[remaining]       3 lipstick-only py files — zero-fn class shells, see Status
 [partial/sparse]  0 / 0 — no degraded files
-[lib tests]       2152 passing, 0 failing, 0 ignored
+[lib tests]       2411 passing, 0 failing, 0 ignored
 [parity tests]    462 against live upstream Python — every assertion runs the
                   Python interpreter on the upstream powerline source and
                   compares byte/value identical with the Rust port
@@ -82,13 +82,27 @@ citation density >= 0.5 plus a `/// Port of <py_fn>()` doccomment per
 Python function for DONE classification. All upstream Python files with
 function bodies are at DONE.
 
-The 3 remaining NEAR files (`renderers/shell/readline.py`,
-`renderers/shell/zsh.py`, `bindings/i3/powerline-i3.py`) are class-only
-Python sources with `py_methods == 0` — the classifier routes class-only
-files through a NEAR-or-STUB-HEAVY branch (NEAR when
-`rs_port_doccomments >= py_classes`), bypassing the citation-density check.
-These files' Rust ports are complete and the classifier acknowledges them
-as NEAR; promoting them to DONE would require a classifier amendment.
+The 3 remaining NEAR files are **Python lipstick** — there is no
+behavior left to port:
+
+- `renderers/shell/readline.py` (14 LOC) — a class shell with two string
+  constants (`escape_hl_start = '\x01'`, `escape_hl_end = '\x02'`) and
+  one module-level alias. `py_fn_total == 0`.
+- `renderers/shell/zsh.py` (16 LOC) — same shape, different escape
+  constants. `py_fn_total == 0`.
+- `bindings/i3/powerline-i3.py` (52 LOC) — one `render` function which
+  is already **100% ported** (see `docs/port_report.html`); the
+  classifier still tags it NEAR because the file structure trips its
+  class-only branch.
+
+These exist in upstream because Python's renderer registry needs a
+class per shell flavour to subclass `ShellRenderer`; the Rust port
+holds the same escape-marker constants directly on the equivalent
+renderer struct without ceremony. The classifier's `py_fn_total == 0`
+denominator simply can't promote 0/0 → DONE — a classifier amendment
+would resolve it cosmetically, but there is no real port gap. The
+remaining behavioral surface (every Python function with a body) is
+at DONE.
 
 ### What's wired end-to-end
 
