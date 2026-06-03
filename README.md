@@ -284,6 +284,143 @@ powerline-daemon -q
 Everything is byte-compatible — no config edits, no `.tmux.conf` edits,
 no shell-rc edits.
 
+---
+
+## `> VIM SETUP`
+
+Vim statusline + tabline rendering ships in the same `powerline` binary
+— no `+python3` requirement, no `pip install powerline-status`. The
+bundled `powerline.vim` plugin is embedded in the binary via
+`include_str!` and extracted to `~/.cache/powerliners/vim/powerline.vim`
+on first source.
+
+Works on vim 7.4+, vim 9, and neovim — the plugin uses vim8-compatible
+syntax only (no `vim9script` lock-in).
+
+### Step 1: Source the plugin from `.vimrc`
+
+The one-line install that extracts and sources the plugin on every vim
+launch:
+
+```vim
+if executable('powerline-config')
+  execute 'source' trim(system('powerline-config vim source-path'))
+endif
+```
+
+`powerline-config vim source-path` extracts the bundled plugin and
+prints its path; the `:execute 'source' …` then sources it. Caches in
+`$XDG_CACHE_HOME/powerliners/vim/` (default `~/.cache/powerliners/vim/`)
+so subsequent vim launches re-source from the already-extracted file.
+
+Or the manual two-step (pin the path, skip the per-launch fork):
+
+```sh
+# one-time extraction
+powerline-config vim source-path
+# /Users/<you>/.cache/powerliners/vim/powerline.vim
+```
+
+```vim
+" .vimrc
+set runtimepath+=~/.cache/powerliners/vim
+source ~/.cache/powerliners/vim/powerline.vim
+```
+
+### Step 2: Pre-start the daemon (recommended)
+
+The plugin shells out via `system('powerline vim left …')` on every
+statusline refresh. With the daemon running, that's a microsecond
+Unix-socket round-trip; without it, every refresh fork-execs
+`powerline-render` which is ~30 ms cold per call. Start the daemon at
+shell login (zsh `.zshrc` or bash `.bash_profile`):
+
+```sh
+powerline-daemon -q
+```
+
+The `-q` flag double-forks and detaches; vim sees the socket
+immediately. No per-vim daemon — one process per UID handles tmux,
+shell prompts, and every running vim simultaneously.
+
+### Step 3: Verify
+
+Open a fresh vim session and check:
+
+```vim
+:echo &statusline
+" expected: a %#Pl_…# markup string ending in segment chunks
+
+:PowerlinersRefresh
+" manually re-runs the refresh; useful for debugging
+
+:messages
+" no errors should appear; if 'powerline: write() to daemon failed'
+" shows up, the daemon isn't reachable — re-run `powerline-daemon -q`
+```
+
+The plugin sets `laststatus=2` automatically so the statusline shows
+even in single-window sessions.
+
+### What the plugin wires up
+
+Triggered autocmds (`augroup powerliners`):
+
+| Event | When it fires |
+|---|---|
+| `VimEnter` | initial render on launch |
+| `WinEnter` / `BufWinEnter` / `BufEnter` / `TabEnter` | refresh on context switch |
+| `ModeChanged` (vim ≥ 8.2.2871) | mode transitions (normal → insert etc) |
+| `CursorMoved` / `CursorMovedI` (legacy fallback) | every cursor move on ancient vim |
+
+Per-request keys sent to the renderer (matches upstream's
+`powerline.bindings.vim` so theme JSON written for Python upstream
+renders identically here):
+
+- `mode` — current vim mode (`n` / `i` / `v` / `R` / …)
+- `bufnr` — `bufnr('%')`
+- `winnr` — `winnr()`
+- `buf_name` — `expand('%:p')` (omitted when empty)
+
+The bundled `powerline.vim` shows the actual wiring at the source
+path you printed above.
+
+### Override the binary name
+
+If you've installed under a non-default name or want to test a build
+from `target/release/`, set the global before sourcing the plugin:
+
+```vim
+let g:powerliners_binary = expand('~/code/powerliners/target/release/powerline')
+if executable(g:powerliners_binary)
+  execute 'source' trim(system(g:powerliners_binary . '-config vim source-path'))
+endif
+```
+
+### Customize the theme
+
+The vim statusline pulls from
+`~/.config/powerline/themes/vim/default.json` plus
+`~/.config/powerline/colorschemes/vim/default.json`. The bundled
+defaults live under `src/ported/config_files/themes/vim/` and
+`src/ported/config_files/colorschemes/vim/` for reference; copy any
+of them into `~/.config/powerline/` and edit.
+
+Same JSON shape as upstream powerline — segments listed under
+`segments.left` / `segments.right`, theme inheritance via
+`extends`, per-mode highlight overrides via `mode_translations`.
+
+### Troubleshooting
+
+| Symptom | Cause / fix |
+|---|---|
+| empty statusline | `set laststatus=2` got stomped by something else in `.vimrc`; re-set after sourcing |
+| garbled escape codes | terminal doesn't support truecolor; renderer falls back to cterm but vim must be in a 256-color tty (`$TERM=xterm-256color`) |
+| colors don't match terminal | colorscheme JSON missing your custom palette — copy `colorschemes/vim/default.json` into `~/.config/powerline/colorschemes/vim/` |
+| `powerline: write() to daemon failed` | daemon isn't running; run `powerline-daemon -q` |
+| refresh stutters / flickers | the legacy `CursorMoved` fallback is firing on every keystroke (vim < 8.2.2871) — upgrade vim or pin a `let g:powerliners_no_cursormoved = 1` patch |
+| `E121: Undefined variable: g:powerliners_binary` before source line | `g:powerliners_binary` is set BY the plugin; reference it only inside autocmds that fire after sourcing |
+
 ### Known divergences from Python upstream
 
 These are the *only* areas where output may differ. Each is documented
