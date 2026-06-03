@@ -160,18 +160,29 @@ fn read_macos_temp(family: &str) -> Option<f64> {
         return None;
     }
     let text = String::from_utf8(out.stdout).ok()?;
-    let pick = |key: &str| -> Option<f64> {
-        let needle = format!("\"{}\" = ", key);
-        let idx = text.find(&needle)?;
-        let rest = &text[idx + needle.len()..];
-        let num: String = rest
-            .chars()
-            .take_while(|c| c.is_ascii_digit() || *c == '-')
-            .collect();
-        let n: i64 = num.parse().ok()?;
-        Some(n as f64 / 100.0)
-    };
-    pick("VirtualTemperature").or_else(|| pick("Temperature"))
+    parse_ioreg_centi_celsius(&text, "VirtualTemperature")
+        .or_else(|| parse_ioreg_centi_celsius(&text, "Temperature"))
+}
+
+/// Extract a centi-°C value for `key` from `ioreg`'s text dump.
+///
+/// `ioreg -r -n AppleSmartBattery` emits lines like
+/// `    "VirtualTemperature" = 3128` (centi-°C, here 31.28 °C).
+/// Pure function — separated from `read_macos_temp` so the parse can
+/// be exercised without spawning `ioreg`. Returns `None` when `key`
+/// isn't present, when the value isn't a parseable integer, or when
+/// the leading byte is a sign-not-followed-by-digits (rare but
+/// possible with corrupt ioreg output).
+pub fn parse_ioreg_centi_celsius(text: &str, key: &str) -> Option<f64> {
+    let needle = format!("\"{}\" = ", key);
+    let idx = text.find(&needle)?;
+    let rest = &text[idx + needle.len()..];
+    let num: String = rest
+        .chars()
+        .take_while(|c| c.is_ascii_digit() || *c == '-')
+        .collect();
+    let n: i64 = num.parse().ok()?;
+    Some(n as f64 / 100.0)
 }
 
 #[cfg(target_os = "macos")]
@@ -182,20 +193,19 @@ fn read_macos_fan() -> Option<u32> {
     None
 }
 
-/// Render `<temp>°C <rpm>RPM`.
-/// Theme JSON: `{"function": "powerliners.thermal.thermal",
-///   "args": {"family": "cpu", "format": "%s°C %sRPM"}}`
-pub fn thermal(family: &str, format: &str, temp_max: f64) -> Vec<Value> {
-    let r = read_thermal(family);
-    let temp = r
-        .temp_c
+/// Pure formatter for the thermal segment's `contents` field.
+///
+/// `format` is a `printf`-style template with up to two `%s` slots —
+/// the first holds the temperature (`?` when unavailable), the second
+/// holds fan RPM. When `fan_rpm` is `None`, everything from the second
+/// `%s` onward is dropped (rather than rendering a literal `?RPM`),
+/// and trailing whitespace before the second slot is trimmed so
+/// `"%s°C %sRPM"` collapses cleanly to `"36°C"` instead of `"36°C "`.
+pub fn format_thermal(temp_c: Option<f64>, fan_rpm: Option<u32>, format: &str) -> String {
+    let temp = temp_c
         .map(|c| format!("{}", c as i64))
         .unwrap_or_else(|| "?".to_string());
-    // When fan RPM isn't available (Apple Silicon, fanless machines),
-    // drop everything from the second `%s` onward instead of rendering
-    // a useless `?RPM` tail. Trims trailing whitespace/separators so
-    // `"%s°C %sRPM"` collapses cleanly to `"36°C"` rather than `"36°C "`.
-    let contents = if let Some(rpm_val) = r.fan_rpm {
+    if let Some(rpm_val) = fan_rpm {
         format
             .replacen("%s", &temp, 1)
             .replacen("%s", &rpm_val.to_string(), 1)
@@ -206,11 +216,27 @@ pub fn thermal(family: &str, format: &str, temp_max: f64) -> Vec<Value> {
             None => format,
         };
         head.replacen("%s", &temp, 1)
-    };
-    let gradient = match r.temp_c {
+    }
+}
+
+/// Pure helper: clamp `100 * temp / temp_max` into the `[0, 100]`
+/// gradient band used by powerline's `gradient_level`. Returns 0 when
+/// the temperature is unavailable or `temp_max <= 0` (defensive: the
+/// theme JSON could specify a non-positive ceiling).
+pub fn thermal_gradient(temp_c: Option<f64>, temp_max: f64) -> f64 {
+    match temp_c {
         Some(c) if temp_max > 0.0 => (100.0 * c / temp_max).clamp(0.0, 100.0),
         _ => 0.0,
-    };
+    }
+}
+
+/// Render `<temp>°C <rpm>RPM`.
+/// Theme JSON: `{"function": "powerliners.thermal.thermal",
+///   "args": {"family": "cpu", "format": "%s°C %sRPM"}}`
+pub fn thermal(family: &str, format: &str, temp_max: f64) -> Vec<Value> {
+    let r = read_thermal(family);
+    let contents = format_thermal(r.temp_c, r.fan_rpm, format);
+    let gradient = thermal_gradient(r.temp_c, temp_max);
     vec![json!({
         "contents": contents,
         "gradient_level": gradient,
@@ -256,5 +282,141 @@ mod tests {
         let out = thermal("cpu", "%s/%s", 50.0);
         let g = out[0]["gradient_level"].as_f64().unwrap_or(-1.0);
         assert!((0.0..=100.0).contains(&g));
+    }
+
+    // ---- format_thermal: pure formatter ----
+
+    #[test]
+    fn format_thermal_both_tokens_render_when_fan_available() {
+        let s = format_thermal(Some(48.0), Some(2400), "%s°C %sRPM");
+        assert_eq!(s, "48°C 2400RPM");
+    }
+
+    #[test]
+    fn format_thermal_temp_truncates_to_integer() {
+        // The `c as i64` cast in format_thermal truncates toward zero —
+        // 48.9 °C renders as `48`, not `49`. Pinned so a future
+        // rounding tweak is explicit.
+        let s = format_thermal(Some(48.9), Some(1000), "%s/%s");
+        assert_eq!(s, "48/1000");
+    }
+
+    #[test]
+    fn format_thermal_missing_temp_renders_question_mark() {
+        let s = format_thermal(None, Some(1500), "%s/%s");
+        assert_eq!(s, "?/1500");
+    }
+
+    #[test]
+    fn format_thermal_missing_fan_drops_rpm_tail() {
+        // The headline bug this codepath exists to prevent: rendering
+        // `?RPM` when fan probing is unavailable. Tail must be dropped
+        // and the trailing separator trimmed.
+        let s = format_thermal(Some(36.0), None, "%s°C %sRPM");
+        assert_eq!(s, "36°C");
+    }
+
+    #[test]
+    fn format_thermal_missing_fan_tab_separator_trimmed() {
+        // Trims `\t` as well as `' '` — the trim_end_matches closure
+        // includes both. Pin the tab variant so a future cleanup
+        // doesn't quietly drop it.
+        let s = format_thermal(Some(36.0), None, "%s°C\t\t%sRPM");
+        assert_eq!(s, "36°C");
+    }
+
+    #[test]
+    fn format_thermal_single_slot_format() {
+        // Theme that doesn't care about RPM — only one `%s`. Both
+        // branches (fan present / absent) should produce the same
+        // output because the second-slot logic is short-circuited.
+        let s_with = format_thermal(Some(50.0), Some(1200), "%s°C");
+        let s_without = format_thermal(Some(50.0), None, "%s°C");
+        assert_eq!(s_with, "50°C");
+        assert_eq!(s_without, "50°C");
+    }
+
+    #[test]
+    fn format_thermal_no_slots_passes_format_through() {
+        // No `%s` at all — string passes through unchanged.
+        let s = format_thermal(Some(50.0), Some(1200), "literal text");
+        assert_eq!(s, "literal text");
+    }
+
+    // ---- thermal_gradient: ratio math + clamps ----
+
+    #[test]
+    fn thermal_gradient_ratio_is_percentage_of_max() {
+        // 50/100 → 50%, exact float equality is fine here (1 / 2).
+        assert_eq!(thermal_gradient(Some(50.0), 100.0), 50.0);
+    }
+
+    #[test]
+    fn thermal_gradient_clamps_overshoot_to_100() {
+        // Reading above temp_max → clamped to 100, never panicking.
+        assert_eq!(thermal_gradient(Some(150.0), 100.0), 100.0);
+    }
+
+    #[test]
+    fn thermal_gradient_returns_zero_when_temp_absent() {
+        assert_eq!(thermal_gradient(None, 100.0), 0.0);
+    }
+
+    #[test]
+    fn thermal_gradient_returns_zero_when_max_nonpositive() {
+        // Defensive — theme JSON could pass `temp_max: 0` or a
+        // negative value; we must not divide by zero or report NaN.
+        assert_eq!(thermal_gradient(Some(50.0), 0.0), 0.0);
+        assert_eq!(thermal_gradient(Some(50.0), -10.0), 0.0);
+    }
+
+    // ---- parse_ioreg_centi_celsius: AppleSmartBattery dump parser ----
+
+    #[test]
+    fn parse_ioreg_extracts_named_centi_celsius_value() {
+        // Realistic shape of an ioreg AppleSmartBattery line: 4-space
+        // indent, quoted key, ` = `, integer in centi-°C (3128 →
+        // 31.28 °C). Pinned with floating-point tolerance because the
+        // n/100 division isn't exactly representable.
+        let text = r#"    | |   "VirtualTemperature" = 3128
+    | |   "Temperature" = 3010
+"#;
+        let got = parse_ioreg_centi_celsius(text, "VirtualTemperature").unwrap();
+        assert!((got - 31.28).abs() < 1e-9, "got {got}");
+    }
+
+    #[test]
+    fn parse_ioreg_falls_back_via_two_calls() {
+        // Mirrors the production call: try VirtualTemperature first,
+        // then Temperature. When the first key is absent we still
+        // resolve via the second.
+        let text = "    \"Temperature\" = 2500\n";
+        assert!(parse_ioreg_centi_celsius(text, "VirtualTemperature").is_none());
+        let got = parse_ioreg_centi_celsius(text, "Temperature").unwrap();
+        assert!((got - 25.0).abs() < 1e-9, "got {got}");
+    }
+
+    #[test]
+    fn parse_ioreg_missing_key_returns_none() {
+        let text = "    \"NotTheKey\" = 1234\n";
+        assert!(parse_ioreg_centi_celsius(text, "VirtualTemperature").is_none());
+    }
+
+    #[test]
+    fn parse_ioreg_handles_negative_value() {
+        // ioreg can emit signed values for chilled / cold-soak readings;
+        // the `*c == '-'` guard in take_while must let the sign through.
+        let text = "    \"Temperature\" = -250\n";
+        let got = parse_ioreg_centi_celsius(text, "Temperature").unwrap();
+        assert!((got - (-2.5)).abs() < 1e-9, "got {got}");
+    }
+
+    #[test]
+    fn parse_ioreg_value_without_digits_returns_none() {
+        // Defensive: corrupt key with no parseable digit run → None,
+        // not a panic. Reproduces the take_while-then-parse path
+        // returning empty.
+        let text = "    \"Temperature\" = xx99\n";
+        assert!(parse_ioreg_centi_celsius(text, "Temperature").is_none());
     }
 }
