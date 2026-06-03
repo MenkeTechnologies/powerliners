@@ -120,6 +120,76 @@
     </section>
 
     <section class="tutorial-section">
+      <h2>+ ARCHITECTURE</h2>
+      <p>End-to-end data flow from a shell / editor / multiplexer hook down to the rendered statusline bytes. Every layer below is wired and exercised by the lib + parity test suites; the only run-time variability is which segment modules a given <code>theme.json</code> references.</p>
+      <pre>┌───────────────────────────────────────────────────────────────────┐
+│  HOOK SURFACE                                                     │
+│  tmux statusline │ zsh PROMPT │ bash PS1 │ vim &amp;statusline        │
+│  ipython prompt  │ i3bar      │ wm / awesome │ shell continuation │
+└─────────────────────────────────┬─────────────────────────────────┘
+                                  │ exec `powerline &lt;ext&gt; &lt;side&gt; -r k=v…`
+                                  ▼
+┌───────────────────────────────────────────────────────────────────┐
+│  WIRE LAYER  ─  src/bin/powerline.rs (thin C-style client)        │
+│                                                                   │
+│  pack argv + cwd + env  →  `hex(argc)\0 a\0 b\0 … cwd\0 …\0\0`    │
+│                                                                   │
+│   ├─ connect /tmp/powerline-ipc-$UID        (macOS / BSD)         │
+│   ├─ connect \0powerline-ipc-$UID           (Linux abstract)      │
+│   └─ on connect-fail → execvp("powerline-render", argv)           │
+└─────────────────────────────────┬─────────────────────────────────┘
+                                  │ unix socket request
+                                  ▼
+┌───────────────────────────────────────────────────────────────────┐
+│  DAEMON main_loop  ─  src/bin/powerline-daemon.rs                 │
+│                                                                   │
+│  accept()  →  parse_client_argv  →  Args { ext, side, … }         │
+│                                                                   │
+│  Configs cache  (keyed by ext: tmux / vim / shell / ipython)      │
+│   ├─ Theme tree  +  Colorscheme cascade                           │
+│   ├─ Renderer state (TmuxRenderer | VimRenderer | …)              │
+│   └─ ADAPTERS dispatch table (built-in segments)                  │
+│                                                                   │
+│  render_runtime::render_once(args, environ, cwd, configs, R)      │
+└─────────────────────────────────┬─────────────────────────────────┘
+                                  │ segment fn calls
+                                  ▼
+┌───────────────────────────────────────────────────────────────────┐
+│  SEGMENT LAYER                                                    │
+│                                                                   │
+│  src/extensions/  ─  net-new live-data segments                   │
+│   ├─ gpu / thermal / disk / mem / proc / docker / k8s             │
+│   ├─ github_ci / aws_ctx / gcp_ctx / git_status                   │
+│   └─ cache-size: fusevm_jit / {zshrs,stryke,awkrs}_rkyv           │
+│                                                                   │
+│  src/ported/segments/  ─  1:1 mirror of upstream                  │
+│   ├─ common / shell / tmux / vim / i3 / ipython                   │
+│   └─ plugins: nerdtree / syntastic / ale / coc / tagbar / …       │
+│                                                                   │
+│  each returns Vec&lt;{contents, highlight_groups, divider_*}&gt;        │
+└─────────────────────────────────┬─────────────────────────────────┘
+                                  │ segment chunks
+                                  ▼
+┌───────────────────────────────────────────────────────────────────┐
+│  RENDERER  ─  src/ported/renderers/                               │
+│                                                                   │
+│  TmuxRenderer    →  #[fg=#RRGGBB,bg=…] markup + hard/soft         │
+│                     dividers, empty-side handling                 │
+│  VimRenderer     →  :hi Pl_&lt;cf&gt;_&lt;gf&gt;_&lt;cb&gt;_&lt;gb&gt;_&lt;a&gt; …              │
+│                     + %#Pl_…# inline references                   │
+│  ShellRenderer   →  zsh / bash ANSI escape sequences              │
+│  IpyRenderer     →  IPython prompt markup                         │
+└─────────────────────────────────┬─────────────────────────────────┘
+                                  │ bytes
+                                  ▼
+                  ┌────────────────────────────────┐
+                  │  stdout  /  socket reply       │
+                  │  (statusline  /  prompt body)  │
+                  └────────────────────────────────┘</pre>
+      <p>Configs persist for the lifetime of the daemon process — bound at first request for a given <code>ext</code>, reused on every subsequent render. Theme + colorscheme JSON parses once; <code>VimRenderer</code>'s <code>(fg, bg, attrs) → hl_group</code> cache compounds across renders so repeated <code>:hi GroupName …</code> declarations are emitted only on first encounter (subsequent vim renders ship just <code>%#GroupName#</code> references). The C-client / daemon split + <code>execvp</code> fallback are byte-compatible with upstream's <code>client/powerline.c</code>, so an existing Python-installed <code>powerline</code> binary talks to this daemon unchanged.</p>
+    </section>
+
+    <section class="tutorial-section">
       <h2>@ EXECUTION PIPELINE (target)</h2>
       <pre>argv  ───►  CLI parse  ───►  segment renderer  ───►  encoded statusline
                   │                  │                       │
