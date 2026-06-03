@@ -275,6 +275,79 @@ cargo build
 ls target/debug/powerliners target/debug/powerline-{render,lint,config,daemon}</pre>
       <p>Five binaries land in <code>target/debug/</code>: <code>powerliners</code> (demo CLI for ported leaf utilities), <code>powerline-render</code>, <code>powerline-lint</code>, <code>powerline-config</code>, and <code>powerline-daemon</code>. The daemon lifecycle (UNIX socket bind, daemonize, pidfile lock, accept loop, EOF shutdown) is fully functional; render returns a placeholder string until the <code>Powerline</code> orchestrator integration completes. <code>powerline-render</code> / <code>powerline-lint</code> / <code>powerline-config</code> shim through the ported <code>scripts/</code> module mains — argparse and dispatch live, full pipelines depend on the same orchestrator chain.</p>
     </section>
+
+    <section class="tutorial-section">
+      <h2>Vim setup</h2>
+      <p>Vim statusline + tabline rendering ships in the same <code>powerline</code> binary — no <code>+python3</code> requirement, no <code>pip install powerline-status</code>. The bundled <code>powerline.vim</code> plugin is embedded via <code>include_str!</code> and extracted to <code>~/.cache/powerliners/vim/powerline.vim</code> on first source. Works on vim 7.4+, vim 9, and neovim (vim8-compatible syntax only — no <code>vim9script</code> lock-in).</p>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">Step 1 &mdash; source the plugin from .vimrc</h3>
+      <p>One-line install — extracts and sources the plugin on every launch:</p>
+      <pre>if executable('powerline-config')
+  execute 'source' trim(system('powerline-config vim source-path'))
+endif</pre>
+      <p><code>powerline-config vim source-path</code> extracts the bundled plugin and prints its path; the <code>:execute 'source' &hellip;</code> then sources it. Caches in <code>$XDG_CACHE_HOME/powerliners/vim/</code> (default <code>~/.cache/powerliners/vim/</code>) so subsequent launches re-source from disk.</p>
+      <p>Or the manual two-step (pin the path, skip the per-launch fork):</p>
+      <pre># one-time extraction
+$ powerline-config vim source-path
+/Users/&lt;you&gt;/.cache/powerliners/vim/powerline.vim
+
+" .vimrc
+set runtimepath+=~/.cache/powerliners/vim
+source ~/.cache/powerliners/vim/powerline.vim</pre>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">Step 2 &mdash; pre-start the daemon</h3>
+      <p>The plugin shells out via <code>system('powerline vim left &hellip;')</code> on every statusline refresh. With the daemon running that's a microsecond Unix-socket round-trip; without it every refresh fork-execs <code>powerline-render</code> (~30 ms cold per call). Start the daemon once at shell login (<code>.zshrc</code> / <code>.bash_profile</code>):</p>
+      <pre>powerline-daemon -q</pre>
+      <p>The <code>-q</code> flag double-forks and detaches; vim sees the socket immediately. No per-vim daemon — one process per UID handles tmux, shell prompts, and every running vim simultaneously.</p>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">Step 3 &mdash; verify</h3>
+      <p>Open a fresh vim session and check:</p>
+      <pre>:echo &amp;statusline
+" expected: a %#Pl_…# markup string ending in segment chunks
+
+:PowerlinersRefresh
+" manually re-runs the refresh; useful for debugging
+
+:messages
+" no errors; if 'powerline: write() to daemon failed' shows up,
+" the daemon isn't reachable — re-run `powerline-daemon -q`</pre>
+      <p>The plugin sets <code>laststatus=2</code> automatically so the statusline shows even in single-window sessions.</p>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">What the plugin wires up</h3>
+      <p>Triggered autocmds (<code>augroup powerliners</code>):</p>
+      <table class="audit-tbl" style="margin-top:0.4rem;">
+        <thead><tr><th>event</th><th>fires when</th></tr></thead>
+        <tbody>
+          <tr><td><code>VimEnter</code></td><td>initial render on launch</td></tr>
+          <tr><td><code>WinEnter</code> / <code>BufWinEnter</code> / <code>BufEnter</code> / <code>TabEnter</code></td><td>refresh on window / buffer / tab context switch</td></tr>
+          <tr><td><code>ModeChanged</code> (vim &ge; 8.2.2871)</td><td>mode transitions (normal &rarr; insert &hellip;)</td></tr>
+          <tr><td><code>CursorMoved</code> / <code>CursorMovedI</code> (legacy fallback)</td><td>every cursor move on ancient vim — upgrade if possible</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:0.6rem;">Per-request keys sent to the renderer (matches upstream's <code>powerline.bindings.vim</code> so theme JSON written for Python upstream renders identically): <code>mode</code> (<code>mode(1)</code>), <code>bufnr</code> (<code>bufnr('%')</code>), <code>winnr</code> (<code>winnr()</code>), <code>buf_name</code> (<code>expand('%:p')</code>, omitted when empty).</p>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">Override the binary name</h3>
+      <p>If you've installed under a non-default name or want to test a build from <code>target/release/</code>, set the global before sourcing:</p>
+      <pre>let g:powerliners_binary = expand('~/code/powerliners/target/release/powerline')
+if executable(g:powerliners_binary)
+  execute 'source' trim(system(g:powerliners_binary . '-config vim source-path'))
+endif</pre>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">Customize the theme</h3>
+      <p>The vim statusline pulls from <code>~/.config/powerline/themes/vim/default.json</code> plus <code>~/.config/powerline/colorschemes/vim/default.json</code>. Bundled defaults live under <code>src/ported/config_files/themes/vim/</code> and <code>src/ported/config_files/colorschemes/vim/</code>; copy any of them into <code>~/.config/powerline/</code> and edit. Same JSON shape as upstream — segments listed under <code>segments.left</code> / <code>segments.right</code>, inheritance via <code>extends</code>, per-mode highlight overrides via <code>mode_translations</code>.</p>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">Troubleshooting</h3>
+      <table class="audit-tbl">
+        <thead><tr><th>symptom</th><th>cause / fix</th></tr></thead>
+        <tbody>
+          <tr><td>empty statusline</td><td><code>set laststatus=2</code> got stomped by something else in <code>.vimrc</code>; re-set after sourcing the plugin</td></tr>
+          <tr><td>garbled escape codes</td><td>terminal doesn't support truecolor; renderer falls back to cterm but vim must run in a 256-color tty (<code>$TERM=xterm-256color</code>)</td></tr>
+          <tr><td>colors don't match terminal</td><td>colorscheme JSON missing your custom palette — copy <code>colorschemes/vim/default.json</code> into <code>~/.config/powerline/colorschemes/vim/</code></td></tr>
+          <tr><td><code>powerline: write() to daemon failed</code></td><td>daemon isn't running; <code>powerline-daemon -q</code></td></tr>
+          <tr><td>refresh stutters / flickers</td><td>the legacy <code>CursorMoved</code> fallback is firing on every keystroke (vim &lt; 8.2.2871); upgrade vim</td></tr>
+        </tbody>
+      </table>
+    </section>
     <section class="tutorial-section">
       <h2>Bundled segments</h2>
       <p><code>src/extensions/</code> ships net-new segments above upstream powerline-status, dispatched as standard built-ins via the daemon's <code>ADAPTERS</code> table. All accept a <code>format</code> theme arg and ship NF-default icons with Unicode + ASCII fallbacks (controlled by <code>POWERLINERS_ICONS</code>).</p>
