@@ -463,6 +463,42 @@ the daemon's `ADAPTERS` table — adding more follows the same pattern
 (no new fn-name rules apply per `docs/PORT.md`'s `src/extensions/`
 carve-out).
 
+### `> Cache-size segments — shared resolution chain`
+
+The four cache-size segments (`fusevm.jit_cache`, `zshrs.rkyv_cache`,
+`stryke.rkyv_cache`, `awkrs.rkyv_cache`) share a uniform 4-level
+resolution chain and an identical `{size}` / `{bytes}` / `{logical_size}` /
+`{logical_bytes}` token surface so the same theme JSON works across all
+four. Each is a pure filesystem probe — no subprocess, no daemon RPC.
+
+For the rkyv segments, `<NAME> ∈ {ZSHRS, STRYKE, AWKRS}`:
+
+1. `$<NAME>_RKYV_CACHE` — explicit override, used verbatim
+2. `$<NAME>_HOME/scripts.rkyv`
+3. `$XDG_DATA_HOME/<name>/scripts.rkyv` — used only when the file exists
+4. `~/.<name>/scripts.rkyv` — final fallback
+
+`fusevm.jit_cache` uses the analogous 3-level chain
+(`$FUSEVM_JIT_CACHE` → `$XDG_CACHE_HOME/fusevm-jit` →
+`~/.cache/fusevm-jit`) but recursively walks a cache directory rather
+than stat-ing a single archive, and also tracks an `{entries}` token
+for the recursive file count. Symlinks count as a single entry and are
+never followed (avoids infinite loops across re-symlinked cache dirs).
+
+The resolution chain is unit-tested via a pure-functional
+`default_path_with(get_env, path_exists)` seam in
+`src/extensions/{zshrs,stryke,awkrs}_rkyv.rs` and a matching
+`default_root_with(get_env)` seam in `src/extensions/fusevm_jit.rs` —
+no env-var mutation in tests, no thread-safety hazard, every
+precedence level pinned.
+
+Missing-archive behavior: returns `None` by default (no chunk renders).
+Set `"show_when_empty": true` to render zeroed stats (`0B`/`0`) instead.
+
+Highlight-group chain (3 levels): `<segment>_rkyv_cache` →
+`<segment>` → `information:regular`. The trailing `information:regular`
+is a neutral fallback so the chunk renders in any colorscheme.
+
 ---
 
 ## `> LICENSE`

@@ -305,6 +305,30 @@ ls target/debug/powerliners target/debug/powerline-{render,lint,config,daemon}</
         </tbody>
       </table>
       <p style="margin-top:0.8rem;">All segments live under <code>src/extensions/&lt;module&gt;.rs</code> and register through the daemon's <code>ADAPTERS</code> table in <code>src/bin/shared/render_runtime.rs</code> — see the audit section below for the live icon → segment cross-reference.</p>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.4rem 0 0.4rem;">Cache-size segments — shared resolution chain &amp; token surface</h3>
+      <p>The four cache-size segments — <code>powerliners.fusevm.jit_cache</code>, <code>powerliners.zshrs.rkyv_cache</code>, <code>powerliners.stryke.rkyv_cache</code>, <code>powerliners.awkrs.rkyv_cache</code> — share a deliberately uniform contract so the same theme JSON works across all four. Each segment is a pure filesystem probe; no subprocess, no daemon RPC.</p>
+      <p style="margin-top:0.6rem;"><strong>Resolution chain</strong> (4-level fallback, first hit wins). For <code>&lt;NAME&gt; ∈ {ZSHRS, STRYKE, AWKRS}</code> the rkyv segments resolve <code>path</code> as:</p>
+      <ol style="margin:0.3rem 0 0.6rem 1.5rem;">
+        <li><code>$&lt;NAME&gt;_RKYV_CACHE</code> — explicit override, used verbatim</li>
+        <li><code>$&lt;NAME&gt;_HOME/scripts.rkyv</code></li>
+        <li><code>$XDG_DATA_HOME/&lt;name&gt;/scripts.rkyv</code> — used only when the file exists; otherwise falls through</li>
+        <li><code>~/.&lt;name&gt;/scripts.rkyv</code> — final fallback</li>
+      </ol>
+      <p style="margin-top:0.4rem;">The <code>fusevm.jit_cache</code> sibling uses the directly-analogous 3-level chain (<code>$FUSEVM_JIT_CACHE</code> → <code>$XDG_CACHE_HOME/fusevm-jit</code> → <code>~/.cache/fusevm-jit</code>) but recursively walks a cache <em>directory</em> rather than stat-ing a single archive, and also exposes an <code>{entries}</code> token for the recursive file count. Symlinks count as a single entry and are never followed — avoids infinite loops across re-symlinked cache dirs. The precedence chains are unit-tested via a pure-functional <code>default_path_with(get_env, path_exists)</code> seam in <code>src/extensions/{zshrs,stryke,awkrs}_rkyv.rs</code> and a matching <code>default_root_with(get_env)</code> seam in <code>src/extensions/fusevm_jit.rs</code> — every precedence level pinned without mutating the process env.</p>
+      <p style="margin-top:0.6rem;"><strong>Format tokens</strong> (identical across all four segments):</p>
+      <table class="audit-tbl" style="margin-top:0.4rem;">
+        <thead><tr><th>token</th><th>meaning</th></tr></thead>
+        <tbody>
+          <tr><td><code>{icon}</code></td><td>Segment glyph — substituted downstream by the render runtime, not by the segment module itself. The Nerd Font / Unicode / ASCII tier is selected by <code>POWERLINERS_ICONS</code>.</td></tr>
+          <tr><td><code>{size}</code></td><td>On-disk allocation, human-formatted (B/K/M/G/T/P, 1024-base, precision tiers <code>&lt;10</code>→2dp / <code>&lt;100</code>→1dp / else→0dp). Matches <code>du -sh</code>.</td></tr>
+          <tr><td><code>{bytes}</code></td><td>On-disk allocation as a raw integer (block count × 512 on Unix; <code>stat .st_blocks</code>).</td></tr>
+          <tr><td><code>{logical_size}</code></td><td>File content size from <code>stat .st_size</code>, human-formatted.</td></tr>
+          <tr><td><code>{logical_bytes}</code></td><td>File content size as a raw integer.</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:0.6rem;"><strong>Missing-archive behavior.</strong> When the target file doesn't exist (the runtime never ran on this machine, or the archive hasn't been written yet), the segment returns <code>None</code> by default and renders no chunk. Setting <code>"show_when_empty": true</code> in the segment args makes it render with zeroed stats (<code>0B</code>/<code>0</code>) so the chunk stays present as a UI affordance.</p>
+      <p style="margin-top:0.4rem;"><strong>Highlight-group chain.</strong> Every cache-size segment ships a 3-level highlight chain — <code>&lt;segment&gt;_rkyv_cache</code> → <code>&lt;segment&gt;</code> → <code>information:regular</code>. The trailing <code>information:regular</code> is a neutral fallback so the chunk renders in any colorscheme even when the segment-specific groups are absent (see <code>fusevm_jit::jit_cache()</code> for the rationale that motivated this convention).</p>
     </section>
 
     <section class="tutorial-section">

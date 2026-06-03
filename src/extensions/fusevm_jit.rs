@@ -38,6 +38,7 @@
 //! - `{logical_bytes}` — sum of file content sizes, raw integer
 
 use serde_json::{json, Value};
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -71,11 +72,20 @@ fn block_bytes(meta: &std::fs::Metadata) -> u64 {
 }
 
 fn default_root() -> PathBuf {
-    if let Some(p) = std::env::var_os("FUSEVM_JIT_CACHE") {
+    default_root_with(|k| std::env::var_os(k))
+}
+
+/// Pure-functional core of `default_root()` — takes the env-var lookup
+/// as a parameter so the 3-level resolution chain
+/// (`$FUSEVM_JIT_CACHE` → `$XDG_CACHE_HOME/fusevm-jit`
+/// → `~/.cache/fusevm-jit`) can be unit-tested without mutating the
+/// process env. Mirrors the seam in the rkyv-cache sibling modules.
+fn default_root_with(get_env: impl Fn(&str) -> Option<OsString>) -> PathBuf {
+    if let Some(p) = get_env("FUSEVM_JIT_CACHE") {
         return PathBuf::from(p);
     }
-    let xdg = std::env::var_os("XDG_CACHE_HOME").map(PathBuf::from);
-    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let xdg = get_env("XDG_CACHE_HOME").map(PathBuf::from);
+    let home = get_env("HOME").map(PathBuf::from);
     let base = xdg
         .or_else(|| home.map(|h| h.join(".cache")))
         .unwrap_or_else(|| PathBuf::from("/tmp"));
@@ -382,5 +392,212 @@ mod tests {
     #[test]
     fn expand_tilde_passes_absolute_through() {
         assert_eq!(expand_tilde("/abs/path"), PathBuf::from("/abs/path"));
+    }
+
+    // ---- default_root resolution chain (pure-functional via closure) ----
+
+    fn env_map(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<OsString> {
+        let owned: Vec<(String, OsString)> = pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), OsString::from(*v)))
+            .collect();
+        move |k: &str| owned.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone())
+    }
+
+    #[test]
+    fn default_root_fusevm_jit_cache_wins_over_everything() {
+        let g = env_map(&[
+            ("FUSEVM_JIT_CACHE", "/explicit/cache/root"),
+            ("XDG_CACHE_HOME", "/xdg/cache"),
+            ("HOME", "/home/u"),
+        ]);
+        assert_eq!(default_root_with(g), PathBuf::from("/explicit/cache/root"));
+    }
+
+    #[test]
+    fn default_root_xdg_cache_home_wins_over_home() {
+        let g = env_map(&[("XDG_CACHE_HOME", "/xdg/cache"), ("HOME", "/home/u")]);
+        assert_eq!(default_root_with(g), PathBuf::from("/xdg/cache/fusevm-jit"));
+    }
+
+    #[test]
+    fn default_root_falls_back_to_home_dot_cache() {
+        let g = env_map(&[("HOME", "/home/u")]);
+        assert_eq!(
+            default_root_with(g),
+            PathBuf::from("/home/u/.cache/fusevm-jit")
+        );
+    }
+
+    #[test]
+    fn default_root_with_no_env_falls_back_to_tmp() {
+        // Last-resort path when neither XDG_CACHE_HOME nor HOME is set —
+        // documents the actual behavior (vs leaving a `None` that would
+        // crash the prompt later).
+        let g = env_map(&[]);
+        assert_eq!(default_root_with(g), PathBuf::from("/tmp/fusevm-jit"));
+    }
+
+    // ---- human_bytes scaling boundaries ----
+
+    #[test]
+    fn human_bytes_zero_is_plain_bytes() {
+        assert_eq!(human_bytes(0), "0B");
+    }
+
+    #[test]
+    fn human_bytes_under_kib_stays_in_bytes() {
+        assert_eq!(human_bytes(1), "1B");
+        assert_eq!(human_bytes(1023), "1023B");
+    }
+
+    #[test]
+    fn human_bytes_kib_boundary() {
+        assert_eq!(human_bytes(1024), "1.00K");
+        assert_eq!(human_bytes(1025), "1.00K");
+        assert_eq!(human_bytes(1536), "1.50K");
+    }
+
+    #[test]
+    fn human_bytes_precision_tiers() {
+        // <10 → 2 decimals, <100 → 1 decimal, else → 0 decimals
+        assert_eq!(human_bytes(9 * 1024), "9.00K");
+        assert_eq!(human_bytes(10 * 1024), "10.0K");
+        assert_eq!(human_bytes(99 * 1024), "99.0K");
+        assert_eq!(human_bytes(100 * 1024), "100K");
+        assert_eq!(human_bytes(1023 * 1024), "1023K");
+    }
+
+    #[test]
+    fn human_bytes_full_suffix_chain() {
+        assert_eq!(human_bytes(1024 * 1024), "1.00M");
+        assert_eq!(human_bytes(1024 * 1024 * 1024), "1.00G");
+        assert_eq!(human_bytes(1024u64.pow(4)), "1.00T");
+        assert_eq!(human_bytes(1024u64.pow(5)), "1.00P");
+    }
+
+    // ---- expand_tilde edge cases ----
+
+    #[test]
+    fn expand_tilde_passes_relative_through() {
+        assert_eq!(expand_tilde("relative/dir"), PathBuf::from("relative/dir"));
+    }
+
+    #[test]
+    fn expand_tilde_does_not_expand_bare_tilde() {
+        // Lone `~` (no trailing slash) is not expanded — matches what
+        // the function actually does, vs the shell's HOME expansion.
+        assert_eq!(expand_tilde("~"), PathBuf::from("~"));
+    }
+
+    // ---- scan_dir edge cases ----
+
+    #[test]
+    fn scan_dir_counts_empty_file_as_entry_but_zero_bytes() {
+        let d = tmpdir("empty-file");
+        writef(&d.join("zero"), &[]);
+        let s = scan_dir(&d).unwrap();
+        assert_eq!(s.entries, 1);
+        assert_eq!(s.bytes, 0);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn scan_dir_counts_symlink_as_entry_without_traversing() {
+        // Symlinks must count as a single entry and never be followed —
+        // the comment in scan_dir notes this is to avoid infinite loops
+        // across re-symlinked cache dirs.
+        let d = tmpdir("symlink");
+        writef(&d.join("real"), &[0u8; 50]);
+        std::os::unix::fs::symlink(d.join("real"), d.join("link")).unwrap();
+        let s = scan_dir(&d).unwrap();
+        // 1 real file + 1 symlink entry; symlink contributes 0 bytes
+        // because it isn't followed.
+        assert_eq!(s.entries, 2);
+        assert_eq!(s.bytes, 50);
+    }
+
+    // ---- format-token rendering ----
+
+    #[test]
+    fn jit_cache_size_token_renders_human_formatted_disk_allocation() {
+        // {size} is the human-formatted form of disk_bytes. For any
+        // populated cache disk_bytes >= logical, so {size} must carry a
+        // suffix from the B/K/M/G chain.
+        let d = tmpdir("size-human");
+        writef(&d.join("a"), &[0u8; 4096]);
+        let r = jit_cache(d.to_str().unwrap(), "{size}", false).unwrap();
+        let s = r[0]["contents"].as_str().unwrap();
+        assert!(
+            s.ends_with('B') || s.ends_with('K') || s.ends_with('M'),
+            "{{size}} must end with a human suffix, got {s:?}"
+        );
+    }
+
+    #[test]
+    fn jit_cache_all_five_tokens_render_together() {
+        // The full token surface: entries + 4 size-flavored tokens.
+        let d = tmpdir("all-tokens");
+        writef(&d.join("a"), &[0u8; 4096]);
+        let r = jit_cache(
+            d.to_str().unwrap(),
+            "[{entries}|{size}|{bytes}|{logical_size}|{logical_bytes}]",
+            false,
+        )
+        .unwrap();
+        let s = r[0]["contents"].as_str().unwrap();
+        assert!(
+            s.starts_with('[') && s.ends_with(']'),
+            "literal brackets preserved: {s:?}"
+        );
+        assert!(s.contains("|1|") || s.starts_with("[1|"), "entries=1: {s}");
+        assert!(s.contains("|4.00K|"), "logical_size=4.00K: {s}");
+        assert!(s.contains("|4096]"), "logical_bytes=4096: {s}");
+    }
+
+    #[test]
+    fn jit_cache_icon_token_passes_through_unsubstituted() {
+        // The {icon} token is substituted downstream by the render
+        // runtime, not by this module — it must reach the caller
+        // untouched.
+        let d = tmpdir("icon");
+        writef(&d.join("a"), &[0u8; 1]);
+        let r = jit_cache(d.to_str().unwrap(), "{icon} {entries}", false).unwrap();
+        let s = r[0]["contents"].as_str().unwrap();
+        assert!(s.starts_with("{icon} "), "icon token preserved: {s:?}");
+    }
+
+    #[test]
+    fn jit_cache_unknown_token_passes_through_unchanged() {
+        let d = tmpdir("unknown");
+        writef(&d.join("a"), &[0u8; 1]);
+        let r = jit_cache(d.to_str().unwrap(), "{wat}/{entries}", false).unwrap();
+        let s = r[0]["contents"].as_str().unwrap();
+        assert!(s.starts_with("{wat}/"), "unknown tokens preserved: {s:?}");
+    }
+
+    #[test]
+    fn jit_cache_divider_highlight_group_is_background_divider() {
+        let d = tmpdir("divider");
+        writef(&d.join("a"), &[0u8; 1]);
+        let r = jit_cache(d.to_str().unwrap(), "{entries}", false).unwrap();
+        assert_eq!(
+            r[0]["divider_highlight_group"].as_str().unwrap(),
+            "background:divider"
+        );
+    }
+
+    #[test]
+    fn jit_cache_highlight_group_chain_is_fusevm_specific() {
+        // The first two groups identify the segment in user themes —
+        // part of the public theming contract, not just the neutral
+        // fallback tail. The chain is documented inline at the call
+        // site and must not drift.
+        let d = tmpdir("hl-chain");
+        writef(&d.join("a"), &[0u8; 1]);
+        let r = jit_cache(d.to_str().unwrap(), "{entries}", false).unwrap();
+        let groups = r[0]["highlight_groups"].as_array().unwrap();
+        assert_eq!(groups[0].as_str().unwrap(), "fusevm_jit_cache");
+        assert_eq!(groups[1].as_str().unwrap(), "fusevm");
     }
 }

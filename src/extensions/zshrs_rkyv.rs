@@ -37,6 +37,7 @@
 //! - `{logical_bytes}` — file content size, raw integer
 
 use serde_json::{json, Value};
+use std::ffi::OsString;
 use std::fs;
 use std::path::PathBuf;
 
@@ -59,19 +60,29 @@ fn block_bytes(meta: &std::fs::Metadata) -> u64 {
 }
 
 fn default_path() -> PathBuf {
-    if let Some(p) = std::env::var_os("ZSHRS_RKYV_CACHE") {
+    default_path_with(|k| std::env::var_os(k), |p| p.exists())
+}
+
+/// Pure-functional core of `default_path()` — takes env-var lookup and
+/// path-existence predicates as parameters so the 4-level resolution
+/// chain can be unit-tested without mutating the process env.
+fn default_path_with(
+    get_env: impl Fn(&str) -> Option<OsString>,
+    path_exists: impl Fn(&std::path::Path) -> bool,
+) -> PathBuf {
+    if let Some(p) = get_env("ZSHRS_RKYV_CACHE") {
         return PathBuf::from(p);
     }
-    if let Some(home) = std::env::var_os("ZSHRS_HOME") {
+    if let Some(home) = get_env("ZSHRS_HOME") {
         return PathBuf::from(home).join("scripts.rkyv");
     }
-    if let Some(xdg) = std::env::var_os("XDG_DATA_HOME") {
+    if let Some(xdg) = get_env("XDG_DATA_HOME") {
         let p = PathBuf::from(xdg).join("zshrs").join("scripts.rkyv");
-        if p.exists() {
+        if path_exists(&p) {
             return p;
         }
     }
-    let home = std::env::var_os("HOME").unwrap_or_default();
+    let home = get_env("HOME").unwrap_or_default();
     PathBuf::from(home).join(".zshrs").join("scripts.rkyv")
 }
 
@@ -209,5 +220,235 @@ mod tests {
             groups.last().unwrap().as_str().unwrap(),
             "information:regular"
         );
+    }
+
+    // ---- default_path resolution chain (pure-functional via closures) ----
+
+    fn env_map(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<OsString> {
+        let owned: Vec<(String, OsString)> = pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), OsString::from(*v)))
+            .collect();
+        move |k: &str| owned.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone())
+    }
+
+    #[test]
+    fn default_path_zshrs_rkyv_cache_wins_over_everything() {
+        let g = env_map(&[
+            ("ZSHRS_RKYV_CACHE", "/explicit/override.rkyv"),
+            ("ZSHRS_HOME", "/zshrs/home"),
+            ("XDG_DATA_HOME", "/xdg"),
+            ("HOME", "/home/u"),
+        ]);
+        assert_eq!(
+            default_path_with(g, |_| true),
+            PathBuf::from("/explicit/override.rkyv")
+        );
+    }
+
+    #[test]
+    fn default_path_zshrs_home_wins_over_xdg_and_home() {
+        let g = env_map(&[
+            ("ZSHRS_HOME", "/zshrs/home"),
+            ("XDG_DATA_HOME", "/xdg"),
+            ("HOME", "/home/u"),
+        ]);
+        assert_eq!(
+            default_path_with(g, |_| true),
+            PathBuf::from("/zshrs/home/scripts.rkyv")
+        );
+    }
+
+    #[test]
+    fn default_path_uses_xdg_when_archive_exists() {
+        let g = env_map(&[("XDG_DATA_HOME", "/xdg"), ("HOME", "/home/u")]);
+        assert_eq!(
+            default_path_with(g, |_| true),
+            PathBuf::from("/xdg/zshrs/scripts.rkyv")
+        );
+    }
+
+    #[test]
+    fn default_path_skips_xdg_when_archive_missing() {
+        let g = env_map(&[("XDG_DATA_HOME", "/xdg"), ("HOME", "/home/u")]);
+        assert_eq!(
+            default_path_with(g, |_| false),
+            PathBuf::from("/home/u/.zshrs/scripts.rkyv")
+        );
+    }
+
+    #[test]
+    fn default_path_falls_back_to_home_dot_zshrs() {
+        let g = env_map(&[("HOME", "/home/u")]);
+        assert_eq!(
+            default_path_with(g, |_| false),
+            PathBuf::from("/home/u/.zshrs/scripts.rkyv")
+        );
+    }
+
+    #[test]
+    fn default_path_with_no_env_returns_relative_dot_zshrs() {
+        let g = env_map(&[]);
+        assert_eq!(
+            default_path_with(g, |_| false),
+            PathBuf::from(".zshrs/scripts.rkyv")
+        );
+    }
+
+    // ---- human_bytes scaling boundaries ----
+
+    #[test]
+    fn human_bytes_zero_is_plain_bytes() {
+        assert_eq!(human_bytes(0), "0B");
+    }
+
+    #[test]
+    fn human_bytes_under_kib_stays_in_bytes() {
+        assert_eq!(human_bytes(1), "1B");
+        assert_eq!(human_bytes(1023), "1023B");
+    }
+
+    #[test]
+    fn human_bytes_kib_boundary() {
+        assert_eq!(human_bytes(1024), "1.00K");
+        assert_eq!(human_bytes(1025), "1.00K");
+        assert_eq!(human_bytes(1536), "1.50K");
+    }
+
+    #[test]
+    fn human_bytes_precision_tiers() {
+        // <10 → 2 decimals, <100 → 1 decimal, else → 0 decimals
+        assert_eq!(human_bytes(9 * 1024), "9.00K");
+        assert_eq!(human_bytes(10 * 1024), "10.0K");
+        assert_eq!(human_bytes(99 * 1024), "99.0K");
+        assert_eq!(human_bytes(100 * 1024), "100K");
+        assert_eq!(human_bytes(1023 * 1024), "1023K");
+    }
+
+    #[test]
+    fn human_bytes_mib_gib_tib() {
+        assert_eq!(human_bytes(1024 * 1024), "1.00M");
+        assert_eq!(human_bytes(1024 * 1024 * 1024), "1.00G");
+        assert_eq!(human_bytes(1024u64.pow(4)), "1.00T");
+        assert_eq!(human_bytes(1024u64.pow(5)), "1.00P");
+    }
+
+    // ---- expand_tilde ----
+
+    #[test]
+    fn expand_tilde_resolves_home_prefix() {
+        let home = std::env::var_os("HOME").expect("HOME must be set for this test");
+        let got = expand_tilde("~/sub/dir.rkyv");
+        assert_eq!(got, PathBuf::from(home).join("sub/dir.rkyv"));
+    }
+
+    #[test]
+    fn expand_tilde_passes_absolute_path_through() {
+        assert_eq!(
+            expand_tilde("/absolute/path.rkyv"),
+            PathBuf::from("/absolute/path.rkyv")
+        );
+    }
+
+    #[test]
+    fn expand_tilde_passes_relative_path_through() {
+        assert_eq!(
+            expand_tilde("relative/path.rkyv"),
+            PathBuf::from("relative/path.rkyv")
+        );
+    }
+
+    #[test]
+    fn expand_tilde_does_not_expand_bare_tilde() {
+        // Lone `~` (no trailing slash) is not expanded — matches shell semantics
+        // only loosely, but matches what the function actually does.
+        assert_eq!(expand_tilde("~"), PathBuf::from("~"));
+    }
+
+    // ---- format-token rendering ----
+
+    #[test]
+    fn rkyv_cache_disk_tokens_render_against_real_file() {
+        let p = tmpfile("disk", &[0u8; 2048]);
+        let r = rkyv_cache(p.to_str().unwrap(), "{size}|{bytes}", false).unwrap();
+        let s = r[0]["contents"].as_str().unwrap();
+        // {bytes} = block_bytes (>= 2048 due to filesystem allocation rounding).
+        // We assert the parseable shape, not exact disk-bytes, since tmpfs block
+        // size varies between systems.
+        let (size, bytes) = s.split_once('|').expect("token separator present");
+        assert!(
+            size.ends_with('K') || size.ends_with('B'),
+            "{size} should carry a human suffix"
+        );
+        let n: u64 = bytes.parse().expect("{bytes} must be a raw integer");
+        assert!(
+            n >= 2048,
+            "disk bytes must be >= logical bytes 2048, got {n}"
+        );
+    }
+
+    #[test]
+    fn rkyv_cache_all_four_size_tokens_render_together() {
+        let p = tmpfile("mixed", &[0u8; 4096]);
+        let r = rkyv_cache(
+            p.to_str().unwrap(),
+            "[{size}|{bytes}|{logical_size}|{logical_bytes}]",
+            false,
+        )
+        .unwrap();
+        let s = r[0]["contents"].as_str().unwrap();
+        assert!(
+            s.starts_with('[') && s.ends_with(']'),
+            "literal brackets preserved"
+        );
+        assert!(s.contains("|4.00K|"), "logical_size token rendered: {s}");
+        assert!(s.contains("|4096]"), "logical_bytes token rendered: {s}");
+    }
+
+    #[test]
+    fn rkyv_cache_icon_token_passes_through_unsubstituted() {
+        // The {icon} token is substituted downstream by the render runtime,
+        // not by this module — it must reach the caller untouched.
+        let p = tmpfile("icon", &[0u8; 1]);
+        let r = rkyv_cache(p.to_str().unwrap(), "{icon} {size}", false).unwrap();
+        let s = r[0]["contents"].as_str().unwrap();
+        assert!(s.starts_with("{icon} "), "icon token preserved: {s:?}");
+    }
+
+    #[test]
+    fn rkyv_cache_unknown_token_passes_through_unchanged() {
+        let p = tmpfile("unknown", &[0u8; 1]);
+        let r = rkyv_cache(p.to_str().unwrap(), "{wat}/{size}", false).unwrap();
+        let s = r[0]["contents"].as_str().unwrap();
+        assert!(s.starts_with("{wat}/"), "unknown tokens preserved: {s:?}");
+    }
+
+    #[test]
+    fn rkyv_cache_divider_highlight_group_is_background_divider() {
+        let p = tmpfile("div", &[0u8; 1]);
+        let r = rkyv_cache(p.to_str().unwrap(), "{size}", false).unwrap();
+        assert_eq!(
+            r[0]["divider_highlight_group"].as_str().unwrap(),
+            "background:divider"
+        );
+    }
+
+    #[test]
+    fn rkyv_cache_empty_file_renders_zero_size() {
+        let p = tmpfile("empty", &[]);
+        let r = rkyv_cache(p.to_str().unwrap(), "{logical_size}/{logical_bytes}", false).unwrap();
+        let s = r[0]["contents"].as_str().unwrap();
+        assert_eq!(s, "0B/0");
+    }
+
+    #[test]
+    fn rkyv_cache_highlight_group_chain_is_zshrs_specific() {
+        // The first two groups identify the segment in user themes — these
+        // are part of the public theming contract, not the neutral fallback.
+        let p = tmpfile("hl2", &[0u8; 1]);
+        let r = rkyv_cache(p.to_str().unwrap(), "{size}", false).unwrap();
+        let groups = r[0]["highlight_groups"].as_array().unwrap();
+        assert_eq!(groups[0].as_str().unwrap(), "zshrs_rkyv_cache");
+        assert_eq!(groups[1].as_str().unwrap(), "zshrs");
     }
 }
