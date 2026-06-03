@@ -291,4 +291,36 @@ mod tests {
         }
         assert_eq!(BUNDLED.len(), 46);
     }
+
+    /// Every `.json` bake-in must parse as valid JSON at test time —
+    /// catches a corrupt `include_str!` (truncated paste, stray
+    /// trailing comma, accidental shell-quote, etc.) here instead of
+    /// at the user's first `powerline-daemon` invocation, where the
+    /// failure shows up as a cryptic "no colorscheme for <ext>"
+    /// instead of the actual parse error.
+    #[test]
+    fn every_bundled_json_entry_is_valid_json() {
+        let mut json_count = 0usize;
+        for (rel, content) in BUNDLED {
+            if !rel.ends_with(".json") {
+                continue;
+            }
+            json_count += 1;
+            let parsed: Result<serde_json::Value, _> = serde_json::from_str(content);
+            assert!(
+                parsed.is_ok(),
+                "bundled entry {rel} failed JSON parse: {err}",
+                err = parsed.err().unwrap()
+            );
+        }
+        // Pin the count — every BUNDLED entry currently ends in .json;
+        // if a non-JSON asset is later baked in, this assertion is the
+        // signal to think about whether the validity sweep above still
+        // covers everything appropriately.
+        assert_eq!(
+            json_count,
+            BUNDLED.len(),
+            "non-JSON asset in BUNDLED — extend the sweep above"
+        );
+    }
 }

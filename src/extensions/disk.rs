@@ -359,4 +359,126 @@ mod tests {
         let c = out[0]["contents"].as_str().unwrap_or("");
         assert!(c.ends_with('%'), "expected NN%, got {c}");
     }
+
+    // ---- DiskUsage::percent edge cases ----
+
+    #[test]
+    fn percent_full_disk_reports_100() {
+        let u = DiskUsage {
+            total: 1024,
+            used: 1024,
+            free: 0,
+        };
+        assert_eq!(u.percent(), 100.0);
+    }
+
+    #[test]
+    fn percent_ignores_apfs_reserved_total() {
+        // APFS quirk: `total` from statvfs > used + free (reserved
+        // space). The percent calc uses used / (used+free) to match
+        // df's denominator, so percent stays sane even when total
+        // looks much larger than the used+free sum.
+        let u = DiskUsage {
+            total: 10_000, // reserved-inclusive
+            used: 25,
+            free: 75,
+        };
+        assert_eq!(u.percent(), 25.0);
+    }
+
+    // ---- fmt_bytes full suffix chain + fraction-format branches ----
+
+    #[test]
+    fn fmt_bytes_chain_long_form() {
+        assert_eq!(fmt_bytes(1024u64.pow(2), false), "1MiB");
+        assert_eq!(fmt_bytes(1024u64.pow(3), false), "1GiB");
+        assert_eq!(fmt_bytes(1024u64.pow(4), false), "1TiB");
+        assert_eq!(fmt_bytes(1024u64.pow(5), false), "1PiB");
+    }
+
+    #[test]
+    fn fmt_bytes_fraction_branch_renders_one_decimal() {
+        // .fract() >= EPSILON → ".1" formatting; integer-precise
+        // values use the no-decimal branch.
+        assert_eq!(fmt_bytes(1536, true), "1.5K");
+        assert_eq!(fmt_bytes(1024 + 512 + 256, true), "1.8K"); // 1.75 → 1.8
+    }
+
+    // ---- fmt_rate ----
+
+    #[test]
+    fn fmt_rate_zero_renders_zero_per_second() {
+        assert_eq!(fmt_rate(0.0, true), "0B/s");
+    }
+
+    #[test]
+    fn fmt_rate_mibps_long_form() {
+        assert_eq!(fmt_rate(1024.0 * 1024.0, false), "1MiB/s");
+    }
+
+    // ---- disk_usage_percent format dispatch matrix ----
+
+    #[test]
+    fn disk_usage_percent_printf_d_form() {
+        let out = disk_usage_percent("/", "%d%%");
+        let c = out[0]["contents"].as_str().unwrap_or("");
+        // `%d%%` → digits + literal `%`. The replace path leaves the
+        // trailing `%%` as `%%` because we only swap `%d`.
+        assert!(c.contains('%'), "expected percent sign in {c}");
+    }
+
+    #[test]
+    fn disk_usage_percent_default_form_when_no_token() {
+        // No `{0:d}` and no `%d` → fallback "NN%" path.
+        let out = disk_usage_percent("/", "ignored");
+        let c = out[0]["contents"].as_str().unwrap_or("");
+        assert!(c.ends_with('%'), "expected NN%, got {c}");
+        // Numeric prefix should parse as integer
+        let n: Result<i64, _> = c.trim_end_matches('%').parse();
+        assert!(
+            n.is_ok(),
+            "default form should be a parseable integer NN%, got {c}"
+        );
+    }
+
+    // ---- disk_io format substitution + chunk shape ----
+
+    #[test]
+    fn disk_io_substitutes_two_rate_tokens() {
+        // Probe will likely return None on test hosts, so we exercise
+        // the format-substitution + chunk-shape branch; values default
+        // to "0B/s" via DiskIo::default().
+        let out = disk_io("nonexistent-device", "R %s W %s", true, 1.0, 1.0);
+        assert_eq!(out.len(), 1);
+        let c = out[0]["contents"].as_str().unwrap_or("");
+        assert!(c.starts_with("R "), "first token missing: {c}");
+        assert!(c.contains(" W "), "second token missing: {c}");
+        assert!(!c.contains("%s"), "format substitution incomplete: {c}");
+    }
+
+    // ---- extract_ioreg_kv (macOS pure parser) ----
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn extract_ioreg_kv_extracts_named_integer() {
+        // ioreg `"Statistics"` line typically reads like:
+        //   {"Bytes (Read)"=12345,"Bytes (Write)"=6789,...}
+        let line = r#"  | |   "Statistics" = {"Bytes (Read)"=12345,"Bytes (Write)"=6789}"#;
+        assert_eq!(extract_ioreg_kv(line, "Bytes (Read)"), Some(12345));
+        assert_eq!(extract_ioreg_kv(line, "Bytes (Write)"), Some(6789));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn extract_ioreg_kv_missing_key_returns_none() {
+        let line = r#"  | |   "Statistics" = {"Bytes (Read)"=12345}"#;
+        assert_eq!(extract_ioreg_kv(line, "Bytes (Write)"), None);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn extract_ioreg_kv_non_numeric_value_returns_none() {
+        let line = r#"  | |   "Statistics" = {"Bytes (Read)"=NaN}"#;
+        assert_eq!(extract_ioreg_kv(line, "Bytes (Read)"), None);
+    }
 }
