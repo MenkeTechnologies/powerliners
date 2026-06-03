@@ -403,4 +403,120 @@ mod tests {
         let c = out[0]["contents"].as_str().unwrap_or("");
         assert!(c.contains('/'));
     }
+
+    // ---- fmt_bytes precision tier + full suffix chain ----
+
+    #[test]
+    fn fmt_bytes_full_chain_long_form() {
+        assert_eq!(fmt_bytes(1024u64.pow(2), false), "1MiB");
+        assert_eq!(fmt_bytes(1024u64.pow(3), false), "1GiB");
+        assert_eq!(fmt_bytes(1024u64.pow(4), false), "1TiB");
+        assert_eq!(fmt_bytes(1024u64.pow(5), false), "1PiB");
+    }
+
+    #[test]
+    fn fmt_bytes_fraction_renders_with_one_decimal() {
+        // .fract() >= EPSILON → ".1" formatter; integer-precise
+        // bytes use the no-decimal branch.
+        assert_eq!(fmt_bytes(1024 + 512, false), "1.5KiB");
+        assert_eq!(fmt_bytes(1024 + 512 + 256, true), "1.8K"); // 1.75 → 1.8
+                                                               // Boundary: exactly 1024 is integer-precise.
+        assert_eq!(fmt_bytes(1024, true), "1K");
+    }
+
+    // ---- render_pct full matrix ----
+
+    #[test]
+    fn render_pct_precision_2dp_form() {
+        assert_eq!(render_pct("{0:.2f}%", 73.456), "73.46%");
+    }
+
+    #[test]
+    fn render_pct_printf_d_without_percent_literal() {
+        // `%d` alone (no `%%`) goes through the second printf branch;
+        // emits the integer without a `%` suffix.
+        assert_eq!(render_pct("util=%d", 42.9), "util=42");
+    }
+
+    #[test]
+    fn render_pct_fallback_when_no_token() {
+        // No `{0:d}` / `{0:.Nf}` / `%d%%` / `%d` → fallback "NN%" form,
+        // ignoring the caller's template string.
+        assert_eq!(render_pct("ignored", 88.4), "88%");
+    }
+
+    // ---- GpuStats::is_empty matrix ----
+
+    #[test]
+    fn gpu_stats_is_empty_flips_for_any_set_field() {
+        let setters: &[fn(&mut GpuStats)] = &[
+            |s| s.util_pct = Some(0.0),
+            |s| s.vram_used = Some(0),
+            |s| s.vram_total = Some(0),
+        ];
+        for set in setters {
+            let mut s = GpuStats::default();
+            set(&mut s);
+            assert!(
+                !s.is_empty(),
+                "any populated field should flip is_empty: {s:?}"
+            );
+        }
+    }
+
+    // ---- gpu_usage_percent contents shape ----
+
+    #[test]
+    fn gpu_usage_percent_renders_one_chunk_with_format_sub() {
+        let out = gpu_usage_percent("{0:d}%");
+        assert_eq!(out.len(), 1);
+        let c = out[0]["contents"].as_str().unwrap_or("");
+        assert!(c.ends_with('%'), "expected NN%, got {c}");
+    }
+
+    #[test]
+    fn gpu_usage_percent_emits_gradient_chain() {
+        let out = gpu_usage_percent("{0:d}%");
+        let groups = out[0]["highlight_groups"].as_array().unwrap();
+        // First is the gpu-specific gradient group, last falls back
+        // through cpu_load_percent for theme cascade.
+        assert_eq!(groups[0].as_str().unwrap(), "gpu_load_gradient");
+        assert_eq!(groups.last().unwrap().as_str().unwrap(), "cpu_load_percent");
+    }
+
+    // ---- extract_ioreg_num (macOS pure parser) ----
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn extract_ioreg_num_extracts_integer_value() {
+        let line = r#"    "Device Utilization %"=47"#;
+        assert_eq!(
+            extract_ioreg_num(line, "\"Device Utilization %\""),
+            Some(47.0)
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn extract_ioreg_num_extracts_float_value() {
+        let line = r#"    "Device Utilization %"=47.5"#;
+        assert_eq!(
+            extract_ioreg_num(line, "\"Device Utilization %\""),
+            Some(47.5)
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn extract_ioreg_num_missing_key_returns_none() {
+        let line = r#"    "Other Key"=99"#;
+        assert!(extract_ioreg_num(line, "\"Device Utilization %\"").is_none());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn extract_ioreg_num_empty_value_returns_none() {
+        let line = r#"    "Device Utilization %"="#;
+        assert!(extract_ioreg_num(line, "\"Device Utilization %\"").is_none());
+    }
 }
