@@ -51,16 +51,25 @@ fn fixture_root(scenario: &str) -> PathBuf {
     p
 }
 
-/// Picks a unique-per-process socket path under `$TMPDIR`.
+/// Picks a unique socket path under `$TMPDIR`. pid + nanos alone is NOT
+/// unique: parallel `cargo test` threads share the pid and macOS realtime
+/// clock granularity lets two threads read the same nanos, so two tests
+/// got the same path — the second test's `remove_file` unlinked the first
+/// daemon's bound socket and both tests then talked to one daemon,
+/// rendering the wrong scenario's theme (scenario_full got
+/// scenario_hostname's hostname-only output on the macos-latest runner).
+/// The atomic counter makes the path unique regardless of clock ticks.
 fn unique_socket() -> PathBuf {
+    static SOCKET_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let mut p = std::env::temp_dir();
     p.push(format!(
-        "powerliners-e2e-{}-{}",
+        "powerliners-e2e-{}-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
-            .as_nanos()
+            .as_nanos(),
+        SOCKET_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     ));
     // Defensive: clear any prior leftover.
     let _ = std::fs::remove_file(&p);
@@ -268,8 +277,12 @@ fn scenario_hostname_renders_local_hostname() {
 }
 
 #[test]
-#[ignore = "flaky under parallel cargo test on macOS — daemon config-cascade race drops segments intermittently; coverage already provided by scenario_full_renders_all_six_segments which exercises the same date/time/hostname surface plus three more"]
 fn scenario_date_renders_iso_date_and_hhmm_time() {
+    // Previously #[ignore]d as "daemon config-cascade race drops segments
+    // intermittently" — the real cause was the unique_socket() pid+nanos
+    // collision (see unique_socket doc comment), fixed by the atomic
+    // counter suffix. The "dropped segments" were another scenario's
+    // daemon answering on the collided socket path.
     let daemon = start_daemon("scenario_date");
     let raw = render_once(
         &daemon.socket,
