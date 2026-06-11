@@ -128,7 +128,8 @@ upstream Python `powerline` C client. The render path covers:
   hard/soft divider insertion and per-side outer padding
 - TmuxRenderer `#[…]` markup emission with `term_truecolor` cterm path
 
-43 segment adapters wired in `src/bin/shared/render_runtime.rs` (shared
+54 segment adapters wired in `src/bin/shared/render_runtime.rs` (55
+`ADAPTERS` keys including the bare `exec` alias; shared
 between `powerline-daemon` and `powerline-render`): `battery`, `branch`,
 `clementine`, `cmus`, `containers`, `cpu_load_percent`, `cwd`, `date`,
 `dbus_player`, `disk_io`, `disk_usage`, `disk_usage_percent`,
@@ -137,7 +138,10 @@ between `powerline-daemon` and `powerline-render`): `battery`, `branch`,
 `jobnum`, `kubecontext`, `last_pipe_status`, `last_status`, `mem_swap`,
 `mem_swap_percentage`, `mem_usage`, `mem_usage_percent`, `mocp`, `mpd`,
 `network_load`, `process_count`, `rhythmbox`, `spotify`, `stash`,
-`system_load`, `thermal`, `uptime`, `user`, `virtualenv`, `weather`.
+`system_load`, `thermal`, `uptime`, `user`, `virtualenv`, `weather`,
+plus `git_status`, `ci_status`, `aws.context`, `gcp.context`,
+`fusevm.jit_cache`, and the `rkyv_cache` / `version` adapters for
+`zshrs`, `stryke`, and `awkrs`.
 
 Point it at a config root via `POWERLINE_CONFIG_PATHS`:
 
@@ -594,6 +598,7 @@ filesystem lookup needed):
 | `powerliners.gpu.gpu_usage_percent` | Vendor-dispatched GPU compute percent (nvidia-smi → rocm-smi → intel_gpu_top → ioreg fallback) |
 | `powerliners.gpu.gpu_vram` | GPU VRAM `USED/TOTAL` via same dispatch chain |
 | `powerliners.thermal.thermal` | CPU/GPU temp + fan RPM (`/sys/class/hwmon` on Linux, `powermetrics`/`istats` on macOS) |
+| `powerliners.vcs.git_status` | p10k-style single-chunk VCS segment — branch glyph + name + count badges for unstaged/untracked/staged/conflicts/ahead/behind/stashed from one `git status --porcelain=v2 --branch` fork; detached HEAD falls back to short SHA / tag; omitted outside a git work tree |
 | `powerliners.docker.containers` | Docker / OCI container counts (`{running}`/`{total}`/`{images}`/`{stopped}` tokens; probes via `docker ps`, falls through silently when the daemon is unreachable) |
 | `powerliners.k8s.kubecontext` | Current kubectl context + active namespace (honors `$KUBECONFIG` cascade and in-context `kubectl config set-context --namespace` overrides; `hide_default` arg suppresses the namespace when it equals the configured default) |
 | `powerliners.proc.process_count` | POSIX process tally via `ps -eo stat=` (`{total}`/`{running}`/`{sleeping}`/`{zombie}`/`{dwait}`/`{stopped}` tokens; `warn_zombie` flips the highlight group when defunct processes are present) |

@@ -392,12 +392,14 @@ section.
       pidfile lock, accept loop, EOF shutdown
 - [x] `src/bin/powerline-daemon.rs` binary entry
 
-Render path still returns a placeholder until the `Powerline`
-orchestrator + `bindings/wm` thread registry produce real output.
+Render path is real end-to-end: the `Powerline` orchestrator
+(`do_render` in `src/ported/renderer.rs`) produces actual statusline
+markup, pinned by the 45 byte-for-byte scenarios in
+`tests/daemon_parity.rs`.
 
 ### Phase 7 — Parity verification (ongoing)
 
-- [x] `tests/parity_against_upstream.rs` — 219 tests piping identical
+- [x] `tests/parity_against_upstream.rs` — 462 tests piping identical
       inputs through upstream Python and the Rust port, asserting
       byte/value-identical results
 - [x] 11 real port bugs surfaced by the harness and fixed in-tree
