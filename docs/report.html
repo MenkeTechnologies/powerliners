@@ -120,6 +120,44 @@
     </section>
 
     <section class="tutorial-section">
+      <h2>$ BINARIES &amp; CLI SURFACE</h2>
+      <p>Five binaries ship from this crate — one hot-path client, four management / fallback tools. Each is a 1:1 port of an upstream <code>scripts/</code> or <code>client/</code> entry point.</p>
+      <table class="report-table">
+        <tr><th>Binary</th><th>Mirrors</th><th>Role</th></tr>
+        <tr><td><code>powerline</code></td><td><code>client/powerline.c</code></td><td>Wire client — packs <code>argv</code> + cwd + env, sends over the per-UID Unix socket, copies the reply to stdout; <code>execvp</code>s <code>powerline-render</code> on connect-fail.</td></tr>
+        <tr><td><code>powerline-daemon</code></td><td><code>scripts/powerline-daemon</code></td><td>Socket bind + daemonize + pidfile lock + accept loop + <code>EOF\0\0</code> shutdown + render via <code>render_runtime::render_once</code>.</td></tr>
+        <tr><td><code>powerline-render</code></td><td><code>scripts/powerline-render</code></td><td>One-shot direct render through the same orchestrator path (daemon-less fallback).</td></tr>
+        <tr><td><code>powerline-config</code></td><td><code>scripts/powerline-config</code></td><td>tmux / shell known-function dispatch + <code>vim source-path</code> plugin extraction.</td></tr>
+        <tr><td><code>powerline-lint</code></td><td><code>scripts/powerline-lint</code></td><td>argparse + markedjson loader + Spec checks pipeline.</td></tr>
+      </table>
+      <p style="margin-top:0.6rem;">Render-request flags parsed by <code>parse_client_argv</code>: <code>-w/--width</code>, <code>-r/--renderer-module</code>, <code>-c/--config-override</code>, <code>-t/--theme-override</code>, <code>-R/--renderer-arg</code>, <code>-p/--config-path</code>, <code>-m/--mode</code>, <code>--last-exit-code</code>, <code>--last-pipe-status</code>, <code>--jobnum</code>, <code>--socket</code>. Daemon process flags (<code>parse_daemon_argv</code>): <code>-q/--quiet</code>, <code>-f/--foreground</code>, <code>-s/--socket</code>, <code>-k/--kill</code>, <code>-r/--replace</code>. Full per-flag reference + integration snippets live in <a href="index.html">the docs page</a>.</p>
+    </section>
+
+    <section class="tutorial-section">
+      <h2>= WIRE PROTOCOL</h2>
+      <p>The client / daemon split is byte-compatible with upstream's <code>client/powerline.c</code>, so a Python-installed <code>powerline</code> binary talks to this daemon unchanged and vice-versa.</p>
+      <ul>
+        <li><strong>Request frame.</strong> <code>hex(argc)\0 arg\0 arg\0 … cwd\0 KEY=VAL\0 …\0\0</code> — argument count, NUL-separated argv, the current working directory, then the inherited environment, terminated by a double-NUL.</li>
+        <li><strong>Shutdown sentinel.</strong> <code>EOF\0\0</code> (<code>const EOF: &amp;[u8] = b"EOF\0\0"</code>, <code>src/ported/scripts/powerline_daemon.rs</code>) — on receipt the daemon exits 0.</li>
+        <li><strong>Socket path.</strong> <code>/tmp/powerline-ipc-$UID</code> (macOS / BSD filesystem socket) or abstract <code>\0powerline-ipc-$UID</code> (Linux). Pidfile lock at <code>/tmp/powerline-ipc-$UID.pid</code>.</li>
+        <li><strong>Fallback.</strong> On connect-fail the client <code>execvp</code>s <code>powerline-render</code> with the same argv — never a hard error if the daemon is down.</li>
+      </ul>
+    </section>
+
+    <section class="tutorial-section">
+      <h2>% ENVIRONMENT</h2>
+      <table class="report-table">
+        <tr><th>Variable</th><th>Effect</th></tr>
+        <tr><td><code>POWERLINE_COMMAND</code></td><td>Command shell integrations invoke to render (set to <code>powerline</code>).</td></tr>
+        <tr><td><code>POWERLINE_CONFIG_PATHS</code></td><td>Colon-separated config-root search list; mirrors upstream order.</td></tr>
+        <tr><td><code>POWERLINE_CONFIG_OVERRIDES</code></td><td>Theme-override <code>key=value</code> pairs per extension.</td></tr>
+        <tr><td><code>POWERLINERS_ICONS</code></td><td>Icon tier: default Nerd Font / <code>=unicode</code> / <code>=ascii</code> (read once per process).</td></tr>
+        <tr><td><code>$XDG_CACHE_HOME</code></td><td>Extracted tmux conf + vim plugin root (<code>powerliners/{tmux,vim}/</code>).</td></tr>
+        <tr><td><code>$FUSEVM_JIT_CACHE</code> · <code>${NAME}_RKYV_CACHE/_HOME</code> · <code>$XDG_DATA_HOME</code></td><td>Cache-size segment override roots.</td></tr>
+      </table>
+    </section>
+
+    <section class="tutorial-section">
       <h2>+ ARCHITECTURE</h2>
       <p>End-to-end data flow from a shell / editor / multiplexer hook down to the rendered statusline bytes. Every layer below is wired and exercised by the lib + parity test suites; the only run-time variability is which segment modules a given <code>theme.json</code> references.</p>
       <pre>┌───────────────────────────────────────────────────────────────────┐

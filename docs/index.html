@@ -277,6 +277,183 @@ ls target/debug/powerliners target/debug/powerline-{render,lint,config,daemon}</
     </section>
 
     <section class="tutorial-section">
+      <h2>CLI reference</h2>
+      <p>The suite ships five binaries. <code>powerline</code> is the hot-path client; the rest are management / fallback tools. All are 1:1 ports of the upstream <code>scripts/</code> and <code>client/</code> entry points.</p>
+      <table class="audit-tbl" style="margin-top:0.6rem;">
+        <thead><tr><th>binary</th><th>role</th></tr></thead>
+        <tbody>
+          <tr><td><code>powerline</code></td><td>Native Rust client (port of <code>client/powerline.c</code>). Packs <code>argv</code> + cwd + env into the wire request, sends it to the daemon over a Unix socket, copies the reply to stdout. On connect-fail it <code>execvp</code>s <code>powerline-render</code> as a daemon-less fallback.</td></tr>
+          <tr><td><code>powerline-daemon</code></td><td>Long-lived render server. Binds the per-UID socket, daemonizes, holds a pidfile lock, runs the accept loop, and renders each request through <code>render_runtime::render_once</code> against the cached theme tree.</td></tr>
+          <tr><td><code>powerline-render</code></td><td>One-shot direct render through the same orchestrator path as the daemon. Used by shell hooks when no daemon is running and as the client's fallback exec.</td></tr>
+          <tr><td><code>powerline-config</code></td><td>tmux / shell / vim integration helper — emits setup, deduces the <code>$POWERLINE_COMMAND</code> binding, extracts the bundled vim plugin.</td></tr>
+          <tr><td><code>powerline-lint</code></td><td>Config linter — markedjson loader + Spec checks behind an argparse front end.</td></tr>
+        </tbody>
+      </table>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">powerline &lt;EXT&gt; — extensions</h3>
+      <p>The first positional after the optional <code>--socket PATH</code> selects the extension to render. Stock extensions (from <code>man powerline</code>):</p>
+      <table class="audit-tbl">
+        <thead><tr><th>EXT</th><th>renders</th></tr></thead>
+        <tbody>
+          <tr><td><code>tmux</code></td><td>tmux statusline segments</td></tr>
+          <tr><td><code>shell</code></td><td>shell prompt — next positional is <code>left</code> / <code>right</code> / <code>continuation</code></td></tr>
+          <tr><td><code>vim</code></td><td>vim statusline / tabline</td></tr>
+          <tr><td><code>ipython</code></td><td>IPython prompt / continuation</td></tr>
+          <tr><td><code>wm</code></td><td>i3 / awesome / qtile widget binding</td></tr>
+        </tbody>
+      </table>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">render-request flags</h3>
+      <p>Everything after <code>&lt;EXT&gt;</code> is forwarded to the daemon and parsed by <code>parse_client_argv</code> (<code>src/ported/scripts/powerline_daemon.rs</code>). Each long flag has the upstream short alias:</p>
+      <table class="audit-tbl">
+        <thead><tr><th>flag</th><th>meaning</th></tr></thead>
+        <tbody>
+          <tr><td><code>-w</code> / <code>--width</code></td><td>statusline width hint (columns)</td></tr>
+          <tr><td><code>-r</code> / <code>--renderer-module</code></td><td>override the renderer module</td></tr>
+          <tr><td><code>-c</code> / <code>--config-override</code></td><td>per-request config override (repeatable)</td></tr>
+          <tr><td><code>-t</code> / <code>--theme-override</code></td><td>per-request theme override (repeatable)</td></tr>
+          <tr><td><code>-R</code> / <code>--renderer-arg</code></td><td>renderer arg <code>key=value</code> (repeatable)</td></tr>
+          <tr><td><code>-p</code> / <code>--config-path</code></td><td>extra config-path root (repeatable)</td></tr>
+          <tr><td><code>-m</code> / <code>--mode</code></td><td>current mode — shorthand for <code>-R mode=VALUE</code>, drives <code>mode_translations</code></td></tr>
+          <tr><td><code>--last-exit-code</code></td><td>last command exit code (<code>int_or_sig</code>) — for the <code>last_status</code> segment</td></tr>
+          <tr><td><code>--last-pipe-status</code></td><td>space-separated pipe exit codes — for <code>last_pipe_status</code></td></tr>
+          <tr><td><code>--jobnum</code></td><td>background-job count — for the <code>jobnum</code> segment</td></tr>
+          <tr><td><code>--socket</code></td><td>socket path (must precede <code>&lt;EXT&gt;</code> on the client)</td></tr>
+        </tbody>
+      </table>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">powerline-daemon — process flags</h3>
+      <table class="audit-tbl">
+        <thead><tr><th>flag</th><th>effect</th></tr></thead>
+        <tbody>
+          <tr><td><code>-q</code> / <code>--quiet</code></td><td>double-fork + detach silently (the canonical login-time start)</td></tr>
+          <tr><td><code>-f</code> / <code>--foreground</code></td><td>stay in the foreground (don't daemonize)</td></tr>
+          <tr><td><code>-s</code> / <code>--socket</code> <code>PATH</code></td><td>bind a custom socket path instead of the per-UID default</td></tr>
+          <tr><td><code>-k</code> / <code>--kill</code></td><td>kill the running daemon for this UID</td></tr>
+          <tr><td><code>-r</code> / <code>--replace</code></td><td>replace an already-running daemon</td></tr>
+        </tbody>
+      </table>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">powerline-config — subcommands</h3>
+      <table class="audit-tbl">
+        <thead><tr><th>invocation</th><th>does</th></tr></thead>
+        <tbody>
+          <tr><td><code>powerline-config tmux setup</code></td><td>emit the tmux integration (sources the version-matched <code>powerline-base.conf</code> variant from the per-user cache)</td></tr>
+          <tr><td><code>powerline-config shell command</code></td><td>print the deduced <code>$POWERLINE_COMMAND</code> binary, or exit 1 if none</td></tr>
+          <tr><td><code>powerline-config shell uses COMPONENT [-s SHELL]</code></td><td>exit 0/1 depending on whether a component (e.g. <code>tmux</code>, <code>prompt</code>) is enabled for the shell — checks <code>POWERLINE_NO_*</code> env gates</td></tr>
+          <tr><td><code>powerline-config vim source-path</code></td><td>extract the bundled <code>powerline.vim</code> plugin and print its cache path (non-port convenience action)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="tutorial-section">
+      <h2>Environment variables</h2>
+      <table class="audit-tbl" style="margin-top:0.4rem;">
+        <thead><tr><th>variable</th><th>effect</th></tr></thead>
+        <tbody>
+          <tr><td><code>POWERLINE_COMMAND</code></td><td>The command shell integrations invoke to render. Set to <code>powerline</code> (this binary); existing setups that hardcode the upstream Python shim keep working because the wire format is identical.</td></tr>
+          <tr><td><code>POWERLINE_CONFIG_PATHS</code></td><td>Colon-separated config-root search list (<code>config.json</code> + themes / colorschemes / segments JSON). Mirrors upstream search order.</td></tr>
+          <tr><td><code>POWERLINE_CONFIG_OVERRIDES</code></td><td>Theme-override <code>key=value</code> pairs applied per extension.</td></tr>
+          <tr><td><code>POWERLINERS_ICONS</code></td><td>Icon tier: unset/default &rarr; Nerd Font glyphs, <code>=unicode</code> &rarr; text-presentation Unicode fallback, <code>=ascii</code> &rarr; label-style ASCII. Read once per process (see <code>src/extensions/icons.rs</code>).</td></tr>
+          <tr><td><code>$XDG_CACHE_HOME</code></td><td>Root for the extracted tmux conf (<code>powerliners/tmux/</code>) and vim plugin (<code>powerliners/vim/</code>); default <code>~/.cache</code>.</td></tr>
+          <tr><td><code>$FUSEVM_JIT_CACHE</code> · <code>${ZSHRS,STRYKE,AWKRS}_RKYV_CACHE</code> / <code>_HOME</code> · <code>$XDG_DATA_HOME</code></td><td>Override roots for the four cache-size segments — see the resolution chain in <strong>Bundled segments</strong> below.</td></tr>
+          <tr><td><code>$KUBECONFIG</code> · <code>$AWS_PROFILE</code> / <code>$AWS_REGION</code> / <code>$AWS_DEFAULT_REGION</code> · <code>$CLOUDSDK_*</code></td><td>Honored by the <code>kubecontext</code>, <code>aws.context</code>, and <code>gcp.context</code> segments respectively.</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:0.6rem;">Per-UID socket path: <code>/tmp/powerline-ipc-$UID</code> on macOS / BSD, abstract <code>\0powerline-ipc-$UID</code> on Linux (no filesystem path — invisible to <code>ls</code> / <code>fuser</code>). Pidfile lock at <code>/tmp/powerline-ipc-$UID.pid</code>.</p>
+    </section>
+
+    <section class="tutorial-section">
+      <h2>Shell &amp; tmux integration</h2>
+      <p>The wire format is byte-compatible with upstream's C client, so existing <code>.tmux.conf</code> / <code>.zshrc</code> invocations work unchanged once <code>$POWERLINE_COMMAND</code> resolves to this <code>powerline</code> binary.</p>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">tmux (~/.tmux.conf)</h3>
+      <pre>set -g status-interval 2
+set -g status-left  "#(powerline tmux left)"
+set -g status-right "#(powerline tmux right)"
+
+# or the install-method-agnostic helper:
+run-shell "powerline-config tmux setup"
+run-shell -b "powerline-daemon -q &amp;>/dev/null || exit 0"</pre>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">zsh (~/.zshrc)</h3>
+      <pre>powerline-daemon -q   # start once at login
+function powerline_precmd() {
+    PS1="$(powerline shell left --last-exit-code=$? --jobnum=$(jobs -p | wc -l))"
+}
+precmd_functions+=(powerline_precmd)</pre>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">verify against a config root</h3>
+      <p>Point the daemon at a copy of your real config and confirm the rendered tmux markup matches upstream before swapping anything:</p>
+      <pre># spawn on a throwaway socket
+POWERLINE_CONFIG_PATHS=~/.config/powerline \
+  ./target/release/powerline-daemon --foreground --socket /tmp/powerliners-probe &amp;
+
+# render the right side via the wire protocol
+powerline --socket /tmp/powerliners-probe tmux right
+
+# compare against upstream Python (powerline-status installed)
+powerline-render tmux right -p ~/.config/powerline</pre>
+    </section>
+
+    <section class="tutorial-section">
+      <h2>Custom segments</h2>
+      <p>Upstream Python lets you drop a <code>.py</code> file in <code>~/.config/powerline/segments/</code> and reference it by dotted path; <code>__import__</code> makes it callable. The Rust binary has no dynamic import, so the dispatch layer in <code>src/extensions/exec_segment.rs</code> provides two equivalent surfaces that fall through to a subprocess.</p>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">Pattern A — explicit <code>exec</code> adapter</h3>
+      <p>Reference the built-in <code>exec</code> adapter directly in theme JSON when you want the script path, args, and format string spelled out inline:</p>
+      <pre>{
+  "function": "exec",
+  "args": {
+    "command": "/usr/local/bin/cpu_temp.sh",
+    "args": ["--unit", "C"],
+    "format": "%s°C",
+    "highlight_groups": ["cpu_load"]
+  }
+}</pre>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">Pattern B — dotted-path filesystem dispatch</h3>
+      <p>Reference your segment by dotted path and drop the script under <code>&lt;config_path&gt;/segments/</code>. The daemon resolves <code>myseg.cpu_temp</code> &rarr; <code>&lt;config_path&gt;/segments/myseg/cpu_temp.{sh,py,rb,pl,lua,js,executable}</code> (first hit wins; order in <code>src/extensions/exec_segment.rs::SCRIPT_EXTENSIONS</code>):</p>
+      <pre>{ "function": "myseg.cpu_temp" }</pre>
+      <pre>mkdir -p ~/.config/powerline/segments/myseg
+cat > ~/.config/powerline/segments/myseg/cpu_temp.sh &lt;&lt;'EOF'
+#!/bin/sh
+echo "$(osx-cpu-temp | sed 's/°C//')"
+EOF
+chmod +x ~/.config/powerline/segments/myseg/cpu_temp.sh</pre>
+      <p>Dotted-path resolution honors the full config-path cascade (<code>POWERLINE_CONFIG_PATHS</code>, <code>--config-path</code>, <code>~/.config/</code>).</p>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">Output protocol</h3>
+      <p>Both patterns parse the script's stdout on the first non-whitespace byte:</p>
+      <table class="audit-tbl">
+        <thead><tr><th>stdout starts with</th><th>treated as</th><th>wrapped how</th></tr></thead>
+        <tbody>
+          <tr><td><code>[</code> (valid JSON array)</td><td>verbatim segment list</td><td>used directly — full control over <code>highlight_groups</code>, <code>gradient_level</code>, <code>divider_highlight_group</code>, multi-chunk output</td></tr>
+          <tr><td>anything else</td><td>plain text</td><td><code>[{"contents": &lt;trimmed-stdout&gt;, "highlight_groups": [...]}]</code> — <code>format</code> template applies (<code>%s</code> &rarr; contents, <code>%%</code> &rarr; literal <code>%</code>)</td></tr>
+        </tbody>
+      </table>
+
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">Highlight-group caveat (Rust-port divergence)</h3>
+      <p>The current Rust <code>gen_segment_getter</code> (<code>src/ported/segment.rs</code>) uses the segment's <code>function_name</code> as the only highlight group for <code>"type": "function"</code> segments — it <strong>ignores</strong> the theme's <code>"highlight_groups"</code> override (upstream Python respects it). Practical fix: name your colorscheme group to match the function name (<code>"exec"</code> for Pattern A, <code>"cpu_temp"</code> for Pattern B), or emit explicit <code>highlight_groups</code> inline via a JSON-array stdout.</p>
+    </section>
+
+    <section class="tutorial-section">
+      <h2>Migration &amp; rollback</h2>
+      <p>Drop-in replacement for the Python <code>powerline-daemon</code> — same wire format, same <code>EOF\0\0</code> shutdown sentinel, same socket path. The C client shipped with <code>powerline-status</code> talks to this daemon unchanged.</p>
+      <table class="audit-tbl" style="margin-top:0.4rem;">
+        <thead><tr><th>step</th><th>command</th></tr></thead>
+        <tbody>
+          <tr><td>1. stop the Python daemon</td><td><code>powerline-daemon -k</code></td></tr>
+          <tr><td>2. put the Rust binary ahead in <code>$PATH</code></td><td><code>ln -sf "$(pwd)/target/release/powerline-daemon" /usr/local/bin/powerline-daemon</code></td></tr>
+          <tr><td>3. restart tmux</td><td><code>tmux kill-server &amp;&amp; tmux new-session</code></td></tr>
+          <tr><td>4. confirm resolution</td><td><code>ls -la $(which powerline-daemon)</code> &mdash; must report the symlink</td></tr>
+          <tr><td>rollback</td><td><code>powerline-daemon -k; rm /usr/local/bin/powerline-daemon; powerline-daemon -q</code></td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:0.6rem;">The Python C client at <code>~/.local/bin/powerline</code> does not need replacing — it speaks the same wire protocol to whichever daemon owns the socket. No config, <code>.tmux.conf</code>, or shell-rc edits.</p>
+    </section>
+
+    <section class="tutorial-section">
       <h2>Vim setup</h2>
       <p>Vim statusline + tabline rendering ships in the same <code>powerline</code> binary — no <code>+python3</code> requirement, no <code>pip install powerline-status</code>. The bundled <code>powerline.vim</code> plugin is embedded via <code>include_str!</code> and extracted to <code>~/.cache/powerliners/vim/powerline.vim</code> on first source. Works on vim 7.4+, vim 9, and neovim (vim8-compatible syntax only — no <code>vim9script</code> lock-in).</p>
 
@@ -358,7 +535,7 @@ endif</pre>
           <tr><td><code>powerliners.gpu.gpu_vram</code></td><td>GPU VRAM <code>USED/TOTAL</code> via the same dispatch chain.</td></tr>
           <tr><td><code>powerliners.disk.disk_usage</code></td><td>Filesystem <code>USED/TOTAL</code> for any mount.</td></tr>
           <tr><td><code>powerliners.disk.disk_usage_percent</code></td><td>Filesystem percent-used.</td></tr>
-          <tr><td><code>powerliners.disk.disk_io</code></td><td>Live read/write throughput for any device. Tokens: <code>{recv}</code>/<code>{sent}</code> (human-formatted) / <code>{recv_bytes}</code>/<code>{sent_bytes}</code>.</td></tr>
+          <tr><td><code>powerliners.disk.disk_io</code></td><td>Live read/write throughput for any device (<code>device</code> arg, default <code>auto</code>). Format uses positional <code>%s</code> substitution — first <code>%s</code> &rarr; read rate, second <code>%s</code> &rarr; write rate (default <code>&lt;disk&gt; &lt;io&gt; R %s W %s</code>). Args: <code>short</code> (default true), <code>recv_max</code>/<code>sent_max</code> (gradient ceilings, default 100&nbsp;MiB/s).</td></tr>
           <tr><td><code>powerliners.thermal.thermal</code></td><td>CPU/GPU temp + fan RPM. <code>/sys/class/hwmon</code> on Linux, <code>powermetrics</code>/<code>istats</code> on macOS.</td></tr>
           <tr><td><code>powerliners.vcs.git_status</code></td><td>Single-probe git status — branch, ahead/behind, dirty/staged/untracked, stash count, action (rebase/merge/cherry-pick), tag at HEAD. github-remote detection prepends the octocat glyph.</td></tr>
           <tr><td><code>powerliners.docker.containers</code></td><td>Container counts via <code>docker ps</code>. Tokens: <code>{running}</code> / <code>{total}</code> / <code>{images}</code> / <code>{stopped}</code>. Falls through silently when the daemon is unreachable.</td></tr>
@@ -421,7 +598,7 @@ endif</pre>
       <p>Every Nerd Font codepoint shipped by <code>src/extensions/icons.rs</code> is listed here with its canonical upstream identity (verified against <a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_all.sh"><code>ryanoasis/nerd-fonts</code> master</a>, NF 3.4.0 default load order, legacy <code>i_material.sh</code> excluded). Each glyph below renders live via the <code>SymbolsNerdFont</code> @font-face declaration in <code>hud-static.css</code> — if a shipped glyph fails to match its claimed identity, it would be immediately visible in this table.</p>
       <p style="margin-top:0.6rem;">Three-tier fallback chain: <strong>Nerd Font</strong> (default) → <strong>Unicode</strong> (<code>POWERLINERS_ICONS=unicode</code>, text-presentation only) → <strong>ASCII</strong> (<code>POWERLINERS_ICONS=ascii</code>, label-style for non-UTF8 terminals).</p>
 
-      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">A. Icon getters (24)</h3>
+      <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.2rem 0 0.4rem;">A. Icon getters (33)</h3>
       <table class="audit-tbl">
         <thead><tr><th>fn</th><th>codepoint</th><th>NF name</th><th>source</th><th class="nf-cell">NF</th><th>Unicode</th><th>ASCII</th><th>used by segment</th></tr></thead>
         <tbody>
@@ -449,8 +626,18 @@ endif</pre>
           <tr><td><code>icons::zshrs()</code></td><td><code>U+F07B7</code></td><td><code>i_md_console_line</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_md.sh"><code>i_md.sh</code></a></td><td class="nf-cell">󰞷</td><td>❯</td><td><code>zshrs:</code></td><td><code>rkyv_cache</code></td></tr>
           <tr><td><code>icons::stryke()</code></td><td><code>U+E769</code></td><td><code>i_dev_perl</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_dev.sh"><code>i_dev.sh</code></a></td><td class="nf-cell"></td><td>λ</td><td><code>stryke:</code></td><td><code>rkyv_cache</code></td></tr>
           <tr><td><code>icons::awkrs()</code></td><td><code>U+E741</code></td><td><code>i_dev_awk</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_dev.sh"><code>i_dev.sh</code></a></td><td class="nf-cell"></td><td>$0</td><td><code>awkrs:</code></td><td><code>rkyv_cache</code></td></tr>
+          <tr><td><code>icons::weather_sunny()</code></td><td><code>U+E30D</code></td><td><code>i_weather_day_sunny</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_weather.sh"><code>i_weather.sh</code></a></td><td class="nf-cell"></td><td>☀</td><td><code>SUN</code></td><td><code>weather</code></td></tr>
+          <tr><td><code>icons::weather_night()</code></td><td><code>U+E32B</code></td><td><code>i_weather_night_clear</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_weather.sh"><code>i_weather.sh</code></a></td><td class="nf-cell"></td><td>☾</td><td><code>NIGHT</code></td><td><code>weather</code></td></tr>
+          <tr><td><code>icons::weather_rainy()</code></td><td><code>U+E318</code></td><td><code>i_weather_rain</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_weather.sh"><code>i_weather.sh</code></a></td><td class="nf-cell"></td><td>☔</td><td><code>RAIN</code></td><td><code>weather</code></td></tr>
+          <tr><td><code>icons::weather_cloudy()</code></td><td><code>U+E312</code></td><td><code>i_weather_cloudy</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_weather.sh"><code>i_weather.sh</code></a></td><td class="nf-cell"></td><td>☁</td><td><code>CLOUDS</code></td><td><code>weather</code></td></tr>
+          <tr><td><code>icons::weather_snowy()</code></td><td><code>U+E31A</code></td><td><code>i_weather_snow</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_weather.sh"><code>i_weather.sh</code></a></td><td class="nf-cell"></td><td>❄</td><td><code>SNOW</code></td><td><code>weather</code></td></tr>
+          <tr><td><code>icons::weather_stormy()</code></td><td><code>U+E31D</code></td><td><code>i_weather_thunderstorm</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_weather.sh"><code>i_weather.sh</code></a></td><td class="nf-cell"></td><td>⛈</td><td><code>STORM</code></td><td><code>weather</code></td></tr>
+          <tr><td><code>icons::weather_foggy()</code></td><td><code>U+E313</code></td><td><code>i_weather_fog</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_weather.sh"><code>i_weather.sh</code></a></td><td class="nf-cell"></td><td>🌫</td><td><code>FOG</code></td><td><code>weather</code></td></tr>
+          <tr><td><code>icons::weather_windy()</code></td><td><code>U+E31F</code></td><td><code>i_weather_strong_wind</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_weather.sh"><code>i_weather.sh</code></a></td><td class="nf-cell"></td><td>🌬</td><td><code>WIND</code></td><td><code>weather</code></td></tr>
+          <tr><td><code>icons::weather_unknown()</code></td><td><code>U+E374</code></td><td><code>i_weather_na</code></td><td><a href="https://github.com/ryanoasis/nerd-fonts/blob/master/bin/scripts/lib/i_weather.sh"><code>i_weather.sh</code></a></td><td class="nf-cell"></td><td>?</td><td><code>?</code></td><td><code>weather</code></td></tr>
         </tbody>
       </table>
+      <p style="margin-top:0.6rem; font-size:11px; color:var(--text-dim);">The nine <code>weather_*</code> getters are keyed by upstream condition name and consumed by the <code>weather</code> adapter (<code>ad_weather</code> in <code>src/bin/shared/render_runtime.rs</code>) — it pre-seeds <code>day</code>/<code>sunny</code>/<code>night</code>/<code>rainy</code>/<code>cloudy</code>/<code>snowy</code>/<code>stormy</code>/<code>foggy</code>/<code>windy</code>/<code>unknown</code> defaults from the active icon tier before applying any theme <code>icons</code> override. <code>icons::thermometer()</code> remains the only getter with no live consumer (<code>— unused</code> above).</p>
 
       <h3 style="font-family:Orbitron,sans-serif; font-size:12px; color:var(--cyan); letter-spacing:1.5px; text-transform:uppercase; margin:1.6rem 0 0.4rem;">B. Segment defaults (24)</h3>
       <p style="margin:0 0 0.5rem;">Default format strings shipped by each <code>powerliners.*</code> / <code>powerlinemem.*</code> adapter when the theme JSON omits <code>format</code>. Live NF render uses the same glyphs as Table A.</p>
