@@ -122,7 +122,7 @@ pub fn humanize_bytes(num: f64, suffix: &str, si_prefix: bool) -> String {
 
 ### File freeze (`src/ported/**.rs`)
 
-- ❌ **You may NOT create any new `.rs` file under `src/ported/` that does not mirror a real `.py` file in upstream.** The legal file set is the **133 files in upstream `powerline/`** (run `find vendor/powerline/powerline -name '*.py' | sort` to see the exhaustive list). That set is the universe.
+- ❌ **You may NOT create any new `.rs` file under `src/ported/` that does not mirror a real `.py` file in upstream.** The legal file set is the **137 files in upstream `powerline/`** (run `find vendor/powerline/powerline -name '*.py' | sort` to see the exhaustive list). That set is the universe.
 - Mapping rule: `powerline/<x>.py` → `src/ported/<x>.rs`, and `powerline/<dir>/__init__.py` → `src/ported/<dir>/mod.rs`.
 - ❌ No new directories under `src/ported/` that don't mirror an upstream directory.
 
