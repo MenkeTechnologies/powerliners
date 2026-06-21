@@ -382,7 +382,7 @@ section.
 
 ### Phase 5 — Linter (DONE)
 
-- [x] `lint/markedjson/*.rs` (~2,400 LOC subtree)
+- [x] `lint/markedjson/*.rs` (~7,400 LOC subtree)
 - [x] `lint/checks.rs`, `lint/spec.rs`, `lint/imp.rs`, `lint/inspect.rs`
 
 ### Phase 6 — Daemon (DONE at the lifecycle level)
