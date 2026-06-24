@@ -10,6 +10,8 @@
 <code>// RUST PORT OF python's powerline-status. STATUSBAR-AS-A-NATIVE-BINARY. ZERO PYTHON RUNTIME.</code>
 </p>
 
+### [`Read the Docs`](https://menketechnologies.github.io/powerliners/) &middot; [`Engineering Report`](https://menketechnologies.github.io/powerliners/report.html)
+
 ---
 
 [![Status](https://img.shields.io/badge/status-134%2F137%20DONE-39ff14.svg)](#-status)
