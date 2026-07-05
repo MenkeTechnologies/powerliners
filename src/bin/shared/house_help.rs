@@ -101,7 +101,7 @@ pub fn help(
 
     out.push_str(&section_rule("SYSTEM"));
     out.push_str(&format!(
-        "  \x1b[35mv{ver} \x1b[0m// \x1b[33m(c) Jacob Menke and contributors\x1b[0m\n"
+        "  \x1b[35mv{ver} \x1b[0m// \x1b[33m(c) MenkeTechnologies\x1b[0m\n"
     ));
     out.push_str(&format!("  \x1b[35m{footer_tagline}\x1b[0m\n"));
     out.push_str(&format!("  \x1b[33m>>> {footer_jack} <<<\x1b[0m\n"));
