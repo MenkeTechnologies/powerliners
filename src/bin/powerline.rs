@@ -23,6 +23,9 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::net::UnixStream;
 use std::process::ExitCode;
 
+#[path = "shared/house_help.rs"]
+mod house_help;
+
 #[cfg(target_os = "linux")]
 const SOCKET_PREFIX: &str = "\0powerline-ipc-";
 #[cfg(not(target_os = "linux"))]
@@ -38,6 +41,19 @@ fn default_socket_path() -> String {
 fn main() -> ExitCode {
     // C:78-105  argv parsing
     let mut argv: Vec<String> = std::env::args().collect();
+
+    // House `--help` / `--version` (display-only; never touches the wire
+    // request or the render fallback). tmux / shells invoke the client
+    // only as `powerline EXT SIDE …`, never with these flags, so the
+    // normal statusline path is unaffected.
+    if house_help::wants_help(&argv[1..]) {
+        print!("{}", client_help());
+        return ExitCode::SUCCESS;
+    }
+    if house_help::wants_version(&argv[1..]) {
+        println!("{}", house_help::version_line("powerline"));
+        return ExitCode::SUCCESS;
+    }
 
     // C:98-105  --socket SOCKET
     let address = if argv.len() > 3 && argv[1] == "--socket" {
@@ -178,4 +194,60 @@ fn exec_render_fallback(argv: &[String]) -> ExitCode {
 fn write_failed() -> ExitCode {
     eprintln!("powerline: write() to daemon failed");
     ExitCode::from(1)
+}
+
+/// House `--help` screen for the native client. EXT/SIDE and the render
+/// flags are forwarded verbatim to the daemon (or to `powerline-render`
+/// when the socket is unreachable), so they are documented here.
+fn client_help() -> String {
+    use house_help::Section;
+    house_help::help(
+        "Native client — sends EXT/SIDE + flags to powerline-daemon; \
+         falls back to powerline-render when the socket is unreachable.",
+        "STATUSLINE CLIENT // ONE SOCKET, ONE PROMPT",
+        "powerline [--socket PATH] EXT [SIDE] [OPTIONS]",
+        &[
+            Section {
+                title: "MODES",
+                items: &[
+                    (
+                        "powerline EXT [SIDE]",
+                        "render EXT (tmux, shell, …) for SIDE (left/right)",
+                    ),
+                    ("powerline tmux right", "tmux right-hand statusline"),
+                    ("powerline shell left", "shell left prompt"),
+                    ("powerline --socket P …", "target a specific daemon socket"),
+                ],
+            },
+            Section {
+                title: "OPTIONS (forwarded to daemon / render)",
+                items: &[
+                    ("-w, --width N", "truncate output to N columns"),
+                    ("-r, --renderer-module M", "override the renderer module"),
+                    (
+                        "-c, --config-override K=V",
+                        "override main-config keys (repeatable)",
+                    ),
+                    (
+                        "-t, --theme-override K=V",
+                        "override theme keys (repeatable)",
+                    ),
+                    ("-R, --renderer-arg K=V", "pass an argument to the renderer"),
+                    (
+                        "-p, --config-path PATH",
+                        "add a config search path (repeatable)",
+                    ),
+                    ("-m, --mode MODE", "shorthand for -R mode=MODE"),
+                    ("--last-exit-code N", "previous command exit status"),
+                    ("--last-pipe-status L", "previous pipe exit statuses"),
+                    ("--jobnum N", "number of background jobs"),
+                    ("--socket PATH", "daemon socket path"),
+                    ("-h, --help", "print this help"),
+                    ("-V, --version", "print version"),
+                ],
+            },
+        ],
+        "One socket. One binary. The whole statusline.",
+        "JACK IN. ONE SOCKET. RENDER THE PROMPT.",
+    )
 }

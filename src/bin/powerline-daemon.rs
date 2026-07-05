@@ -17,8 +17,23 @@ use powerliners::ported::scripts::powerline_daemon::{RenderFn, SpawnWmFn};
 #[path = "shared/render_runtime.rs"]
 mod render_runtime;
 
+#[path = "shared/house_help.rs"]
+mod house_help;
+
 fn main() {
     let argv: Vec<String> = std::env::args().skip(1).collect();
+
+    // House `--help` / `--version` (display-only) — intercepted before
+    // the daemon's own argv parse so `-h` prints the styled screen
+    // instead of the old no-op.
+    if house_help::wants_help(&argv) {
+        print!("{}", daemon_help());
+        std::process::exit(0);
+    }
+    if house_help::wants_version(&argv) {
+        println!("{}", house_help::version_line("powerline-daemon"));
+        std::process::exit(0);
+    }
 
     // One slot per ext — the daemon caches keyed by PowerlineKey but
     // the configs themselves only depend on `ext`. Lazy-load on first
@@ -79,4 +94,30 @@ fn main() {
     let spawn_wm_fn: Arc<SpawnWmFn> = Arc::new(|_name, _t_evt, _pl_evt| None);
     let code = daemon::main(&argv, render_fn, spawn_wm_fn);
     std::process::exit(code);
+}
+
+/// House `--help` screen for the render daemon.
+fn daemon_help() -> String {
+    use house_help::Section;
+    house_help::help(
+        "Long-running render daemon — caches configs and serves powerline \
+         clients over a Unix socket.",
+        "RENDER DAEMON // WARM CONFIGS, FAST PROMPTS",
+        "powerline-daemon [OPTIONS]",
+        &[Section {
+            title: "OPTIONS",
+            items: &[
+                ("(no args)", "start the daemon in the background"),
+                ("-f, --foreground", "run in the foreground (do not fork)"),
+                ("-r, --replace", "replace a daemon already running"),
+                ("-k, --kill", "kill the running daemon and exit"),
+                ("-s, --socket PATH", "socket to bind / connect to"),
+                ("-q, --quiet", "suppress the 'already running' notice"),
+                ("-h, --help", "print this help"),
+                ("-V, --version", "print version"),
+            ],
+        }],
+        "Warm the machine once. Render forever.",
+        "JACK IN. HOLD THE SOCKET. SERVE THE PROMPT.",
+    )
 }
