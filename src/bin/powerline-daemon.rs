@@ -52,6 +52,17 @@ fn main() {
             ext, side, cwd
         ));
 
+        // Reactive Prompt Push (extension, non-port): if the client
+        // advertised a wake FIFO, (re)arm an edge-triggered filesystem
+        // watch over the inputs backing its prompt so an external change
+        // (e.g. `git checkout` in another pane) redraws it in place. This
+        // is strictly additive — the pull render below is unchanged.
+        if let Some(fifo) = environ.get("POWERLINE_RESET_FIFO") {
+            if !fifo.is_empty() {
+                powerliners::extensions::watch::register(fifo, std::path::Path::new(cwd));
+            }
+        }
+
         let configs = {
             let mut guard = store_clone.lock().expect("config store poisoned");
             // py:851-866  update_renderer's reload-check: when any

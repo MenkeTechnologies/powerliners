@@ -40,6 +40,16 @@
 //!   project + account, pure-fs read of `~/.config/gcloud`)
 //! - [`fusevm_jit`] — `powerliners.fusevm.jit_cache` (entry count +
 //!   bytes under the fusevm Cranelift JIT cache root)
+//! - [`watch`]      — Reactive Prompt Push: the warm daemon watches each
+//!   client's prompt inputs (cwd, `.git/HEAD`, `.git/index`, branch ref)
+//!   with real OS events (`notify`: kqueue/FSEvents/inotify) and writes a
+//!   one-byte wake to a per-client FIFO on a real change. Registered from
+//!   the daemon binary's `render_fn`; the pull-only ported path is
+//!   untouched.
+//! - [`shell_hooks`] — shell-side bindings that create the wake FIFO and
+//!   wire it into the line editor. `shell_hooks/reactive.zsh` uses
+//!   `zle -F <fd>` → `zle reset-prompt` so the branch flips between
+//!   keystrokes with no Enter and no interval timer.
 
 pub mod awkrs_rkyv;
 pub mod awkrs_version;
@@ -59,9 +69,11 @@ pub mod icons;
 pub mod k8s;
 pub mod mem_usage;
 pub mod proc_count;
+pub mod shell_hooks;
 pub mod stryke_rkyv;
 pub mod stryke_version;
 pub mod thermal;
+pub mod watch;
 pub mod wthr_extensions;
 pub mod zshrs_rkyv;
 pub mod zshrs_version;

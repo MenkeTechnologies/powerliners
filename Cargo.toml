@@ -66,6 +66,10 @@ regex = "1"
 libc = "0.2"
 log = "0.4"
 ureq = { version = "3", features = ["json", "rustls"], default-features = false }
+# Reactive Prompt Push (src/extensions/watch.rs): cross-platform real FS
+# events — kqueue/FSEvents on macOS, inotify on Linux. Foundational,
+# widely-vendored (rust-analyzer, cargo-watch), durable for the endgame.
+notify = "8"
 
 [dev-dependencies]
 walkdir = "2"

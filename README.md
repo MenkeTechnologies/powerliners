@@ -657,6 +657,48 @@ Highlight-group chain (3 levels): `<segment>_rkyv_cache` →
 `<segment>` → `information:regular`. The trailing `information:regular`
 is a neutral fallback so the chunk renders in any colorscheme.
 
+### `> Reactive Prompt Push`
+
+Upstream powerline renders on a *pull*: your shell asks for a prompt on
+each `precmd` (and, in tmux, on an interval). Nothing tells the prompt to
+redraw when its inputs change out from under it — so if you `git checkout`
+in another pane, this pane's branch name is stale until you press Enter.
+
+The Reactive Prompt Push extension (`src/extensions/watch.rs`) adds an
+orthogonal *push* path. The warm `powerline-daemon` watches the
+filesystem inputs backing each client's currently-displayed prompt — its
+`cwd`, `.git/HEAD`, `.git/index`, and the active branch ref — using real
+OS events (kqueue/FSEvents on macOS, inotify on Linux via the `notify`
+crate). On a real change it writes a single wake byte to a per-client
+FIFO the shell is watching, and the shell redraws the prompt in place.
+The branch flips the instant you check out in another pane — between
+keystrokes, no Enter, no interval timer.
+
+It is edge-triggered and de-duplicated: the OS delivers an event only on
+a real change, and the wake byte is written only when the recomputed
+prompt fingerprint differs from the one captured at the last render — so
+there are zero wasted redraws. When no watch backend can be created the
+client silently degrades to the existing pull-only behavior; the 1:1
+ported render path is untouched.
+
+**Install (zsh).** The shell side is shipped as a binding at
+`src/extensions/shell_hooks/reactive.zsh` (also available in-process as
+`powerliners::extensions::shell_hooks::zsh_reactive()`). Source it from
+`~/.zshrc` *after* powerline's own zsh binding, with a running daemon:
+
+```zsh
+source /path/to/powerliners/src/extensions/shell_hooks/reactive.zsh
+_powerline_reactive_setup
+```
+
+`_powerline_reactive_setup` creates a per-shell FIFO, exports its path as
+`$POWERLINE_RESET_FIFO` (which the shell passes into every `powerline`
+invocation and thus to the daemon), and wires the read end into the line
+editor via `zle -F <fd> → zle reset-prompt`. `_powerline_reactive_teardown`
+(also run automatically on shell exit) removes the FIFO and unhooks the
+fd. The binding is zsh-only: ZLE is the one mainstream line editor that
+can watch an arbitrary fd and redraw the prompt mid-line without a timer.
+
 ---
 
 ## `> LICENSE`
