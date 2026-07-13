@@ -143,10 +143,7 @@ pub fn last_pipe_status(
     let statuses: Vec<i32> = if !segment_info.last_pipe_status.is_empty() {
         segment_info.last_pipe_status.clone()
     } else {
-        match segment_info.last_exit_code {
-            Some(code) => vec![code],
-            None => return None,
-        }
+        vec![segment_info.last_exit_code?]
     };
     // py:64  if any(last_pipe_status):
     if !statuses.iter().any(|&s| s != 0) {

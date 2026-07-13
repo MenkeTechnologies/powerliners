@@ -376,28 +376,28 @@ mod tests {
     #[test]
     fn aggregate_repo_status_modified_returns_dirty() {
         // M → 1-bit
-        let r = Repository::aggregate_repo_status([b'M']);
+        let r = Repository::aggregate_repo_status(*b"M");
         assert_eq!(r, Some("D "));
     }
 
     #[test]
     fn aggregate_repo_status_unknown_returns_untracked() {
         // ? → 2-bit
-        let r = Repository::aggregate_repo_status([b'?']);
+        let r = Repository::aggregate_repo_status(*b"?");
         assert_eq!(r, Some(" U"));
     }
 
     #[test]
     fn aggregate_repo_status_dirty_plus_untracked_returns_both() {
         // M + ? → 3 bits
-        let r = Repository::aggregate_repo_status([b'M', b'?']);
+        let r = Repository::aggregate_repo_status(*b"M?");
         assert_eq!(r, Some("DU"));
     }
 
     #[test]
     fn aggregate_repo_status_clean_codes_ignored() {
         // I + C → 0 bits → None
-        let r = Repository::aggregate_repo_status([b'I', b'C']);
+        let r = Repository::aggregate_repo_status(*b"IC");
         assert_eq!(r, None);
     }
 }

@@ -899,15 +899,13 @@ where
     for root in search_paths {
         let candidate = root.join("config.json");
         if candidate.is_file() {
-            match load_fn(&candidate) {
-                Ok(v) => {
-                    if let serde_json::Value::Object(m) = v {
-                        return Ok(m);
-                    } else {
-                        return Err(format!("{} root is not a JSON object", candidate.display()));
-                    }
+            {
+                let v = load_fn(&candidate)?;
+                if let serde_json::Value::Object(m) = v {
+                    return Ok(m);
+                } else {
+                    return Err(format!("{} root is not a JSON object", candidate.display()));
                 }
-                Err(e) => return Err(e),
             }
         }
     }
