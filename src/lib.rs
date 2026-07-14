@@ -24,6 +24,18 @@
 pub mod extensions;
 pub mod ported;
 
+/// Process-global lock serializing every test that mutates or depends on
+/// process environment (`HOME`, `PATH`, `XDG_*`, `POWERLINE_*`) or that
+/// spawns a subprocess. `std::env::set_var`/`remove_var` mutate the global
+/// `environ`, which is unsynchronized against concurrent `Command` spawns and
+/// env reads across cargo's parallel test threads. Fragmented per-module locks
+/// each serialize only their own tests, so a mutator in one module still races
+/// a reader/spawner in another (the intermittent CI flake). Every env-touching
+/// test — mutator, reader, or subprocess spawner — must hold this one guard.
+/// Poison-tolerant: a panic in one env test must not cascade-fail the rest.
+#[cfg(test)]
+pub(crate) static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 // Re-export the entire ported tree for ergonomic call sites.
 // (Mirrors the way `powerline/__init__.py` re-exports its public API.)
 pub use crate::ported::*;

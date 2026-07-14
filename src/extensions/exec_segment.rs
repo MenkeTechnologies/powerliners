@@ -304,6 +304,10 @@ mod tests {
 
     #[test]
     fn exec_segment_captures_echo_stdout() {
+        // Spawns a subprocess; hold the crate-wide env lock so a parallel
+        // `set_var` can't corrupt `environ` during the fork/exec and make
+        // the spawn spuriously fail.
+        let _g = crate::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let segs = exec_segment("echo", &["hello".to_string()], None, None, None, None);
         let segs = segs.expect("echo should succeed");
         assert_eq!(segs[0]["contents"], "hello");
@@ -331,6 +335,9 @@ mod tests {
 
     #[test]
     fn exec_segment_with_format_applies_template_to_stdout() {
+        // Spawns a subprocess; hold the crate-wide env lock (see
+        // `crate::ENV_LOCK`) so a parallel `set_var` can't corrupt the fork.
+        let _g = crate::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let segs = exec_segment(
             "echo",
             &["42".to_string()],
@@ -344,6 +351,9 @@ mod tests {
 
     #[test]
     fn exec_segment_with_highlight_groups_attaches_them() {
+        // Spawns a subprocess; hold the crate-wide env lock (see
+        // `crate::ENV_LOCK`) so a parallel `set_var` can't corrupt the fork.
+        let _g = crate::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let groups = vec!["cpu_load".to_string()];
         let segs = exec_segment("echo", &["x".to_string()], None, None, None, Some(&groups));
         let segs = segs.unwrap();
@@ -352,6 +362,9 @@ mod tests {
 
     #[test]
     fn exec_segment_parses_json_array_output() {
+        // Spawns a subprocess; hold the crate-wide env lock (see
+        // `crate::ENV_LOCK`) so a parallel `set_var` can't corrupt the fork.
+        let _g = crate::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         // Use printf to emit JSON without trailing whitespace.
         let json = r#"[{"contents":"A"},{"contents":"B"}]"#;
         let segs = exec_segment(
@@ -370,6 +383,10 @@ mod tests {
 
     #[test]
     fn exec_by_dotted_path_runs_resolved_script() {
+        // Spawns the resolved script; hold the crate-wide env lock (see
+        // `crate::ENV_LOCK`) so a parallel `set_var` can't corrupt `environ`
+        // during the fork/exec and make the spawn spuriously return None.
+        let _g = crate::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let tmp = TempDir::new().expect("tempdir");
         let script = tmp.path().join("segments/myseg/hello.sh");
         fs::create_dir_all(script.parent().unwrap()).expect("mkdir");

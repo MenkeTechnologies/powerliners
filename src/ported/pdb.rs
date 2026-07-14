@@ -150,25 +150,13 @@ impl PDBPowerline {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-    use std::sync::OnceLock;
 
-    /// Module-scoped lock that serialises env-var mutation tests
-    /// against each other. A single OnceLock-backed Mutex shared
-    /// by all tests in this module — declared at mod level so the
-    /// expansion site of any helper doesn't accidentally make a
-    /// per-callsite static.
-    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-
-    /// Acquires the module env lock. Macro-style so each test can
-    /// hold the guard across the full set/read/cleanup sequence
-    /// without dragging a fn-return lifetime through the drift gate.
+    /// Acquires the crate-wide env lock (see `crate::ENV_LOCK`). Macro-style
+    /// so each test can hold the guard across the full set/read/cleanup
+    /// sequence without dragging a fn-return lifetime through the call site.
     macro_rules! lock_env {
         () => {{
-            ENV_LOCK
-                .get_or_init(|| Mutex::new(()))
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
+            crate::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner())
         }};
     }
 

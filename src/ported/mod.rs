@@ -383,17 +383,13 @@ pub fn finish_common_config(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-    use std::sync::OnceLock;
 
-    static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-
+    /// Acquire the crate-wide env lock (see `crate::ENV_LOCK`). Kept as a
+    /// macro so each test holds the guard across its full set/read/cleanup
+    /// sequence without threading a fn-return lifetime through the call site.
     macro_rules! lock_env {
         () => {{
-            TEST_LOCK
-                .get_or_init(|| Mutex::new(()))
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
+            crate::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner())
         }};
     }
 

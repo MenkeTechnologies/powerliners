@@ -348,29 +348,17 @@ fn which_exists(name: &str) -> Option<std::path::PathBuf> {
 mod tests {
     use super::*;
     use std::io::Write;
-    use std::sync::Mutex;
-    use std::sync::OnceLock;
 
-    // Serializes access to the process-global `$PATH` env var.
-    // `repository_new_errors_when_git_not_on_path` mutates PATH;
-    // every test that calls `Repository::new` (which internally calls
-    // `which_exists("git")` reading PATH) must hold this guard.
-    // Without this, cargo's parallel runner intermittently races a
-    // PATH-mutating test against a PATH-reading test and the latter
-    // panics on `.unwrap()` of `Err(NotFound)`.
-    //
-    // Pattern matches the lock_env! style used in src/ported/pdb.rs
-    // and src/ported/mod.rs. A bare helper fn returning `&'static
-    // Mutex<()>` would break the drift gate's char-literal tracker
-    // (it doesn't recognise the `'static` lifetime after `&`).
-    static PATH_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-
+    // Serializes access to the process-global `$PATH` env var against every
+    // other env-touching test in the crate. `repository_new_errors_when_git_
+    // not_on_path` mutates PATH; every test that calls `Repository::new`
+    // (which internally calls `which_exists("git")` reading PATH) must hold
+    // the crate-wide `ENV_LOCK`. Without it, cargo's parallel runner
+    // intermittently races a PATH-mutating test against a PATH-reading test
+    // and the latter panics on `.unwrap()` of `Err(NotFound)`.
     macro_rules! lock_path {
         () => {{
-            PATH_LOCK
-                .get_or_init(|| Mutex::new(()))
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
+            crate::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner())
         }};
     }
 

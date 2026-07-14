@@ -157,6 +157,9 @@ mod tests {
 
     #[test]
     fn location_cache_path_returns_powerliners_dir_when_home_set() {
+        // Reads HOME; hold the crate-wide env lock so a parallel
+        // HOME-mutating test can't swap it mid-read.
+        let _g = crate::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         // HOME mutation across parallel tests is unsafe; we only
         // assert the shape when HOME is already set in the env.
         if let Some(home) = std::env::var_os("HOME") {
@@ -184,6 +187,10 @@ mod tests {
 
     #[test]
     fn save_then_load_location_cache_round_trips() {
+        // Reads/derives the cache path from HOME; hold the crate-wide env
+        // lock so a parallel HOME-mutating test can't repoint the path
+        // between the write and the read.
+        let _g = crate::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         // Same-process round-trip writes to ~/.powerliners/location.json
         // and reads back. We can't fully isolate from the user's real
         // cache without HOME mutation, so we (a) capture whatever's
@@ -212,6 +219,9 @@ mod tests {
 
     #[test]
     fn load_location_cache_returns_none_on_missing_file() {
+        // Derives the cache path from HOME; hold the crate-wide env lock so
+        // a parallel HOME-mutating test can't repoint it mid-test.
+        let _g = crate::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         // Write garbage to the cache path then remove it — load must
         // be None. Restore behavior identical to round_trips test.
         if location_cache_path().is_none() {

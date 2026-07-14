@@ -48,16 +48,13 @@ pub fn attached_clients(pl: &(), minimum: i32) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ported::bindings::tmux::POWERLINE_TMUX_EXE_ENV_LOCK;
 
     #[test]
     fn attached_clients_safe_when_tmux_unavailable() {
-        // Share the env-var Mutex with bindings/tmux::tests so the
-        // set/remove pair here can't race a defaults-read there. Two
-        // per-module Mutex<()>s wouldn't serialize across modules.
-        let _guard = POWERLINE_TMUX_EXE_ENV_LOCK
-            .lock()
-            .unwrap_or_else(|p| p.into_inner());
+        // Share the crate-wide `ENV_LOCK` so the set/remove pair here can't
+        // race any other env-touching test (a defaults-read in
+        // bindings/tmux::tests, a spawn elsewhere, etc.).
+        let _guard = crate::ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         std::env::set_var("POWERLINE_TMUX_EXE", "/nonexistent/tmux-powerliners-test");
         let r = attached_clients(&(), 1);
         std::env::remove_var("POWERLINE_TMUX_EXE");
