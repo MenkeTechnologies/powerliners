@@ -393,10 +393,16 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let git = dir.path().join(".git");
         fs::create_dir_all(git.join("refs").join("heads")).expect("mkdir .git");
-        fs::write(git.join("refs/heads/main"), "1111111111111111111111111111111111111111\n")
-            .expect("write main ref");
-        fs::write(git.join("refs/heads/feature"), "2222222222222222222222222222222222222222\n")
-            .expect("write feature ref");
+        fs::write(
+            git.join("refs/heads/main"),
+            "1111111111111111111111111111111111111111\n",
+        )
+        .expect("write main ref");
+        fs::write(
+            git.join("refs/heads/feature"),
+            "2222222222222222222222222222222222222222\n",
+        )
+        .expect("write feature ref");
         fs::write(git.join("HEAD"), "ref: refs/heads/main\n").expect("write HEAD");
 
         let before = Fingerprint::compute(dir.path());
