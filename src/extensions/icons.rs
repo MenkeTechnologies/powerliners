@@ -202,6 +202,19 @@ pub fn awkrs() -> &'static str {
     pick("\u{E741}", "$0", "awkrs:")
 }
 
+/// vimlrs — the Rust VimL reimplementation. NF: nf-dev-vim (U+E62B) —
+/// the vim wordmark glyph. Unicode: `:w` (the canonical ex command).
+/// ASCII: `vimlrs:`.
+pub fn vimlrs() -> &'static str {
+    pick("\u{E62B}", ":w", "vimlrs:")
+}
+
+/// elisprs — the Rust Emacs-Lisp reimplementation. NF: nf-custom-emacs
+/// (U+E632). Unicode: `(λ` (lisp lambda form). ASCII: `elisprs:`.
+pub fn elisprs() -> &'static str {
+    pick("\u{E632}", "(\u{03BB}", "elisprs:")
+}
+
 /// fusevm / JIT runtime glyph. NF: nf-md-engine (U+F01FA) — the
 /// engine-block symbol from Material Design. Semantic match: fusevm
 /// IS a VM engine (Cranelift-backed JIT shared between zshrs and

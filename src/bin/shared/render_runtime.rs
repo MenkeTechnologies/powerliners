@@ -1071,6 +1071,67 @@ fn ad_awkrs_rkyv_cache(args: &Map<String, Value>, _info: &Map<String, Value>) ->
     rkyv_cache(path, format, show_when_empty).map(Value::Array)
 }
 
+fn ad_vimlrs_version(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::icons;
+    use powerliners::extensions::vimlrs_version::version;
+    let default = format!("{} {{version}}", icons::vimlrs());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&default);
+    let bin = args.get("bin").and_then(|v| v.as_str()).unwrap_or("vimlrs");
+    let ttl_secs = args.get("ttl_secs").and_then(|v| v.as_u64()).unwrap_or(300);
+    version(bin, format, ttl_secs).map(Value::Array)
+}
+
+fn ad_vimlrs_rkyv_cache(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::icons;
+    use powerliners::extensions::vimlrs_rkyv::rkyv_cache;
+    let default = format!("{} {{size}}", icons::vimlrs());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&default);
+    let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+    let show_when_empty = args
+        .get("show_when_empty")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    rkyv_cache(path, format, show_when_empty).map(Value::Array)
+}
+
+fn ad_elisprs_version(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::elisprs_version::version;
+    use powerliners::extensions::icons;
+    let default = format!("{} {{version}}", icons::elisprs());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&default);
+    let bin = args
+        .get("bin")
+        .and_then(|v| v.as_str())
+        .unwrap_or("elisprs");
+    let ttl_secs = args.get("ttl_secs").and_then(|v| v.as_u64()).unwrap_or(300);
+    version(bin, format, ttl_secs).map(Value::Array)
+}
+
+fn ad_elisprs_rkyv_cache(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::extensions::elisprs_rkyv::rkyv_cache;
+    use powerliners::extensions::icons;
+    let default = format!("{} {{size}}", icons::elisprs());
+    let format = args
+        .get("format")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&default);
+    let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+    let show_when_empty = args
+        .get("show_when_empty")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    rkyv_cache(path, format, show_when_empty).map(Value::Array)
+}
+
 fn ad_zshrs_rkyv_cache(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
     use powerliners::extensions::icons;
     use powerliners::extensions::zshrs_rkyv::rkyv_cache;
@@ -2447,6 +2508,12 @@ pub const ADAPTERS: &[(&str, AdapterFn)] = &[
     ("powerliners.stryke.version", ad_stryke_version),
     // awkrs version — src/extensions/awkrs_version.rs
     ("powerliners.awkrs.version", ad_awkrs_version),
+    // vimlrs / elisprs — rkyv script-cache + version, same surface as
+    // the zshrs/stryke/awkrs trio (src/extensions/{vimlrs,elisprs}_*.rs)
+    ("powerliners.vimlrs.rkyv_cache", ad_vimlrs_rkyv_cache),
+    ("powerliners.vimlrs.version", ad_vimlrs_version),
+    ("powerliners.elisprs.rkyv_cache", ad_elisprs_rkyv_cache),
+    ("powerliners.elisprs.version", ad_elisprs_version),
     // User-extensibility (`src/extensions/exec_segment.rs`):
     //   Option A — explicit `exec` adapter spawns args.command + parses
     //   stdout. Theme JSON references `"function": "exec"`.
@@ -3042,6 +3109,10 @@ mod tests {
             ("powerliners.zshrs", "version"),
             ("powerliners.stryke", "version"),
             ("powerliners.awkrs", "version"),
+            ("powerliners.vimlrs", "rkyv_cache"),
+            ("powerliners.vimlrs", "version"),
+            ("powerliners.elisprs", "rkyv_cache"),
+            ("powerliners.elisprs", "version"),
         ] {
             let id = adapter_id(mod_, name)
                 .unwrap_or_else(|| panic!("extension adapter {mod_}.{name} missing from ADAPTERS"));
