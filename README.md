@@ -15,7 +15,7 @@
 ---
 
 [![Status](https://img.shields.io/badge/status-134%2F137%20DONE-39ff14.svg)](#-status)
-[![Tests](https://img.shields.io/badge/lib%20tests-2436%20passing-39ff14.svg)](#-status)
+[![Tests](https://img.shields.io/badge/lib%20tests-2497%20passing-39ff14.svg)](#-status)
 [![Parity](https://img.shields.io/badge/parity%20tests-462%20vs%20upstream-05d9e8.svg)](#-status)
 [![Bugs Fixed](https://img.shields.io/badge/port%20bugs%20fixed-11-d300c5.svg)](#-status)
 [![Source](https://img.shields.io/badge/port_of-powerline--status-05d9e8.svg)](https://github.com/powerline/powerline)
@@ -68,7 +68,7 @@ Drop-in compatible with the existing `powerline/config` JSON theme + segment fil
 [port progress]   134 / 137 upstream .py files at DONE tier (97.8%)
 [remaining]       3 lipstick-only py files — zero-fn class shells, see Status
 [partial/sparse]  0 / 0 — no degraded files
-[lib tests]       2436 passing, 0 failing, 0 ignored
+[lib tests]       2497 passing, 0 failing, 0 ignored
 [parity tests]    462 against live upstream Python — every assertion runs the
                   Python interpreter on the upstream powerline source and
                   compares byte/value identical with the Rust port
@@ -111,7 +111,7 @@ at DONE.
 | Binary | Mirrors | What it does |
 |---|---|---|
 | `powerline` | `client/powerline.c` | Native Rust client — forwards `argv + cwd + env` to the daemon over a Unix socket via the upstream wire format, falls back to `powerline-render` exec if the daemon is unreachable |
-| `powerline-config` | `scripts/powerline-config` | tmux / shell known-function dispatch |
+| `powerline-config` | `scripts/powerline-config` | tmux / shell known-function dispatch, plus the non-upstream `vim source-path` extractor |
 | `powerline-lint` | `scripts/powerline-lint` | argparse + full check pipeline (markedjson loader + Spec checks + orchestrator integration) |
 | `powerline-render` | `scripts/powerline-render` | argparse + ext lookup + full direct-render path through the `Powerline` orchestrator (used as daemon-less fallback) |
 | `powerline-daemon` | `scripts/powerline-daemon` | UNIX-socket bind + daemonize + pidfile lock + accept loop + EOF shutdown + end-to-end statusline rendering against a real `~/.config/powerline/themes/...` JSON tree |
@@ -130,7 +130,7 @@ upstream Python `powerline` C client. The render path covers:
   hard/soft divider insertion and per-side outer padding
 - TmuxRenderer `#[…]` markup emission with `term_truecolor` cterm path
 
-54 segment adapters wired in `src/bin/shared/render_runtime.rs` (55
+58 segment adapters wired in `src/bin/shared/render_runtime.rs` (59
 `ADAPTERS` keys including the bare `exec` alias; shared
 between `powerline-daemon` and `powerline-render`): `battery`, `branch`,
 `clementine`, `cmus`, `containers`, `cpu_load_percent`, `cwd`, `date`,
@@ -143,7 +143,7 @@ between `powerline-daemon` and `powerline-render`): `battery`, `branch`,
 `system_load`, `thermal`, `uptime`, `user`, `virtualenv`, `weather`,
 plus `git_status`, `ci_status`, `aws.context`, `gcp.context`,
 `fusevm.jit_cache`, and the `rkyv_cache` / `version` adapters for
-`zshrs`, `stryke`, and `awkrs`.
+`zshrs`, `stryke`, `awkrs`, `vimlrs`, and `elisprs`.
 
 Point it at a config root via `POWERLINE_CONFIG_PATHS`:
 
@@ -611,9 +611,13 @@ filesystem lookup needed):
 | `powerliners.zshrs.rkyv_cache` | Single-file stat of the zshrs authoritative rkyv archive at `$ZSHRS_RKYV_CACHE` / `$ZSHRS_HOME/scripts.rkyv` / `$XDG_DATA_HOME/zshrs/scripts.rkyv` / `~/.zshrs/scripts.rkyv`. Same `{size}` / `{bytes}` / `{logical_*}` token surface as `fusevm.jit_cache`. Disk-bytes default matches `du -sh` |
 | `powerliners.stryke.rkyv_cache` | Single-file stat of `~/.stryke/scripts.rkyv` (stryke's authoritative bytecode store, Cranelift-JIT'd via the shared fusevm runtime). Same token surface |
 | `powerliners.awkrs.rkyv_cache` | Single-file stat of `~/.awkrs/scripts.rkyv`. Same token surface |
+| `powerliners.vimlrs.rkyv_cache` | Single-file stat of `~/.vimlrs/scripts.rkyv` (the Rust VimL reimplementation's bytecode store). Same token surface |
+| `powerliners.elisprs.rkyv_cache` | Single-file stat of `~/.elisprs/scripts.rkyv` (the Rust Emacs-Lisp reimplementation's bytecode store). Same token surface |
 | `powerliners.zshrs.version` | Latest installed zshrs version (parsed from `<bin> --version`). In-process TTL cache (default 300 s) so the daemon doesn't fork on every prompt tick. Tokens: `{icon}`/`{version}` |
 | `powerliners.stryke.version` | Same for stryke (handles the `This is stryke vX.Y.Z — ...` prefix shape). |
 | `powerliners.awkrs.version` | Same for awkrs. |
+| `powerliners.vimlrs.version` | Same for vimlrs. |
+| `powerliners.elisprs.version` | Same for elisprs. |
 | `powerliners.exec.exec` | The explicit `exec` adapter (also resolves via bare `"function": "exec"`) |
 
 These each live in `src/extensions/<module>.rs` and are wired into
@@ -623,13 +627,14 @@ carve-out).
 
 ### `> Cache-size segments — shared resolution chain`
 
-The four cache-size segments (`fusevm.jit_cache`, `zshrs.rkyv_cache`,
-`stryke.rkyv_cache`, `awkrs.rkyv_cache`) share a uniform 4-level
+The six cache-size segments (`fusevm.jit_cache`, `zshrs.rkyv_cache`,
+`stryke.rkyv_cache`, `awkrs.rkyv_cache`, `vimlrs.rkyv_cache`,
+`elisprs.rkyv_cache`) share a uniform 4-level
 resolution chain and an identical `{size}` / `{bytes}` / `{logical_size}` /
 `{logical_bytes}` token surface so the same theme JSON works across all
-four. Each is a pure filesystem probe — no subprocess, no daemon RPC.
+six. Each is a pure filesystem probe — no subprocess, no daemon RPC.
 
-For the rkyv segments, `<NAME> ∈ {ZSHRS, STRYKE, AWKRS}`:
+For the rkyv segments, `<NAME> ∈ {ZSHRS, STRYKE, AWKRS, VIMLRS, ELISPRS}`:
 
 1. `$<NAME>_RKYV_CACHE` — explicit override, used verbatim
 2. `$<NAME>_HOME/scripts.rkyv`
@@ -645,7 +650,7 @@ never followed (avoids infinite loops across re-symlinked cache dirs).
 
 The resolution chain is unit-tested via a pure-functional
 `default_path_with(get_env, path_exists)` seam in
-`src/extensions/{zshrs,stryke,awkrs}_rkyv.rs` and a matching
+`src/extensions/{zshrs,stryke,awkrs,vimlrs,elisprs}_rkyv.rs` and a matching
 `default_root_with(get_env)` seam in `src/extensions/fusevm_jit.rs` —
 no env-var mutation in tests, no thread-safety hazard, every
 precedence level pinned.

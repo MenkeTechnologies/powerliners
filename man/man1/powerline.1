@@ -58,7 +58,17 @@ Shell prompt (zsh, bash continuation, fish, etc.); subtypes pass through
 the next arg (\fBleft\fR, \fBright\fR, \fBcontinuation\fR).
 .TP
 .B vim
-Vim statusline / tabline; only used via the Python ipython binding.
+Vim statusline / tabline. Driven by the bundled
+.B powerline.vim
+plugin, which the
+.B powerline
+binary embeds and
+.BR powerline-config (1)
+extracts via
+.BR "powerline-config vim source-path" .
+No
+.B +python3
+vim build and no Python helper are involved.
 .TP
 .B ipython
 IPython prompt / continuation.

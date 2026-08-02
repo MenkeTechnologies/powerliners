@@ -132,10 +132,13 @@ search for
 .B /etc/powerline/
 \(em system\(hywide overrides.
 .IP 4. 4
-The bundled defaults shipped with the
+The bundled defaults compiled into the
 .B powerliners
-package itself
-.RB ( vendor/powerline/powerline/config_files/ ).
+binaries themselves \(em embedded from
+.B src/ported/config_files/
+via
+.BR include_str! ,
+so they need no on-disk installation.
 .PP
 Per-key merging follows the upstream Python
 .B mergedicts
@@ -182,13 +185,12 @@ Shell\(hyspecific segments (
 .BR last_status ,
 .BR last_pipe_status ,
 .BR jobnum ,
-.BR continuation_marker ).
+.BR mode ,
+.BR continuation ).
 .TP
 .B tmux
 Tmux\(hyspecific segments (
-.BR session_name ,
-.BR window_index ,
-.BR pane_count ).
+.BR attached_clients ).
 .PP
 The
 .B player
@@ -199,14 +201,17 @@ base, faithfully mirroring upstream's class hierarchy.
 .SH "7.  DAEMON LIFECYCLE"
 .B powerline-daemon
 defaults to forking into the background after binding the socket
-.RB ( "powerline-daemon &"
+.RB ( "powerline-daemon -q"
 in
 .BR ~/.profile ),
-re\(hyexecs on
+and exits cleanly on
+.B SIGTERM
+(unlinking its pidfile) or
+.BR SIGINT .
+There is no
 .B SIGHUP
-(to pick up config changes without dropping the socket), and exits
-cleanly on
-.BR SIGTERM .
+reload; config changes are picked up by restarting the daemon
+.RB ( "powerline-daemon --replace" ).
 .IP \(bu 2
 .B \-\-foreground
 keeps the daemon attached to the terminal (useful for systemd
@@ -220,7 +225,8 @@ kills any existing daemon on the same socket and takes over.
 sends SIGTERM to the running daemon and exits.
 .IP \(bu 2
 .B \-\-quiet
-suppresses startup banner / log output (analogous to upstream).
+suppresses the "already running" notice when another daemon already
+holds the socket.
 .SH "8.  INVOCATION FROM SHELLS"
 .SS zsh
 .RS
@@ -253,48 +259,82 @@ set -g status-style "bg=colour234,fg=colour231"
 .SS vim
 .RS
 .nf
-" let g:powerline_pycmd = 'py3'
-set rtp+=~/.local/lib/python3.X/site-packages/powerline/bindings/vim/
-set laststatus=2
+if executable('powerline-config')
+  execute 'source' trim(system('powerline-config vim source-path'))
+endif
 .fi
 .RE
-Vim integration retains the Python plumbing because vim's
-.B :python
-host is the only IPC path for inline script execution; the rendered
-content still comes from the
+Vim integration needs no Python at all. The
+.B powerline.vim
+plugin is embedded in the binary via
+.BR include_str! ;
+.B powerline-config vim source-path
+extracts it to
+.B $XDG_CACHE_HOME/powerliners/vim/powerline.vim
+(default
+.BR ~/.cache/powerliners/vim/ )
+and prints the path, which the
+.B :execute 'source'
+line then sources. The plugin is vim8\(hycompatible syntax only and
+works on vim 7.4+, vim 9, and neovim; it sets
+.B laststatus=2
+itself and shells out to the
 .B powerline
-binary, just via a thin Python helper.
+client on each refresh.
 .SH "9.  CONFIG INTROSPECTION"
 .B powerline-config
 subcommands:
 .TP
 .B tmux setup
-Print the
-.B tmux source-file
-fragment to wire powerline statusline + status\(hyleft / right + window
-status formats. Used by
-.B powerline.sh
-during shell init.
+Run
+.B tmux source
++
+.B tmux setenv
+together \(em the canonical
+.B run-shell
+line for
+.BR ~/.tmux.conf .
+Install\(hymethod agnostic: the embedded
+.B powerline-base.conf
+plus the version\(hymatched
+.B powerline_tmux_*.conf
+variants are extracted to
+.B $XDG_CACHE_HOME/powerliners/tmux/
+(default
+.BR ~/.cache/powerliners/tmux/ )
+on first call, then sourced.
 .TP
 .B tmux source
-Print the path to the active
-.B powerline.tmux
-fragment so downstream
-.B source-file
-directives can pick it up.
+Source the version\(hymatched tmux conf fragments into the running
+server.
+.TP
+.B tmux setenv
+Set the
+.BR POWERLINE_* " tmux"
+environment variables (colors, dividers, deduced
+.BR POWERLINE_COMMAND )
+that the conf fragments interpolate.
 .TP
 .B shell command
 Print the shell command that should be set as
 .B $POWERLINE_COMMAND
 \(em useful for shells whose init script needs to detect the binary.
 .TP
-.B shell uses [SEGMENT]
+.B "shell uses COMPONENT" " [" \-s " " \fISHELL\fR ]
 Exit 0 iff
-.I SEGMENT
-is referenced from any active theme. Used to gate optional segment
-setup (e.g. skip
-.B powerline.sh
-sourcing of git completion when no git segment is active).
+.I COMPONENT
+.RB ( tmux " or " prompt )
+is enabled for the current configuration. Used to gate optional
+binding setup during shell init.
+.TP
+.B vim source-path
+Extract the bundled
+.B powerline.vim
+plugin to
+.B $XDG_CACHE_HOME/powerliners/vim/
+and print its path. Non\(hyupstream subcommand \(em it exists because
+the Rust port ships the vim plugin inside the binary instead of a
+site\(hypackages directory.
 .SH "10.  LINTING"
 .B powerline-lint
 walks the config + theme cascade and reports:
@@ -327,12 +367,25 @@ Colon\(hyseparated config search roots.
 .B key=value
 overrides applied to the resolved config dict per extension.
 .TP
-.B POWERLINE_NO_DAEMON
-If set, the
-.B powerline
-client skips the daemon socket and execs
-.B powerline-render
-directly. Useful when debugging daemon startup races.
+.B POWERLINE_RESET_FIFO
+Path to the per\(hyshell FIFO used by the Reactive Prompt Push
+extension. Exported by
+.B _powerline_reactive_setup
+and forwarded to the daemon, which writes a wake byte to it when a
+watched prompt input (cwd,
+.BR .git/HEAD ,
+.BR .git/index ,
+the active branch ref) changes.
+.TP
+.B POWERLINERS_ICONS
+Selects the icon tier for the bundled
+.B src/extensions/
+segments:
+unset \(em Nerd Font glyphs;
+.B unicode
+\(em text\(hypresentation Unicode fallbacks;
+.B ascii
+\(em label\(hystyle ASCII for non\(hyUTF8 terminals.
 .TP
 .B XDG_CONFIG_HOME
 User config root; falls back to

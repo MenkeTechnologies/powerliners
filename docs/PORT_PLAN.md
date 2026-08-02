@@ -363,10 +363,10 @@ See `docs/PORT_CHECKLIST.md` for the per-file tier table.
 - [x] `renderer.rs` (Renderer base class)
 - [x] `mod.rs` (Powerline class + `__init__.py` orchestrator)
 
-Function-level ports complete; orchestrator integration (the wire-up
-that makes `powerline-render` produce a real statusline) is the
-remaining substrate work tracked in the README `What's not yet wired`
-section.
+Function-level ports complete. Orchestrator integration is done: the
+wire-up that makes `powerline-render` and `powerline-daemon` produce a
+real statusline lives in `src/bin/shared/render_runtime.rs`
+(`render_once`) — see the README `What's wired end-to-end` section.
 
 ### Phase 3 — tmux pipeline (DONE at the unit level)
 
@@ -377,7 +377,6 @@ section.
 ### Phase 4 — Shell + zsh bindings (DONE)
 
 - [x] `renderers/shell/{bash,readline,tcsh,ksh,rcsh,zsh}.rs`
-- [x] `bindings/shell/mod.rs`
 - [x] `bindings/zsh/mod.rs`
 
 ### Phase 5 — Linter (DONE)
