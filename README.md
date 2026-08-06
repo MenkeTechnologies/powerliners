@@ -270,6 +270,16 @@ version-specific variants) are embedded into the binary via
 identically for `cargo install`, `brew install`, and manual `cp`
 into `$PATH` — no compile-time path baking required.
 
+It is also **server-implementation-agnostic** as of 0.2.20. Setup
+drives the multiplexer you are actually running rather than a
+hardcoded `tmux`: `POWERLINE_TMUX_EXE` wins if set, otherwise the
+binary is chosen from `$TMUX`'s socket path (a `ztmux-<uid>/` socket
+selects `ztmux`), then from whichever multiplexer has a live socket
+directory for your uid, then from `PATH` with `tmux` first. Before
+0.2.20 a `ztmux` session got `error connecting to
+/tmp/tmux-<uid>/default` — or nothing at all on a host without tmux
+installed — and the status bar silently stayed at the server default.
+
 Kill and reattach tmux to confirm:
 
 ```sh
