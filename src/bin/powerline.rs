@@ -20,11 +20,18 @@
 use std::ffi::CString;
 use std::io::{Read, Write};
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::net::UnixStream;
 use std::process::ExitCode;
 
 #[path = "shared/house_help.rs"]
 mod house_help;
+
+// Same source as the daemon's bind path (`crate::extensions::
+// ipc_socket`), included by path so this client stays a standalone
+// binary that doesn't link the library.
+// (`bind` is daemon-only; the client just connects.)
+#[allow(dead_code)]
+#[path = "../extensions/ipc_socket.rs"]
+mod ipc_socket;
 
 #[cfg(target_os = "linux")]
 const SOCKET_PREFIX: &str = "\0powerline-ipc-";
@@ -72,26 +79,9 @@ fn main() -> ExitCode {
     }
 
     // C:107-124  socket() + connect() with fallback to powerline-render.
-    let connect_addr = if let Some(rest) = address.strip_prefix('\0') {
-        // Linux abstract namespace. UnixStream doesn't expose abstract
-        // sockets via a normal path; use SocketAddr::from_abstract_name.
-        #[cfg(target_os = "linux")]
-        {
-            use std::os::linux::net::SocketAddrExt;
-            let addr = std::os::unix::net::SocketAddr::from_abstract_name(rest.as_bytes())
-                .unwrap_or_else(|_| std::os::unix::net::SocketAddr::from_pathname("").unwrap());
-            UnixStream::connect_addr(&addr)
-        }
-        #[cfg(not(target_os = "linux"))]
-        {
-            let _ = rest;
-            UnixStream::connect(&address)
-        }
-    } else {
-        UnixStream::connect(&address)
-    };
-
-    let mut stream = match connect_addr {
+    // `ipc_socket::connect` is the same helper the daemon binds with,
+    // so client and daemon agree on abstract vs filesystem addresses.
+    let mut stream = match ipc_socket::connect(&address) {
         Ok(s) => s,
         Err(_) => {
             // C:117-123  We failed to connect to the daemon, execute

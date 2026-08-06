@@ -40,6 +40,10 @@
 //!   project + account, pure-fs read of `~/.config/gcloud`)
 //! - [`fusevm_jit`] — `powerliners.fusevm.jit_cache` (entry count +
 //!   bytes under the fusevm Cranelift JIT cache root)
+//! - [`ipc_socket`] — Unix-socket `bind`/`connect` that routes the
+//!   Linux default address (`\0powerline-ipc-<uid>`) into the abstract
+//!   namespace, which Rust's path-based socket API rejects. Shared by
+//!   the daemon and the `powerline` client.
 //! - [`watch`]      — Reactive Prompt Push: the warm daemon watches each
 //!   client's prompt inputs (cwd, `.git/HEAD`, `.git/index`, branch ref)
 //!   with real OS events (`notify`: kqueue/FSEvents/inotify) and writes a
@@ -68,6 +72,7 @@ pub mod git_status;
 pub mod github_ci;
 pub mod gpu;
 pub mod icons;
+pub mod ipc_socket;
 pub mod k8s;
 pub mod mem_usage;
 pub mod proc_count;

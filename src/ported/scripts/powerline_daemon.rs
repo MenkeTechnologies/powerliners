@@ -1027,7 +1027,10 @@ pub fn check_existing(address: &str) -> std::io::Result<Option<UnixListener>> {
         let _ = std::fs::remove_file(address);
     }
     // sh:364-370  bind; on EADDRINUSE return None; else raise
-    match UnixListener::bind(address) {
+    //
+    // `ipc_socket::bind` routes `\0name` into the Linux abstract
+    // namespace; `UnixListener::bind` would reject the interior NUL.
+    match crate::extensions::ipc_socket::bind(address) {
         Ok(l) => Ok(Some(l)),
         Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => Ok(None),
         Err(e) => Err(e),
@@ -1038,7 +1041,8 @@ pub fn check_existing(address: &str) -> std::io::Result<Option<UnixListener>> {
 /// `scripts/powerline-daemon:374-385`.
 pub fn kill_daemon(address: &str) -> bool {
     // sh:375  sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    match UnixStream::connect(address) {
+    // Abstract-namespace aware, matching the bind in `check_existing`.
+    match crate::extensions::ipc_socket::connect(address) {
         Ok(mut sock) => {
             // sh:381  eintr_retry_call(sock.sendall, EOF)
             let _ = eintr_retry_call(|| sock.write_all(EOF));
@@ -1665,6 +1669,34 @@ mod tests {
         }
         drop(l1);
         let _ = std::fs::remove_file(&p);
+    }
+
+    /// The Linux default address is abstract-namespace
+    /// (`\0powerline-ipc-<uid>`). `check_existing` must bind it and
+    /// `kill_daemon` must reach it — before the `ipc_socket` routing
+    /// this pair died with "paths must not contain interior null
+    /// bytes" and `powerline-daemon -q` never started.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn check_existing_binds_abstract_address_and_kill_daemon_reaches_it() {
+        let address = format!("\0powerliners-daemon-abstract-{}", std::process::id());
+
+        let listener = check_existing(&address)
+            .expect("abstract bind must not error")
+            .expect("abstract bind must produce a listener");
+        // A live address reports "already running", not a bind error.
+        assert!(check_existing(&address).unwrap().is_none());
+
+        // kill_daemon connects and writes the EOF sentinel.
+        assert!(kill_daemon(&address));
+        let (mut conn, _) = listener.accept().unwrap();
+        let mut buf = Vec::new();
+        conn.read_to_end(&mut buf).unwrap();
+        assert_eq!(buf, EOF);
+
+        // Nothing listening → kill_daemon reports no daemon.
+        drop(listener);
+        assert!(!kill_daemon(&address));
     }
 
     #[test]
