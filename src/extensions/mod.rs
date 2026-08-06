@@ -40,6 +40,10 @@
 //!   project + account, pure-fs read of `~/.config/gcloud`)
 //! - [`fusevm_jit`] — `powerliners.fusevm.jit_cache` (entry count +
 //!   bytes under the fusevm Cranelift JIT cache root)
+//! - [`tmux_exe`]   — resolves the multiplexer binary the tmux
+//!   bindings drive (tmux vs `ztmux`), keyed off `$TMUX`'s socket path
+//!   so `powerline-config tmux setup` configures the server the user is
+//!   actually running.
 //! - [`ipc_socket`] — Unix-socket `bind`/`connect` that routes the
 //!   Linux default address (`\0powerline-ipc-<uid>`) into the abstract
 //!   namespace, which Rust's path-based socket API rejects. Shared by
@@ -80,6 +84,7 @@ pub mod shell_hooks;
 pub mod stryke_rkyv;
 pub mod stryke_version;
 pub mod thermal;
+pub mod tmux_exe;
 pub mod vimlrs_rkyv;
 pub mod vimlrs_version;
 pub mod watch;

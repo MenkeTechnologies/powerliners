@@ -39,7 +39,14 @@ pub struct TmuxVersionInfo {
 /// otherwise it is simply "tmux".
 pub fn get_tmux_executable_name() -> String {
     // py:22  return os.environ.get('POWERLINE_TMUX_EXE', 'tmux')
-    std::env::var("POWERLINE_TMUX_EXE").unwrap_or_else(|_| "tmux".to_string())
+    //
+    // Deviation: upstream's literal `'tmux'` default assumes tmux is
+    // the only server implementation. `ztmux` is a drop-in that keeps
+    // its sockets under `ztmux-<uid>/`, so the hardcoded name made
+    // `powerline-config tmux setup` configure the wrong server (or no
+    // server at all) and the statusline stayed at the tmux default.
+    // `POWERLINE_TMUX_EXE` still wins, so the upstream contract holds.
+    crate::extensions::tmux_exe::resolve()
 }
 
 /// Port of `_run_tmux()` from `powerline/bindings/tmux/__init__.py:25`.
@@ -64,7 +71,22 @@ pub fn _run_tmux(args: &[&str]) -> std::io::Result<std::process::Output> {
 /// Run tmux command, ignoring the output.
 pub fn run_tmux_command(args: &[&str]) {
     // py:31  _run_tmux(subprocess.check_call, args)
-    let _ = _run_tmux(args);
+    //
+    // Deviation: Python's check_call raises, so a missing tmux binary
+    // is loud. Rust's Output is ignorable, and swallowing it turned
+    // `powerline-config tmux setup` into a silent no-op that left the
+    // default statusline in place. Report the spawn failure once per
+    // process (setup issues ~70 commands; one line is the signal).
+    if let Err(e) = _run_tmux(args) {
+        static REPORTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        if !REPORTED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+            eprintln!(
+                "powerline: {}: {} — statusline not configured (set POWERLINE_TMUX_EXE)",
+                get_tmux_executable_name(),
+                e
+            );
+        }
+    }
 }
 
 /// Port of `get_tmux_output()` from
@@ -197,15 +219,45 @@ pub fn get_tmux_version(pl: &()) -> Option<TmuxVersionInfo> {
 mod tests {
     use super::*;
 
+    /// With no `POWERLINE_TMUX_EXE`, no session to key off, and no
+    /// live socket for either server, the resolver falls back to tmux
+    /// — upstream's literal default — even with ztmux installed
+    /// alongside. Hermetic: `PATH` and `TMUX_TMPDIR` are pointed at
+    /// scratch dirs so the answer can't depend on what the host has.
+    /// (Inside a session the exe follows `$TMUX`'s socket instead;
+    /// that lives in `crate::extensions::tmux_exe`'s own tests.)
     #[test]
     fn get_tmux_executable_name_defaults_to_tmux() {
+        use std::os::unix::fs::PermissionsExt;
+
         let _guard = crate::ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-        let prev = std::env::var("POWERLINE_TMUX_EXE").ok();
-        std::env::remove_var("POWERLINE_TMUX_EXE");
-        assert_eq!(get_tmux_executable_name(), "tmux");
-        if let Some(p) = prev {
-            std::env::set_var("POWERLINE_TMUX_EXE", p);
+        let bin = tempfile::tempdir().unwrap();
+        let sockets = tempfile::tempdir().unwrap();
+        for exe in ["tmux", "ztmux"] {
+            let p = bin.path().join(exe);
+            std::fs::write(&p, "#!/bin/sh\n").unwrap();
+            std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
+
+        let prev: Vec<(&str, Option<String>)> =
+            ["POWERLINE_TMUX_EXE", "TMUX", "PATH", "TMUX_TMPDIR"]
+                .iter()
+                .map(|k| (*k, std::env::var(k).ok()))
+                .collect();
+        std::env::remove_var("POWERLINE_TMUX_EXE");
+        std::env::remove_var("TMUX");
+        std::env::set_var("PATH", bin.path());
+        std::env::set_var("TMUX_TMPDIR", sockets.path());
+
+        let exe = get_tmux_executable_name();
+
+        for (k, v) in prev {
+            match v {
+                Some(val) => std::env::set_var(k, val),
+                None => std::env::remove_var(k),
+            }
+        }
+        assert_eq!(exe, "tmux");
     }
 
     #[test]
