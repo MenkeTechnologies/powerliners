@@ -324,7 +324,14 @@ variants are extracted to
 .B $XDG_CACHE_HOME/powerliners/tmux/
 (default
 .BR ~/.cache/powerliners/tmux/ )
-on first call, then sourced.
+on first call, then sourced. A
+.B status\-left\-length
+or
+.B status\-right\-length
+that differs from tmux's own default is read before sourcing and
+re\(hyapplied afterwards, so re\(hyrunning setup against a live server
+does not revert it to the
+.BR powerline\-base.conf " values (20 / 150)."
 .TP
 .B tmux source
 Source the version\(hymatched tmux conf fragments into the running

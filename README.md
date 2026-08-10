@@ -308,6 +308,17 @@ directory for your uid, then from `PATH` with `tmux` first. Before
 /tmp/tmux-<uid>/default` — or nothing at all on a host without tmux
 installed — and the status bar silently stayed at the server default.
 
+A `status-left-length` / `status-right-length` you have tuned yourself
+survives setup as of 0.2.23. `powerline-base.conf` hardcodes `20` and
+`150`, and `tmux source` applies them unconditionally, so re-running
+`powerline-config tmux setup` against a live server used to revert the
+tuning. Since tmux keeps only the *head* of an over-long
+`status-right`, a 350 → 150 revert clipped the tail segments and pushed
+the rest against the right edge. Setup now reads both lengths before
+sourcing and re-applies whatever differs from tmux's own defaults
+(`10` / `40`); a fresh server, still sitting at those defaults, gets
+powerline's wider budget as before.
+
 Kill and reattach tmux to confirm:
 
 ```sh
@@ -509,6 +520,15 @@ under the test suite's "inherent divergence" notes:
    is why the breakage is left-only.) We publish `POWERLINE_COMMAND`
    into the tmux environment first, propagating an exported value rather
    than skipping.
+5. **`tmux setup` and user-tuned status lengths**: upstream lets
+   `powerline-base.conf`'s `status-left-length 20` /
+   `status-right-length 150` overwrite whatever the server already has,
+   so a setup run that lands after `~/.tmux.conf` reverts a tuned
+   length. We snapshot both options before sourcing and re-apply any
+   value that differs from tmux's own defaults (`10` / `40`). tmux
+   reports defaults and explicit settings identically, so a length
+   pinned to tmux's default is indistinguishable from an unset one and
+   still loses to the bundled value.
 
 For everything else — markup, escaping (`#` → `##[]`, control chars
 via `translate_np`), dividers (hard/soft/multi-char/empty/single-char),

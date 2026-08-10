@@ -28,7 +28,9 @@ use crate::ported::commands::config::{get_argparser, StrFunction};
 /// (1, 9)` per py:204-206).
 fn tmux_setup(args: &[String]) -> Result<(), String> {
     use crate::ported::bindings::config::{init_tmux_environment, sorted_tmux_configs};
-    use crate::ported::bindings::tmux::{get_tmux_version, set_tmux_environment, source_tmux_file};
+    use crate::ported::bindings::tmux::{
+        get_tmux_output, get_tmux_version, run_tmux_command, set_tmux_environment, source_tmux_file,
+    };
     use crate::ported::colorscheme::Colorscheme;
     use crate::ported::config::TMUX_CONFIG_DIRECTORY;
     use crate::ported::lib::config::load_json_config;
@@ -217,6 +219,28 @@ fn tmux_setup(args: &[String]) -> Result<(), String> {
         set_tmux_environment("POWERLINE_COMMAND", &cmd, false);
     }
 
+    // Deviation from upstream: snapshot the user-tuned status lengths
+    // before the source step so they can be re-applied after it.
+    //
+    // `powerline-base.conf:3,5` hardcode `status-left-length 20` /
+    // `status-right-length 150`, and `tmux source` applies them
+    // unconditionally. `~/.tmux.conf` runs `powerline-config tmux setup`
+    // via `run-shell` and then tunes the lengths, so the config-load
+    // ordering is fine — but any *later* `tmux setup` (a manual re-run,
+    // a re-install check, a second binding) re-sources the same file
+    // against the live server and silently reverts the tuning. tmux
+    // trims `status-right` to `status-right-length` in
+    // `status-format[0]` (`#{T;=/#{status-right-length}:status-right}`),
+    // keeping the head of the string, so a 350 → 150 revert cuts the
+    // right statusline's tail and shifts the surviving segments toward
+    // the right edge.
+    let preserved_lengths = preserved_status_lengths(|name| {
+        // `show-options -gv` predates the oldest tmux we source conf
+        // files for; on a server that rejects it the read fails, the
+        // option is skipped, and behaviour falls back to upstream's.
+        get_tmux_output(&(), &["show-options", "-gv", name]).map(|v| v.trim().to_string())
+    });
+
     // py:215  source_tmux_files — version-matched conf files.
     // py:74  source_tmux_file(TMUX_CONFIG_DIRECTORY/powerline-base.conf)
     let base_conf = TMUX_CONFIG_DIRECTORY().join("powerline-base.conf");
@@ -230,12 +254,52 @@ fn tmux_setup(args: &[String]) -> Result<(), String> {
         }
     }
 
+    // Re-apply the snapshot over the values the conf files just wrote.
+    for (name, value) in &preserved_lengths {
+        run_tmux_command(&["set-option", "-g", name, value]);
+    }
+
     // py:81-86  try run_tmux_command('refresh-client') — ignore failures
     let _ = std::process::Command::new("tmux")
         .arg("refresh-client")
         .status();
 
     Ok(())
+}
+
+/// tmux's own defaults for the status-length options that
+/// `powerline-base.conf` overwrites, as reported by a
+/// `tmux -f /dev/null` server (3.7b): `status-left-length 10`,
+/// `status-right-length 40`.
+const TMUX_STATUS_LENGTH_DEFAULTS: [(&str, &str); 2] =
+    [("status-left-length", "10"), ("status-right-length", "40")];
+
+/// Status-length options that must be re-applied after the tmux conf
+/// files are sourced, as `(option, value)` pairs.
+///
+/// A length still sitting at tmux's built-in default is left alone, so
+/// a fresh server keeps the wider budget `powerline-base.conf` wants.
+/// Anything else is a deliberate setting and outranks the bundled
+/// value. tmux reports defaults and explicit settings identically —
+/// `show-options -g` on a `-f /dev/null` server prints
+/// `status-right-length 40` — so "differs from tmux's default" is the
+/// only signal available; pinning a length to tmux's own default is
+/// therefore indistinguishable from not setting it, and still loses to
+/// `powerline-base.conf`.
+///
+/// Split out from `tmux_setup` so the precedence is testable without a
+/// live tmux server.
+fn preserved_status_lengths<F>(read_option: F) -> Vec<(&'static str, String)>
+where
+    F: Fn(&str) -> Option<String>,
+{
+    TMUX_STATUS_LENGTH_DEFAULTS
+        .iter()
+        .filter_map(|(name, default)| match read_option(name) {
+            Some(current) if current != *default => Some((*name, current)),
+            _ => None,
+        })
+        .collect()
 }
 
 /// Which command name `tmux setup` should publish as
@@ -552,6 +616,52 @@ mod tests {
     fn empty_exported_command_falls_through_to_deduce() {
         let got = resolve_powerline_command(Some(String::new()), || Some("powerline".to_string()));
         assert_eq!(got.as_deref(), Some("powerline"));
+    }
+
+    /// The reported breakage: a live server carrying a tuned
+    /// `status-right-length` must come back out of `tmux setup` with
+    /// that value, not `powerline-base.conf`'s 150. tmux keeps only the
+    /// head of an over-long `status-right`, so the reverted 150 clipped
+    /// the tail segments and pushed the rest to the right edge.
+    #[test]
+    fn tuned_status_lengths_survive_the_source_step() {
+        let got = preserved_status_lengths(|name| {
+            Some(
+                match name {
+                    "status-right-length" => "350",
+                    "status-left-length" => "10",
+                    other => panic!("unexpected option read: {}", other),
+                }
+                .to_string(),
+            )
+        });
+        assert_eq!(got, vec![("status-right-length", "350".to_string())]);
+    }
+
+    /// A fresh server reports tmux's defaults, and those must NOT be
+    /// preserved — `powerline-base.conf`'s wider budget is the point of
+    /// sourcing it.
+    #[test]
+    fn default_status_lengths_are_not_preserved() {
+        let got = preserved_status_lengths(|name| {
+            Some(
+                match name {
+                    "status-left-length" => "10",
+                    "status-right-length" => "40",
+                    other => panic!("unexpected option read: {}", other),
+                }
+                .to_string(),
+            )
+        });
+        assert!(got.is_empty(), "fresh-server defaults leaked: {:?}", got);
+    }
+
+    /// A server too old for `show-options -gv` (or no server at all)
+    /// reads as `None`; setup must fall back to upstream behaviour
+    /// instead of writing an empty option value.
+    #[test]
+    fn unreadable_options_are_skipped() {
+        assert!(preserved_status_lengths(|_| None).is_empty());
     }
 
     #[test]
