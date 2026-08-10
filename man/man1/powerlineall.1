@@ -227,6 +227,28 @@ sends SIGTERM to the running daemon and exits.
 .B \-\-quiet
 suppresses the "already running" notice when another daemon already
 holds the socket.
+.SS Render isolation
+The event loop never renders. Requests are dispatched to a worker pool
+.RB ( POWERLINERS_RENDER_THREADS ,
+default 4) and completions are collected through a self\(hypipe in the
+loop's poll set, so a slow request cannot delay another client's. Three
+bounds keep a misbehaving segment contained:
+.IP \(bu 2
+Each segment gets 2000\ ms by default, overridable per segment with a
+.B "\(dqtimeout\(dq:"
+.I ms
+key in the theme. A segment that overruns is served from its last good
+value (up to 60\ s old) and is not re\(hyentered until the overdue call
+returns.
+.IP \(bu 2
+Segments that shell out kill any child that outlives its budget, so a
+wedged helper cannot pin a worker.
+.IP \(bu 2
+Connections are reaped after 10\ s regardless of state, and immediately
+when the client hangs up. Accepted sockets carry send/receive timeouts.
+.PP
+Watchdog trips and connection reaps are recorded in
+.BR ~/.powerliners/powerliners.log .
 .SH "8.  INVOCATION FROM SHELLS"
 .SS zsh
 .RS
@@ -376,6 +398,11 @@ watched prompt input (cwd,
 .BR .git/HEAD ,
 .BR .git/index ,
 the active branch ref) changes.
+.TP
+.B POWERLINERS_RENDER_THREADS
+Size of the daemon's render worker pool (default 4). Renders never run
+on the event\(hyloop thread, so this bounds how many client requests can
+be rendered at once, not whether the loop stays responsive.
 .TP
 .B POWERLINERS_ICONS
 Selects the icon tier for the bundled

@@ -114,7 +114,7 @@ at DONE.
 | `powerline-config` | `scripts/powerline-config` | tmux / shell known-function dispatch, plus the non-upstream `vim source-path` extractor |
 | `powerline-lint` | `scripts/powerline-lint` | argparse + full check pipeline (markedjson loader + Spec checks + orchestrator integration) |
 | `powerline-render` | `scripts/powerline-render` | argparse + ext lookup + full direct-render path through the `Powerline` orchestrator (used as daemon-less fallback) |
-| `powerline-daemon` | `scripts/powerline-daemon` | UNIX-socket bind + daemonize + pidfile lock + accept loop + EOF shutdown + end-to-end statusline rendering against a real `~/.config/powerline/themes/...` JSON tree |
+| `powerline-daemon` | `scripts/powerline-daemon` | UNIX-socket bind + daemonize + pidfile lock + accept loop + EOF shutdown + end-to-end statusline rendering against a real `~/.config/powerline/themes/...` JSON tree, rendered on a worker pool so no request blocks another |
 
 ### End-to-end render
 
@@ -129,6 +129,34 @@ upstream Python `powerline` C client. The render path covers:
 - Renderer loop (`do_render` / `_render_segments` / `_render_length`) with
   hard/soft divider insertion and per-side outer padding
 - TmuxRenderer `#[…]` markup emission with `term_truecolor` cterm path
+
+### Render isolation
+
+Upstream's daemon renders inline in its `select` loop, so one slow
+segment stalls every client behind it. Here the loop only does socket
+work: requests go to a worker pool (`POWERLINERS_RENDER_THREADS`,
+default 4) and completions arrive through a self-pipe that sits in the
+poll set alongside the sockets.
+
+Three bounds keep a misbehaving segment from reaching the statusline:
+
+| Bound | Default | Behavior on breach |
+|---|---|---|
+| Per-segment budget | 2000 ms (`"timeout": <ms>` per segment in the theme) | Serve the segment's last good value (max 60 s old), and don't re-enter it until the overdue call returns |
+| Subprocess budget | per call site | `SIGKILL` the child so a wedged helper can't pin a worker |
+| Connection lifetime | 10 s, or immediately on client hangup | Close the socket and cancel any render still queued for it |
+
+Watchdog trips and connection reaps are logged to
+`~/.powerliners/powerliners.log`.
+
+The concrete failure this replaced: the Spotify segment asked System
+Events for the process list on every render. When the daemon's login
+session stopped matching the active console session, LaunchServices
+could no longer supply System Events and each call blocked ~30 s, so
+renders took 30–120 s against a 2 s tmux `status-interval` and the bar
+showed `<'…' not ready>`. That question is now answered from the
+process table directly (`libproc` on macOS, `/proc` on Linux) with no
+AppleScript at all when the player isn't running.
 
 58 segment adapters wired in `src/bin/shared/render_runtime.rs` (59
 `ADAPTERS` keys including the bare `exec` alias; shared
@@ -634,6 +662,12 @@ These each live in `src/extensions/<module>.rs` and are wired into
 the daemon's `ADAPTERS` table — adding more follows the same pattern
 (no new fn-name rules apply per `docs/PORT.md`'s `src/extensions/`
 carve-out).
+
+`src/extensions/` also holds non-segment infrastructure that upstream
+has no equivalent for: `render_pool` (the daemon's worker pool),
+`segment_watchdog` (per-segment budgets), `proc_timeout` (subprocess
+kill-on-overrun), `proc_lookup` (process-table queries), `watch`
+(Reactive Prompt Push), and `diag_log`.
 
 ### `> Cache-size segments — shared resolution chain`
 

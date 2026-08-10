@@ -1545,6 +1545,12 @@ fn ad_network_load(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opt
     Some(Value::Array(chunks))
 }
 
+/// Budget for the Spotify AppleScript. Only reached when Spotify is
+/// confirmed running, so this covers a live app answering an
+/// AppleEvent — not an app launch.
+#[cfg(target_os = "macos")]
+const SPOTIFY_SCRIPT_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(1500);
+
 // `needless_return` allowed: the `return` keeps the macOS branch readable
 // alongside the `#[cfg(not(target_os = "macos"))] None` tail without
 // restructuring around the cfg gate.
@@ -1562,17 +1568,40 @@ fn ad_spotify(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
 
     #[cfg(target_os = "macos")]
     let func_stats = {
+        use powerliners::extensions::{proc_lookup, proc_timeout};
         use powerliners::ported::segments::common::players::{
             SpotifyAppleScriptPlayerSegment, APPLESCRIPT_STATUS_DELIMITER,
         };
-        // py:374-396 — the full 6-field delimited AppleScript.
+
+        // Deviation from py:374-379/393-395. Upstream opens with
+        //
+        //     tell application "System Events"
+        //         set process_list to (name of every process)
+        //     end tell
+        //
+        // purely to decide whether Spotify is running, and returns
+        // "stopped" when it is not — which `get_player_status` maps to
+        // `None`. That preamble is the single most fragile line in the
+        // segment set: it is a LaunchServices round-trip to a GUI helper
+        // app, and when the daemon's login session no longer matches the
+        // active console session LaunchServices cannot supply System
+        // Events, so the call blocks ~30s before failing. Every render.
+        // For a question the kernel answers in microseconds.
+        //
+        // `proc_lookup::is_running` is that question asked directly. On
+        // anything other than a definite yes we return the same `None`
+        // upstream's "stopped" branch produces, without spawning
+        // anything at all.
+        if proc_lookup::is_running("Spotify") != Some(true) {
+            return None;
+        }
+
+        // py:380-392 — the 6-field delimited AppleScript, now scoped to
+        // Spotify itself. Spotify is running, so `tell application` binds
+        // to the live process and cannot launch anything.
         // Status order: state | album | artist | title | track_length | player_position
         let script = format!(
-            "tell application \"System Events\"\n\
-             set process_list to (name of every process)\n\
-             end tell\n\
-             if process_list contains \"Spotify\" then\n\
-             tell application \"Spotify\"\n\
+            "tell application \"Spotify\"\n\
              if player state is playing or player state is paused then\n\
              set track_name to name of current track\n\
              set artist_name to artist of current track\n\
@@ -1583,16 +1612,15 @@ fn ad_spotify(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
              else\n\
              return player state\n\
              end if\n\
-             end tell\n\
-             else\n\
-             return \"stopped\"\n\
-             end if",
+             end tell",
             APPLESCRIPT_STATUS_DELIMITER
         );
-        let out = std::process::Command::new("osascript")
-            .args(["-e", &script])
-            .output()
-            .ok()?;
+        let mut cmd = std::process::Command::new("osascript");
+        cmd.args(["-e", &script]);
+        // Bounded: an AppleEvent that never comes back gets its child
+        // killed rather than pinning the segment. The watchdog around
+        // this segment frees the render; this frees the process.
+        let out = proc_timeout::run_with_timeout(cmd, SPOTIFY_SCRIPT_TIMEOUT)?;
         if !out.status.success() {
             return None;
         }
@@ -2828,17 +2856,49 @@ pub fn render_once(
 
     let contents_func =
         |id: &str, _pl: &(), si: &Map<String, Value>, args: &Map<String, Value>| -> Option<Value> {
+            use powerliners::extensions::segment_watchdog::{self, Outcome};
+
+            // Per-segment budget, overridable from the theme with a
+            // `"timeout": <ms>` segment arg for the rare segment that is
+            // legitimately slow.
+            let timeout = args
+                .get("timeout")
+                .and_then(|v| v.as_u64())
+                .map(std::time::Duration::from_millis)
+                .unwrap_or(segment_watchdog::DEFAULT_TIMEOUT);
+
             let t0 = std::time::Instant::now();
-            let r = invoke_adapter(id, args, si);
+            // The watchdog may outlive this call, so it owns its inputs.
+            // Segment args and info are small maps; cloning them per
+            // render is far cheaper than any segment they feed.
+            let (id_owned, args_owned, si_owned) = (id.to_string(), args.clone(), si.clone());
+            let (r, outcome) = segment_watchdog::run(id, timeout, move || {
+                invoke_adapter(&id_owned, &args_owned, &si_owned)
+            });
             let dt = t0.elapsed().as_millis();
             let cwd_dbg = si.get("getcwd").and_then(|v| v.as_str()).unwrap_or("?");
             powerliners::extensions::diag_log::log(&format!(
-                "adapter id={} dt={}ms result={} cwd={}",
+                "adapter id={} dt={}ms result={} outcome={:?} cwd={}",
                 id,
                 dt,
                 if r.is_some() { "Some" } else { "None" },
+                outcome,
                 cwd_dbg
             ));
+            if outcome != Outcome::Completed {
+                powerliners::extensions::diag_log::log(&format!(
+                    "adapter id={} WATCHDOG {:?} after {}ms (budget {}ms) — served {}",
+                    id,
+                    outcome,
+                    dt,
+                    timeout.as_millis(),
+                    if r.is_some() {
+                        "cached value"
+                    } else {
+                        "nothing"
+                    }
+                ));
+            }
             r
         };
 

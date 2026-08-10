@@ -23,6 +23,27 @@
 //! 3. `atexit.register` has no stable Rust analog. Cleanup of the
 //!    pidfile is handled both by a `PidLock` RAII guard (Drop) and by
 //!    a SIGTERM handler that calls `_exit(1)` after unlinking.
+//! 4. Renders do not run on the event-loop thread. Python calls
+//!    `get_answer` inline inside `do_one`, so the loop is unavailable
+//!    for the entire duration of a render — one slow segment stalls
+//!    every other client. Here `get_answer` is split by
+//!    [`dispatch_request`]: the `&mut State` half (the `wm.*` registry,
+//!    the `powerlines` cache) stays on the loop thread, and the render
+//!    itself goes to `extensions::render_pool`. Completions arrive over
+//!    a self-pipe that sits in the poll set alongside the sockets.
+//!    Consequences elsewhere in this file: [`Conn`] became a state
+//!    machine (`Reading`/`Rendering`/`Writing`), `accept` drains the
+//!    backlog rather than taking one connection per tick, and the
+//!    writable pass re-polls its own set because connections now reach
+//!    `Writing` mid-tick. `get_answer` itself is kept intact — it is
+//!    still the faithful shape of `sh:203-212`.
+//! 5. Connections carry a [`CONN_DEADLINE`] and accepted sockets get
+//!    `SO_RCVTIMEO`/`SO_SNDTIMEO`. Python relies on every client being
+//!    well-behaved; a peer that vanished at the wrong moment could be
+//!    retained indefinitely (observed in the field: 34 open connection
+//!    sockets against a single live client). Reaping is now driven by
+//!    time as well as by socket events, and the poll timeout shortens
+//!    to the nearest deadline so it actually fires.
 
 // #!/usr/bin/env python                              // sh:1
 // import socket, os, errno, sys, fcntl, atexit, stat // sh:5-11
@@ -52,6 +73,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
+use crate::extensions::render_pool::RenderPool;
 use crate::ported::commands::main::{finish_args, Args};
 
 /// Port of module-level `USE_FILESYSTEM` from
@@ -638,10 +660,141 @@ pub fn parse_client_argv(argv: &[String]) -> Args {
     a
 }
 
+/// How long a single client request may live before the daemon gives
+/// up on it, closes the socket, and cancels any render still queued for
+/// it. Deviation 4 (see the module header): upstream has no such bound,
+/// so a connection whose peer vanished at the wrong moment could be
+/// retained for the daemon's whole lifetime.
+///
+/// Sized well above a healthy render and well under the point where a
+/// user would rather see an empty statusline than a stale one.
+pub const CONN_DEADLINE: Duration = Duration::from_secs(10);
+
+/// Bound on any individual socket syscall the event loop performs.
+/// Applied to accepted connections via `SO_RCVTIMEO`/`SO_SNDTIMEO` so
+/// that even the blocking read/write paths cannot pin the loop against
+/// a client that connects and then refuses to talk.
+const SOCKET_IO_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// Where a connection is in the request lifecycle.
+pub enum ConnState {
+    /// Waiting on the client's request bytes.
+    Reading,
+    /// Request accepted and handed to the render pool; the loop is
+    /// waiting for a worker, not doing the work itself.
+    Rendering {
+        job: crate::extensions::render_pool::JobId,
+        cancel: Arc<AtomicBool>,
+    },
+    /// Response computed; waiting for the socket to accept it.
+    Writing(Vec<u8>),
+}
+
 /// Connection state held during `main_loop` between reads and writes.
 pub struct Conn {
     stream: UnixStream,
-    pending_response: Option<Vec<u8>>,
+    state: ConnState,
+    /// Absolute time after which this connection is reaped regardless
+    /// of state.
+    deadline: Instant,
+}
+
+impl Conn {
+    fn new(stream: UnixStream) -> Self {
+        // Bound every blocking syscall we might make on this socket.
+        stream.set_read_timeout(Some(SOCKET_IO_TIMEOUT)).ok();
+        stream.set_write_timeout(Some(SOCKET_IO_TIMEOUT)).ok();
+        Self {
+            stream,
+            state: ConnState::Reading,
+            deadline: Instant::now() + CONN_DEADLINE,
+        }
+    }
+
+    /// Poll events appropriate to the current state.
+    ///
+    /// `Rendering` asks for `POLLIN` even though it will never read: the
+    /// wire protocol is one request per connection, so once the request
+    /// is in hand the only thing that can make the socket readable is
+    /// the peer closing it. Watching for that is how a client which gave
+    /// up gets reaped promptly. `POLLHUP` alone would be the tidier
+    /// signal, but macOS reports peer-close on a stream socket as
+    /// readable-with-zero-bytes and reserves `POLLHUP` for a full
+    /// shutdown, so relying on it would leave dead connections sitting
+    /// until [`CONN_DEADLINE`]. The read pass ignores every connection
+    /// that is not `Reading`, so nothing is consumed here.
+    fn events(&self) -> libc::c_short {
+        match self.state {
+            ConnState::Reading | ConnState::Rendering { .. } => libc::POLLIN,
+            ConnState::Writing(_) => libc::POLLOUT,
+        }
+    }
+
+    /// Abandon any queued render for this connection.
+    fn cancel_render(&self) {
+        if let ConnState::Rendering { ref cancel, .. } = self.state {
+            cancel.store(true, Ordering::SeqCst);
+        }
+    }
+}
+
+/// Outcome of splitting a request into "answerable on the loop thread"
+/// and "must be rendered off-loop".
+///
+/// Deviation 4: upstream's `get_answer` does both halves inline. The
+/// split exists so the parts that need `&mut State` (the `wm.*`
+/// registry, the `powerlines` cache) stay on the loop thread while the
+/// expensive half moves to a worker.
+pub enum Dispatch {
+    /// Answer is already known — a `wm.*` request or an argument error.
+    Immediate(Vec<u8>),
+    /// Render off-loop.
+    Render(Box<dyn FnOnce() -> Vec<u8> + Send + 'static>),
+}
+
+/// Loop-thread half of [`get_answer`]: parse the request, run
+/// `finish_args`, handle `wm.*` inline, and hand everything else back
+/// as a closure for the render pool.
+pub fn dispatch_request(
+    req: &[u8],
+    is_daemon: bool,
+    state: &mut State,
+    render_fn: &Arc<RenderFn>,
+    spawn_wm_fn: &Arc<SpawnWmFn>,
+) -> Dispatch {
+    // sh:205  args, environ, cwd = parse_args(req, argparser)
+    let (raw_args, environ, cwd) = match parse_args(req) {
+        Some(t) => t,
+        None => return Dispatch::Immediate(safe_bytes("malformed request")),
+    };
+
+    let mut args = parse_client_argv(&raw_args);
+
+    // sh:206  finish_args(argparser, environ, args, is_daemon=True)
+    if let Err(e) = finish_args(&environ, &mut args, true) {
+        return Dispatch::Immediate(safe_bytes(&e));
+    }
+
+    // sh:207-208  if args.ext[0].startswith('wm.'): start_wm(...)
+    if args
+        .ext
+        .first()
+        .map(|e| e.starts_with("wm."))
+        .unwrap_or(false)
+    {
+        return Dispatch::Immediate(start_wm(&args, state, spawn_wm_fn));
+    }
+
+    // sh:106-130  the `powerlines` cache lookup stays on this thread so
+    // `State` is never shared with a worker.
+    let key = PowerlineKey::from(&args, &environ);
+    state.powerlines.entry(key).or_insert(());
+
+    // sh:131-134  the render itself — the only expensive part.
+    let render_fn = render_fn.clone();
+    Dispatch::Render(Box::new(move || {
+        render_fn(&args, &environ, &cwd, is_daemon)
+    }))
 }
 
 /// Port of `do_one()` from
@@ -656,38 +809,49 @@ pub fn do_one(
     state: &mut State,
     render_fn: &Arc<RenderFn>,
     spawn_wm_fn: &Arc<SpawnWmFn>,
+    pool: &RenderPool,
 ) -> Option<i32> {
     let listener_fd = listener.as_raw_fd();
+    let wake_fd = pool.wake_fd();
 
     // sh:217-222  select with all read fds, all write fds, all error fds, timeout 60s
-    // Build pollfd vec. Listener is always read+err. Each conn is
-    // read+err when no pending response, write+err when one is queued.
-    let mut pfds: Vec<libc::pollfd> = Vec::with_capacity(1 + conns.len());
+    // Slot 0 is the listener, slot 1 the render pool's completion pipe
+    // (deviation 4), then one slot per connection.
+    let mut pfds: Vec<libc::pollfd> = Vec::with_capacity(2 + conns.len());
     pfds.push(libc::pollfd {
         fd: listener_fd,
         events: libc::POLLIN,
         revents: 0,
     });
+    pfds.push(libc::pollfd {
+        fd: wake_fd,
+        events: libc::POLLIN,
+        revents: 0,
+    });
     let conn_fds: Vec<RawFd> = conns.keys().copied().collect();
     for fd in &conn_fds {
-        let events = if conns
-            .get(fd)
-            .and_then(|c| c.pending_response.as_ref())
-            .is_some()
-        {
-            libc::POLLOUT
-        } else {
-            libc::POLLIN
-        };
         pfds.push(libc::pollfd {
             fd: *fd,
-            events,
+            events: conns.get(fd).map(|c| c.events()).unwrap_or(0),
             revents: 0,
         });
     }
 
+    // Wake no later than the nearest connection deadline so reaping is
+    // driven by time, not by a client happening to send something.
+    let timeout_ms = conns
+        .values()
+        .map(|c| c.deadline)
+        .min()
+        .map(|d| {
+            d.saturating_duration_since(Instant::now())
+                .as_millis()
+                .min(60_000) as libc::c_int
+        })
+        .unwrap_or(60_000);
+
     // SAFETY: pfds is a contiguous Vec of pollfd; we pass its ptr + len.
-    let rc = unsafe { libc::poll(pfds.as_mut_ptr(), pfds.len() as libc::nfds_t, 60_000) };
+    let rc = unsafe { libc::poll(pfds.as_mut_ptr(), pfds.len() as libc::nfds_t, timeout_ms) };
     if rc < 0 {
         let err = std::io::Error::last_os_error();
         if err.kind() == std::io::ErrorKind::Interrupted {
@@ -696,61 +860,66 @@ pub fn do_one(
         // sh:224-226  if sock in e: raise SystemExit(1)
         return Some(1);
     }
-    if rc == 0 {
-        // timeout
-        return None;
-    }
 
     // sh:224-226  listener error → SystemExit 1
     if pfds[0].revents & (libc::POLLERR | libc::POLLNVAL) != 0 {
         return Some(1);
     }
 
-    // sh:228-232  discard broken conns
+    // sh:228-232  discard broken conns — extended (deviation 4) to also
+    // reap peers that hung up mid-render and connections that blew
+    // CONN_DEADLINE. Everything that removes a connection goes through
+    // `reap` so a queued render is always cancelled with it.
+    let now = Instant::now();
+    let mut reap: Vec<(RawFd, &'static str)> = Vec::new();
     for (i, fd) in conn_fds.iter().enumerate() {
-        let revents = pfds[i + 1].revents;
+        let revents = pfds[i + 2].revents;
+        let Some(conn) = conns.get(fd) else { continue };
         if revents & (libc::POLLERR | libc::POLLNVAL) != 0 {
-            conns.remove(fd);
+            reap.push((*fd, "socket error"));
+        } else if revents & (libc::POLLIN | libc::POLLHUP) != 0
+            && matches!(conn.state, ConnState::Rendering { .. })
+        {
+            // Readable while rendering means the peer closed (see
+            // `Conn::events`) — there is no one left to answer. A
+            // `Reading` conn folds POLLHUP into readability below, the
+            // way Python's select does.
+            reap.push((*fd, "client hung up"));
+        } else if now >= conn.deadline {
+            reap.push((*fd, "deadline exceeded"));
+        }
+    }
+    for (fd, why) in reap {
+        if let Some(conn) = conns.remove(&fd) {
+            conn.cancel_render();
+            crate::extensions::diag_log::log(&format!("daemon conn REAP fd={} reason={}", fd, why));
         }
     }
 
-    // sh:234-238  listener readable → accept
+    // sh:234-238  listener readable → accept. Drained to exhaustion
+    // rather than one per tick (deviation 4): under a burst of panes the
+    // one-per-tick form left clients queued in the backlog behind
+    // whatever else the loop was doing.
     if pfds[0].revents & libc::POLLIN != 0 {
-        match eintr_retry_call(|| listener.accept()) {
-            Ok((stream, _)) => {
-                let fd = stream.as_raw_fd();
-                conns.insert(
-                    fd,
-                    Conn {
-                        stream,
-                        pending_response: None,
-                    },
-                );
-            }
-            Err(_) => {
-                // failed accept; nothing to do
-            }
+        // Loop ends on the first `Err`: the backlog is drained (the
+        // listener is non-blocking, so that surfaces as WouldBlock) or
+        // the accept failed. Either way there is nothing more to take.
+        while let Ok((stream, _)) = eintr_retry_call(|| listener.accept()) {
+            let fd = stream.as_raw_fd();
+            conns.insert(fd, Conn::new(stream));
         }
     }
 
-    // sh:239-250  conn readable → do_read + EOF check + get_answer
-    for fd in &conn_fds {
-        let idx = match conn_fds.iter().position(|x| x == fd) {
-            Some(i) => i + 1,
-            None => continue,
-        };
-        let revents = pfds[idx].revents;
-        let mut conn = match conns.remove(fd) {
-            Some(c) => c,
-            None => continue,
-        };
-        if conn.pending_response.is_some() {
-            // handled by the write pass below; put it back
-            conns.insert(*fd, conn);
+    // sh:239-250  conn readable → do_read + EOF check + dispatch
+    for (i, fd) in conn_fds.iter().enumerate() {
+        let revents = pfds[i + 2].revents;
+        if revents & (libc::POLLIN | libc::POLLHUP) == 0 {
             continue;
         }
-        if revents & (libc::POLLIN | libc::POLLHUP) == 0 {
-            conns.insert(*fd, conn);
+        let Some(conn) = conns.get_mut(fd) else {
+            continue;
+        };
+        if !matches!(conn.state, ConnState::Reading) {
             continue;
         }
         // sh:242  req = do_read(s)
@@ -758,42 +927,94 @@ pub fn do_one(
         match req {
             // sh:243-244  if req == EOF: raise SystemExit(0)
             Some(ref r) if r == EOF => return Some(0),
-            // sh:245-248  elif req: ans = get_answer; result_map[s] = ans; write_sockets.add
+            // sh:245-248  elif req: ans = get_answer; result_map[s] = ans
             Some(r) if !r.is_empty() => {
-                let ans = get_answer(&r, is_daemon, state, render_fn, spawn_wm_fn);
-                conn.pending_response = Some(ans);
-                conns.insert(*fd, conn);
+                match dispatch_request(&r, is_daemon, state, render_fn, spawn_wm_fn) {
+                    Dispatch::Immediate(ans) => {
+                        conn.state = ConnState::Writing(ans);
+                    }
+                    Dispatch::Render(work) => match pool.submit(work) {
+                        Some((job, cancel)) => {
+                            conn.state = ConnState::Rendering { job, cancel };
+                        }
+                        None => {
+                            // Pool is gone; nothing can answer this.
+                            conns.remove(fd);
+                        }
+                    },
+                }
             }
             // sh:249-250  else: s.close()
             _ => {
-                drop(conn);
+                conns.remove(fd);
             }
         }
     }
 
-    // sh:252-259  writable conn → do_write + close
+    // Deviation 4: collect finished renders and move their connections
+    // to `Writing`. A result whose connection was already reaped simply
+    // has nowhere to go and is dropped.
+    for done in pool.drain() {
+        let target = conns.iter().find_map(|(fd, c)| match c.state {
+            ConnState::Rendering { job, .. } if job == done.id => Some(*fd),
+            _ => None,
+        });
+        match target {
+            Some(fd) => {
+                if let Some(conn) = conns.get_mut(&fd) {
+                    conn.state = ConnState::Writing(done.bytes);
+                }
+            }
+            None => {
+                crate::extensions::diag_log::log(&format!(
+                    "daemon render ORPHANED job={} bytes={} (client already gone)",
+                    done.id,
+                    done.bytes.len()
+                ));
+            }
+        }
+    }
+
+    // sh:252-259  writable conn → do_write + close.
+    //
+    // Re-poll the writable set with a zero timeout instead of reusing
+    // the revents from the top of this iteration. Connections reach
+    // `Writing` *during* this tick — from the dispatch pass or the pool
+    // drain above — and were polled for something else (or not yet
+    // created), so the earlier revents cannot answer "is this socket
+    // writable now". Asking again costs one syscall and saves every
+    // fresh response a full loop tick of latency.
     let writable_fds: Vec<RawFd> = conns
         .iter()
-        .filter(|(_, c)| c.pending_response.is_some())
+        .filter(|(_, c)| matches!(c.state, ConnState::Writing(_)))
         .map(|(fd, _)| *fd)
         .collect();
-    for fd in writable_fds {
-        // Re-poll just this fd's revents from the array we built above.
-        let idx = conn_fds.iter().position(|x| *x == fd).map(|i| i + 1);
-        let writable = match idx {
-            Some(i) => pfds[i].revents & libc::POLLOUT != 0,
-            // Newly-queued in this iteration (read+queue happened above);
-            // defer the write to the next loop tick.
-            None => false,
-        };
-        if !writable {
-            continue;
-        }
-        if let Some(mut conn) = conns.remove(&fd) {
-            if let Some(result) = conn.pending_response.take() {
-                do_write(&mut conn.stream, &result);
+    if !writable_fds.is_empty() {
+        let mut wpfds: Vec<libc::pollfd> = writable_fds
+            .iter()
+            .map(|fd| libc::pollfd {
+                fd: *fd,
+                events: libc::POLLOUT,
+                revents: 0,
+            })
+            .collect();
+        // SAFETY: contiguous Vec of pollfd, ptr + len, non-blocking.
+        unsafe { libc::poll(wpfds.as_mut_ptr(), wpfds.len() as libc::nfds_t, 0) };
+        for (i, fd) in writable_fds.iter().enumerate() {
+            if wpfds[i].revents & libc::POLLOUT == 0 {
+                continue;
             }
-            // sh:259  finally: s.close() — Drop closes
+            // Take the connection out first: whether the write succeeds
+            // or the socket has since died, this request is finished and
+            // the connection must not survive the iteration.
+            if let Some(mut conn) = conns.remove(fd) {
+                if let ConnState::Writing(result) =
+                    std::mem::replace(&mut conn.state, ConnState::Reading)
+                {
+                    do_write(&mut conn.stream, &result);
+                }
+                // sh:259  finally: s.close() — Drop closes
+            }
         }
     }
 
@@ -809,6 +1030,11 @@ pub fn shutdown(conns: &mut HashMap<RawFd, Conn>, state: &mut State) {
     let start = Instant::now();
 
     // sh:278-279  for s in chain((sock,), read_sockets, write_sockets): s.close()
+    // Cancel first: a queued render whose client is about to be closed
+    // must not occupy a worker while we are trying to exit.
+    for conn in conns.values() {
+        conn.cancel_render();
+    }
     conns.clear();
 
     // sh:282  state.ts_shutdown_event.set()
@@ -868,6 +1094,17 @@ pub fn main_loop(
     // sh:302  state = State()
     let mut state = State::new();
 
+    // Deviation 4: renders run on workers, never on this thread. If the
+    // pool cannot start there is nothing to serve requests with, so fail
+    // loudly rather than silently reverting to a loop that can hang.
+    let pool = match RenderPool::new() {
+        Ok(p) => p,
+        Err(e) => {
+            crate::extensions::diag_log::log(&format!("daemon render pool START FAILED err={}", e));
+            return 1;
+        }
+    };
+
     // sh:303-313  try: while True: do_one(...); except KeyboardInterrupt: SystemExit(0)
     // Rust SIGINT handling: install a flag, check it in the loop.
     let sigint = Arc::new(AtomicBool::new(false));
@@ -884,6 +1121,7 @@ pub fn main_loop(
             &mut state,
             &render_fn,
             &spawn_wm_fn,
+            &pool,
         ) {
             break code;
         }
@@ -1897,6 +2135,153 @@ mod tests {
         let code = main_loop(listener, true, render_fn, spawn_wm_fn);
         assert_eq!(code, 0);
         t.join().unwrap();
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// Unique scratch socket path. Kept deliberately short: macOS
+    /// `sockaddr_un` allows 104 bytes total and the per-user `TMPDIR` is
+    /// already ~50 of them, so a descriptive name plus a nanosecond
+    /// stamp overruns `SUN_LEN`.
+    fn scratch_socket(tag: &str) -> String {
+        static SEQ: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let seq = SEQ.fetch_add(1, Ordering::SeqCst);
+        let p = std::env::temp_dir().join(format!("plnr-{}-{}-{}", tag, std::process::id(), seq));
+        let path = p.to_string_lossy().to_string();
+        let _ = std::fs::remove_file(&path);
+        path
+    }
+
+    /// Request bytes in the client's wire format: `hex(argc)` then each
+    /// arg, cwd, and one env entry, terminated by the double NUL.
+    fn wire_request(side: &str) -> Vec<u8> {
+        let mut req = Vec::new();
+        req.extend_from_slice(b"02\0tmux\0");
+        req.extend_from_slice(side.as_bytes());
+        req.extend_from_slice(b"\0/cwd\0HOME=/h\0\0");
+        req
+    }
+
+    /// The regression that motivated deviation 4. A statusline segment
+    /// that wedges must not cost every other pane its prompt: with the
+    /// render inline in the event loop, the second client here waited
+    /// out the first client's entire render.
+    #[test]
+    fn slow_render_does_not_delay_another_client() {
+        let path = scratch_socket("conc");
+        let listener = UnixListener::bind(&path).unwrap();
+        let client_path = path.clone();
+
+        let t = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(50));
+
+            // Client A asks for the side our render_fn stalls on, and
+            // deliberately does not read: its request is in flight for
+            // the rest of the test.
+            let mut slow = UnixStream::connect(&client_path).unwrap();
+            slow.write_all(&wire_request("right")).unwrap();
+
+            // Give the daemon a moment to pick A up, so the measurement
+            // below covers a genuinely concurrent render.
+            std::thread::sleep(Duration::from_millis(150));
+
+            let t0 = std::time::Instant::now();
+            let mut fast = UnixStream::connect(&client_path).unwrap();
+            fast.write_all(&wire_request("left")).unwrap();
+            let mut buf = Vec::new();
+            fast.read_to_end(&mut buf).ok();
+            let elapsed = t0.elapsed();
+
+            let mut eof = UnixStream::connect(&client_path).unwrap();
+            eof.write_all(EOF).unwrap();
+
+            (buf, elapsed)
+        });
+
+        let render_fn: Arc<RenderFn> = Arc::new(|args, _, _, _| {
+            if args.side.as_deref() == Some("right") {
+                std::thread::sleep(Duration::from_secs(3));
+                b"SLOW".to_vec()
+            } else {
+                b"FAST".to_vec()
+            }
+        });
+        let spawn_wm_fn: Arc<SpawnWmFn> = Arc::new(|_, _, _| None);
+        let code = main_loop(listener, true, render_fn, spawn_wm_fn);
+        assert_eq!(code, 0);
+
+        let (buf, elapsed) = t.join().unwrap();
+        assert_eq!(buf, b"FAST".to_vec());
+        assert!(
+            elapsed < Duration::from_millis(1500),
+            "fast client waited {:?} behind a 3s render; the loop is serializing",
+            elapsed
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// A client that walks away mid-render must be dropped, not held.
+    /// Retained connections were observed in the field as 34 open
+    /// sockets against a single live client.
+    #[test]
+    fn connection_is_reaped_when_the_client_hangs_up_mid_render() {
+        let path = scratch_socket("reap");
+        let listener = UnixListener::bind(&path).unwrap();
+        listener.set_nonblocking(true).unwrap();
+
+        let pool = RenderPool::with_size(1).unwrap();
+        let mut conns: HashMap<RawFd, Conn> = HashMap::new();
+        let mut state = State::new();
+        let render_fn: Arc<RenderFn> = Arc::new(|_, _, _, _| {
+            std::thread::sleep(Duration::from_secs(3));
+            b"TOO LATE".to_vec()
+        });
+        let spawn_wm_fn: Arc<SpawnWmFn> = Arc::new(|_, _, _| None);
+
+        // A macro rather than a closure: a closure would hold `conns`
+        // borrowed for the whole test, and the assertions below need to
+        // inspect it between ticks.
+        macro_rules! tick {
+            () => {
+                do_one(
+                    &listener,
+                    &mut conns,
+                    true,
+                    &mut state,
+                    &render_fn,
+                    &spawn_wm_fn,
+                    &pool,
+                )
+            };
+        }
+
+        let mut client = UnixStream::connect(&path).unwrap();
+        client.write_all(&wire_request("right")).unwrap();
+
+        // Accept, then read + hand off to the pool.
+        assert_eq!(tick!(), None);
+        assert_eq!(tick!(), None);
+        assert_eq!(conns.len(), 1, "request should be in flight");
+        assert!(
+            conns
+                .values()
+                .all(|c| matches!(c.state, ConnState::Rendering { .. })),
+            "request should have been dispatched to the pool, not rendered inline"
+        );
+
+        // The client gives up while the render is still running.
+        drop(client);
+
+        let t0 = std::time::Instant::now();
+        assert_eq!(tick!(), None);
+        assert!(
+            conns.is_empty(),
+            "connection survived its client hanging up"
+        );
+        assert!(
+            t0.elapsed() < CONN_DEADLINE,
+            "reap took {:?}; it fell back to the deadline instead of noticing the hangup",
+            t0.elapsed()
+        );
         let _ = std::fs::remove_file(&path);
     }
 }

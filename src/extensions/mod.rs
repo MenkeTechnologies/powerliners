@@ -54,6 +54,17 @@
 //!   one-byte wake to a per-client FIFO on a real change. Registered from
 //!   the daemon binary's `render_fn`; the pull-only ported path is
 //!   untouched.
+//! - [`render_pool`] — persistent worker pool the daemon renders on, so
+//!   its event loop only ever does socket work and no segment can stall
+//!   another client's request.
+//! - [`segment_watchdog`] — per-segment deadline with last-good
+//!   fallback and in-flight dedupe. Upstream runs every segment inline
+//!   with no time budget.
+//! - [`proc_timeout`] — subprocess execution that SIGKILLs a child which
+//!   outlives its budget, so a wedged helper cannot pin a segment.
+//! - [`proc_lookup`] — "is a process named X running?" via libproc
+//!   (macOS) / `/proc` (Linux), replacing the System Events AppleScript
+//!   round-trip that upstream's player segments depend on.
 //! - [`shell_hooks`] — shell-side bindings that create the wake FIFO and
 //!   wire it into the line editor. `shell_hooks/reactive.zsh` uses
 //!   `zle -F <fd>` → `zle reset-prompt` so the branch flips between
@@ -80,6 +91,10 @@ pub mod ipc_socket;
 pub mod k8s;
 pub mod mem_usage;
 pub mod proc_count;
+pub mod proc_lookup;
+pub mod proc_timeout;
+pub mod render_pool;
+pub mod segment_watchdog;
 pub mod shell_hooks;
 pub mod stryke_rkyv;
 pub mod stryke_version;
