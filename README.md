@@ -15,7 +15,7 @@
 ---
 
 [![Status](https://img.shields.io/badge/status-134%2F137%20DONE-39ff14.svg)](#-status)
-[![Tests](https://img.shields.io/badge/lib%20tests-2497%20passing-39ff14.svg)](#-status)
+[![Tests](https://img.shields.io/badge/lib%20tests-2529%20passing-39ff14.svg)](#-status)
 [![Parity](https://img.shields.io/badge/parity%20tests-462%20vs%20upstream-05d9e8.svg)](#-status)
 [![Bugs Fixed](https://img.shields.io/badge/port%20bugs%20fixed-11-d300c5.svg)](#-status)
 [![Source](https://img.shields.io/badge/port_of-powerline--status-05d9e8.svg)](https://github.com/powerline/powerline)
@@ -68,7 +68,7 @@ Drop-in compatible with the existing `powerline/config` JSON theme + segment fil
 [port progress]   134 / 137 upstream .py files at DONE tier (97.8%)
 [remaining]       3 lipstick-only py files — zero-fn class shells, see Status
 [partial/sparse]  0 / 0 — no degraded files
-[lib tests]       2497 passing, 0 failing, 0 ignored
+[lib tests]       2529 passing, 0 failing, 0 ignored
 [parity tests]    462 against live upstream Python — every assertion runs the
                   Python interpreter on the upstream powerline source and
                   compares byte/value identical with the Rust port
