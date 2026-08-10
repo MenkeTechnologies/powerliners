@@ -381,6 +381,14 @@ Tuple\(hylength bounds violations (e.g. a 1\(hyelement tuple where 2\(hyelements
 The command invoked by shell + tmux integrations. Set to
 .B powerline
 to use this native binary.
+.B "powerline-config tmux setup"
+publishes it into the tmux server environment
+.I before
+sourcing the config files, because from tmux 2.1 on
+.B status-left
+expands it at source time rather than at
+.B #()
+run time.
 .TP
 .B POWERLINE_CONFIG_PATHS
 Colon\(hyseparated config search roots.

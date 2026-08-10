@@ -491,12 +491,24 @@ under the test suite's "inherent divergence" notes:
    markup framing is identical.
 2. **Threaded segment caching**: Python's `ThreadedSegment` polls in a
    background thread and renders the last-known value; our daemon
-   samples on-demand. Latency profile differs (we may block briefly
-   when network/disk segments hit); output content matches.
+   samples on-demand under a per-segment deadline and serves the last
+   good value when a segment overruns it. Latency profile differs;
+   output content matches.
 3. **psutil-only features**: Python upstream errors loudly when
    `psutil` is missing and skips affected segments. Our daemon resolves
    the same data via OS subprocess probes (`top`, `vm_stat`,
    `netstat`, `pmset`, `uptime`) and renders successfully.
+4. **`tmux setup` ordering**: upstream sources the tmux config files
+   and only then sets `POWERLINE_COMMAND` in the tmux server
+   environment — and skips that step entirely when the variable is
+   already exported in the calling shell. Since tmux 2.1 the
+   `status-left` in `powerline_tmux_2.1_plus.conf` expands a bare
+   `$POWERLINE_COMMAND` at *source* time, so the upstream order bakes an
+   empty command into it and the left side runs `env   tmux left …`.
+   (`status-right` is single-quoted, so it escapes the problem — which
+   is why the breakage is left-only.) We publish `POWERLINE_COMMAND`
+   into the tmux environment first, propagating an exported value rather
+   than skipping.
 
 For everything else — markup, escaping (`#` → `##[]`, control chars
 via `translate_np`), dividers (hard/soft/multi-char/empty/single-char),

@@ -192,6 +192,31 @@ fn tmux_setup(args: &[String]) -> Result<(), String> {
         set_tmux_environment(varname, value, true);
     }
 
+    // py:77-80  POWERLINE_COMMAND — hoisted above the source step.
+    //
+    // Deviation from upstream ordering (py:74-80 sources first, then
+    // sets POWERLINE_COMMAND). From tmux 2.1 on, the status-left in
+    // `powerline_tmux_2.1_plus.conf` is a double-quoted string
+    // containing a bare `$POWERLINE_COMMAND`, which tmux expands from
+    // the *server* environment at source time — not at `#()` run time.
+    // Sourcing before the variable exists in that environment bakes an
+    // empty command into status-left, so the left side runs
+    // `env   tmux left …`, which is a tmux usage error rather than a
+    // render. status-right escapes the expansion off
+    // (`powerline-base.conf:4` is single-quoted) and is unaffected,
+    // which is why the breakage is left-only and easy to miss.
+    //
+    // Upstream also gates on the *process* environment: if
+    // POWERLINE_COMMAND is exported in the shell that runs
+    // `powerline-config`, the tmux setenv is skipped entirely and the
+    // server may never learn the value. We propagate the exported value
+    // instead of skipping, so the tmux environment always agrees with
+    // the shell's before anything expands it.
+    let exported = std::env::var("POWERLINE_COMMAND").ok();
+    if let Some(cmd) = resolve_powerline_command(exported, binding_config::deduce_command) {
+        set_tmux_environment("POWERLINE_COMMAND", &cmd, false);
+    }
+
     // py:215  source_tmux_files — version-matched conf files.
     // py:74  source_tmux_file(TMUX_CONFIG_DIRECTORY/powerline-base.conf)
     let base_conf = TMUX_CONFIG_DIRECTORY().join("powerline-base.conf");
@@ -205,22 +230,29 @@ fn tmux_setup(args: &[String]) -> Result<(), String> {
         }
     }
 
-    // py:77-80  if POWERLINE_COMMAND env not set, deduce + setenv
-    if std::env::var("POWERLINE_COMMAND")
-        .map(|v| v.is_empty())
-        .unwrap_or(true)
-    {
-        if let Some(cmd) = binding_config::deduce_command() {
-            set_tmux_environment("POWERLINE_COMMAND", &cmd, false);
-        }
-    }
-
     // py:81-86  try run_tmux_command('refresh-client') — ignore failures
     let _ = std::process::Command::new("tmux")
         .arg("refresh-client")
         .status();
 
     Ok(())
+}
+
+/// Which command name `tmux setup` should publish as
+/// `POWERLINE_COMMAND` in the tmux server environment.
+///
+/// An exported, non-empty value wins; anything else falls through to
+/// `deduce`. Split out from `tmux_setup` so the precedence is testable
+/// without a live tmux server — see the note there for why this runs
+/// before the config files are sourced.
+fn resolve_powerline_command<F>(exported: Option<String>, deduce: F) -> Option<String>
+where
+    F: FnOnce() -> Option<String>,
+{
+    match exported {
+        Some(v) if !v.is_empty() => Some(v),
+        _ => deduce(),
+    }
 }
 
 /// Port of the `if __name__ == '__main__':` block at
@@ -500,5 +532,35 @@ mod tests {
         // the exit code depends on `which powerline`.
         let r = main(&["command".to_string()]);
         assert!(r == 0 || r == 1, "unexpected exit code {}", r);
+    }
+
+    /// Upstream skips the tmux setenv entirely when POWERLINE_COMMAND is
+    /// exported in the calling shell, which leaves the tmux server
+    /// without the value that `powerline_tmux_2.1_plus.conf` expands
+    /// into status-left. We propagate the exported value instead.
+    #[test]
+    fn exported_command_is_propagated_not_skipped() {
+        let got = resolve_powerline_command(Some("zpowerline".to_string()), || {
+            panic!("deduce must not run when the value is already exported")
+        });
+        assert_eq!(got.as_deref(), Some("zpowerline"));
+    }
+
+    /// An exported-but-empty value is the shape that produced
+    /// `env   tmux left …`; it must not be published as the command.
+    #[test]
+    fn empty_exported_command_falls_through_to_deduce() {
+        let got = resolve_powerline_command(Some(String::new()), || Some("powerline".to_string()));
+        assert_eq!(got.as_deref(), Some("powerline"));
+    }
+
+    #[test]
+    fn unset_command_falls_through_to_deduce() {
+        let got = resolve_powerline_command(None, || Some("powerline".to_string()));
+        assert_eq!(got.as_deref(), Some("powerline"));
+
+        // Nothing exported and nothing deducible means nothing to
+        // publish — the caller must not set an empty tmux variable.
+        assert_eq!(resolve_powerline_command(None, || None), None);
     }
 }
