@@ -54,8 +54,21 @@ fn init_state() -> Option<LogState> {
     Some(LogState { path, file })
 }
 
-/// Append `msg` to the diagnostic log with a microsecond-precision
-/// epoch timestamp + the calling process id. No-op when the file
+/// The `[YYYY-MM-DD HH:MM:SS.mmm pid=N]` prefix each line opens with. Local
+/// wall-clock, not the bare epoch float this used to print: the log is read by
+/// a person after a segment rendered empty or late, and `1787276952.246` cannot
+/// be matched against the prompt they were looking at. The milliseconds stay —
+/// segment latency is what this log exists to show.
+fn line_prefix(secs: i64, millis: u32, pid: u32) -> String {
+    let stamp = crate::ported::segments::common::time::format_strftime(
+        "%Y-%m-%d %H:%M:%S",
+        secs as libc::time_t,
+    );
+    format!("[{stamp}.{millis:03} pid={pid}]")
+}
+
+/// Append `msg` to the diagnostic log with a local `YYYY-MM-DD HH:MM:SS.mmm`
+/// timestamp + the calling process id. No-op when the file
 /// can't be opened (permissions, missing $HOME, etc.) so the renderer
 /// never fails on logging issues.
 pub fn log(msg: &str) {
@@ -74,11 +87,15 @@ pub fn log(msg: &str) {
                     }
                 }
             }
-            let ts = std::time::SystemTime::now()
+            let since = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs_f64())
-                .unwrap_or(0.0);
-            let _ = writeln!(state.file, "[{:.3} pid={}] {}", ts, std::process::id(), msg);
+                .unwrap_or_default();
+            let prefix = line_prefix(
+                since.as_secs() as i64,
+                since.subsec_millis(),
+                std::process::id(),
+            );
+            let _ = writeln!(state.file, "{prefix} {msg}");
             let _ = state.file.flush();
         }
     }
@@ -110,6 +127,31 @@ mod tests {
         p.push("powerliners.log");
         fs::create_dir_all(p.parent().unwrap()).unwrap();
         p
+    }
+
+    /// A diagnostic line has to say when it happened, in local time. The log is
+    /// opened after a segment rendered empty or late, and the raw epoch float
+    /// this used to print could not be matched against the prompt the user saw.
+    #[test]
+    fn line_prefix_is_a_local_datetime_with_millis_and_pid() {
+        // A fixed instant, so the assertion is on the shape and not on today.
+        let p = line_prefix(1_787_276_952, 7, 4242);
+        let inner = p
+            .strip_prefix('[')
+            .and_then(|s| s.strip_suffix(']'))
+            .expect("prefix is bracketed");
+        let (stamp, pid) = inner.split_once(" pid=").expect("pid field present");
+        assert_eq!(pid, "4242");
+        assert_eq!(stamp.len(), 23, "unexpected stamp width: {stamp:?}");
+        let b = stamp.as_bytes();
+        assert!(
+            b[4] == b'-' && b[7] == b'-' && b[10] == b' '
+                && b[13] == b':' && b[16] == b':' && b[19] == b'.',
+            "not a `YYYY-MM-DD HH:MM:SS.mmm` stamp: {stamp:?}"
+        );
+        assert!(stamp.ends_with(".007"), "millis lost or unpadded: {stamp:?}");
+        // 1787276952 is in 2026 in every zone the stamp can be rendered in.
+        assert!(stamp.starts_with("2026-"), "wrong instant rendered: {stamp:?}");
     }
 
     #[test]

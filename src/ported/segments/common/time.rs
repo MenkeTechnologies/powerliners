@@ -12,7 +12,7 @@
 use serde_json::{json, Value};
 
 /// Format a time_t as strftime would for the given format spec.
-fn format_strftime(fmt: &str, ts: libc::time_t) -> String {
+pub(crate) fn format_strftime(fmt: &str, ts: libc::time_t) -> String {
     let mut tm: libc::tm = unsafe { std::mem::zeroed() };
     // SAFETY: localtime_r writes into tm, which we own. Returns NULL
     // on failure; we propagate empty in that case.
