@@ -145,13 +145,23 @@ mod tests {
         assert_eq!(stamp.len(), 23, "unexpected stamp width: {stamp:?}");
         let b = stamp.as_bytes();
         assert!(
-            b[4] == b'-' && b[7] == b'-' && b[10] == b' '
-                && b[13] == b':' && b[16] == b':' && b[19] == b'.',
+            b[4] == b'-'
+                && b[7] == b'-'
+                && b[10] == b' '
+                && b[13] == b':'
+                && b[16] == b':'
+                && b[19] == b'.',
             "not a `YYYY-MM-DD HH:MM:SS.mmm` stamp: {stamp:?}"
         );
-        assert!(stamp.ends_with(".007"), "millis lost or unpadded: {stamp:?}");
+        assert!(
+            stamp.ends_with(".007"),
+            "millis lost or unpadded: {stamp:?}"
+        );
         // 1787276952 is in 2026 in every zone the stamp can be rendered in.
-        assert!(stamp.starts_with("2026-"), "wrong instant rendered: {stamp:?}");
+        assert!(
+            stamp.starts_with("2026-"),
+            "wrong instant rendered: {stamp:?}"
+        );
     }
 
     #[test]
