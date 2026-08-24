@@ -1969,3 +1969,30 @@ main_spec
 # pattern as the prior batches; the leading underscore is preserved
 # from the Python source.
 _highlight_group_spec
+
+# Approved 2026-08-24: two precedence helpers extracted from `tmux_setup`
+# in scripts/powerline-config. Upstream computes both inline inside the
+# tmux setup routine, which cannot be exercised without a live tmux
+# server; splitting them out makes the precedence rules testable on
+# their own. preserved_status_lengths decides which
+# `status-*-length` settings tmux already carries deliberately (so they
+# outrank powerline-base.conf), and resolve_powerline_command picks
+# between an exported POWERLINE_COMMAND and the deduced one. Same
+# extract-for-testability pattern as the prior batches; neither adds
+# behaviour of its own.
+preserved_status_lengths
+resolve_powerline_command
+
+# Approved 2026-08-24: three daemon-loop helpers in
+# scripts/powerline-daemon. `events` and `cancel_render` are methods on
+# the Rust connection struct — poll-mask selection and render
+# cancellation, both of which upstream's single-threaded loop has no
+# equivalent for because it never queues a render off-thread.
+# dispatch_request is the loop-thread half of upstream's `get_answer`
+# (Deviation 4, documented at the fn): the parts that need `&mut State`
+# stay on the loop thread and the expensive half is handed back as a
+# closure for the render pool. `get_answer` itself remains the ported
+# name for the whole.
+events
+cancel_render
+dispatch_request
