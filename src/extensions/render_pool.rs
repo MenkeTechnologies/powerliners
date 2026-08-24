@@ -126,7 +126,7 @@ pub struct RenderPool {
 
 impl RenderPool {
     /// Start a pool. Size comes from `POWERLINERS_RENDER_THREADS` when
-    /// it parses as a positive integer, else [`DEFAULT_WORKERS`].
+    /// it parses as a positive integer, else `DEFAULT_WORKERS`.
     pub fn new() -> std::io::Result<Self> {
         let size = std::env::var("POWERLINERS_RENDER_THREADS")
             .ok()

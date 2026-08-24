@@ -15,7 +15,7 @@
 //!    thread per render. A statusline refreshing every 2 s against a
 //!    30 s hang would otherwise accumulate 15 live threads.
 //! 2. **Last-good cache.** An overrun serves the previous value for up
-//!    to [`MAX_STALENESS`], so a briefly-slow segment holds its place
+//!    to `MAX_STALENESS`, so a briefly-slow segment holds its place
 //!    in the bar instead of blinking out and shoving every segment
 //!    beside it sideways.
 //! 3. **Subprocess kills.** Segments that shell out should use
