@@ -148,7 +148,7 @@ fn tmux_setup(args: &[String]) -> Result<(), String> {
     // py:165  colorscheme cascade
     let cs_levels = vec![
         "colorschemes/__main__".to_string(),
-        format!("colorschemes/tmux/__main__"),
+        "colorschemes/tmux/__main__".to_string(),
         format!("colorschemes/tmux/{}", cs_name),
     ];
     let colorscheme_json =
