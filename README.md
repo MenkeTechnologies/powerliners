@@ -138,16 +138,28 @@ work: requests go to a worker pool (`POWERLINERS_RENDER_THREADS`,
 default 4) and completions arrive through a self-pipe that sits in the
 poll set alongside the sockets.
 
-Three bounds keep a misbehaving segment from reaching the statusline:
+Four bounds keep a misbehaving segment from reaching the statusline:
 
 | Bound | Default | Behavior on breach |
 |---|---|---|
 | Per-segment budget | 2000 ms (`"timeout": <ms>` per segment in the theme) | Serve the segment's last good value (max 60 s old), and don't re-enter it until the overdue call returns |
 | Subprocess budget | per call site | `SIGKILL` the child so a wedged helper can't pin a worker |
 | Connection lifetime | 10 s, or immediately on client hangup | Close the socket and cancel any render still queued for it |
+| Panic containment | always | Answer that one request with the panic message, keep the worker, and replace it if it is lost anyway |
 
-Watchdog trips and connection reaps are logged to
-`~/.powerliners/powerliners.log`.
+Watchdog trips, panics and connection reaps are logged to
+`~/.powerliners/powerliners.log`. Panics are logged from a hook rather
+than left on stderr, which `daemonize` points at `/dev/null`.
+
+Panic containment is the newest of the four, and it exists because a
+render that panicked used to kill its worker outright. Nothing replaced
+the thread and nothing recorded the death, so four panics emptied the
+pool; from then on the daemon accepted every connection and closed it
+with zero bytes. tmux reads that as "this side renders to nothing", so
+the statusline went blank and stayed blank — for 15 hours in the case
+that prompted this — while `powerline-render` kept working and the
+daemon kept looking healthy in `ps`. A panicking render now costs one
+request.
 
 The concrete failure this replaced: the Spotify segment asked System
 Events for the process list on every render. When the daemon's login

@@ -938,8 +938,21 @@ pub fn do_one(
                             conn.state = ConnState::Rendering { job, cancel };
                         }
                         None => {
-                            // Pool is gone; nothing can answer this.
-                            conns.remove(fd);
+                            // The render queue is gone, so nothing can
+                            // produce the statusline. Say so instead of
+                            // closing the socket unanswered: a zero-byte
+                            // response is indistinguishable to tmux from
+                            // "this side renders to nothing", so the bar
+                            // just emptied and stayed empty with no trace
+                            // of why. Upstream's own contract for a
+                            // failed render is the reason in the body
+                            // (sh:209-212).
+                            crate::extensions::diag_log::log(
+                                "daemon render pool REFUSED a job — answering with an error",
+                            );
+                            conn.state = ConnState::Writing(safe_bytes(
+                                "powerline-daemon: render pool unavailable",
+                            ));
                         }
                     },
                 }

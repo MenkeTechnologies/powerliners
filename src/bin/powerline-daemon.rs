@@ -20,8 +20,38 @@ mod render_runtime;
 #[path = "shared/house_help.rs"]
 mod house_help;
 
+/// Send panics to the diagnostic log as well as stderr.
+///
+/// `daemonize` points stderr at `/dev/null`, so the default hook writes
+/// a backgrounded daemon's panics nowhere. A render that panicked was
+/// therefore completely invisible: the log simply stopped mid-render
+/// with no line saying a thread had died, and the only symptom was an
+/// empty statusline hours later. Logging the message, its location and
+/// a backtrace means the next one names the code that caused it.
+fn install_panic_hook() {
+    let previous = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let location = info
+            .location()
+            .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+            .unwrap_or_else(|| "unknown location".to_string());
+        let thread = std::thread::current();
+        let thread = thread.name().unwrap_or("unnamed").to_string();
+        // Captured only when RUST_BACKTRACE asks for one; otherwise
+        // this renders as the usual "run with RUST_BACKTRACE=1" note.
+        let backtrace = std::backtrace::Backtrace::capture();
+        powerliners::extensions::diag_log::log(&format!(
+            "PANIC in thread {} at {}: {}\n{}",
+            thread, location, info, backtrace
+        ));
+        previous(info);
+    }));
+}
+
 fn main() {
     let argv: Vec<String> = std::env::args().skip(1).collect();
+
+    install_panic_hook();
 
     // House `--help` / `--version` (display-only) — intercepted before
     // the daemon's own argv parse so `-h` prints the styled screen
