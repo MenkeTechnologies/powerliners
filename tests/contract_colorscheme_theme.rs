@@ -24,12 +24,12 @@ fn test_pick_gradient_value_bankers_rounding_at_tie() {
     // Python `round(0.5) == 0` and `round(1.5) == 2`.
     let grad = vec![10u64, 20, 30];
     assert_eq!(
-        pick_gradient_value(&grad, 25.0),
+        pick_gradient_value(&grad, 25.0).expect("gradient level is inside [0, 100]"),
         10,
         "banker's rounding of 0.5 → 0 (even); should return first element"
     );
     assert_eq!(
-        pick_gradient_value(&grad, 75.0),
+        pick_gradient_value(&grad, 75.0).expect("gradient level is inside [0, 100]"),
         30,
         "banker's rounding of 1.5 → 2 (even); should return last element"
     );
@@ -41,7 +41,7 @@ fn test_pick_gradient_value_single_element_list_returns_only_element() {
     let grad = vec![42u64];
     for &level in &[0.0, 50.0, 100.0] {
         assert_eq!(
-            pick_gradient_value(&grad, level),
+            pick_gradient_value(&grad, level).expect("gradient level is inside [0, 100]"),
             42,
             "single-element list must return that element at level {level}"
         );

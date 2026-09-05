@@ -217,7 +217,8 @@ fn parity_pick_gradient_value() {
             None => return,
         };
         let py_int: u64 = py.parse().expect("bad py int");
-        let rs = powerliners::colorscheme::pick_gradient_value(&grad, level);
+        let rs = powerliners::colorscheme::pick_gradient_value(&grad, level)
+            .expect("gradient level is inside [0, 100]");
         assert_eq!(
             py_int, rs,
             "pick_gradient_value(level={}) mismatch: py={}, rs={}",
@@ -4820,7 +4821,9 @@ fn parity_colorscheme_get_gradient_picks_and_falls_back() {
             name,
             level
         );
-        let rs = c.get_gradient(name, *level);
+        let rs = c
+            .get_gradient(name, *level)
+            .expect("gradient level is inside [0, 100]");
         let rs_arr = rs.as_array().expect("rs result not array");
         assert_eq!(
             rs_arr[0].as_i64(),
@@ -6050,7 +6053,8 @@ fn parity_pick_gradient_value_bankers_rounding() {
             None => return,
         };
         let py_val: u64 = py.trim().parse().expect("py returned non-integer");
-        let rs_val = powerliners::colorscheme::pick_gradient_value(grad, *level);
+        let rs_val = powerliners::colorscheme::pick_gradient_value(grad, *level)
+            .expect("gradient level is inside [0, 100]");
         assert_eq!(
             rs_val, py_val,
             "pick_gradient_value(level={}) mismatch: py={}, rs={}",
@@ -6872,7 +6876,8 @@ fn parity_pick_gradient_value_with_5_element_grad() {
             None => return,
         };
         let py_int: u64 = py.parse().expect("Python returned non-int");
-        let rs = powerliners::colorscheme::pick_gradient_value(&grad, level);
+        let rs = powerliners::colorscheme::pick_gradient_value(&grad, level)
+            .expect("gradient level is inside [0, 100]");
         assert_eq!(
             py_int, rs,
             "pick_gradient_value(level={}) mismatch: py={}, rs={}",
@@ -11071,7 +11076,8 @@ fn parity_colorscheme_pick_gradient_value_endpoints() {
             None => return,
         };
         let py_val: u64 = py.parse().expect("py int");
-        let rs_val = powerliners::ported::colorscheme::pick_gradient_value(&grad, *level);
+        let rs_val = powerliners::ported::colorscheme::pick_gradient_value(&grad, *level)
+            .expect("gradient level is inside [0, 100]");
         assert_eq!(
             rs_val, py_val,
             "pick_gradient_value(level={}) mismatch py={} rs={}",
@@ -11100,7 +11106,8 @@ fn parity_colorscheme_pick_gradient_value_banker_rounding_2_5() {
     };
     let py_val: u64 = py.parse().expect("py int");
     assert_eq!(py_val, 102, "Python banker's rounding picks 102 (idx 2)");
-    let rs = powerliners::ported::colorscheme::pick_gradient_value(&grad, 62.5);
+    let rs = powerliners::ported::colorscheme::pick_gradient_value(&grad, 62.5)
+        .expect("gradient level is inside [0, 100]");
     assert_eq!(rs, py_val, "banker's-rounding parity at half-integer");
 }
 
@@ -11121,7 +11128,8 @@ fn parity_colorscheme_pick_gradient_value_banker_rounding_3_5() {
     };
     let py_val: u64 = py.parse().expect("py int");
     assert_eq!(py_val, 204);
-    let rs = powerliners::ported::colorscheme::pick_gradient_value(&grad, 87.5);
+    let rs = powerliners::ported::colorscheme::pick_gradient_value(&grad, 87.5)
+        .expect("gradient level is inside [0, 100]");
     assert_eq!(rs, py_val);
 }
 
@@ -12987,7 +12995,9 @@ fn parity_colorscheme_get_gradient_picks_cterm_and_truecolor() {
         serde_json::Value::Object(serde_json::Map::new()),
     );
     let cs = powerliners::ported::colorscheme::Colorscheme::new(&cs_cfg, &colors_cfg);
-    let rs = cs.get_gradient("g", 50.0);
+    let rs = cs
+        .get_gradient("g", 50.0)
+        .expect("gradient level is inside [0, 100]");
     let rs_json = serde_json::to_string(&rs).expect("serialize");
     let py_compact = py.replace(", ", ",");
     assert_eq!(rs_json, py_compact, "get_gradient at level=50 mismatch");
@@ -13039,8 +13049,12 @@ fn parity_colorscheme_get_gradient_endpoint_picks_first_and_last() {
         serde_json::Value::Object(serde_json::Map::new()),
     );
     let cs = powerliners::ported::colorscheme::Colorscheme::new(&cs_cfg, &colors_cfg);
-    let rs0 = cs.get_gradient("g", 0.0);
-    let rs100 = cs.get_gradient("g", 100.0);
+    let rs0 = cs
+        .get_gradient("g", 0.0)
+        .expect("gradient level is inside [0, 100]");
+    let rs100 = cs
+        .get_gradient("g", 100.0)
+        .expect("gradient level is inside [0, 100]");
     assert_eq!(rs0[0].as_u64(), Some(1), "rs level=0 first");
     assert_eq!(rs100[0].as_u64(), Some(5), "rs level=100 last");
 }
@@ -13080,7 +13094,9 @@ fn parity_colorscheme_get_gradient_falls_back_to_colors_lookup() {
         serde_json::Value::Object(serde_json::Map::new()),
     );
     let cs = powerliners::ported::colorscheme::Colorscheme::new(&cs_cfg, &colors_cfg);
-    let rs = cs.get_gradient("red", 50.0);
+    let rs = cs
+        .get_gradient("red", 50.0)
+        .expect("gradient level is inside [0, 100]");
     let rs_json = serde_json::to_string(&rs).expect("serialize");
     let py_compact = py.replace(", ", ",");
     assert_eq!(rs_json, py_compact, "fallback-to-colors lookup mismatch");

@@ -63,17 +63,50 @@ pub fn get_attrs_flag(attrs: &[String]) -> u32 {
 /// should be used.
 ///
 /// Note: gradient level is not checked for being inside [0, 100]
-/// interval (matches Python behaviour).
+/// interval (matches Python behaviour). Out-of-range levels therefore
+/// reach the subscript, and `None` is this port's spelling of the
+/// `IndexError` Python raises there — see the returns note below.
 ///
 /// **Banker's rounding**: Python 3's `round()` rounds half-to-even
 /// (`round(2.5) == 2`, `round(3.5) == 4`). Rust's `f64::round` rounds
 /// half-away-from-zero (`(2.5_f64).round() == 3.0`). To match upstream
 /// byte-for-byte we use `round_ties_even` (Rust 1.77+).
-pub fn pick_gradient_value(grad_list: &[u64], gradient_level: f64) -> u64 {
+///
+/// **`None` lands exactly where Python raises `IndexError`.** A level
+/// above 100 indexes past the end of `grad_list`. Upstream lets that
+/// `IndexError` travel up through `get_highlighting` into
+/// `set_segment_highlighting`, whose `except Exception` drops the one
+/// offending segment and renders the rest of the statusline
+/// (`powerline/segment.py:160-162`). A bare `grad_list[idx]` panics
+/// instead, and a panic is not survivable the way that exception is: it
+/// unwinds out of the render, kills the daemon's worker thread, and
+/// once every worker has died that way `powerline-daemon` answers each
+/// client by closing the socket with zero bytes — a permanently blank
+/// statusline that no log records. Returning `Option` restores
+/// upstream's drop-one-segment behaviour.
+///
+/// A *negative* index is not an error in Python: `grad_list[-1]` is the
+/// last element. Levels below zero therefore count back from the end,
+/// and only fall off the front (`len + idx < 0`) as `None`.
+pub fn pick_gradient_value(grad_list: &[u64], gradient_level: f64) -> Option<u64> {
     // py:32  grad_list[int(round(gradient_level * (len(grad_list) - 1) / 100))]
     let raw = gradient_level * (grad_list.len() as f64 - 1.0) / 100.0;
-    let idx = py_round(raw) as usize;
-    grad_list[idx]
+    let rounded = py_round(raw);
+    // NaN and infinities have no Python subscript to be equivalent to.
+    if !rounded.is_finite() {
+        return None;
+    }
+    let idx = rounded as i64;
+    // py: a negative subscript counts back from the end of the list.
+    let idx = if idx < 0 {
+        idx + grad_list.len() as i64
+    } else {
+        idx
+    };
+    if idx < 0 {
+        return None;
+    }
+    grad_list.get(idx as usize).copied()
 }
 
 /// Helper: Python 3 `round()` semantics (banker's rounding / round
@@ -205,31 +238,42 @@ impl Colorscheme {
     }
 
     /// Port of `Colorscheme.get_gradient()` from `powerline/colorscheme.py:62`.
-    pub fn get_gradient(&self, gradient: &str, gradient_level: f64) -> Value {
+    ///
+    /// `Err` carries the `IndexError` [`pick_gradient_value`] stands in
+    /// for when the gradient level falls outside the colour list. It
+    /// reaches `set_segment_highlighting`, which drops that one segment
+    /// exactly as upstream's `except Exception` does.
+    pub fn get_gradient(&self, gradient: &str, gradient_level: f64) -> Result<Value, String> {
         if let Some(g) = self.gradients.get(gradient) {
             // py:63
             // py:64  tuple of pick_gradient_value over each sub-list
             if let Value::Array(pair) = g {
-                let mapped: Vec<Value> = pair
-                    .iter()
-                    .map(|grad_list| {
-                        let list: Vec<u64> = grad_list
-                            .as_array()
-                            .map(|l| l.iter().filter_map(|v| v.as_u64()).collect())
-                            .unwrap_or_default();
-                        if list.is_empty() {
-                            Value::Null
-                        } else {
-                            Value::from(pick_gradient_value(&list, gradient_level))
-                        }
-                    })
-                    .collect();
-                return Value::Array(mapped);
+                let mut mapped: Vec<Value> = Vec::with_capacity(pair.len());
+                for grad_list in pair {
+                    let list: Vec<u64> = grad_list
+                        .as_array()
+                        .map(|l| l.iter().filter_map(|v| v.as_u64()).collect())
+                        .unwrap_or_default();
+                    if list.is_empty() {
+                        mapped.push(Value::Null);
+                        continue;
+                    }
+                    let picked = pick_gradient_value(&list, gradient_level).ok_or_else(|| {
+                        format!(
+                            "gradient level {} falls outside the {} colours of gradient {}",
+                            gradient_level,
+                            list.len(),
+                            gradient
+                        )
+                    })?;
+                    mapped.push(Value::from(picked));
+                }
+                return Ok(Value::Array(mapped));
             }
-            g.clone()
+            Ok(g.clone())
         } else {
             // py:65-66
-            self.colors.get(gradient).cloned().unwrap_or(Value::Null)
+            Ok(self.colors.get(gradient).cloned().unwrap_or(Value::Null))
         }
     }
 
@@ -321,10 +365,10 @@ impl Colorscheme {
         let gp_obj = group_props.as_object().cloned().unwrap_or_default();
 
         // py:107-110  pick_color selection
-        let pick = |key: &str| -> Value {
+        let pick = |key: &str| -> Result<Value, String> {
             let color_name = gp_obj.get(key).and_then(|v| v.as_str()).unwrap_or("");
             match gradient_level {
-                None => self.colors.get(color_name).cloned().unwrap_or(Value::Null),
+                None => Ok(self.colors.get(color_name).cloned().unwrap_or(Value::Null)),
                 Some(level) => self.get_gradient(color_name, level),
             }
         };
@@ -341,8 +385,8 @@ impl Colorscheme {
 
         // py:112-116  return dict with fg/bg/attrs
         let mut out = Map::new();
-        out.insert("fg".to_string(), pick("fg"));
-        out.insert("bg".to_string(), pick("bg"));
+        out.insert("fg".to_string(), pick("fg")?);
+        out.insert("bg".to_string(), pick("bg")?);
         out.insert("attrs".to_string(), Value::from(get_attrs_flag(&attrs_vec)));
         Ok(out)
     }
@@ -458,8 +502,94 @@ mod tests {
     #[test]
     fn pick_gradient_value_endpoints() {
         let grad = vec![10u64, 20, 30, 40, 50];
-        assert_eq!(pick_gradient_value(&grad, 0.0), 10);
-        assert_eq!(pick_gradient_value(&grad, 100.0), 50);
+        assert_eq!(pick_gradient_value(&grad, 0.0), Some(10));
+        assert_eq!(pick_gradient_value(&grad, 100.0), Some(50));
+    }
+
+    /// A level past 100 is the case that used to panic. It has to come
+    /// back as `None` — the stand-in for Python's `IndexError` — because
+    /// a panic here unwinds out of the render and takes a daemon worker
+    /// thread with it.
+    ///
+    /// The rounding decides where "past the end" actually starts: with
+    /// five colours the index is `round(level * 4 / 100)`, so it only
+    /// leaves the list once `level * 4 / 100` rounds above 4 — that is,
+    /// above 112.5, not above 100. Both sides of that boundary are
+    /// pinned here so the threshold cannot drift unnoticed.
+    #[test]
+    fn pick_gradient_value_past_the_end_is_none_not_a_panic() {
+        let grad = vec![10u64, 20, 30, 40, 50];
+        // 4.5 exactly — banker's rounding takes it down to 4, in range.
+        assert_eq!(pick_gradient_value(&grad, 112.5), Some(50));
+        // 4.504 rounds to 5, one past the last colour.
+        assert_eq!(pick_gradient_value(&grad, 112.6), None);
+        assert_eq!(pick_gradient_value(&grad, 125.0), None);
+        assert_eq!(pick_gradient_value(&grad, f64::INFINITY), None);
+        assert_eq!(pick_gradient_value(&grad, f64::NAN), None);
+    }
+
+    /// Python's negative subscript counts back from the end, and only
+    /// raises once it passes the front of the list.
+    #[test]
+    fn pick_gradient_value_negative_level_indexes_from_the_end() {
+        let grad = vec![10u64, 20, 30, 40, 50];
+        // round(-25 * 4 / 100) == -1 → grad[-1] == 50
+        assert_eq!(pick_gradient_value(&grad, -25.0), Some(50));
+        // round(-100 * 4 / 100) == -4 → grad[-4] == 20
+        assert_eq!(pick_gradient_value(&grad, -100.0), Some(20));
+        // round(-200 * 4 / 100) == -8 → past the front → IndexError
+        assert_eq!(pick_gradient_value(&grad, -200.0), None);
+    }
+
+    /// The reading that actually took the daemon down, at the gradient
+    /// size that made it reachable.
+    ///
+    /// A 100-colour gradient indexes on `level * 99 / 100`, so it leaves
+    /// the list once the level passes 100.51 — and macOS `top -l 1`
+    /// reports `user + sys` up to 100.78 under load, because it rounds
+    /// user, sys and idle to two places independently. `cpu_load_percent`
+    /// forwards that reading as the gradient level unclamped (upstream
+    /// does the same, `powerline/segments/common/sys.py:95`), so the
+    /// subscript went one past the end and the render panicked. Both
+    /// halves are covered: the reader now clamps, and an out-of-range
+    /// level that reaches here degrades instead of panicking.
+    #[test]
+    fn a_cpu_reading_just_over_100_does_not_panic_a_100_colour_gradient() {
+        let grad: Vec<u64> = (0..100).collect();
+        assert_eq!(grad.len(), 100);
+        // Just inside: 100.50 * 99 / 100 == 99.495, rounds to 99.
+        assert_eq!(pick_gradient_value(&grad, 100.50), Some(99));
+        // The observed readings, all one past the end.
+        assert_eq!(pick_gradient_value(&grad, 100.53), None);
+        assert_eq!(pick_gradient_value(&grad, 100.78), None);
+    }
+
+    /// The whole reason the `Option` exists: an out-of-range gradient
+    /// level must degrade to "drop this one segment", which upstream
+    /// spells as an exception out of `get_highlighting`.
+    #[test]
+    fn get_highlighting_reports_an_out_of_range_gradient_level() {
+        let colorscheme_config = json!({
+            "groups": {"cpu": {"fg": "grad", "bg": "blue", "attrs": []}}
+        })
+        .as_object()
+        .unwrap()
+        .clone();
+        let colors_config = json!({
+            "colors": {"blue": [21, "0000ff"]},
+            "gradients": {"grad": [[1, 2, 3], ["ff0000", "00ff00", "0000ff"]]}
+        })
+        .as_object()
+        .unwrap()
+        .clone();
+        let cs = Colorscheme::new(&colorscheme_config, &colors_config);
+
+        assert!(cs
+            .get_highlighting(&["cpu".to_string()], None, Some(50.0))
+            .is_ok());
+        assert!(cs
+            .get_highlighting(&["cpu".to_string()], None, Some(140.0))
+            .is_err());
     }
 
     /// Colorscheme::new parses a minimal config.

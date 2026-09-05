@@ -642,7 +642,20 @@ fn read_cpu_percent_uncached() -> f64 {
                             sys = p.trim().parse().unwrap_or(0.0);
                         }
                     }
-                    return user + sys;
+                    // Clamped because this is a share of total capacity
+                    // and cannot exceed 100, whatever `top` prints.
+                    // `top` rounds user, sys and idle to two places
+                    // independently, so under load their sum drifts
+                    // above 100 — readings up to 100.78 are easy to
+                    // observe with the cores busy. That surplus reached
+                    // `cpu_load_percent` as an unclamped `gradient_level`
+                    // and, against a 100-colour gradient, indexed one
+                    // past the end: `100.78 * 99 / 100` rounds to 100.
+                    // Upstream absorbs that as an `IndexError` and drops
+                    // the segment; either way the reading was never real,
+                    // and clamping keeps the segment on screen at exactly
+                    // the load where it is worth reading.
+                    return (user + sys).clamp(0.0, 100.0);
                 }
             }
         }
