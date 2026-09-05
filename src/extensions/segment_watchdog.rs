@@ -31,10 +31,16 @@ use std::time::{Duration, Instant};
 use serde_json::Value;
 
 /// Default budget for one segment. Chosen against a 2 s tmux
-/// `status-interval`: segments run concurrently, so this is the
-/// worst-case contribution of any single one, and it clears the
-/// slowest healthy segments observed in practice (network_load ~510 ms,
-/// cpu_load_percent ~350 ms, external_ip ~110 ms) with room to spare.
+/// `status-interval`: segments run concurrently via [`run_all`], so
+/// this is the worst-case contribution of any single one, and it clears
+/// the slowest healthy segments observed in practice (network_load
+/// ~520 ms, external_ip ~120 ms, gpu ~47 ms) with room to spare.
+///
+/// The concurrency this budget assumes is real as of [`run_all`]. It
+/// was not before: the renderer called [`run`] once per segment and
+/// blocked on each, so a statusline cost the *sum* of its segments
+/// (~900 ms measured) rather than the slowest one (~520 ms), and this
+/// comment described an arrangement the code did not implement.
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_millis(2000);
 
 /// How long a cached value may be served after the segment that
@@ -82,18 +88,70 @@ pub enum Outcome {
 /// Run `f` under a deadline, keyed by segment `id`.
 ///
 /// `f` must be `Send + 'static` because it may outlive this call.
+///
+/// Exactly [`start`] followed by [`finish`]. A caller with more than
+/// one segment to run wants [`run_all`], which starts them all before
+/// waiting on any.
 pub fn run<F>(id: &str, timeout: Duration, f: F) -> (Option<Value>, Outcome)
 where
     F: FnOnce() -> Option<Value> + Send + 'static,
 {
+    finish(start(id, timeout, f))
+}
+
+/// A segment that is running and has not been waited on yet.
+pub struct Started {
+    /// When this segment was started, for reporting how long a
+    /// segment that never produced a value was outstanding.
+    started_at: Instant,
+    id: String,
+    /// Absolute, fixed when the segment started rather than when its
+    /// turn to be collected comes up. Collecting a batch in order must
+    /// not charge a segment for the time spent waiting on the ones
+    /// ahead of it — they were all running that whole time.
+    deadline: Instant,
+    state: StartedState,
+}
+
+enum StartedState {
+    /// Thread running; the value and its body time will arrive here.
+    Running(mpsc::Receiver<Result<(Option<Value>, Duration), String>>),
+    /// Nothing was started, the answer is already known.
+    Settled(Outcome),
+}
+
+/// Start `f` on its own thread and return without waiting for it.
+///
+/// Split out of [`run`] so an entire statusline's segments can be in
+/// flight simultaneously. Every `start` must be paired with [`finish`].
+pub fn start<F>(id: &str, timeout: Duration, f: F) -> Started
+where
+    F: FnOnce() -> Option<Value> + Send + 'static,
+{
+    let started_at = Instant::now();
+    let deadline = started_at + timeout;
+
     if is_overdue(id) {
-        return (cached(id), Outcome::Skipped);
+        return Started {
+            id: id.to_string(),
+            started_at,
+            deadline,
+            state: StartedState::Settled(Outcome::Skipped),
+        };
     }
 
     // `Err` on the wire means the segment panicked. It travels as a
     // value rather than as a dropped sender so the caller can tell a
     // panic apart from a segment that is merely slow.
-    let (tx, rx) = mpsc::channel::<Result<Option<Value>, String>>();
+    //
+    // The `Duration` is how long the segment body itself took, timed on
+    // its own thread. In a batch that is the only honest per-segment
+    // number: measuring at the collection site would charge every
+    // segment for the ones collected before it, so a 3 ms clock segment
+    // would report the 500 ms that the network segment ahead of it
+    // spent — and this log is what gets read to find a slow segment.
+    #[allow(clippy::type_complexity)]
+    let (tx, rx) = mpsc::channel::<Result<(Option<Value>, Duration), String>>();
     // Detached by design: if the segment overruns we abandon the handle
     // rather than join it. `mark_done` below runs on the segment's own
     // thread, so the dedupe flag clears whenever it eventually finishes.
@@ -104,6 +162,7 @@ where
     let spawned = std::thread::Builder::new()
         .name(format!("pl-seg-{}", id))
         .spawn(move || {
+            let body_t0 = Instant::now();
             // A panicking segment must still clear its own bookkeeping.
             let value = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
                 Ok(value) => value,
@@ -121,7 +180,7 @@ where
             };
             // The receiver is gone if we already timed out; that is the
             // normal abandoned-work path, not an error.
-            let _ = tx.send(Ok(value.clone()));
+            let _ = tx.send(Ok((value.clone(), body_t0.elapsed())));
             mark_done(&id_for_thread, value);
         });
 
@@ -130,11 +189,54 @@ where
             "segment {} could not be started: {} — serving the cached value",
             id, e
         ));
-        return (cached(id), Outcome::Failed);
+        return Started {
+            id: id.to_string(),
+            started_at,
+            deadline,
+            state: StartedState::Settled(Outcome::Failed),
+        };
     }
 
-    match rx.recv_timeout(timeout) {
-        Ok(Ok(value)) => (value, Outcome::Completed),
+    Started {
+        id: id.to_string(),
+        started_at,
+        deadline,
+        state: StartedState::Running(rx),
+    }
+}
+
+/// Wait for a [`start`]ed segment, up to the deadline fixed when it
+/// began. Discards the timing; see [`finish_timed`].
+pub fn finish(started: Started) -> (Option<Value>, Outcome) {
+    let (value, outcome, _) = finish_timed(started);
+    (value, outcome)
+}
+
+/// [`finish`], also reporting how long the segment body ran.
+///
+/// For anything that did not produce a value — skipped, timed out,
+/// failed — the duration is the wall time this segment was outstanding,
+/// since there is no body time to report.
+pub fn finish_timed(started: Started) -> (Option<Value>, Outcome, Duration) {
+    let Started {
+        id,
+        deadline,
+        started_at,
+        state,
+    } = started;
+
+    let rx = match state {
+        StartedState::Running(rx) => rx,
+        StartedState::Settled(outcome) => return (cached(&id), outcome, started_at.elapsed()),
+    };
+
+    // Already past the deadline is a zero-length wait, not a negative
+    // one: `saturating_duration_since` keeps that from wrapping into a
+    // near-eternal timeout.
+    let remaining = deadline.saturating_duration_since(Instant::now());
+
+    match rx.recv_timeout(remaining) {
+        Ok(Ok((value, body))) => (value, Outcome::Completed, body),
         // The segment panicked. There is no live thread to deduplicate
         // against, so this id stays eligible for the next render.
         Ok(Err(message)) => {
@@ -142,18 +244,51 @@ where
                 "segment watchdog: {} — serving the cached value",
                 message
             ));
-            (cached(id), Outcome::Failed)
+            (cached(&id), Outcome::Failed, started_at.elapsed())
         }
         Err(mpsc::RecvTimeoutError::Timeout) => {
-            mark_overdue(id);
-            (cached(id), Outcome::TimedOut)
+            mark_overdue(&id);
+            (cached(&id), Outcome::TimedOut, started_at.elapsed())
         }
         // The thread went away without sending anything at all. Like a
         // panic, it leaves nothing running, so it must not be marked
         // overdue either.
-        Err(mpsc::RecvTimeoutError::Disconnected) => (cached(id), Outcome::Failed),
+        Err(mpsc::RecvTimeoutError::Disconnected) => {
+            (cached(&id), Outcome::Failed, started_at.elapsed())
+        }
     }
 }
+
+/// Run every segment in `jobs` concurrently, returning their results in
+/// the order given.
+///
+/// The reason this exists: [`run`] blocks until its one segment lands,
+/// so a renderer calling it per segment pays the *sum* of every
+/// segment's latency. A real statusline is ~20 segments that are almost
+/// entirely subprocess and network waits — `netstat`, `top`, `git`,
+/// `ioreg`, an HTTP call for the weather — and serialising those made a
+/// render take longer than the `status-interval` that asked for it, so
+/// tmux abandoned most requests before they finished.
+///
+/// Starting them all first makes the batch cost roughly the slowest
+/// segment instead of the total, and each still answers to its own
+/// deadline because [`Started`] fixes that at start time.
+pub fn run_all(jobs: Vec<(String, Duration, Job)>) -> Vec<(Option<Value>, Outcome, Duration)> {
+    // Two passes, deliberately: every thread is running before the
+    // first `finish_timed` blocks. Fusing these into one loop would
+    // serialise them again and silently undo the whole point. Collect
+    // the `Vec` — a lazy iterator would interleave start and finish and
+    // do exactly that.
+    let started: Vec<Started> = jobs
+        .into_iter()
+        .map(|(id, timeout, f)| start(&id, timeout, f))
+        .collect();
+
+    started.into_iter().map(finish_timed).collect()
+}
+
+/// A segment body, boxed so a batch can hold bodies of differing types.
+pub type Job = Box<dyn FnOnce() -> Option<Value> + Send + 'static>;
 
 fn is_overdue(id: &str) -> bool {
     table()
@@ -309,6 +444,93 @@ mod tests {
         let (v, outcome) = run(&key, Duration::from_secs(5), || Some(Value::from("fresh")));
         assert_eq!(outcome, Outcome::Completed);
         assert_eq!(v, Some(Value::from("fresh")));
+    }
+
+    /// The point of the batch API. Three segments that each sleep
+    /// 300 ms must cost ~300 ms together, not 900 ms — a serial
+    /// implementation passes every other assertion here, so the wall
+    /// clock is the only one that catches a regression back to it.
+    #[test]
+    fn run_all_overlaps_the_segments_instead_of_summing_them() {
+        let jobs: Vec<(String, Duration, Job)> = (0..3)
+            .map(|i| {
+                let job: Job = Box::new(move || {
+                    std::thread::sleep(Duration::from_millis(300));
+                    Some(Value::from(i))
+                });
+                (id(&format!("batch-{}", i)), Duration::from_secs(5), job)
+            })
+            .collect();
+
+        let t0 = Instant::now();
+        let out = run_all(jobs);
+        let wall = t0.elapsed();
+
+        assert_eq!(out.len(), 3);
+        for (i, (value, outcome, _)) in out.iter().enumerate() {
+            assert_eq!(*outcome, Outcome::Completed);
+            assert_eq!(*value, Some(Value::from(i as i64)), "results stay in order");
+        }
+        assert!(
+            wall < Duration::from_millis(750),
+            "3x300ms took {:?} — that is the serial sum, so the batch is not overlapping",
+            wall
+        );
+    }
+
+    /// Each segment answers to its own deadline, measured from when it
+    /// started. Collecting in order must not let a slow segment early in
+    /// the batch eat the budget of the ones behind it.
+    #[test]
+    fn a_slow_segment_does_not_consume_a_later_segments_budget() {
+        let slow: Job = Box::new(|| {
+            std::thread::sleep(Duration::from_secs(30));
+            Some(Value::from("never"))
+        });
+        let quick: Job = Box::new(|| Some(Value::from("in time")));
+
+        let out = run_all(vec![
+            (id("budget-slow"), Duration::from_millis(200), slow),
+            // Would already be past a deadline measured from collection
+            // time, but its own budget started with the batch.
+            (id("budget-quick"), Duration::from_millis(400), quick),
+        ]);
+
+        assert_eq!(out[0].1, Outcome::TimedOut);
+        assert_eq!(
+            out[1].1,
+            Outcome::Completed,
+            "the second segment was charged for the first one's wait"
+        );
+        assert_eq!(out[1].0, Some(Value::from("in time")));
+    }
+
+    /// The per-segment duration must be the segment's own body time, not
+    /// the batch wall — it is what the diagnostic log reports when
+    /// someone asks which segment is slow.
+    #[test]
+    fn reported_duration_is_the_segments_own_time() {
+        let slow: Job = Box::new(|| {
+            std::thread::sleep(Duration::from_millis(400));
+            Some(Value::from("slow"))
+        });
+        let fast: Job = Box::new(|| Some(Value::from("fast")));
+
+        let out = run_all(vec![
+            (id("timing-slow"), Duration::from_secs(5), slow),
+            (id("timing-fast"), Duration::from_secs(5), fast),
+        ]);
+
+        assert!(
+            out[0].2 >= Duration::from_millis(300),
+            "slow: {:?}",
+            out[0].2
+        );
+        assert!(
+            out[1].2 < Duration::from_millis(200),
+            "fast segment reported {:?} — it was charged for the slow one",
+            out[1].2
+        );
     }
 
     /// A panicking segment must not take the caller down with it, and

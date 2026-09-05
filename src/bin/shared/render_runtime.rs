@@ -2867,59 +2867,12 @@ pub fn render_once(
             }
         };
 
-    let contents_func =
-        |id: &str, _pl: &(), si: &Map<String, Value>, args: &Map<String, Value>| -> Option<Value> {
-            use powerliners::extensions::segment_watchdog::{self, Outcome};
-
-            // Per-segment budget, overridable from the theme with a
-            // `"timeout": <ms>` segment arg for the rare segment that is
-            // legitimately slow.
-            let timeout = args
-                .get("timeout")
-                .and_then(|v| v.as_u64())
-                .map(std::time::Duration::from_millis)
-                .unwrap_or(segment_watchdog::DEFAULT_TIMEOUT);
-
-            let t0 = std::time::Instant::now();
-            // The watchdog may outlive this call, so it owns its inputs.
-            // Segment args and info are small maps; cloning them per
-            // render is far cheaper than any segment they feed.
-            let (id_owned, args_owned, si_owned) = (id.to_string(), args.clone(), si.clone());
-            let (r, outcome) = segment_watchdog::run(id, timeout, move || {
-                invoke_adapter(&id_owned, &args_owned, &si_owned)
-            });
-            let dt = t0.elapsed().as_millis();
-            let cwd_dbg = si.get("getcwd").and_then(|v| v.as_str()).unwrap_or("?");
-            powerliners::extensions::diag_log::log(&format!(
-                "adapter id={} dt={}ms result={} outcome={:?} cwd={}",
-                id,
-                dt,
-                if r.is_some() { "Some" } else { "None" },
-                outcome,
-                cwd_dbg
-            ));
-            if outcome != Outcome::Completed {
-                powerliners::extensions::diag_log::log(&format!(
-                    "adapter id={} WATCHDOG {:?} after {}ms (budget {}ms) — served {}",
-                    id,
-                    outcome,
-                    dt,
-                    timeout.as_millis(),
-                    if r.is_some() {
-                        "cached value"
-                    } else {
-                        "nothing"
-                    }
-                ));
-            }
-            r
-        };
-
     // Mode extraction: Python pulls it from `args.renderer_arg["mode"]`
     // before passing to `Renderer.render`. Mirrors
     // `commands/main.py:170-189` `write_output`'s segment_info update
     // and the explicit `mode=segment_info.get('mode', None)` at
-    // py:177/188.
+    // py:177/188. Hoisted above the discovery pass so both walks are
+    // driven with the same mode — they must visit the same segments.
     let mode_owned: Option<String> = args
         .renderer_arg_merged
         .as_ref()
@@ -2927,6 +2880,177 @@ pub fn render_once(
         .and_then(|v| v.as_str())
         .map(String::from);
     let mode_ref: Option<&str> = mode_owned.as_deref();
+
+    // Per-segment budget, overridable from the theme with a
+    // `"timeout": <ms>` segment arg for the rare segment that is
+    // legitimately slow.
+    let segment_timeout = |args: &Map<String, Value>| -> std::time::Duration {
+        args.get("timeout")
+            .and_then(|v| v.as_u64())
+            .map(std::time::Duration::from_millis)
+            .unwrap_or(powerliners::extensions::segment_watchdog::DEFAULT_TIMEOUT)
+    };
+
+    // One segment's execution, watchdogged and logged. Used for the
+    // concurrent batch below and for anything the batch did not cover.
+    let log_outcome = |id: &str,
+                       args: &Map<String, Value>,
+                       si: &Map<String, Value>,
+                       r: &Option<Value>,
+                       outcome: powerliners::extensions::segment_watchdog::Outcome,
+                       dt: u128| {
+        use powerliners::extensions::segment_watchdog::Outcome;
+        let cwd_dbg = si.get("getcwd").and_then(|v| v.as_str()).unwrap_or("?");
+        powerliners::extensions::diag_log::log(&format!(
+            "adapter id={} dt={}ms result={} outcome={:?} cwd={}",
+            id,
+            dt,
+            if r.is_some() { "Some" } else { "None" },
+            outcome,
+            cwd_dbg
+        ));
+        if outcome != Outcome::Completed {
+            powerliners::extensions::diag_log::log(&format!(
+                "adapter id={} WATCHDOG {:?} after {}ms (budget {}ms) — served {}",
+                id,
+                outcome,
+                dt,
+                segment_timeout(args).as_millis(),
+                if r.is_some() {
+                    "cached value"
+                } else {
+                    "nothing"
+                }
+            ));
+        }
+    };
+
+    // ---- Pass 1: discovery -------------------------------------------
+    //
+    // The renderer calls `contents_func` once per segment, in order, and
+    // waits for each before moving on — so a serial `contents_func` costs
+    // the *sum* of every segment's latency. Almost all of that is
+    // subprocess and network wait (`netstat`, `top`, `git`, `ioreg`, an
+    // HTTP weather call), which is exactly the shape that should overlap.
+    //
+    // Rather than restructure the ported renderer's loop — it is 1:1 with
+    // `powerline/theme.py` and carries the divider, width and align
+    // semantics — walk it once with a `contents_func` that runs nothing
+    // and only records what would have run. `display_condition` is a pure
+    // predicate over `segment_info`/`mode` evaluated before
+    // `contents_func` (`theme.py:139`), and both passes see identical
+    // inputs, so pass 2 asks for the same segments in the same order.
+    // This pass touches no I/O; it is a walk over already-parsed JSON.
+    /// One segment the discovery pass saw: its id, its theme args and
+    /// the segment_info it would be handed.
+    type Discovered = (String, Map<String, Value>, Map<String, Value>);
+    let discovered: std::cell::RefCell<Vec<Discovered>> = std::cell::RefCell::new(Vec::new());
+    {
+        let record_func = |id: &str,
+                           _pl: &(),
+                           si: &Map<String, Value>,
+                           args: &Map<String, Value>|
+         -> Option<Value> {
+            discovered
+                .borrow_mut()
+                .push((id.to_string(), args.clone(), si.clone()));
+            // Returning None makes `process_segment` drop the segment
+            // (`segment.py:180-181`). That is fine and intended: this
+            // pass's rendered output is discarded, and the call above
+            // already happened for every segment that will run.
+            None
+        };
+        let _ = renderer.render(
+            mode_ref,
+            args.width.map(|w| w as usize),
+            if side.is_empty() { None } else { Some(&side) },
+            0,
+            false,
+            false,
+            // Cloned: the real render below consumes the original, and
+            // this pass must see byte-identical input so it visits the
+            // same segments in the same order.
+            Some(segment_info.clone()),
+            None,
+            None,
+            &configs.theme,
+            &configs.colorscheme,
+            &record_func,
+            &hlstyle_fn,
+            &hl_fn,
+        );
+    }
+
+    // ---- Concurrent execution ----------------------------------------
+    let discovered = discovered.into_inner();
+    let batch_t0 = std::time::Instant::now();
+    let jobs: Vec<(
+        String,
+        std::time::Duration,
+        powerliners::extensions::segment_watchdog::Job,
+    )> = discovered
+        .iter()
+        .map(|(id, args, si)| {
+            // The watchdog may outlive the render, so each job owns
+            // its inputs. Segment args and info are small maps;
+            // cloning them per render is far cheaper than any
+            // segment they feed.
+            let (id_owned, args_owned, si_owned) = (id.clone(), args.clone(), si.clone());
+            let job: powerliners::extensions::segment_watchdog::Job =
+                Box::new(move || invoke_adapter(&id_owned, &args_owned, &si_owned));
+            (id.clone(), segment_timeout(args), job)
+        })
+        .collect();
+    let warmed = powerliners::extensions::segment_watchdog::run_all(jobs);
+    let batch_dt = batch_t0.elapsed().as_millis();
+    // Each segment reports its own body time, not the batch wall, so
+    // the log still answers "which segment is slow".
+    let mut serial_dt = 0u128;
+    for ((id, args, si), (r, outcome, dt)) in discovered.iter().zip(warmed.iter()) {
+        serial_dt += dt.as_millis();
+        log_outcome(id, args, si, r, *outcome, dt.as_millis());
+    }
+    powerliners::extensions::diag_log::log(&format!(
+        "segments CONCURRENT count={} wall={}ms (serial would be {}ms)",
+        warmed.len(),
+        batch_dt,
+        serial_dt
+    ));
+
+    // ---- Pass 2: the real render, served from the warm results -------
+    //
+    // Consumed by call order rather than by id, because the same segment
+    // can legitimately appear twice with different args — this theme has
+    // two `time.date` (date and clock) and two `thermal` (CPU and GPU) —
+    // and keying by id alone would collapse them onto one value. The
+    // id+args guard catches any drift between the two walks and falls
+    // back to running the segment inline, so a divergence costs latency
+    // rather than correctness.
+    let cursor = std::cell::Cell::new(0usize);
+    let contents_func =
+        |id: &str, _pl: &(), si: &Map<String, Value>, args: &Map<String, Value>| -> Option<Value> {
+            let i = cursor.get();
+            if let (Some((d_id, d_args, _)), Some((r, _, _))) = (discovered.get(i), warmed.get(i)) {
+                if d_id == id && d_args == args {
+                    cursor.set(i + 1);
+                    return r.clone();
+                }
+            }
+            // Not prewarmed — the walks disagreed (a `segment_list`
+            // whose expansion depends on its own contents is the one
+            // shape that can do this, since pass 1 returned None for the
+            // lister). Run it here, serially, exactly as before.
+            let t0 = std::time::Instant::now();
+            let timeout = segment_timeout(args);
+            let (id_owned, args_owned, si_owned) = (id.to_string(), args.clone(), si.clone());
+            let (r, outcome) =
+                powerliners::extensions::segment_watchdog::run(id, timeout, move || {
+                    invoke_adapter(&id_owned, &args_owned, &si_owned)
+                });
+            log_outcome(id, args, si, &r, outcome, t0.elapsed().as_millis());
+            r
+        };
+
     let result = renderer.render(
         mode_ref,
         args.width.map(|w| w as usize),

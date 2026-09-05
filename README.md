@@ -138,6 +138,23 @@ work: requests go to a worker pool (`POWERLINERS_RENDER_THREADS`,
 default 4) and completions arrive through a self-pipe that sits in the
 poll set alongside the sockets.
 
+Within a single render, the segments themselves run concurrently. They
+are almost entirely subprocess and network waits — `netstat`, `top`,
+`git`, `ioreg`, an HTTP call for the weather — so running them in
+sequence made a statusline cost the sum of its parts. A 20-segment
+right-hand bar measured ~900 ms serial against ~520 ms concurrent, the
+latter being simply the slowest single segment (`network_load`). The
+`status-interval` that asked for the render is 2 s, so the serial cost
+was close enough to the budget that tmux abandoned requests mid-flight;
+the concurrent cost is not.
+
+Each segment still answers to its own deadline, fixed when it starts
+rather than when its result is collected, so a slow segment early in
+the batch cannot eat the budget of the ones behind it. The per-segment
+time in the log is the segment's own, not the batch wall — otherwise
+every segment would report the slowest one's number and the log would
+stop being able to answer "which segment is slow".
+
 Four bounds keep a misbehaving segment from reaching the statusline:
 
 | Bound | Default | Behavior on breach |
