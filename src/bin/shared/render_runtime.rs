@@ -3010,12 +3010,19 @@ pub fn render_once(
         serial_dt += dt.as_millis();
         log_outcome(id, args, si, r, *outcome, dt.as_millis());
     }
-    powerliners::extensions::diag_log::log(&format!(
-        "segments CONCURRENT count={} wall={}ms (serial would be {}ms)",
-        warmed.len(),
-        batch_dt,
-        serial_dt
-    ));
+    // Only when there was something to run. A side with no function
+    // segments — `status-left` here is static markup — would otherwise
+    // log `count=0` on every render, which at a 2 s `status-interval` is
+    // tens of thousands of lines a day churning a log that rotates at
+    // 5 MiB.
+    if !warmed.is_empty() {
+        powerliners::extensions::diag_log::log(&format!(
+            "segments CONCURRENT count={} wall={}ms (serial would be {}ms)",
+            warmed.len(),
+            batch_dt,
+            serial_dt
+        ));
+    }
 
     // ---- Pass 2: the real render, served from the warm results -------
     //
