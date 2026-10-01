@@ -379,6 +379,8 @@ def render_html(rows: list[dict],
     parts.append("</script>")
 
     parts.append("</main>")
+    # Shared HUD theme (color schemes + scheme strip), as on index/report.
+    parts.append('  <script src="hud-theme.js"></script>')
     parts.append("</body></html>")
     return "\n".join(parts) + "\n"
 
