@@ -1041,20 +1041,54 @@ where
                 Value::Array(highlight_groups),
             );
             out.insert("divider_highlight_group".to_string(), Value::Null);
-            out.insert(
-                "before".to_string(),
-                segment
-                    .get("before")
-                    .cloned()
-                    .unwrap_or_else(|| Value::String(String::new())),
-            );
-            out.insert(
-                "after".to_string(),
-                segment
-                    .get("after")
-                    .cloned()
-                    .unwrap_or_else(|| Value::String(String::new())),
-            );
+            // py:7-42 list_segment_key_values — mirror the before/after
+            // lookup chain: segment dict → theme segment_data
+            // (module.function when unnamed, name when named) →
+            // segment_data root → default "". Only consulting the
+            // segment dict itself dropped the theme's before/after
+            // icons (external_ip/date/time/hostname).
+            let lookup_key = |key: &str| -> Value {
+                if let Some(v) = segment.get(key) {
+                    return v.clone();
+                }
+                let mut root: Option<&Map<String, Value>> = None;
+                for theme_config in theme_configs.iter() {
+                    let Some(sd) = theme_config.get("segment_data").and_then(|v| v.as_object())
+                    else {
+                        continue;
+                    };
+                    root = Some(sd);
+                    if !function_name.is_empty() && name.is_none() {
+                        if !module.is_empty() {
+                            if let Some(v) = sd
+                                .get(format!("{}.{}", module, function_name).as_str())
+                                .and_then(|entry| entry.get(key))
+                            {
+                                return v.clone();
+                            }
+                        }
+                        if let Some(v) = sd
+                            .get(function_name.as_str())
+                            .and_then(|entry| entry.get(key))
+                        {
+                            return v.clone();
+                        }
+                    }
+                    if let Some(n) = name.as_ref() {
+                        if let Some(v) = sd.get(n.as_str()).and_then(|entry| entry.get(key)) {
+                            return v.clone();
+                        }
+                    }
+                }
+                if let Some(sd) = root {
+                    if let Some(v) = sd.get(key) {
+                        return v.clone();
+                    }
+                }
+                Value::String(String::new())
+            };
+            out.insert("before".to_string(), lookup_key("before"));
+            out.insert("after".to_string(), lookup_key("after"));
             out.insert("contents_func".to_string(), Value::String(contents_func_id));
             // py:430  'contents': contents — string types have a contents value
             out.insert(
