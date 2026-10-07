@@ -1403,6 +1403,27 @@ fn ad_network_load(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opt
         .and_then(|v| v.as_str())
         .unwrap_or("auto")
         .to_string();
+    // `auto` is the default iface name but was never resolved — the
+    // reader looked for `/sys/class/net/auto/...` and the segment came
+    // back None on every render. Mirror net.py:203-228: default-route
+    // interface from /proc/net/route, else the most active one.
+    #[cfg(target_os = "linux")]
+    let interface = {
+        use powerliners::ported::segments::common::net::{
+            _get_interfaces, parse_proc_net_route_default, pick_active_interface,
+        };
+        if interface == "auto" {
+            std::fs::read_to_string("/proc/net/route")
+                .ok()
+                .and_then(|c| parse_proc_net_route_default(&c))
+                .unwrap_or_else(|| {
+                    let ifaces = _get_interfaces();
+                    pick_active_interface(ifaces.iter().map(|(n, r, t)| (n.as_str(), *r, *t)))
+                })
+        } else {
+            interface
+        }
+    };
     // Darwin: netstat -ib gives per-interface byte counters.
     // Linux: /sys/class/net/<iface>/statistics/{rx,tx}_bytes via _get_bytes_sysfs.
     // Stateful per-interface cache: snap1 = prior call's snapshot,
@@ -1411,10 +1432,9 @@ fn ad_network_load(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opt
     // through tmux's `#()` ready threshold and triggers <command 'not
     // ready'> across the whole bar.
     use std::sync::Mutex;
-    use std::time::Instant;
     #[allow(clippy::type_complexity)]
     static LAST_NET: std::sync::OnceLock<
-        Mutex<std::collections::HashMap<String, (Instant, u64, u64)>>,
+        Mutex<std::collections::HashMap<String, (f64, u64, u64)>>,
     > = std::sync::OnceLock::new();
     #[cfg(target_os = "macos")]
     let read = || -> Option<(u64, u64)> {
@@ -1443,28 +1463,6 @@ fn ad_network_load(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opt
                 .ok()?;
         Some((rx.trim().parse().ok()?, tx.trim().parse().ok()?))
     };
-    let bytes = {
-        let (rx, tx) = read()?;
-        let now = Instant::now();
-        let cell = LAST_NET.get_or_init(|| Mutex::new(std::collections::HashMap::new()));
-        let mut guard = cell.lock().ok()?;
-        let rate = match guard.get(&interface).copied() {
-            Some((t0, rx0, tx0)) => {
-                let dt = now.duration_since(t0).as_secs_f64();
-                if dt > 0.0 {
-                    (
-                        rx.saturating_sub(rx0) as f64 / dt,
-                        tx.saturating_sub(tx0) as f64 / dt,
-                    )
-                } else {
-                    (0.0, 0.0)
-                }
-            }
-            None => (0.0, 0.0),
-        };
-        guard.insert(interface.clone(), (now, rx, tx));
-        (rate.0, rate.1)
-    };
     let recv_format = args
         .get("recv_format")
         .and_then(|v| v.as_str())
@@ -1486,64 +1484,34 @@ fn ad_network_load(args: &Map<String, Value>, _info: &Map<String, Value>) -> Opt
         .get("sent_max")
         .and_then(|v| v.as_f64())
         .unwrap_or(1_000_000.0);
-    let _ = bytes; // already-rate values; render_one wants raw snapshots
-                   // Re-snapshot to feed render_one: it needs (t1, (rx1,tx1)) and (t2, (rx2,tx2)).
-    #[cfg(target_os = "macos")]
+    // Feed render_one from the stateful cache — the prior render's
+    // snapshot as `prev`, this read as `last` — so only the very first
+    // sample pays a bounded 500ms window. Python's segment samples on
+    // a background thread and never blocks a render, which a `#()`
+    // invocation can't do; the cache keeps every later render instant.
     let (prev, last) = {
-        let read = || -> Option<(f64, (u64, u64))> {
-            let out = std::process::Command::new("netstat")
-                .args(["-ibn"])
-                .output()
-                .ok()?;
-            let text = String::from_utf8_lossy(&out.stdout);
-            for line in text.lines().skip(1) {
-                let cols: Vec<&str> = line.split_whitespace().collect();
-                if cols.first().map(|c| *c == interface).unwrap_or(false) {
-                    let rx: u64 = cols.get(6).and_then(|c| c.parse().ok())?;
-                    let tx: u64 = cols.get(9).and_then(|c| c.parse().ok())?;
-                    let t = std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .ok()?
-                        .as_secs_f64();
-                    return Some((t, (rx, tx)));
-                }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .ok()?
+            .as_secs_f64();
+        let (rx, tx) = read()?;
+        let cell = LAST_NET.get_or_init(|| Mutex::new(std::collections::HashMap::new()));
+        let mut guard = cell.lock().ok()?;
+        let prior = guard.get(&interface).copied();
+        guard.insert(interface.clone(), (now, rx, tx));
+        match prior {
+            Some((t0, rx0, tx0)) => ((t0, (rx0, tx0)), (now, (rx, tx))),
+            None => {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                let (rx1, tx1) = read()?;
+                let now1 = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .ok()?
+                    .as_secs_f64();
+                guard.insert(interface.clone(), (now1, rx1, tx1));
+                ((now, (rx, tx)), (now1, (rx1, tx1)))
             }
-            None
-        };
-        let p = read()?;
-        std::thread::sleep(std::time::Duration::from_millis(500));
-        let l = read()?;
-        (p, l)
-    };
-    #[cfg(target_os = "linux")]
-    let (prev, last) = {
-        let read = || -> Option<(f64, (u64, u64))> {
-            let rx = std::fs::read_to_string(format!(
-                "/sys/class/net/{}/statistics/rx_bytes",
-                interface
-            ))
-            .ok()?
-            .trim()
-            .parse::<u64>()
-            .ok()?;
-            let tx = std::fs::read_to_string(format!(
-                "/sys/class/net/{}/statistics/tx_bytes",
-                interface
-            ))
-            .ok()?
-            .trim()
-            .parse::<u64>()
-            .ok()?;
-            let t = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .ok()?
-                .as_secs_f64();
-            Some((t, (rx, tx)))
-        };
-        let p = read()?;
-        std::thread::sleep(std::time::Duration::from_millis(500));
-        let l = read()?;
-        (p, l)
+        }
     };
     let chunks = render_one(
         Some(prev),
@@ -1809,6 +1777,91 @@ fn ad_stash(_args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Val
     })]))
 }
 
+/// `ad_battery` only wired the macOS pmset backend, so the segment
+/// was always hidden on Linux. Mirrors powerline's
+/// `/sys/class/power_supply` cascade (bat.py:76-133):
+/// aggregate energy/charge devices (UPower Energy semantics — what
+/// Python's dbus+UPower path returns here), else the first `capacity`
+/// device; `state` = AND of `status != 'Discharging'`.
+#[cfg(target_os = "linux")]
+fn linux_sysfs_battery() -> Option<(f64, bool)> {
+    use powerliners::ported::segments::common::bat::parse_linux_status;
+    let mut suppliers: Vec<std::path::PathBuf> = std::fs::read_dir("/sys/class/power_supply")
+        .ok()?
+        .flatten()
+        .map(|e| e.path())
+        .collect();
+    suppliers.sort();
+    // (a) energy/charge aggregation (bat.py:76-114)
+    let mut energy = 0.0f64;
+    let mut energy_full = 0.0f64;
+    let mut state = true;
+    let mut state_known = true;
+    let mut found = false;
+    for path in &suppliers {
+        let unit = ["energy", "charge"]
+            .iter()
+            .find(|u| path.join(format!("{}_now", u)).exists())
+            .copied();
+        let Some(unit) = unit else {
+            continue;
+        };
+        let (Ok(now_txt), Ok(full_txt)) = (
+            std::fs::read_to_string(path.join(format!("{}_now", unit))),
+            std::fs::read_to_string(path.join(format!("{}_full", unit))),
+        ) else {
+            continue;
+        };
+        let (Some(e), Some(f)) = (
+            now_txt
+                .split_whitespace()
+                .next()
+                .and_then(|v| v.parse::<f64>().ok()),
+            full_txt
+                .split_whitespace()
+                .next()
+                .and_then(|v| v.parse::<f64>().ok()),
+        ) else {
+            continue;
+        };
+        energy += e;
+        energy_full += f;
+        found = true;
+        // bat.py:105-109 status AND-fold; IOError → state = None
+        match std::fs::read_to_string(path.join("status")) {
+            Ok(t) => state &= parse_linux_status(&t),
+            Err(_) => state_known = false,
+        }
+    }
+    if found && energy_full > 0.0 {
+        return Some((energy * 100.0 / energy_full, state_known && state));
+    }
+    // (b) first capacity device (bat.py:117-131)
+    for path in &suppliers {
+        let cap_p = path.join("capacity");
+        if !cap_p.exists() {
+            continue;
+        }
+        let Ok(cap_txt) = std::fs::read_to_string(&cap_p) else {
+            continue;
+        };
+        let Some(perc) = cap_txt
+            .split_whitespace()
+            .next()
+            .and_then(|v| v.parse::<f64>().ok())
+        else {
+            continue;
+        };
+        let ac = match std::fs::read_to_string(path.join("status")) {
+            Ok(t) => parse_linux_status(&t),
+            // bat.py: status IOError → state None → not ac_powered
+            Err(_) => false,
+        };
+        return Some((perc, ac));
+    }
+    None
+}
+
 fn ad_battery(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
     use powerliners::ported::segments::common::bat::{battery, parse_pmset_output};
     let format = args
@@ -1832,6 +1885,14 @@ fn ad_battery(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
     let offline = args.get("offline").and_then(|v| v.as_str()).unwrap_or(" ");
     let result = battery(
         || {
+            // Linux has no pmset: try the sysfs cascade first (see
+            // linux_sysfs_battery), then fall through.
+            #[cfg(target_os = "linux")]
+            {
+                if let Some(v) = linux_sysfs_battery() {
+                    return Some(v);
+                }
+            }
             let out = std::process::Command::new("pmset")
                 .args(["-g", "batt"])
                 .output()
@@ -2070,16 +2131,10 @@ fn ad_weather(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
     let weather = compute_state(&key)?;
     let unit = args.get("unit").and_then(|v| v.as_str()).unwrap_or("C");
     let temp_format = args.get("temp_format").and_then(|v| v.as_str());
-    // Upstream defaults (-30..40) are °C — the human cold-to-hot
-    // envelope. When the user picks F or K, convert those same
-    // semantic bounds into their unit so the blue→red gradient
-    // tracks perceived temperature instead of forcing every F-reading
-    // ≥40 (a chilly 40°F) into the red end.
-    let (default_cold, default_hot) = match unit {
-        "F" => (-22.0, 104.0),
-        "K" => (243.15, 313.15),
-        _ => (-30.0, 40.0),
-    };
+    // py:165  render_one(..., temp_coldest=-30, temp_hottest=40) —
+    // unit-independent defaults, exactly as upstream. Converting these
+    // bounds per unit emitted gradients Python never produces.
+    let (default_cold, default_hot) = (-30.0, 40.0);
     let temp_coldest = args
         .get("temp_coldest")
         .and_then(|v| v.as_f64())
@@ -2162,16 +2217,14 @@ fn ad_weather(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
     Some(Value::Array(chunks))
 }
 
-fn ad_email_imap_alert(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
-    // py:43-138  EmailIMAPSegment — full IMAP probe would need a
-    // TLS imap crate (not in deps). Surface a configured-username
-    // placeholder so the segment is visible; faithful imap probe
-    // is a follow-up dep choice.
-    let username = args.get("username").and_then(|v| v.as_str())?;
-    Some(Value::Array(vec![serde_json::json!({
-        "contents": format!("{}: 0", username),
-        "highlight_groups": ["email_alert"],
-    })]))
+fn ad_email_imap_alert(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    // The previous adapter rendered a placeholder `username: 0` on
+    // every render. Python renders only a real unseen count > 0
+    // (mail.py render_one: `if not unread_count: return None`) and
+    // hides the segment whenever the probe fails. The probe itself
+    // isn't ported yet (it needs a TLS imap dep), so None is the
+    // honest value until a faithful implementation lands.
+    None
 }
 
 fn ad_cmus(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {

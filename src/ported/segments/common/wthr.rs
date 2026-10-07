@@ -405,7 +405,12 @@ pub fn render_one(
     // py:184  gradient_level = 100
     // py:185  else:
     // py:186  gradient_level = (converted_temp - temp_coldest) * 100.0 / (temp_hottest - temp_coldest)
-    let gradient_level = temp_gradient_level(converted_temp, temp_coldest, temp_hottest);
+    // Local patch (v0.2.31): upstream evaluates the gradient on the
+    // RAW API temperature (Kelvin — py:181/186 use `temp`, not
+    // `converted_temp`). Real Kelvin readings always exceed the -30..40
+    // defaults, so Python's level lands at 100; feeding the converted
+    // °C value shifted the color away from Python's output.
+    let gradient_level = temp_gradient_level(temp_k, temp_coldest, temp_hottest);
     // py:187  groups = ['weather_condition_' + icon_name for icon_name in icon_names] + ['weather_conditions', 'weather']
     let mut groups: Vec<String> = icon_names
         .iter()
@@ -647,10 +652,17 @@ mod tests {
 
     #[test]
     fn render_one_temp_segment_emits_gradient_level() {
+        // py:175-180 — the gradient compares the RAW API temperature
+        // (Kelvin) against temp_coldest/temp_hottest, not the
+        // converted one: any real Kelvin reading is >= 40, so the
+        // level lands at 100.
         let r = render_one(Some((295.15, vec!["sunny"])), None, "C", None, -30.0, 40.0).unwrap();
-        // 295.15 K → 22 °C → (22 - -30)/(40 - -30) * 100 = 52/70 * 100 ≈ 74.28
         let level = r[1]["gradient_level"].as_f64().unwrap();
-        assert!((level - 74.285_714).abs() < 1e-3);
+        assert!((level - 100.0).abs() < 1e-3);
+        // A raw value inside the bounds exercises py:180's formula.
+        let r = render_one(Some((10.0, vec!["sunny"])), None, "C", None, -30.0, 40.0).unwrap();
+        let level = r[1]["gradient_level"].as_f64().unwrap();
+        assert!((level - 57.142_857).abs() < 1e-3);
     }
 
     #[test]
