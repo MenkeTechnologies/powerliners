@@ -205,8 +205,14 @@ pub fn battery(
     if gamify {
         // py:272  denom = int(steps)
         // py:273  numer = int(denom * capacity / 100)
+        //
+        // py:273 truncates, so a battery at 99.9% renders 4/5 hearts
+        // while the non-gamify branch formats the same reading with
+        // `{capacity:3.0%}` (rounds → "100%"). Round to the nearest
+        // step instead so both displays agree; capped at denom (py's
+        // int() overshoots past 110%).
         let denom = steps as i64;
-        let numer = ((denom as f64) * capacity / 100.0) as i64;
+        let numer = (((denom as f64) * capacity / 100.0).round() as i64).min(denom);
         // py:274  ret.append({
         // py:275  'contents': online if ac_powered else offline,
         // py:276  'draw_inner_divider': False,
@@ -861,6 +867,23 @@ mod tests {
         let r = battery(|| Some((100.0, true)), "", 5, true, "F", "E", "ON", "OFF").unwrap();
         assert_eq!(r[1]["contents"], "FFFFF");
         assert_eq!(r[2]["contents"], "");
+    }
+
+    #[test]
+    fn battery_gamify_rounds_fractional_step_to_nearest() {
+        // 99.9% → 4.995 steps: trunc (py:273) shows 4/5, rounding
+        // shows the full battery the `{capacity:3.0%}` text reports.
+        let r = battery(|| Some((99.9, true)), "", 5, true, "F", "E", "ON", "OFF").unwrap();
+        assert_eq!(r[1]["contents"], "FFFFF");
+        assert_eq!(r[2]["contents"], "");
+    }
+
+    #[test]
+    fn battery_gamify_rounds_half_up_at_step_boundary() {
+        // exactly 50% sits on a step boundary (2.5) → nearest, half up.
+        let r = battery(|| Some((50.0, true)), "", 5, true, "F", "E", "ON", "OFF").unwrap();
+        assert_eq!(r[1]["contents"], "FFF");
+        assert_eq!(r[2]["contents"], "EE");
     }
 
     #[test]
