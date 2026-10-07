@@ -86,13 +86,6 @@ fn search_paths() -> Vec<PathBuf> {
     paths
 }
 
-fn load_one(name: &str, paths: &[PathBuf]) -> Option<Map<String, Value>> {
-    let matches = _find_config_files(paths, name).ok()?;
-    let p = matches.first()?;
-    let v = load_json_config(p).ok()?;
-    v.as_object().cloned()
-}
-
 fn load_cascade(levels: &[String], paths: &[PathBuf]) -> Option<Map<String, Value>> {
     // py:191-200  load_config: iterate ALL matches per level and merge
     // them in find-order. Upstream `get_config_paths` puts bundled
@@ -221,8 +214,15 @@ fn collect_loaded_paths(
 
 pub fn build_configs(ext: &str) -> Result<Configs, String> {
     let paths = search_paths();
-    let main = load_one("config", &paths).ok_or("config.json not found")?;
-    let colors_json = load_one("colors", &paths).ok_or("colors.json not found")?;
+    // python's load_config (py:191-200) merges EVERY matching
+    // config.json/colors.json in find-order (bundled first, user last
+    // — user wins). First-match only meant that without
+    // POWERLINE_CONFIG_PATHS (the way tmux invokes it) the user's
+    // config.json/colors.json were silently ignored and the bar fell
+    // back to the default colorscheme.
+    let main = load_cascade(&["config".to_string()], &paths).ok_or("config.json not found")?;
+    let colors_json =
+        load_cascade(&["colors".to_string()], &paths).ok_or("colors.json not found")?;
 
     let (cs_name, theme_name) = {
         let mut cs = "default".to_string();
