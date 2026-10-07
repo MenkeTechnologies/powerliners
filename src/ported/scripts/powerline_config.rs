@@ -20,14 +20,20 @@ use crate::ported::commands::config::{get_argparser, StrFunction};
 /// Build Colorscheme + Theme + TmuxRenderer + term_truecolor the
 /// same way `powerline-daemon`'s `build_configs` does, then dispatch
 /// `init_tmux_environment` + `source_tmux_files` via
-/// `bindings::tmux::set_tmux_environment` / `source_tmux_file`.
+/// `bindings::tmux::set_tmux_environment` / `source_tmux_file`
+/// (tmux < 1.9) or the in-process dict +
+/// `source_tmux_file_nosource` (tmux >= 1.9).
 ///
 /// Mirrors `tmux_setup()` from
-/// `powerline/bindings/config.py:182-216` for the `args.source=True`
-/// branch (the default — `args.source is None` and `tmux_version >=
-/// (1, 9)` per py:204-206).
+/// `powerline/bindings/config.py:182-216`, including the py:204-206
+/// version gate: `args.source is None` → `args.source = tmux_version
+/// < (1, 9)`, i.e. on any modern tmux python substitutes
+/// `$_POWERLINE_*` in-process and never pollutes the server
+/// environment.
 fn tmux_setup(args: &[String]) -> Result<(), String> {
-    use crate::ported::bindings::config::{init_tmux_environment, sorted_tmux_configs};
+    use crate::ported::bindings::config::{
+        init_tmux_environment, sorted_tmux_configs, source_tmux_file_nosource,
+    };
     use crate::ported::bindings::tmux::{
         get_tmux_output, get_tmux_version, run_tmux_command, set_tmux_environment, source_tmux_file,
     };
@@ -96,13 +102,7 @@ fn tmux_setup(args: &[String]) -> Result<(), String> {
         paths
     };
 
-    // load_one(name) → first hit's load_json_config object.
-    let load_one = |name: &str| -> Option<serde_json::Map<String, serde_json::Value>> {
-        let matches = _find_config_files(&search_paths, name).ok()?;
-        let p = matches.first()?;
-        let v = load_json_config(p).ok()?;
-        v.as_object().cloned()
-    };
+    // load_cascade(name) → merge ALL matches in find-order
     let load_cascade = |levels: &[String]| -> Option<serde_json::Map<String, serde_json::Value>> {
         // py:191-200  load_config: iterate ALL matches per level and
         // mergedicts in order; later matches (user) override earlier
@@ -128,8 +128,14 @@ fn tmux_setup(args: &[String]) -> Result<(), String> {
         }
     };
 
-    let main = load_one("config").ok_or_else(|| "config.json not found".to_string())?;
-    let colors_json = load_one("colors").ok_or_else(|| "colors.json not found".to_string())?;
+    // python's load_config (py:191-200) merges every matching
+    // config.json/colors.json in find-order (user wins). First-hit
+    // only meant that without POWERLINE_CONFIG_PATHS the user config
+    // (term_truecolor, colorscheme) was ignored during `tmux setup`.
+    let main =
+        load_cascade(&["config".to_string()]).ok_or_else(|| "config.json not found".to_string())?;
+    let colors_json =
+        load_cascade(&["colors".to_string()]).ok_or_else(|| "colors.json not found".to_string())?;
     let cs_name = main
         .get("ext")
         .and_then(|e| e.get("tmux"))
@@ -145,9 +151,18 @@ fn tmux_setup(args: &[String]) -> Result<(), String> {
         .unwrap_or("default")
         .to_string();
 
-    // py:165  colorscheme cascade
+    // py:165  colorscheme cascade — the same level list the render
+    // path uses (render_runtime.rs: build_configs).
+    //
+    // The previous list omitted `colorschemes/{cs}` — the user's
+    // colorscheme file, the only one defining the `background` group
+    // in a themed config. As a result
+    // `_POWERLINE_BACKGROUND_{COLOR,FG,BG}` and
+    // `_POWERLINE_SESSION_HARD_DIVIDER_NEXT_COLOR` silently failed to
+    // resolve (init_tmux_environment skips errored groups) and
+    // `tmux setup` baked `#[bg=]` into status-left.
     let cs_levels = vec![
-        "colorschemes/__main__".to_string(),
+        format!("colorschemes/{}", cs_name),
         "colorschemes/tmux/__main__".to_string(),
         format!("colorschemes/tmux/{}", cs_name),
     ];
@@ -188,11 +203,29 @@ fn tmux_setup(args: &[String]) -> Result<(), String> {
         .unwrap_or(false);
     let renderer = TmuxRenderer::new(term_truecolor);
 
+    // py:184  tmux_version = get_tmux_version(pl)
+    // py:204-206  if args.source is None: args.source = tmux_version < (1, 9)
+    let tmux_version = get_tmux_version(&());
+    let use_env_source = tmux_version
+        .as_ref()
+        .map(|v| v.major < 1.0 || (v.major == 1.0 && v.minor < 9))
+        .unwrap_or(false);
+
     // py:214  init_tmux_environment(pl, args, set_tmux_environment=ste)
     let env_vars = init_tmux_environment(&colorscheme, &theme, &renderer, term_truecolor);
-    for (varname, value) in &env_vars {
-        set_tmux_environment(varname, value, true);
+    if use_env_source {
+        // py:207-208  ste = set_tmux_environment (real `tmux set-environment`)
+        for (varname, value) in &env_vars {
+            set_tmux_environment(varname, value, true);
+        }
     }
+    // py:211-212  else: ste = set_tmux_environment_nosource — on
+    // tmux >= 1.9 (everywhere today) python NEVER writes _POWERLINE_*
+    // into the server environment: the values stay in the in-process
+    // `tmux_environ` dict and are substituted line-by-line by
+    // source_tmux_file_nosource below. The previous implementation
+    // always took the set-environment route, leaving ~30 dirty vars
+    // behind that python never emits.
 
     // py:77-80  POWERLINE_COMMAND — hoisted above the source step.
     //
@@ -243,14 +276,37 @@ fn tmux_setup(args: &[String]) -> Result<(), String> {
 
     // py:215  source_tmux_files — version-matched conf files.
     // py:74  source_tmux_file(TMUX_CONFIG_DIRECTORY/powerline-base.conf)
-    let base_conf = TMUX_CONFIG_DIRECTORY().join("powerline-base.conf");
-    if base_conf.exists() {
-        source_tmux_file(base_conf.to_str().unwrap_or(""));
-    }
     // py:75-76  for fname, _ in sorted(get_tmux_configs(tmux_version), key=…): source
-    if let Some(version) = get_tmux_version(&()) {
-        for (fname, _priority) in sorted_tmux_configs(&version) {
-            source_tmux_file(fname.to_str().unwrap_or(""));
+    let mut conf_files: Vec<PathBuf> = vec![TMUX_CONFIG_DIRECTORY().join("powerline-base.conf")];
+    if let Some(version) = &tmux_version {
+        for (fname, _priority) in sorted_tmux_configs(version) {
+            conf_files.push(fname);
+        }
+    }
+    if use_env_source {
+        // py:207  stf = source_tmux_file (real `tmux source`)
+        for f in &conf_files {
+            if f.exists() {
+                source_tmux_file(f.to_str().unwrap_or(""));
+            }
+        }
+    } else {
+        // py:213  stf = source_tmux_file_nosource — parse each line,
+        // substitute $_POWERLINE_* in-process (py:189-193) and run
+        // the tmux command. TMUX_VAR_RE only matches $_POWERLINE_*,
+        // so `$POWERLINE_COMMAND` is left literal in status-left /
+        // status-right exactly as python leaves it — tmux expands
+        // it from the server environment when the #() runs.
+        let tmux_environ: std::collections::HashMap<String, String> =
+            env_vars.into_iter().collect();
+        for f in &conf_files {
+            if !f.exists() {
+                continue;
+            }
+            for cmd in source_tmux_file_nosource(f, &tmux_environ) {
+                let argv: Vec<&str> = cmd.iter().map(String::as_str).collect();
+                run_tmux_command(&argv);
+            }
         }
     }
 
