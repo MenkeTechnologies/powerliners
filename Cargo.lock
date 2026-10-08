@@ -521,12 +521,14 @@ dependencies = [
  "log",
  "notify",
  "regex",
+ "rustls",
  "serde",
  "serde_json",
  "serde_yml",
  "tempfile",
  "ureq",
  "walkdir",
+ "webpki-roots",
 ]
 
 [[package]]

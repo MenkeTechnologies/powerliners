@@ -4,8 +4,8 @@
 //! IMAP unread-mail-count segment. Upstream uses Python's `imaplib`
 //! for the network call; the Rust port surfaces the data-shape
 //! (`IMAPKey` namedtuple, `render_one` formatting, UNSEEN regex
-//! parsing) and stubs the actual IMAP fetch since adding a Rust IMAP
-//! client crate is out of scope for this pass.
+//! parsing) and delegates the transport to
+//! [`crate::extensions::imap`] (rustls, no IMAP client crate).
 
 // from __future__ import (unicode_literals, division, absolute_import, print_function)  // py:2
 // import os                                        // py:4
@@ -123,10 +123,14 @@ impl EmailIMAPSegment {
     /// Port of `EmailIMAPSegment.compute_state()` from
     /// `powerline/segments/common/mail.py:36`.
     ///
-    /// **Status:** stub. The actual IMAP connection requires a network
-    /// crate (e.g. `imap`); the Rust port returns `None` when
-    /// credentials are blank (matches py:37-39 short-circuit) and
-    /// stubs the post-credentials path.
+    /// py:41-49 opens IMAP(S), logs in and reads
+    /// `STATUS <folder> (UNSEEN)`. Unlike python — whose probe runs on
+    /// KwThreadedSegment's worker thread with no timeout — the session
+    /// is bounded by a deadline: callers invoke it synchronously on a
+    /// render, where a wedged socket must not stall the statusline.
+    /// The transport lives in [`crate::extensions::imap`] (python
+    /// gets it from the stdlib `imaplib`, which is not part of the
+    /// segment being ported).
     pub fn compute_state(key: &_IMAPKey) -> Option<i64> {
         // py:37  def compute_state(self, key):
         // py:38  if not key.username or not key.password:
@@ -135,16 +139,15 @@ impl EmailIMAPSegment {
         if key.username.is_empty() || key.password.is_empty() {
             return None;
         }
-        // py:41  if key.use_ssl:
-        // py:42  mail = IMAP4_SSL(key.server, key.port)
-        // py:43  else:
-        // py:44  mail = IMAP4(key.server, key.port)
-        // py:45  mail.login(key.username, key.password)
-        // py:46  rc, message = mail.status(key.folder, '(UNSEEN)')
-        // py:47  unread_str = message[0].decode('utf-8')
-        // py:48  unread_count = int(re.search(r'UNSEEN (\d+)', unread_str).group(1))
-        // py:49  return unread_count
-        None
+        crate::extensions::imap::unseen(
+            &key.server,
+            key.port,
+            key.use_ssl,
+            &key.username,
+            &key.password,
+            &key.folder,
+        )
+        .ok()
     }
 
     /// Parse the IMAP `UNSEEN` count out of a status response line.

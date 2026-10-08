@@ -2217,14 +2217,63 @@ fn ad_weather(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<V
     Some(Value::Array(chunks))
 }
 
-fn ad_email_imap_alert(_args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
-    // The previous adapter rendered a placeholder `username: 0` on
-    // every render. Python renders only a real unseen count > 0
-    // (mail.py render_one: `if not unread_count: return None`) and
-    // hides the segment whenever the probe fails. The probe itself
-    // isn't ported yet (it needs a TLS imap dep), so None is the
-    // honest value until a faithful implementation lands.
-    None
+fn ad_email_imap_alert(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {
+    use powerliners::ported::segments::common::mail::{EmailIMAPSegment, IMAP4_SSL_PORT};
+    // py:22-35  key() — args with the env-var credential indirection
+    // (py:26-33) and python's server/port/folder defaults. The theme
+    // supplies username/password; everything else falls back.
+    let sarg = |k: &str| args.get(k).and_then(|v| v.as_str()).map(String::from);
+    let key = EmailIMAPSegment::key(
+        sarg("username").unwrap_or_default(),
+        sarg("password").unwrap_or_default(),
+        sarg("server").unwrap_or_else(|| "imap.gmail.com".into()),
+        args.get("port")
+            .and_then(|v| v.as_u64())
+            .and_then(|p| u16::try_from(p).ok())
+            .unwrap_or(IMAP4_SSL_PORT),
+        sarg("username_variable").as_deref(),
+        sarg("password_variable").as_deref(),
+        sarg("server_variable").as_deref(),
+        sarg("port_variable").as_deref(),
+        sarg("folder").unwrap_or_else(|| "INBOX".into()),
+        args.get("use_ssl").and_then(|v| v.as_bool()),
+    );
+    let max_msgs = args.get("max_msgs").and_then(|v| v.as_i64());
+
+    // py:18  interval = 60 — KwThreadedSegment refreshes once a
+    // minute and renders from cache in between (update_first=true
+    // makes the first value compute eagerly, which the synchronous
+    // first call here mirrors). Failures are cached too: a dead or
+    // unreachable server must not stall every render.
+    type CacheEntry = Option<(u64, std::time::Instant, Option<i64>)>;
+    static CACHE: std::sync::OnceLock<std::sync::Mutex<CacheEntry>> = std::sync::OnceLock::new();
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    key.username.hash(&mut hasher);
+    key.password.hash(&mut hasher);
+    key.server.hash(&mut hasher);
+    key.port.hash(&mut hasher);
+    key.folder.hash(&mut hasher);
+    let ck = hasher.finish();
+
+    let cache = CACHE.get_or_init(|| std::sync::Mutex::new(None));
+    let ttl = std::time::Duration::from_secs(EmailIMAPSegment::interval as u64);
+    if let Some((k, at, v)) = *cache.lock().unwrap_or_else(|e| e.into_inner()) {
+        if k == ck && at.elapsed() < ttl {
+            return EmailIMAPSegment::render_one(v, max_msgs).map(Value::Array);
+        }
+    }
+    let t0 = std::time::Instant::now();
+    let unseen = EmailIMAPSegment::compute_state(&key);
+    powerliners::extensions::diag_log::log(&format!(
+        "email probe dt={}ms unseen={}",
+        t0.elapsed().as_millis(),
+        unseen.map_or_else(|| "unavailable".to_string(), |n| n.to_string())
+    ));
+    *cache.lock().unwrap_or_else(|e| e.into_inner()) =
+        Some((ck, std::time::Instant::now(), unseen));
+    EmailIMAPSegment::render_one(unseen, max_msgs).map(Value::Array)
 }
 
 fn ad_cmus(args: &Map<String, Value>, _info: &Map<String, Value>) -> Option<Value> {

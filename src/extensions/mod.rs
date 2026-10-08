@@ -87,6 +87,7 @@ pub mod git_status;
 pub mod github_ci;
 pub mod gpu;
 pub mod icons;
+pub mod imap;
 pub mod ipc_socket;
 pub mod k8s;
 pub mod mem_usage;
