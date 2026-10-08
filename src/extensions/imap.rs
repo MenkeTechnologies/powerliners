@@ -276,10 +276,13 @@ mod tests {
     }
 
     /// A real socket handle (timeouts are the only use of it in the
-    /// session; no traffic crosses it in these tests).
-    fn dummy_sock() -> TcpStream {
+    /// session; no traffic crosses it in these tests). The listener is
+    /// returned too: dropping it resets the peer, and macOS then rejects
+    /// `set_read_timeout` with EINVAL.
+    fn dummy_sock() -> (std::net::TcpListener, TcpStream) {
         let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        TcpStream::connect(l.local_addr().unwrap()).unwrap()
+        let s = TcpStream::connect(l.local_addr().unwrap()).unwrap();
+        (l, s)
     }
 
     fn deadline_5s() -> Instant {
@@ -294,7 +297,7 @@ mod tests {
             "* STATUS \"INBOX\" (MESSAGES 9 UNSEEN 2)\r\n",
             "a002 OK status completed\r\n",
         ));
-        let sock = dummy_sock();
+        let (_listener, sock) = dummy_sock();
         let n = run_session(&mut s, &sock, deadline_5s(), "u", "p", "INBOX").unwrap();
         assert_eq!(n, 2);
         let sent = String::from_utf8(s.wr).unwrap();
@@ -309,7 +312,7 @@ mod tests {
             "* OK ready\r\n",
             "a001 NO [AUTHENTICATIONFAILED] Invalid credentials (Failure)\r\n",
         ));
-        let sock = dummy_sock();
+        let (_listener, sock) = dummy_sock();
         let err = run_session(&mut s, &sock, deadline_5s(), "u", "bad", "INBOX").unwrap_err();
         assert!(err.contains("AUTHENTICATIONFAILED"), "got: {err}");
     }
@@ -322,7 +325,7 @@ mod tests {
             "* STATUS \"INBOX\" (MESSAGES 4)\r\n",
             "a002 OK\r\n",
         ));
-        let sock = dummy_sock();
+        let (_listener, sock) = dummy_sock();
         let err = run_session(&mut s, &sock, deadline_5s(), "u", "p", "INBOX").unwrap_err();
         assert_eq!(err, "no UNSEEN group");
     }
@@ -330,7 +333,7 @@ mod tests {
     #[test]
     fn session_rejects_bad_greeting() {
         let mut s = Scripted::new("* BYE server shutting down\r\n");
-        let sock = dummy_sock();
+        let (_listener, sock) = dummy_sock();
         let err = run_session(&mut s, &sock, deadline_5s(), "u", "p", "INBOX").unwrap_err();
         assert!(err.contains("bad greeting"), "got: {err}");
     }
