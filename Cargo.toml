@@ -65,6 +65,11 @@ regex = "1"
 libc = "0.2"
 log = "0.4"
 ureq = { version = "3", features = ["json", "rustls"], default-features = false }
+# IMAP probe for the mail segment (ported segments/common/mail.rs).
+# Already in the tree through ureq's rustls feature — promoted to a
+# direct dependency; ring provider only (no aws-lc-rs).
+rustls = { version = "0.23", features = ["ring", "std", "tls12", "logging"], default-features = false }
+webpki-roots = "1"
 # Reactive Prompt Push (src/extensions/watch.rs): cross-platform real FS
 # events — kqueue/FSEvents on macOS, inotify on Linux. Foundational,
 # widely-vendored (rust-analyzer, cargo-watch), durable for the endgame.
