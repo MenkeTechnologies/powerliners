@@ -7,7 +7,11 @@ powerline \- native Rust statusline / prompt client (zero-Python powerline-statu
 .B powerline
 [\fB\-\-socket\fR \fIPATH\fR]
 \fIEXT\fR
+[\fISIDE\fR]
 [\fIARGS\fR...]
+.br
+.B powerline
+(\fB\-h\fR | \fB\-\-help\fR | \fB\-V\fR | \fB\-\-version\fR)
 .SH DESCRIPTION
 .B powerline
 is the native Rust client for the powerline statusline / prompt rendering
@@ -21,21 +25,21 @@ On invocation,
 .B powerline
 builds a wire request from \fIargv\fR, the current working directory, and
 the inherited environment, sends it over a Unix socket to a running
-.BR powerline-daemon (1),
+.BR powerline-daemon ,
 and copies the rendered statusline / prompt response to standard output.
 If the daemon socket is not reachable it execs
-.BR powerline-render (1)
+.BR powerline-render
 as a fallback, mirroring the upstream C client behavior.
 .PP
 This native binary replaces the Python
 .B powerline
 shell command. There is no Python interpreter import cost, no GIL, and
-no GC pause; render is sub\(hymillisecond on a warm daemon.
+no GC pause.
 .SH OPTIONS
 .TP
 .BR \-\-socket " " \fIPATH\fR
 Override the default Unix-socket path used to reach
-.BR powerline-daemon (1).
+.BR powerline-daemon .
 Must appear as the
 .B first
 argument (before \fIEXT\fR), per the C-client convention. When absent,
@@ -44,9 +48,26 @@ the platform-specific default is used (see
 below).
 .PP
 All other \fIARGS\fR after \fIEXT\fR are forwarded verbatim to the
-daemon. See
-.BR powerline-render (1)
-for the canonical list of extension-targeted arguments.
+daemon (or to
+.BR powerline-render
+when the socket is unreachable), which parses them as render options:
+.BR \-r / \-\-renderer\-module ,
+.BR \-w / \-\-width ,
+.BR \-\-last\-exit\-code ,
+.BR \-\-last\-pipe\-status ,
+.BR \-\-jobnum ,
+.BR \-c / \-\-config\-override ,
+.BR \-t / \-\-theme\-override ,
+.BR \-R / \-\-renderer\-arg ,
+.BR \-p / \-\-config\-path .
+.PP
+\fISIDE\fR is one of \fBleft\fR, \fBright\fR, \fBabove\fR, \fBaboveleft\fR.
+.TP
+.BR \-h ", " \-\-help
+Print usage and exit.
+.TP
+.BR \-V ", " \-\-version
+Print version and exit.
 .SH EXTENSIONS
 \fIEXT\fR selects which powerline extension to render. Stock extensions:
 .TP
@@ -63,7 +84,7 @@ Vim statusline / tabline. Driven by the bundled
 plugin, which the
 .B powerline
 binary embeds and
-.BR powerline-config (1)
+.BR powerline-config
 extracts via
 .BR "powerline-config vim source-path" .
 No
@@ -87,10 +108,17 @@ identical.
 .B POWERLINE_CONFIG_PATHS
 Colon-separated list of directories searched for
 .B config.json
-and themes / colors / segments JSON. Mirrors upstream search order.
+and themes / colorschemes / colors JSON. When set and non-empty it replaces
+the default search cascade (bundled defaults, \fBXDG_CONFIG_DIRS\fR,
+\fB$XDG_CONFIG_HOME/powerline\fR) entirely.
 .TP
 .B POWERLINE_CONFIG_OVERRIDES
-Theme-override key=value pairs applied per-extension.
+Main-config override \fIkey=value\fR pairs (dotted keys), merged with
+.BR \-c / \-\-config\-override .
+.TP
+.B POWERLINE_THEME_OVERRIDES
+Theme override \fIkey=value\fR pairs, merged with
+.BR \-t / \-\-theme\-override .
 .SH FILES
 .TP
 .B /tmp/powerline-ipc-<uid>
@@ -117,17 +145,17 @@ Per-extension theme directories (
 .B 0
 Successful render (output written to stdout).
 .TP
-.B non-zero
-Daemon unreachable AND fallback exec of
-.BR powerline-render (1)
+.B 1
+No argument given, or daemon unreachable AND fallback exec of
+.BR powerline-render
 failed.
 .SH EXAMPLES
 .PP
-Render the tmux statusline:
+Render the tmux right-hand statusline:
 .PP
 .RS
 .nf
-$ powerline tmux statusline
+$ powerline tmux right
 .fi
 .RE
 .PP
@@ -162,10 +190,7 @@ precmd_functions+=(powerline_precmd)
 .fi
 .RE
 .SH SEE ALSO
-.BR powerline-daemon (1),
-.BR powerline-render (1),
-.BR powerline-config (1),
-.BR powerline-lint (1),
+.BR powerlineall (1),
 .BR tmux (1),
 .BR zsh (1)
 .PP
