@@ -15,7 +15,7 @@
 ---
 
 [![Status](https://img.shields.io/badge/status-134%2F137%20DONE-39ff14.svg)](#-status)
-[![Tests](https://img.shields.io/badge/lib%20tests-2542%20passing-39ff14.svg)](#-status)
+[![Tests](https://img.shields.io/badge/lib%20tests-passing-39ff14.svg)](#-status)
 [![Parity](https://img.shields.io/badge/parity%20tests-462%20vs%20upstream-05d9e8.svg)](#-status)
 [![Bugs Fixed](https://img.shields.io/badge/port%20bugs%20fixed-11-d300c5.svg)](#-status)
 [![Source](https://img.shields.io/badge/port_of-powerline--status-05d9e8.svg)](https://github.com/powerline/powerline)
@@ -68,7 +68,7 @@ Drop-in compatible with the existing `powerline/config` JSON theme + segment fil
 [port progress]   134 / 137 upstream .py files at DONE tier (97.8%)
 [remaining]       3 lipstick-only py files — zero-fn class shells, see Status
 [partial/sparse]  0 / 0 — no degraded files
-[lib tests]       2542 passing, 0 failing, 0 ignored
+[lib tests]       all passing, 0 failing, 0 ignored
 [parity tests]    462 against live upstream Python — every assertion runs the
                   Python interpreter on the upstream powerline source and
                   compares byte/value identical with the Rust port
@@ -437,8 +437,8 @@ shell login (zsh `.zshrc` or bash `.bash_profile`):
 powerline-daemon -q
 ```
 
-The `-q` flag double-forks and detaches; vim sees the socket
-immediately. No per-vim daemon — one process per UID handles tmux,
+Without `--foreground` the daemon double-forks and detaches (`-q` only
+suppresses the "already running" notice); vim sees the socket immediately. No per-vim daemon — one process per UID handles tmux,
 shell prompts, and every running vim simultaneously.
 
 ### Step 3: Verify
@@ -516,7 +516,7 @@ Same JSON shape as upstream powerline — segments listed under
 | garbled escape codes | terminal doesn't support truecolor; renderer falls back to cterm but vim must be in a 256-color tty (`$TERM=xterm-256color`) |
 | colors don't match terminal | colorscheme JSON missing your custom palette — copy `colorschemes/vim/default.json` into `~/.config/powerline/colorschemes/vim/` |
 | `powerline: write() to daemon failed` | daemon isn't running; run `powerline-daemon -q` |
-| refresh stutters / flickers | the legacy `CursorMoved` fallback is firing on every keystroke (vim < 8.2.2871) — upgrade vim or pin a `let g:powerliners_no_cursormoved = 1` patch |
+| refresh stutters / flickers | the legacy `CursorMoved` fallback is firing on every keystroke (vim < 8.2.2871) — upgrade vim to 8.2.2871 or newer |
 | `E121: Undefined variable: g:powerliners_binary` before source line | `g:powerliners_binary` is set BY the plugin; reference it only inside autocmds that fire after sourcing |
 
 ### Known divergences from Python upstream
@@ -602,8 +602,8 @@ inline:
 Reference your segment by dotted path and drop the script under
 `<config_path>/segments/`. The daemon resolves
 `myseg.cpu_temp` →
-`<config_path>/segments/myseg/cpu_temp.{sh,py,rb,pl,lua,js,executable}`
-(first hit wins; order documented in
+`<config_path>/segments/myseg/cpu_temp.{sh,py,rb,pl,lua,js}`, then the
+extensionless `cpu_temp` (first hit wins; order documented in
 `src/extensions/exec_segment.rs::SCRIPT_EXTENSIONS`):
 
 ```json
