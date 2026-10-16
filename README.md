@@ -14,9 +14,9 @@
 
 ---
 
-[![Status](https://img.shields.io/badge/status-134%2F137%20DONE-39ff14.svg)](#-status)
+[![Status](https://img.shields.io/badge/status-port%20complete-39ff14.svg)](#-status)
 [![Tests](https://img.shields.io/badge/lib%20tests-passing-39ff14.svg)](#-status)
-[![Parity](https://img.shields.io/badge/parity%20tests-462%20vs%20upstream-05d9e8.svg)](#-status)
+[![Parity](https://img.shields.io/badge/parity%20tests-vs%20upstream-05d9e8.svg)](#-status)
 [![Bugs Fixed](https://img.shields.io/badge/port%20bugs%20fixed-11-d300c5.svg)](#-status)
 [![Source](https://img.shields.io/badge/port_of-powerline--status-05d9e8.svg)](https://github.com/powerline/powerline)
 [![Language](https://img.shields.io/badge/lang-rust-d300c5.svg)](https://www.rust-lang.org/)
@@ -65,11 +65,11 @@ Drop-in compatible with the existing `powerline/config` JSON theme + segment fil
 ## `> STATUS`
 
 ```
-[port progress]   134 / 137 upstream .py files at DONE tier (97.8%)
-[remaining]       3 lipstick-only py files — zero-fn class shells, see Status
+[port progress]   all upstream .py files at DONE tier except the lipstick-only files
+[remaining]       lipstick-only py files — zero-fn class shells, see Status
 [partial/sparse]  0 / 0 — no degraded files
 [lib tests]       all passing, 0 failing, 0 ignored
-[parity tests]    462 against live upstream Python — every assertion runs the
+[parity tests]    suite against live upstream Python — every assertion runs the
                   Python interpreter on the upstream powerline source and
                   compares byte/value identical with the Rust port
 [port bugs fixed] 11 surfaced by the parity harness and corrected in the
@@ -187,8 +187,8 @@ showed `<'…' not ready>`. That question is now answered from the
 process table directly (`libproc` on macOS, `/proc` on Linux) with no
 AppleScript at all when the player isn't running.
 
-58 segment adapters wired in `src/bin/shared/render_runtime.rs` (59
-`ADAPTERS` keys including the bare `exec` alias; shared
+Segment adapters wired in `src/bin/shared/render_runtime.rs` (the
+`ADAPTERS` keys include the bare `exec` alias; shared
 between `powerline-daemon` and `powerline-render`): `battery`, `branch`,
 `clementine`, `cmus`, `containers`, `cpu_load_percent`, `cwd`, `date`,
 `dbus_player`, `disk_io`, `disk_usage`, `disk_usage_percent`,
@@ -284,7 +284,7 @@ powerline-render tmux right -p ~/.config/powerline
 
 If the two outputs match byte-for-byte for your common segments,
 proceed. If they don't, file an issue with the divergence — the
-`daemon_parity` suite covers 45 byte-for-byte scenarios but real
+`daemon_parity` suite covers byte-for-byte scenarios but real
 configs hit combinations we haven't asserted on.
 
 ### Step 3: Stop the Python daemon
