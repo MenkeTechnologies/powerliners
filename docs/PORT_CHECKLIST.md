@@ -116,9 +116,9 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/bindings/ipython/since_7.py` ↔ `src/ported/bindings/ipython/since_7.rs` | 60 | 0 | 2 | 3 | 330 | 8 | 53 |
 | [x] | `powerline/bindings/ipython/since_5.py` ↔ `src/ported/bindings/ipython/since_5.rs` | 62 | 0 | 2 | 3 | 367 | 7 | 59 |
 | [x] | `powerline/segments/vim/plugin/commandt.py` ↔ `src/ported/segments/vim/plugin/commandt.rs` | 77 | 3 | 0 | 0 | 71 | 4 | 63 |
-| [x] | `powerline/segments/common/mail.py` ↔ `src/ported/segments/common/mail.rs` | 80 | 0 | 1 | 3 | 209 | 6 | 50 |
+| [x] | `powerline/segments/common/mail.py` ↔ `src/ported/segments/common/mail.rs` | 80 | 0 | 1 | 3 | 217 | 6 | 42 |
 | [x] | `powerline/lib/shell.py` ↔ `src/ported/lib/shell.rs` | 92 | 3 | 0 | 0 | 135 | 5 | 51 |
-| [x] | `powerline/segments/common/bat.py` ↔ `src/ported/segments/common/bat.rs` | 265 | 3 | 0 | 0 | 535 | 7 | 247 |
+| [x] | `powerline/segments/common/bat.py` ↔ `src/ported/segments/common/bat.rs` | 265 | 3 | 0 | 0 | 547 | 7 | 248 |
 | [x] | `powerline/lint/markedjson/nodes.py` ↔ `src/ported/lint/markedjson/nodes.rs` | 30 | 0 | 5 | 4 | 157 | 9 | 30 |
 | [x] | `powerline/renderers/lemonbar.py` ↔ `src/ported/renderers/lemonbar.rs` | 43 | 0 | 1 | 4 | 107 | 7 | 39 |
 | [x] | `powerline/bindings/wm/awesome.py` ↔ `src/ported/bindings/wm/awesome.rs` | 44 | 2 | 1 | 2 | 80 | 5 | 39 |
@@ -128,7 +128,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/segments/common/vcs.py` ↔ `src/ported/segments/common/vcs.rs` | 73 | 0 | 2 | 4 | 233 | 6 | 50 |
 | [x] | `powerline/listers/vim.py` ↔ `src/ported/listers/vim.rs` | 91 | 4 | 0 | 0 | 265 | 5 | 77 |
 | [x] | `powerline/commands/main.py` ↔ `src/ported/commands/main.rs` | 170 | 4 | 0 | 0 | 421 | 5 | 160 |
-| [x] | `powerline/segments/common/wthr.py` ↔ `src/ported/segments/common/wthr.rs` | 198 | 0 | 1 | 4 | 473 | 11 | 99 |
+| [x] | `powerline/segments/common/wthr.py` ↔ `src/ported/segments/common/wthr.rs` | 198 | 0 | 1 | 4 | 476 | 11 | 100 |
 | [x] | `powerline/pdb.py` ↔ `src/ported/pdb.rs` | 38 | 0 | 1 | 5 | 201 | 6 | 36 |
 | [x] | `powerline/lint/imp.py` ↔ `src/ported/lint/imp.rs` | 41 | 2 | 1 | 3 | 266 | 6 | 42 |
 | [x] | `powerline/segments/pdb.py` ↔ `src/ported/segments/pdb.rs` | 43 | 5 | 0 | 0 | 101 | 5 | 30 |
@@ -160,7 +160,7 @@ Mirrors the zshrs strategy. A file isn't ticked until ALL of them pass.
 | [x] | `powerline/lint/markedjson/composer.py` ↔ `src/ported/lint/markedjson/composer.rs` | 80 | 0 | 2 | 9 | 450 | 15 | 52 |
 | [x] | `powerline/lint/markedjson/reader.py` ↔ `src/ported/lint/markedjson/reader.rs` | 107 | 0 | 2 | 9 | 172 | 11 | 111 |
 | [x] | `powerline/renderers/vim.py` ↔ `src/ported/renderers/vim.rs` | 152 | 0 | 1 | 9 | 592 | 13 | 104 |
-| [x] | `powerline/segment.py` ↔ `src/ported/segment.rs` | 399 | 9 | 0 | 0 | 1252 | 18 | 269 |
+| [x] | `powerline/segment.py` ↔ `src/ported/segment.rs` | 399 | 9 | 0 | 0 | 1280 | 18 | 270 |
 | [x] | `powerline/segments/i3wm.py` ↔ `src/ported/segments/i3wm.rs` | 259 | 10 | 0 | 0 | 759 | 19 | 168 |
 | [x] | `powerline/ipython.py` ↔ `src/ported/ipython.rs` | 51 | 0 | 3 | 11 | 252 | 13 | 38 |
 | [x] | `powerline/renderers/ipython/since_5.py` ↔ `src/ported/renderers/ipython/since_5.rs` | 100 | 0 | 3 | 11 | 420 | 18 | 77 |
