@@ -17,7 +17,6 @@
 [![Status](https://img.shields.io/badge/status-port%20complete-39ff14.svg)](#-status)
 [![Tests](https://img.shields.io/badge/lib%20tests-passing-39ff14.svg)](#-status)
 [![Parity](https://img.shields.io/badge/parity%20tests-vs%20upstream-05d9e8.svg)](#-status)
-[![Bugs Fixed](https://img.shields.io/badge/port%20bugs%20fixed-11-d300c5.svg)](#-status)
 [![Source](https://img.shields.io/badge/port_of-powerline--status-05d9e8.svg)](https://github.com/powerline/powerline)
 [![Language](https://img.shields.io/badge/lang-rust-d300c5.svg)](https://www.rust-lang.org/)
 [![Target](https://img.shields.io/badge/target-tmux%20%7C%20zsh%20%7C%20vim-39ff14.svg)](#-targets)
@@ -72,7 +71,7 @@ Drop-in compatible with the existing `powerline/config` JSON theme + segment fil
 [parity tests]    suite against live upstream Python — every assertion runs the
                   Python interpreter on the upstream powerline source and
                   compares byte/value identical with the Rust port
-[port bugs fixed] 11 surfaced by the parity harness and corrected in the
+[port bugs fixed] surfaced by the parity harness and corrected in the
                   Rust port (see git log for the full list)
 [drift gate]      green — every ported fn name matches docs/powerline_py_functions.txt
 [citation rule]   every Rust body line annotated // py:NNN against the upstream source line
