@@ -1954,4 +1954,350 @@ mod tests {
         Renderer::_prepare_segments(&mut segments, false);
         assert!(segments[0].get("_contents_len").is_none());
     }
+
+    // ---- _render_length / _render_segments / do_render -----------------
+    //
+    // Fixture: one-char dividers that differ per side/kind so the raw
+    // output shows exactly which divider each segment picked, spaces=1,
+    // outer_padding=1, NBSP translation off so raw == visible text.
+
+    use crate::ported::colorscheme::Colorscheme;
+    use crate::ported::theme::Theme;
+    use serde_json::json;
+
+    fn test_theme() -> Theme {
+        let mut t = Theme::new();
+        t.dividers = json!({
+            "left": {"hard": ">", "soft": "|"},
+            "right": {"hard": "<", "soft": "!"},
+        })
+        .as_object()
+        .unwrap()
+        .clone();
+        t.spaces = 1;
+        t.outer_padding = 1;
+        t
+    }
+
+    fn plain_renderer() -> Renderer {
+        let mut cfg = Map::new();
+        cfg.insert("use_non_breaking_spaces".to_string(), Value::Bool(false));
+        Renderer::new(cfg, Map::new(), 1)
+    }
+
+    fn raw_seg(contents: &str, side: &str, bg: i64) -> Value {
+        json!({
+            "contents": contents,
+            "side": side,
+            "highlight": {"fg": 7, "bg": bg, "attrs": 0},
+            "divider_highlight_group": null,
+            "draw_soft_divider": true,
+            "draw_hard_divider": true,
+            "literal_contents": [0, ""],
+        })
+    }
+
+    /// `<fg/bg>text` — makes the colors each hl() call received visible.
+    fn tag_hl(
+        c: Option<&str>,
+        fg: &Value,
+        bg: &Value,
+        _attrs: &Value,
+        _args: &Map<String, Value>,
+    ) -> String {
+        format!("<{}/{}>{}", fg, bg, c.unwrap_or(""))
+    }
+
+    fn no_hlstyle(_: &Value, _: &Value, _: &Value, _: &Map<String, Value>) -> String {
+        String::new()
+    }
+
+    /// Runs length + render passes and asserts the core invariant:
+    /// every segment's predicted `_len` equals the width of the raw
+    /// text actually emitted for it. Returns (total_len, raws, hls).
+    fn render_pair(segments: &mut Vec<Value>) -> (usize, Vec<String>, Vec<String>) {
+        let theme = test_theme();
+        let r = plain_renderer();
+        Renderer::_prepare_segments(segments, true);
+        let dw = compute_divider_widths(|s, k| theme.get_divider(s, k).unwrap_or_default());
+        let total = r._render_length(&theme, segments, &dw);
+        let out = r._render_segments(&theme, segments, &Map::new(), true, &no_hlstyle, &tag_hl);
+        let raws: Vec<String> = out
+            .iter()
+            .map(|s| s["_rendered_raw"].as_str().unwrap().to_string())
+            .collect();
+        let hls: Vec<String> = out
+            .iter()
+            .map(|s| s["_rendered_hl"].as_str().unwrap().to_string())
+            .collect();
+        for (i, s) in out.iter().enumerate() {
+            assert_eq!(
+                s["_len"].as_u64().unwrap() as usize,
+                strwidth(&raws[i]),
+                "segment {} _len disagrees with rendered raw {:?}",
+                i,
+                raws[i]
+            );
+        }
+        assert_eq!(total, raws.iter().map(|s| strwidth(s)).sum::<usize>());
+        (total, raws, hls)
+    }
+
+    #[test]
+    fn render_left_picks_soft_between_same_bg_and_hard_at_bg_change_and_end() {
+        // py:450-472 / py:529-560 — soft when next bg matches, hard on a
+        // bg change, hard after the last segment (EMPTY_SEGMENT bg=false).
+        // Outer padding only on the first left segment.
+        let mut segs = vec![
+            raw_seg("one", "left", 1),
+            raw_seg("two", "left", 1),
+            raw_seg("three", "left", 2),
+        ];
+        let (total, raws, _) = render_pair(&mut segs);
+        assert_eq!(raws, vec![" one |", "two >", "three >"]);
+        assert_eq!(total, 18);
+    }
+
+    #[test]
+    fn render_left_hard_divider_colors_are_own_bg_on_next_bg() {
+        // py:550-552  hard divider: fg = segment bg, bg = compare bg.
+        // Soft divider: fg/bg straight from the segment highlight.
+        let mut segs = vec![
+            raw_seg("a", "left", 1),
+            raw_seg("b", "left", 1),
+            raw_seg("c", "left", 2),
+        ];
+        let (_, _, hls) = render_pair(&mut segs);
+        assert_eq!(hls[0], "<7/1> a <7/1>|");
+        assert_eq!(hls[1], "<7/1>b <1/2>>");
+        // Last segment's hard divider blends into EMPTY_SEGMENT (bg=false).
+        assert_eq!(hls[2], "<7/2>c <2/false>>");
+    }
+
+    #[test]
+    fn render_soft_divider_uses_divider_highlight_when_group_set() {
+        // py:546-549  divider_highlight_group present → divider_highlight.
+        let mut a = raw_seg("a", "left", 1);
+        a["divider_highlight_group"] = json!("sep");
+        a["divider_highlight"] = json!({"fg": 99, "bg": 88, "attrs": 0});
+        let mut segs = vec![a, raw_seg("b", "left", 1)];
+        let (_, _, hls) = render_pair(&mut segs);
+        assert_eq!(hls[0], "<7/1> a <99/88>|");
+    }
+
+    #[test]
+    fn render_right_compares_against_previous_and_pads_last() {
+        // Right side: compare_segment = prev_segment (py:457), divider is
+        // emitted before contents, outer padding on the last segment.
+        let mut segs = vec![
+            raw_seg("x", "right", 1),
+            raw_seg("y", "right", 1),
+            raw_seg("z", "right", 3),
+        ];
+        let (total, raws, hls) = render_pair(&mut segs);
+        assert_eq!(raws, vec!["< x", "! y", "< z "]);
+        assert_eq!(total, 10);
+        // Right-side hl order is divider first, then contents (py:562-564).
+        assert_eq!(hls[0], "<1/false><<7/1> x");
+        assert_eq!(hls[2], "<3/1><<7/3> z ");
+    }
+
+    #[test]
+    fn render_without_divider_drops_divider_and_spaces() {
+        // py:570-576  draw_<type>_divider false → only padding + contents.
+        let mut a = raw_seg("a", "left", 1);
+        a["draw_soft_divider"] = json!(false);
+        let mut b = raw_seg("b", "right", 2);
+        b["draw_hard_divider"] = json!(false);
+        let mut segs = vec![a, raw_seg("m", "left", 1), b];
+        let (_, raws, _) = render_pair(&mut segs);
+        assert_eq!(raws[0], " a");
+        // Only right segment is also the last one → padding on its right.
+        assert_eq!(raws[2], "b ");
+    }
+
+    #[test]
+    fn render_literal_segment_is_skipped_for_first_last_and_compare() {
+        // py:430-443 — literal segments don't count as first/last and are
+        // stepped over when finding the next segment to compare against.
+        let lit = json!({
+            "contents": "",
+            "side": "left",
+            "highlight": {"fg": 0, "bg": 9, "attrs": 0},
+            "literal_contents": [3, "\x1b[0mLIT"],
+        });
+        let mut segs = vec![
+            lit.clone(),
+            raw_seg("a", "left", 1),
+            lit,
+            raw_seg("b", "left", 1),
+        ];
+        let (total, raws, hls) = render_pair(&mut segs);
+        // "a" is the first non-literal → gets outer padding; it compares
+        // to "b" (same bg, literal in between ignored) → soft divider.
+        assert_eq!(raws, vec!["   ", " a |", "   ", "b >"]);
+        assert_eq!(hls[0], "\x1b[0mLIT");
+        assert_eq!(total, 3 + 4 + 3 + 3);
+    }
+
+    #[test]
+    fn render_single_left_segment_followed_by_literal_is_first_and_last() {
+        let lit = json!({
+            "contents": "",
+            "side": "left",
+            "highlight": {"fg": 0, "bg": 1, "attrs": 0},
+            "literal_contents": [2, "LL"],
+        });
+        let mut segs = vec![raw_seg("a", "left", 1), lit];
+        let (_, raws, _) = render_pair(&mut segs);
+        // Literal's bg (1) must NOT turn the divider soft: "a" is the
+        // last non-literal, so it compares to EMPTY_SEGMENT → hard.
+        assert_eq!(raws[0], " a >");
+    }
+
+    fn colorscheme() -> Colorscheme {
+        let cs = json!({
+            "groups": {
+                "g1": {"fg": "white", "bg": "red", "attrs": []},
+                "g2": {"fg": "white", "bg": "blue", "attrs": []},
+            }
+        });
+        let colors = json!({"colors": {"white": 15, "red": 1, "blue": 4}});
+        Colorscheme::new(cs.as_object().unwrap(), colors.as_object().unwrap())
+    }
+
+    fn theme_seg(contents: &str, group: &str, priority: Value) -> Value {
+        json!({
+            "type": "string",
+            "name": contents,
+            "contents": contents,
+            "side": "left",
+            "highlight_groups": [group],
+            "divider_highlight_group": null,
+            "priority": priority,
+            "draw_soft_divider": true,
+            "draw_hard_divider": true,
+            "literal_contents": [0, ""],
+            "truncate": null,
+            "expand": null,
+            "width": null,
+            "align": "l",
+        })
+    }
+
+    fn theme_with(left: Vec<Value>) -> Theme {
+        let mut t = test_theme();
+        let mut line = Map::new();
+        line.insert("left".to_string(), Value::Array(left));
+        line.insert("right".to_string(), Value::Array(vec![]));
+        t.segments = vec![line];
+        t
+    }
+
+    fn run_do_render(theme: &Theme, width: Option<usize>) -> (String, usize) {
+        let r = plain_renderer();
+        let cs = colorscheme();
+        let cf = |_: &str, _: &(), _: &Map<String, Value>, _: &Map<String, Value>| None;
+        match r.do_render(
+            None,
+            width,
+            Some("left"),
+            0,
+            true,
+            true,
+            Map::new(),
+            theme,
+            &cs,
+            &cf,
+            None,
+            &no_hlstyle,
+            &tag_hl,
+        ) {
+            RenderReturn::Tuple {
+                raw: Some(raw),
+                width: Some(w),
+                ..
+            } => (raw, w),
+            other => panic!("expected (raw, width) tuple, got {:?}", other),
+        }
+    }
+
+    fn three_prioritised() -> Theme {
+        theme_with(vec![
+            theme_seg("aaaa", "g1", Value::Null),
+            theme_seg("bbbb", "g1", json!(10)),
+            theme_seg("cccc", "g1", json!(50)),
+        ])
+    }
+
+    #[test]
+    fn do_render_without_width_reports_rendered_width() {
+        // py:344-351  no width → nothing dropped; output_width is the
+        // _render_length total.
+        let (raw, w) = run_do_render(&three_prioritised(), None);
+        assert_eq!(raw, " aaaa |bbbb |cccc >");
+        assert_eq!(w, strwidth(&raw));
+    }
+
+    #[test]
+    fn do_render_fitting_width_keeps_everything() {
+        let (raw, w) = run_do_render(&three_prioritised(), Some(19));
+        assert_eq!(raw, " aaaa |bbbb |cccc >");
+        assert_eq!(w, 19);
+    }
+
+    #[test]
+    fn do_render_drops_highest_priority_number_first_and_recomputes_dividers() {
+        // py:356  sorted(..., reverse=True): priority 50 goes before 10.
+        // After the drop "bbbb" becomes last → its divider turns hard.
+        let (raw, w) = run_do_render(&three_prioritised(), Some(13));
+        assert_eq!(raw, " aaaa |bbbb >");
+        assert_eq!(w, 13);
+        assert_eq!(strwidth(&raw), w);
+    }
+
+    #[test]
+    fn do_render_stops_dropping_once_width_fits() {
+        let (raw, w) = run_do_render(&three_prioritised(), Some(12));
+        assert_eq!(raw, " aaaa >");
+        assert_eq!(w, 7);
+    }
+
+    #[test]
+    fn do_render_never_drops_segments_without_priority() {
+        // py:374-380 only walks segments_priority; priority=None segments
+        // survive even when the line still overflows.
+        let (raw, w) = run_do_render(&three_prioritised(), Some(3));
+        assert_eq!(raw, " aaaa >");
+        assert_eq!(w, 7);
+    }
+
+    #[test]
+    fn do_render_distributes_remaining_width_into_auto_spacer() {
+        // py:386-399  width:auto segment absorbs width - current_width,
+        // align 'l' pads on the right; current_width becomes width.
+        let mut spacer = theme_seg("", "g2", Value::Null);
+        spacer["width"] = json!("auto");
+        let theme = theme_with(vec![theme_seg("ab", "g1", Value::Null), spacer]);
+        let (raw, w) = run_do_render(&theme, Some(20));
+        assert_eq!(w, 20);
+        assert_eq!(strwidth(&raw), 20);
+        assert!(raw.starts_with(" ab >"), "raw = {:?}", raw);
+        assert!(raw.ends_with(">"), "raw = {:?}", raw);
+    }
+
+    #[test]
+    fn do_render_splits_remainder_across_multiple_spacers_left_first() {
+        // divmod remainder goes to the earliest spacers (py:389-397).
+        let mut s1 = theme_seg("", "g2", Value::Null);
+        s1["width"] = json!("auto");
+        let mut s2 = theme_seg("", "g1", Value::Null);
+        s2["width"] = json!("auto");
+        let theme = theme_with(vec![theme_seg("ab", "g1", Value::Null), s1, s2]);
+        // Unexpanded: " ab >" (5) + " >" (2) + " >" (2) = 9; width 14 → 5
+        // extra, split 3 + 2.
+        let (raw, w) = run_do_render(&theme, Some(14));
+        assert_eq!(w, 14);
+        assert_eq!(raw, " ab >    >   >");
+    }
 }

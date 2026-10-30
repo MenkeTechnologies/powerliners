@@ -433,4 +433,123 @@ mod tests {
         let fb = Fingerprint::compute(b.path());
         assert_ne!(fa, fb, "different cwds must fingerprint differently");
     }
+
+    const SHA_A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const SHA_B: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+    /// After `git gc` the branch lives only in packed-refs. Comment and
+    /// peeled-tag (`^`) lines must be skipped, and a ref whose name is a
+    /// prefix of another must not match it.
+    #[test]
+    fn head_sha_falls_back_to_packed_refs() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let git = dir.path().join(".git");
+        fs::create_dir_all(&git).expect("mkdir .git");
+        fs::write(git.join("HEAD"), "ref: refs/heads/main\n").expect("write HEAD");
+        fs::write(
+            git.join("packed-refs"),
+            format!(
+                "# pack-refs with: peeled fully-peeled sorted\n\
+                 {SHA_B} refs/heads/main-old\n\
+                 {SHA_A} refs/heads/main\n\
+                 ^{SHA_B}\n"
+            ),
+        )
+        .expect("write packed-refs");
+        let fp = Fingerprint::compute(dir.path());
+        assert_eq!(fp.head_sha.as_deref(), Some(SHA_A));
+    }
+
+    /// An empty loose ref file (half-written during an update) must not
+    /// shadow the packed entry.
+    #[test]
+    fn empty_loose_ref_defers_to_packed_refs() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let git = dir.path().join(".git");
+        fs::create_dir_all(git.join("refs/heads")).expect("mkdir");
+        fs::write(git.join("refs/heads/main"), "\n").expect("write loose");
+        fs::write(git.join("HEAD"), "ref: refs/heads/main\n").expect("write HEAD");
+        fs::write(
+            git.join("packed-refs"),
+            format!("{SHA_A} refs/heads/main\n"),
+        )
+        .expect("packed");
+        assert_eq!(
+            Fingerprint::compute(dir.path()).head_sha.as_deref(),
+            Some(SHA_A)
+        );
+    }
+
+    #[test]
+    fn unresolvable_branch_has_head_but_no_sha() {
+        // Fresh `git init`: HEAD names a branch with no commits yet.
+        let dir = tempfile::tempdir().expect("tempdir");
+        let git = dir.path().join(".git");
+        fs::create_dir_all(&git).expect("mkdir .git");
+        fs::write(git.join("HEAD"), "ref: refs/heads/main\n").expect("write HEAD");
+        let fp = Fingerprint::compute(dir.path());
+        assert_eq!(fp.head.as_deref(), Some("ref: refs/heads/main"));
+        assert_eq!(fp.head_sha, None);
+    }
+
+    #[test]
+    fn detached_head_uses_sha_verbatim() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let git = dir.path().join(".git");
+        fs::create_dir_all(&git).expect("mkdir .git");
+        fs::write(git.join("HEAD"), format!("{SHA_B}\n")).expect("write HEAD");
+        let fp = Fingerprint::compute(dir.path());
+        assert_eq!(fp.head.as_deref(), Some(SHA_B));
+        assert_eq!(fp.head_sha.as_deref(), Some(SHA_B));
+    }
+
+    /// Worktrees and submodules have a `.git` *file* pointing at the real
+    /// git dir; relative targets resolve against the directory holding
+    /// the file, and discovery walks up from nested subdirectories.
+    #[test]
+    fn gitdir_file_with_relative_target_is_followed_from_subdir() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let store = root.path().join("store");
+        fs::create_dir_all(store.join("refs/heads")).expect("mkdir store");
+        fs::write(store.join("HEAD"), "ref: refs/heads/wt\n").expect("write HEAD");
+        fs::write(store.join("refs/heads/wt"), format!("{SHA_A}\n")).expect("write ref");
+
+        let wt = root.path().join("wt");
+        let nested = wt.join("src/deep");
+        fs::create_dir_all(&nested).expect("mkdir nested");
+        fs::write(wt.join(".git"), "gitdir: ../store\n").expect("write .git file");
+
+        let fp = Fingerprint::compute(&nested);
+        assert_eq!(fp.head_sha.as_deref(), Some(SHA_A));
+        let paths = fp.watched_paths();
+        assert_eq!(paths[0], nested);
+        assert!(paths.contains(&wt.join("../store")), "paths = {:?}", paths);
+        assert!(paths.contains(&wt.join("../store").join("refs").join("heads")));
+    }
+
+    #[test]
+    fn watched_paths_omits_missing_refs_heads() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let git = dir.path().join(".git");
+        fs::create_dir_all(&git).expect("mkdir .git");
+        fs::write(git.join("HEAD"), format!("{SHA_A}\n")).expect("write HEAD");
+        let paths = Fingerprint::compute(dir.path()).watched_paths();
+        assert_eq!(paths, vec![dir.path().to_path_buf(), git]);
+    }
+
+    /// Staging a file rewrites `.git/index`; the fingerprint must see it
+    /// even though HEAD did not move.
+    #[test]
+    fn fingerprint_tracks_index_presence() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let git = dir.path().join(".git");
+        fs::create_dir_all(&git).expect("mkdir .git");
+        fs::write(git.join("HEAD"), format!("{SHA_A}\n")).expect("write HEAD");
+        let before = Fingerprint::compute(dir.path());
+        assert_eq!(before.index_mtime, None);
+        fs::write(git.join("index"), b"DIRC").expect("write index");
+        let after = Fingerprint::compute(dir.path());
+        assert!(after.index_mtime.is_some());
+        assert_ne!(before, after);
+    }
 }

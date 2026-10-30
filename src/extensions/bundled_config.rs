@@ -323,4 +323,37 @@ mod tests {
             "non-JSON asset in BUNDLED — extend the sweep above"
         );
     }
+
+    /// Drift guard: a config file added to `src/ported/config_files/`
+    /// but not to `BUNDLED` would be silently missing from installed
+    /// binaries (`cargo install` has no source tree to fall back to).
+    /// Also catches a `BUNDLED` key whose path differs from its
+    /// `include_str!` source, which would extract under the wrong name.
+    #[test]
+    fn bundled_table_mirrors_config_files_tree() {
+        fn walk(base: &std::path::Path, dir: &std::path::Path, out: &mut Vec<String>) {
+            for entry in std::fs::read_dir(dir).expect("read_dir") {
+                let path = entry.expect("dir entry").path();
+                if path.is_dir() {
+                    walk(base, &path, out);
+                } else {
+                    let rel = path.strip_prefix(base).expect("under base");
+                    out.push(rel.to_string_lossy().replace('\\', "/"));
+                }
+            }
+        }
+        let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/ported/config_files");
+        let mut on_disk = Vec::new();
+        walk(&base, &base, &mut on_disk);
+        on_disk.sort();
+
+        let mut bundled: Vec<String> = BUNDLED.iter().map(|(rel, _)| rel.to_string()).collect();
+        bundled.sort();
+        assert_eq!(bundled, on_disk);
+
+        for (rel, content) in BUNDLED {
+            let disk = std::fs::read_to_string(base.join(rel)).expect("read source");
+            assert_eq!(*content, disk, "BUNDLED[{rel}] embeds a different file");
+        }
+    }
 }
