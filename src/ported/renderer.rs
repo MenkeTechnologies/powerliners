@@ -2015,7 +2015,7 @@ mod tests {
     /// Runs length + render passes and asserts the core invariant:
     /// every segment's predicted `_len` equals the width of the raw
     /// text actually emitted for it. Returns (total_len, raws, hls).
-    fn render_pair(segments: &mut Vec<Value>) -> (usize, Vec<String>, Vec<String>) {
+    fn render_pair(segments: &mut [Value]) -> (usize, Vec<String>, Vec<String>) {
         let theme = test_theme();
         let r = plain_renderer();
         Renderer::_prepare_segments(segments, true);
