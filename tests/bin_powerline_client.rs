@@ -26,13 +26,9 @@ use std::thread;
 use std::time::Duration;
 
 fn client_binary() -> PathBuf {
-    // Same walk pattern as daemon_e2e.rs:daemon_binary() — current_exe
-    // is `.../target/debug/deps/bin_powerline_client-<hash>`; pop deps
-    // to reach `.../target/debug/`, then sibling `powerline`.
-    let mut p = std::env::current_exe().expect("current_exe");
-    p.pop();
-    p.pop();
-    p.push("powerline");
+    // Cargo builds the package's binaries for its integration tests and
+    // names each one here; the target-dir layout is cargo's to change.
+    let p = PathBuf::from(env!("CARGO_BIN_EXE_powerline"));
     assert!(
         p.exists(),
         "powerline client binary missing at {} — run `cargo build --bin powerline` first",

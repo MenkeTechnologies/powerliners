@@ -37,10 +37,7 @@ fn manifest_dir() -> PathBuf {
 }
 
 fn daemon_binary() -> PathBuf {
-    let mut p = std::env::current_exe().expect("current_exe");
-    p.pop();
-    p.pop();
-    p.push("powerline-daemon");
+    let p = PathBuf::from(env!("CARGO_BIN_EXE_powerline-daemon"));
     assert!(p.exists(), "powerline-daemon binary missing");
     p
 }

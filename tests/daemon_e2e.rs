@@ -28,12 +28,9 @@ const READ_TIMEOUT: Duration = Duration::from_secs(5);
 /// test executable's grandparent (which is always `target/debug/` for
 /// integration tests) to find the sibling `powerline-daemon` binary.
 fn daemon_binary() -> PathBuf {
-    let mut p = std::env::current_exe().expect("current_exe");
-    // current_exe is `.../target/debug/deps/daemon_e2e-<hash>`. Pop
-    // the deps dir to reach `.../target/debug/`.
-    p.pop();
-    p.pop();
-    p.push("powerline-daemon");
+    // Cargo builds the package's binaries for its integration tests and
+    // names each one here; the target-dir layout is cargo's to change.
+    let p = PathBuf::from(env!("CARGO_BIN_EXE_powerline-daemon"));
     assert!(
         p.exists(),
         "powerline-daemon binary missing at {} — run `cargo build --bin powerline-daemon` first",

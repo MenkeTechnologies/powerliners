@@ -17,10 +17,7 @@ const SHUTDOWN_SENTINEL: &[u8] = b"EOF\0\0";
 const READ_TIMEOUT: Duration = Duration::from_secs(10);
 
 fn daemon_binary() -> PathBuf {
-    let mut p = std::env::current_exe().expect("current_exe");
-    p.pop();
-    p.pop();
-    p.push("powerline-daemon");
+    let p = PathBuf::from(env!("CARGO_BIN_EXE_powerline-daemon"));
     assert!(
         p.exists(),
         "powerline-daemon binary missing at {} — run `cargo build --bin powerline-daemon` first",

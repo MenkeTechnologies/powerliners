@@ -42,10 +42,7 @@ fn vim_on_path() -> Option<PathBuf> {
 }
 
 fn daemon_binary() -> Option<PathBuf> {
-    let mut p = std::env::current_exe().ok()?;
-    p.pop();
-    p.pop();
-    p.push("powerline-daemon");
+    let p = PathBuf::from(env!("CARGO_BIN_EXE_powerline-daemon"));
     if !p.exists() {
         return None;
     }
