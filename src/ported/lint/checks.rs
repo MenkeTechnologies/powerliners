@@ -1094,10 +1094,7 @@ pub fn hl_group_in_colorscheme(
         }
     }
     // py:573-580  allow_gradients='force' + no gradient → fail
-    if matches!(allow_gradients, AllowGradients::Force) && !hadgradient {
-        return false;
-    }
-    true
+    !(matches!(allow_gradients, AllowGradients::Force) && !hadgradient)
 }
 
 /// Tri-state for the `allow_gradients` arg per py:539.
