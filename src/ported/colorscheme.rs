@@ -349,7 +349,12 @@ impl Colorscheme {
         let mut group_props: Option<Value> = None; // py:100-103
         for group in groups {
             let gp = self.get_group_props(mode, &trans, &Value::String(group.clone()), true);
-            if gp.is_some() {
+            // py:102  `if group_props:` — an empty dict is falsy, so a group
+            // defined as `{}` is skipped like a missing one.
+            let truthy = gp
+                .as_ref()
+                .is_some_and(|v| !v.as_object().is_some_and(|o| o.is_empty()));
+            if truthy {
                 group_props = gp;
                 break;
             }
@@ -642,5 +647,232 @@ mod tests {
         let fg = hl.get("fg").unwrap().as_array().unwrap();
         assert_eq!(fg[0].as_u64().unwrap(), 231);
         assert_eq!(fg[1].as_u64().unwrap(), 0xffffff);
+    }
+
+    fn obj(v: Value) -> Map<String, Value> {
+        v.as_object().unwrap().clone()
+    }
+
+    /// A colour given as a bare cterm int takes its hex from
+    /// `cterm_to_hex` (`powerline/colorscheme.py:48-49`, the `TypeError`
+    /// branch). Expected hex values read off the upstream table:
+    /// 196 → `0xff0000` (py:140, column 6), 232 → `0x080808` (py:144,
+    /// column 2), 21 → `0x0000ff` (py:123, column 1).
+    #[test]
+    fn bare_cterm_colour_takes_hex_from_the_cterm_table() {
+        let cs = Colorscheme::new(
+            &obj(json!({"groups": {}})),
+            &obj(json!({
+                "colors": {"red": 196, "grey": 232, "blue": 21},
+                "gradients": {}
+            })),
+        );
+        assert_eq!(cs.colors["red"], json!([196, 0xff0000]));
+        assert_eq!(cs.colors["grey"], json!([232, 0x080808]));
+        assert_eq!(cs.colors["blue"], json!([21, 0x0000ff]));
+    }
+
+    /// A one-list gradient derives its hex list from the cterm list
+    /// (`powerline/colorscheme.py:58-60`), and `get_gradient` then picks
+    /// the same index from both (py:64).
+    #[test]
+    fn single_list_gradient_derives_hex_from_cterm_table() {
+        let cs = Colorscheme::new(
+            &obj(json!({"groups": {}})),
+            &obj(json!({
+                "colors": {},
+                "gradients": {"g": [[21, 196, 231]]}
+            })),
+        );
+        // 231 → 0xffffff (py:144, column 1).
+        assert_eq!(
+            cs.gradients["g"],
+            json!([[21, 196, 231], [0x0000ff, 0xff0000, 0xffffff]])
+        );
+        // round(0 * 2 / 100) == 0, round(50 * 2 / 100) == 1, round(100 * 2 / 100) == 2.
+        assert_eq!(cs.get_gradient("g", 0.0), Ok(json!([21, 0x0000ff])));
+        assert_eq!(cs.get_gradient("g", 50.0), Ok(json!([196, 0xff0000])));
+        assert_eq!(cs.get_gradient("g", 100.0), Ok(json!([231, 0xffffff])));
+    }
+
+    /// py:64 runs `pick_gradient_value` over the cterm list and the hex
+    /// list separately, so lists of different length round independently.
+    /// At level 50: cterm (2 entries) → `round(0.5)` == 0 under Python 3's
+    /// half-to-even rounding; hex (3 entries) → `round(1.0)` == 1.
+    #[test]
+    fn two_list_gradient_rounds_each_list_independently() {
+        let cs = Colorscheme::new(
+            &obj(json!({"groups": {}})),
+            &obj(json!({
+                "colors": {},
+                "gradients": {"g": [[10, 20], ["000001", "000002", "000003"]]}
+            })),
+        );
+        assert_eq!(cs.get_gradient("g", 50.0), Ok(json!([10, 2])));
+        // round(75 * 1 / 100) == round(0.75) == 1; round(75 * 2 / 100) == round(1.5) == 2.
+        assert_eq!(cs.get_gradient("g", 75.0), Ok(json!([20, 3])));
+    }
+
+    /// With a gradient level set, a group colour that names a plain colour
+    /// rather than a gradient falls back to `self.colors` (py:65-66), so
+    /// mixing a gradient fg with a plain bg works.
+    #[test]
+    fn gradient_level_with_plain_colour_falls_back_to_colours() {
+        let cs = Colorscheme::new(
+            &obj(json!({"groups": {"load": {"fg": "g", "bg": "black"}}})),
+            &obj(json!({
+                "colors": {"black": [16, "000000"]},
+                "gradients": {"g": [[1, 2, 3], ["0000aa", "0000bb", "0000cc"]]}
+            })),
+        );
+        let hl = cs
+            .get_highlighting(&["load".to_string()], None, Some(100.0))
+            .unwrap();
+        assert_eq!(hl["fg"], json!([3, 0xcc]));
+        assert_eq!(hl["bg"], json!([16, 0]));
+        // attrs key absent → `group_props.get('attrs', [])` → 0 (py:115).
+        assert_eq!(hl["attrs"], json!(0));
+    }
+
+    fn mode_colorscheme() -> Colorscheme {
+        Colorscheme::new(
+            &obj(json!({
+                "groups": {
+                    "a": {"fg": "white", "bg": "black", "attrs": []},
+                    "b": {"fg": "white", "bg": "black", "attrs": ["italic"]}
+                },
+                "mode_translations": {
+                    "insert": {
+                        "colors": {"white": "red"},
+                        "groups": {"b": {"fg": "white", "bg": "black", "attrs": ["bold"]}}
+                    }
+                }
+            })),
+            &obj(json!({
+                "colors": {
+                    "white": [231, "ffffff"],
+                    "black": [16, "000000"],
+                    "red": [196, "ff0000"]
+                },
+                "gradients": {}
+            })),
+        )
+    }
+
+    /// Mode translations (`powerline/colorscheme.py:68-96`):
+    /// - a group from `self.groups` is colour-translated (py:74, 78, 89-91);
+    /// - a group overridden in `trans['groups']` is taken as-is, with no
+    ///   colour translation (py:71, 80, 95-96);
+    /// - a mode with no translation entry uses `{}` (py:99).
+    #[test]
+    fn mode_translation_recolours_base_groups_but_not_overridden_ones() {
+        let cs = mode_colorscheme();
+        let a_insert = cs
+            .get_highlighting(&["a".to_string()], Some("insert"), None)
+            .unwrap();
+        assert_eq!(a_insert["fg"], json!([196, 0xff0000]));
+        assert_eq!(a_insert["bg"], json!([16, 0]));
+
+        let b_insert = cs
+            .get_highlighting(&["b".to_string()], Some("insert"), None)
+            .unwrap();
+        assert_eq!(b_insert["fg"], json!([231, 0xffffff]));
+        assert_eq!(b_insert["attrs"], json!(ATTR_BOLD));
+
+        for mode in [None, Some("normal")] {
+            let a = cs.get_highlighting(&["a".to_string()], mode, None).unwrap();
+            assert_eq!(a["fg"], json!([231, 0xffffff]));
+            let b = cs.get_highlighting(&["b".to_string()], mode, None).unwrap();
+            assert_eq!(b["attrs"], json!(ATTR_ITALIC));
+        }
+    }
+
+    /// Colour translation copies the group (py:83); the stored group must
+    /// not be rewritten, or the next render in another mode would see the
+    /// translated colour.
+    #[test]
+    fn mode_translation_does_not_mutate_stored_group() {
+        let cs = mode_colorscheme();
+        cs.get_highlighting(&["a".to_string()], Some("insert"), None)
+            .unwrap();
+        assert_eq!(cs.groups["a"]["fg"], json!("white"));
+    }
+
+    /// A string-valued group is an alias resolved recursively (py:69, 78).
+    /// An alias to a missing group resolves to `None` (py:76), so the next
+    /// group in the list is tried (py:100-103).
+    #[test]
+    fn string_group_is_an_alias_and_dangling_alias_falls_through() {
+        let cs = Colorscheme::new(
+            &obj(json!({"groups": {
+                "alias": "target",
+                "dangling": "nowhere",
+                "target": {"fg": "white", "bg": "white", "attrs": ["underline"]}
+            }})),
+            &obj(json!({"colors": {"white": [231, "ffffff"]}, "gradients": {}})),
+        );
+        let hl = cs
+            .get_highlighting(&["alias".to_string()], None, None)
+            .unwrap();
+        assert_eq!(hl["attrs"], json!(ATTR_UNDERLINE));
+
+        let hl = cs
+            .get_highlighting(&["dangling".to_string(), "target".to_string()], None, None)
+            .unwrap();
+        assert_eq!(hl["attrs"], json!(ATTR_UNDERLINE));
+    }
+
+    /// The first group present wins (py:100-103); when none is present the
+    /// error names every group tried, comma-joined (py:105).
+    #[test]
+    fn first_present_group_wins_and_error_lists_all_groups() {
+        let cs = mode_colorscheme();
+        let hl = cs
+            .get_highlighting(
+                &["missing".to_string(), "b".to_string(), "a".to_string()],
+                None,
+                None,
+            )
+            .unwrap();
+        assert_eq!(hl["attrs"], json!(ATTR_ITALIC));
+
+        let err = cs
+            .get_highlighting(&["x".to_string(), "y:z".to_string()], None, None)
+            .unwrap_err();
+        assert_eq!(err, "Highlighting groups not found in colorscheme: x, y:z");
+    }
+
+    /// `if group_props: break` (py:102) tests truthiness, and an empty dict
+    /// is falsy in Python: a group defined as `{}` is skipped in favour of
+    /// the next group rather than producing a highlight with no colours.
+    #[test]
+    fn empty_group_definition_is_skipped_like_a_missing_one() {
+        let cs = Colorscheme::new(
+            &obj(json!({"groups": {
+                "empty": {},
+                "real": {"fg": "white", "bg": "white", "attrs": ["bold"]}
+            }})),
+            &obj(json!({"colors": {"white": [231, "ffffff"]}, "gradients": {}})),
+        );
+        let hl = cs
+            .get_highlighting(&["empty".to_string(), "real".to_string()], None, None)
+            .unwrap();
+        assert_eq!(hl["fg"], json!([231, 0xffffff]));
+        assert_eq!(hl["attrs"], json!(ATTR_BOLD));
+
+        assert!(cs
+            .get_highlighting(&["empty".to_string()], None, None)
+            .is_err());
+    }
+
+    /// `get_attrs_flag` (py:15-24) tests membership only: unknown names
+    /// contribute nothing and repeats do not change the flag.
+    #[test]
+    fn get_attrs_flag_ignores_unknown_and_repeated_attrs() {
+        let attrs: Vec<String> = ["italic", "blink", "italic", "reverse"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(get_attrs_flag(&attrs), ATTR_ITALIC);
     }
 }
