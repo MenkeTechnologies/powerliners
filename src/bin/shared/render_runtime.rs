@@ -1994,12 +1994,21 @@ fn ad_last_pipe_status(args: &Map<String, Value>, info: &Map<String, Value>) -> 
 }
 
 fn ad_cwd(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value> {
-    use powerliners::ported::segments::common::env::cwd_segments;
-    let cwd = info
+    use powerliners::ported::segments::common::env::{cwd_segments, get_shortened_path};
+    let raw_cwd = info
         .get("getcwd")
         .and_then(|v| v.as_str())
         .unwrap_or("/")
         .to_string();
+    // env.py:80 runs the path through get_shortened_path first, whose
+    // `shorten_home=True` default rewrites a $HOME prefix to `~`
+    // (env.py:55, 67-72).
+    let shorten_home = args
+        .get("shorten_home")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let home = info.get("home").and_then(|v| v.as_str());
+    let cwd = get_shortened_path(Ok(raw_cwd.clone()), home, shorten_home).unwrap_or(raw_cwd);
     let dir_shorten_len = args
         .get("dir_shorten_len")
         .and_then(|v| v.as_u64())
@@ -2012,7 +2021,12 @@ fn ad_cwd(args: &Map<String, Value>, info: &Map<String, Value>) -> Option<Value>
         .get("use_path_separator")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    let ellipsis = args.get("ellipsis").and_then(|v| v.as_str());
+    // env.py:78 `ellipsis='...'`: an absent key means the default, an
+    // explicit null means no ellipsis (env.py:86).
+    let ellipsis = match args.get("ellipsis") {
+        None => Some("..."),
+        Some(v) => v.as_str(),
+    };
     let chunks = cwd_segments(
         &cwd,
         dir_shorten_len,
@@ -3277,6 +3291,47 @@ fn json_value_to_colorspec(v: &Value) -> Option<VimColorSpec> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    fn cwd_parts(args: Value, info: Value) -> Vec<String> {
+        ad_cwd(args.as_object().unwrap(), info.as_object().unwrap())
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| p["contents"].as_str().unwrap().to_string())
+            .collect()
+    }
+
+    /// `cwd` (`powerline/segments/common/env.py:74-107`) shortens a $HOME
+    /// prefix to `~` by default (env.py:55, 67-72) and, when
+    /// `dir_limit_depth` cuts the path, prepends the default ellipsis
+    /// `'...'` (env.py:78, 84-87). An explicit null ellipsis drops it;
+    /// `shorten_home: false` keeps the full path.
+    #[test]
+    fn ad_cwd_shortens_home_and_applies_default_ellipsis() {
+        let info = json!({"getcwd": "/home/u/a/b/c", "home": "/home/u"});
+        assert_eq!(cwd_parts(json!({}), info.clone()), ["~", "a", "b", "c"]);
+        assert_eq!(
+            cwd_parts(json!({"dir_limit_depth": 2}), info.clone()),
+            ["...", "b", "c"]
+        );
+        assert_eq!(
+            cwd_parts(
+                json!({"dir_limit_depth": 2, "ellipsis": null}),
+                info.clone()
+            ),
+            ["b", "c"]
+        );
+        assert_eq!(
+            cwd_parts(json!({"shorten_home": false}), info),
+            ["/", "home", "u", "a", "b", "c"]
+        );
+        // A path outside $HOME is untouched.
+        assert_eq!(
+            cwd_parts(json!({}), json!({"getcwd": "/srv/x", "home": "/home/u"})),
+            ["/", "srv", "x"]
+        );
+    }
 
     // =====================================================================
     // json_value_to_colorspec — vim renderer's theme-color decoder
