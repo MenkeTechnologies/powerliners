@@ -53,6 +53,10 @@ pub fn list_segment_key_values(
     }
     // py:12  found_module_key = False
     let mut found_module_key = false;
+    // py:15 rebinds the `segment_data` parameter itself, so the root lookup
+    // at py:36-38 sees the last theme config's segment_data when any theme
+    // config has one, and the argument only otherwise.
+    let mut segment_data = segment_data;
     // py:13  for theme_config in theme_configs:
     for theme_config in theme_configs {
         // py:14  try:
@@ -64,6 +68,7 @@ pub fn list_segment_key_values(
             Some(s) => s,
             None => continue,
         };
+        segment_data = Some(seg_data);
         // py:19  if function_name and not name:
         if let (Some(fname), None) = (function_name, name) {
             // py:20  if module:
@@ -604,7 +609,12 @@ pub fn process_segment_lister<L, D, C>(
     // py:110  for subsegment_info, subsegment_update in lister(pl=pl, segment_info=segment_info, **patcher_args):
     for (subsegment_info, mut subsegment_update) in lister(pl, segment_info, patcher_args) {
         // py:111  draw_inner_divider = subsegment_update.pop('draw_inner_divider', False)
-        let draw_inner_divider = subsegment_update.remove("draw_inner_divider");
+        // The default is `False`, not None, so a lister that says nothing
+        // still clears the inner soft dividers; only an explicit None (JSON
+        // null) leaves them alone (py:132 `is not None`).
+        let draw_inner_divider = subsegment_update
+            .remove("draw_inner_divider")
+            .unwrap_or(Value::Bool(false));
         // py:112  old_pslen = len(parsed_segments)
         let old_pslen = parsed_segments.len();
         // py:113  for subsegment in subsegments:
@@ -658,7 +668,7 @@ pub fn process_segment_lister<L, D, C>(
             }
         }
         // py:132  if new_pslen > old_pslen + 1 and draw_inner_divider is not None:
-        if new_pslen > old_pslen + 1 && draw_inner_divider.is_some() {
+        if new_pslen > old_pslen + 1 && !draw_inner_divider.is_null() {
             // py:133  for i in range(old_pslen, new_pslen - 1) if side == 'left' else range(old_pslen + 1, new_pslen):
             let r: Box<dyn Iterator<Item = usize>> = if side == "left" {
                 Box::new(old_pslen..new_pslen - 1)
@@ -668,10 +678,7 @@ pub fn process_segment_lister<L, D, C>(
             for i in r {
                 // py:134  parsed_segments[i]['draw_soft_divider'] = draw_inner_divider
                 if let Some(obj) = parsed_segments[i].as_object_mut() {
-                    obj.insert(
-                        "draw_soft_divider".to_string(),
-                        draw_inner_divider.clone().unwrap_or(Value::Null),
-                    );
+                    obj.insert("draw_soft_divider".to_string(), draw_inner_divider.clone());
                 }
             }
         }
@@ -766,7 +773,11 @@ pub fn process_segment<C>(
 
             // py:201  draw_inner_divider = None
             let mut draw_inner_divider: Option<Value> = None;
-            // py:202-206  side branch for append direction
+            // py:202-206  side branch for append direction. On the left,
+            // py:205 captures `pslen` once and every item is inserted at
+            // that index, so the reversed walk below lands the subsegments
+            // back in their original order.
+            let pslen = parsed_segments.len();
             let iter: Box<dyn Iterator<Item = Value>> = if side == "right" {
                 Box::new(arr.into_iter())
             } else {
@@ -788,19 +799,18 @@ pub fn process_segment<C>(
                     segment_copy.insert("draw_soft_divider".to_string(), d);
                 }
                 // py:213  draw_inner_divider = segment_copy.pop('draw_inner_divider', None)
-                draw_inner_divider = segment_copy.remove("draw_inner_divider");
+                // A JSON null is Python's None: it must not overwrite the
+                // next soft divider (py:211 `is not None`).
+                draw_inner_divider = segment_copy
+                    .remove("draw_inner_divider")
+                    .filter(|v| !v.is_null());
                 // py:214-215  if set_segment_highlighting(...): append (or insert at front for left)
                 if set_segment_highlighting(pl, colorscheme, &mut segment_copy, mode) {
                     if side == "right" {
                         parsed_segments.push(Value::Object(segment_copy));
                     } else {
                         // py:206  append = lambda item: parsed_segments.insert(pslen, item)
-                        // `pslen` is captured at the start of the loop in Python so
-                        // inserts go in iteration-reversed order from a fixed index.
-                        // Rust mirrors by always inserting at the same `pslen`, which
-                        // resolves to the current length here (the loop appends below).
-                        let _pslen = parsed_segments.len();
-                        parsed_segments.push(Value::Object(segment_copy));
+                        parsed_segments.insert(pslen, Value::Object(segment_copy));
                     }
                 }
             }
@@ -968,18 +978,6 @@ where
                 return None;
             }
 
-            // py:333  if not get_key(False, segment, module, function_name, name, 'display', True): return None
-            // Mirrors the Python `display: false` gate. The full
-            // upstream form pulls `display` through `get_segment_key`
-            // (theme_configs.segment_data.{module.function|name}.display
-            // fallback). Inline form here handles the common case of
-            // `display: false` set on the segment dict directly; the
-            // segment_data-driven case relies on user theme_data
-            // overrides via mergedicts at theme-load time.
-            if let Some(false) = segment.get("display").and_then(|v| v.as_bool()) {
-                return None;
-            }
-
             // py:327-331  contents, _contents_func, module, function_name, name = get_segment_info(data, segment)
             let (function_name, module, name): (String, String, Option<String>) =
                 if segment_type == "string" {
@@ -1006,6 +1004,60 @@ where
                         .map(String::from);
                     (fname, m, n)
                 };
+
+            // py:7-42 list_segment_key_values, first value only (the
+            // `get_key(False, ...)` form): segment dict → theme segment_data
+            // (module.function when unnamed, name when named) → segment_data
+            // root. `None` means "not found", for the caller's default.
+            let lookup_key = |key: &str| -> Option<Value> {
+                if let Some(v) = segment.get(key) {
+                    return Some(v.clone());
+                }
+                let mut root: Option<&Map<String, Value>> = None;
+                for theme_config in theme_configs.iter() {
+                    let Some(sd) = theme_config.get("segment_data").and_then(|v| v.as_object())
+                    else {
+                        continue;
+                    };
+                    root = Some(sd);
+                    if !function_name.is_empty() && name.is_none() {
+                        if !module.is_empty() {
+                            if let Some(v) = sd
+                                .get(format!("{}.{}", module, function_name).as_str())
+                                .and_then(|entry| entry.get(key))
+                            {
+                                return Some(v.clone());
+                            }
+                        }
+                        if let Some(v) = sd
+                            .get(function_name.as_str())
+                            .and_then(|entry| entry.get(key))
+                        {
+                            return Some(v.clone());
+                        }
+                    }
+                    if let Some(n) = name.as_ref() {
+                        if let Some(v) = sd.get(n.as_str()).and_then(|entry| entry.get(key)) {
+                            return Some(v.clone());
+                        }
+                    }
+                }
+                root.and_then(|sd| sd.get(key)).cloned()
+            };
+
+            // py:333  if not get_key(False, segment, module, function_name, name, 'display', True): return None
+            let display = lookup_key("display").unwrap_or(Value::Bool(true));
+            let display_falsy = match &display {
+                Value::Null => true,
+                Value::Bool(b) => !b,
+                Value::Number(n) => n.as_f64() == Some(0.0),
+                Value::String(s) => s.is_empty(),
+                Value::Array(a) => a.is_empty(),
+                Value::Object(o) => o.is_empty(),
+            };
+            if display_falsy {
+                return None;
+            }
 
             // py:343-346  highlight_groups
             let highlight_groups: Vec<Value> = if segment_type == "function" {
@@ -1041,54 +1093,18 @@ where
                 Value::Array(highlight_groups),
             );
             out.insert("divider_highlight_group".to_string(), Value::Null);
-            // py:7-42 list_segment_key_values — mirror the before/after
-            // lookup chain: segment dict → theme segment_data
-            // (module.function when unnamed, name when named) →
-            // segment_data root → default "". Only consulting the
-            // segment dict itself dropped the theme's before/after
-            // icons (external_ip/date/time/hostname).
-            let lookup_key = |key: &str| -> Value {
-                if let Some(v) = segment.get(key) {
-                    return v.clone();
-                }
-                let mut root: Option<&Map<String, Value>> = None;
-                for theme_config in theme_configs.iter() {
-                    let Some(sd) = theme_config.get("segment_data").and_then(|v| v.as_object())
-                    else {
-                        continue;
-                    };
-                    root = Some(sd);
-                    if !function_name.is_empty() && name.is_none() {
-                        if !module.is_empty() {
-                            if let Some(v) = sd
-                                .get(format!("{}.{}", module, function_name).as_str())
-                                .and_then(|entry| entry.get(key))
-                            {
-                                return v.clone();
-                            }
-                        }
-                        if let Some(v) = sd
-                            .get(function_name.as_str())
-                            .and_then(|entry| entry.get(key))
-                        {
-                            return v.clone();
-                        }
-                    }
-                    if let Some(n) = name.as_ref() {
-                        if let Some(v) = sd.get(n.as_str()).and_then(|entry| entry.get(key)) {
-                            return v.clone();
-                        }
-                    }
-                }
-                if let Some(sd) = root {
-                    if let Some(v) = sd.get(key) {
-                        return v.clone();
-                    }
-                }
-                Value::String(String::new())
-            };
-            out.insert("before".to_string(), lookup_key("before"));
-            out.insert("after".to_string(), lookup_key("after"));
+            // py:427-428  before/after through the same chain, default ''.
+            // Only consulting the segment dict itself dropped the theme's
+            // before/after icons (external_ip/date/time/hostname).
+            let empty = || Value::String(String::new());
+            out.insert(
+                "before".to_string(),
+                lookup_key("before").unwrap_or_else(empty),
+            );
+            out.insert(
+                "after".to_string(),
+                lookup_key("after").unwrap_or_else(empty),
+            );
             out.insert("contents_func".to_string(), Value::String(contents_func_id));
             // py:430  'contents': contents — string types have a contents value
             out.insert(
@@ -1881,5 +1897,676 @@ mod tests {
         seg.insert("type".to_string(), json!("unknown"));
         let r = get(&seg, "left", "powerline.segments", |_, _| true);
         assert!(r.is_none());
+    }
+
+    fn obj(v: Value) -> Map<String, Value> {
+        v.as_object().unwrap().clone()
+    }
+
+    /// Colorscheme with plain groups `g`, `p:g` (prefixed) and `div`.
+    fn test_colorscheme() -> Colorscheme {
+        Colorscheme::new(
+            &obj(json!({"groups": {
+                "g": {"fg": "white", "bg": "black", "attrs": []},
+                "p:g": {"fg": "black", "bg": "white", "attrs": ["bold"]},
+                "div": {"fg": "black", "bg": "black", "attrs": []}
+            }})),
+            &obj(json!({
+                "colors": {"white": [231, "ffffff"], "black": [16, "000000"]},
+                "gradients": {}
+            })),
+        )
+    }
+
+    /// A prepared function segment carrying the keys `process_segment`
+    /// reads; mirrors the dict `gen_segment_getter` builds (py:422-448).
+    fn function_segment(extra: Value) -> Map<String, Value> {
+        let mut seg = obj(json!({
+            "name": "f",
+            "type": "function",
+            "highlight_groups": ["g"],
+            "divider_highlight_group": null,
+            "before": "",
+            "after": "",
+            "contents": null,
+            "literal_contents": [0, ""],
+            "draw_soft_divider": true,
+            "draw_hard_divider": true,
+            "draw_inner_divider": false,
+            "width": null,
+            "align": "l"
+        }));
+        for (k, v) in obj(extra) {
+            seg.insert(k, v);
+        }
+        seg
+    }
+
+    fn contents_of(parsed: &[Value]) -> Vec<&str> {
+        parsed
+            .iter()
+            .map(|s| s["contents"].as_str().unwrap())
+            .collect()
+    }
+
+    /// Right side, list contents (`powerline/segment.py:183-215`):
+    /// subsegments keep their order (py:203, 208); `before` moves to the
+    /// first subsegment and `after` to the last (py:190-191); the
+    /// divider flags move to index 0 on the right (py:188, 192-193); every
+    /// other subsegment gets the reset values `''` / `True` (py:197).
+    #[test]
+    fn process_segment_right_list_moves_before_after_and_dividers() {
+        let cs = test_colorscheme();
+        let seg = function_segment(json!({
+            "before": "<",
+            "after": ">",
+            "draw_soft_divider": false,
+            "draw_hard_divider": false,
+            "draw_inner_divider": null
+        }));
+        let mut parsed: Vec<Value> = vec![json!({"contents": "existing"})];
+        let func = |_: &(), _: &Map<String, Value>, _: &Map<String, Value>| {
+            Some(json!([{"contents": "a"}, {"contents": "b"}, {"contents": "c"}]))
+        };
+        process_segment(
+            &(),
+            "right",
+            &Map::new(),
+            &mut parsed,
+            &seg,
+            None,
+            &cs,
+            &func,
+        );
+
+        assert_eq!(contents_of(&parsed), ["existing", "a", "b", "c"]);
+        let (a, b, c) = (&parsed[1], &parsed[2], &parsed[3]);
+        assert_eq!(
+            (a["before"].as_str(), a["after"].as_str()),
+            (Some("<"), Some(""))
+        );
+        assert_eq!(
+            (b["before"].as_str(), b["after"].as_str()),
+            (Some(""), Some(""))
+        );
+        assert_eq!(
+            (c["before"].as_str(), c["after"].as_str()),
+            (Some(""), Some(">"))
+        );
+        assert_eq!(a["draw_soft_divider"], json!(false));
+        assert_eq!(a["draw_hard_divider"], json!(false));
+        assert_eq!(c["draw_soft_divider"], json!(true));
+        assert_eq!(c["draw_hard_divider"], json!(true));
+        // Every subsegment got its highlight resolved (py:214).
+        assert!(parsed[1..]
+            .iter()
+            .all(|s| s["highlight"]["fg"] == json!([231, 0xffffff])));
+    }
+
+    /// Left side, list contents: upstream walks `reversed(contents)` but
+    /// inserts every item at the same index `pslen` (py:205-208), so the
+    /// subsegments land in their ORIGINAL order after anything already
+    /// parsed. The divider flags move to the LAST subsegment (py:188).
+    #[test]
+    fn process_segment_left_list_keeps_contents_order() {
+        let cs = test_colorscheme();
+        let seg = function_segment(json!({
+            "before": "<",
+            "after": ">",
+            "draw_soft_divider": false,
+            "draw_inner_divider": null
+        }));
+        let mut parsed: Vec<Value> = vec![json!({"contents": "existing"})];
+        let func = |_: &(), _: &Map<String, Value>, _: &Map<String, Value>| {
+            Some(json!([{"contents": "a"}, {"contents": "b"}, {"contents": "c"}]))
+        };
+        process_segment(
+            &(),
+            "left",
+            &Map::new(),
+            &mut parsed,
+            &seg,
+            None,
+            &cs,
+            &func,
+        );
+
+        assert_eq!(contents_of(&parsed), ["existing", "a", "b", "c"]);
+        assert_eq!(parsed[1]["before"], json!("<"));
+        assert_eq!(parsed[3]["after"], json!(">"));
+        assert_eq!(parsed[3]["draw_soft_divider"], json!(false));
+        assert_eq!(parsed[1]["draw_soft_divider"], json!(true));
+        assert_eq!(parsed[2]["draw_soft_divider"], json!(true));
+    }
+
+    /// `draw_inner_divider` set on one subsegment becomes the next-visited
+    /// subsegment's `draw_soft_divider` (py:211-213) and is popped from
+    /// every emitted subsegment. Visit order is forwards on the right and
+    /// reversed on the left (py:208), so the same flag on `b` lands on `c`
+    /// (right) or on `a` (left). A `None` flag (here on the base segment)
+    /// leaves the next soft divider alone (py:211 `is not None`).
+    #[test]
+    fn process_segment_inner_divider_follows_visit_order() {
+        let cs = test_colorscheme();
+        let seg = function_segment(json!({"draw_inner_divider": null}));
+        let func = |_: &(), _: &Map<String, Value>, _: &Map<String, Value>| {
+            Some(json!([
+                {"contents": "a"},
+                {"contents": "b", "draw_inner_divider": false},
+                {"contents": "c"}
+            ]))
+        };
+        let soft = |parsed: &[Value]| -> Vec<Value> {
+            parsed
+                .iter()
+                .map(|s| s["draw_soft_divider"].clone())
+                .collect()
+        };
+
+        let mut right: Vec<Value> = Vec::new();
+        process_segment(
+            &(),
+            "right",
+            &Map::new(),
+            &mut right,
+            &seg,
+            None,
+            &cs,
+            &func,
+        );
+        assert_eq!(contents_of(&right), ["a", "b", "c"]);
+        assert_eq!(soft(&right), [json!(true), json!(true), json!(false)]);
+
+        let mut left: Vec<Value> = Vec::new();
+        process_segment(&(), "left", &Map::new(), &mut left, &seg, None, &cs, &func);
+        assert_eq!(contents_of(&left), ["a", "b", "c"]);
+        assert_eq!(soft(&left), [json!(false), json!(true), json!(true)]);
+
+        assert!(right
+            .iter()
+            .chain(left.iter())
+            .all(|s| s.get("draw_inner_divider").is_none()));
+    }
+
+    /// A prepared segment carries `draw_inner_divider: False` unless the
+    /// theme says otherwise (py:435). Every subsegment inherits it from the
+    /// base copy (py:209) and hands it on, so all subsegments but the first
+    /// visited lose their soft divider.
+    #[test]
+    fn process_segment_default_inner_divider_suppresses_inner_soft_dividers() {
+        let cs = test_colorscheme();
+        let seg = function_segment(json!({}));
+        let func = |_: &(), _: &Map<String, Value>, _: &Map<String, Value>| {
+            Some(json!([{"contents": "a"}, {"contents": "b"}, {"contents": "c"}]))
+        };
+        let mut right: Vec<Value> = Vec::new();
+        process_segment(
+            &(),
+            "right",
+            &Map::new(),
+            &mut right,
+            &seg,
+            None,
+            &cs,
+            &func,
+        );
+        let soft: Vec<Value> = right
+            .iter()
+            .map(|s| s["draw_soft_divider"].clone())
+            .collect();
+        assert_eq!(soft, [json!(true), json!(false), json!(false)]);
+    }
+
+    /// `None` from the contents function drops the segment (py:180-181);
+    /// a scalar is stored as `contents` on a copy of the segment (py:168,
+    /// 217) — the caller's segment dict is not touched.
+    #[test]
+    fn process_segment_none_drops_and_scalar_sets_contents_on_a_copy() {
+        let cs = test_colorscheme();
+        let seg = function_segment(json!({}));
+        let mut parsed: Vec<Value> = Vec::new();
+
+        let none = |_: &(), _: &Map<String, Value>, _: &Map<String, Value>| None;
+        process_segment(
+            &(),
+            "left",
+            &Map::new(),
+            &mut parsed,
+            &seg,
+            None,
+            &cs,
+            &none,
+        );
+        assert!(parsed.is_empty());
+
+        let scalar = |_: &(), _: &Map<String, Value>, _: &Map<String, Value>| Some(json!("x"));
+        process_segment(
+            &(),
+            "left",
+            &Map::new(),
+            &mut parsed,
+            &seg,
+            None,
+            &cs,
+            &scalar,
+        );
+        assert_eq!(contents_of(&parsed), ["x"]);
+        assert_eq!(seg["contents"], Value::Null);
+    }
+
+    /// Non-function segments (py:220): a string segment is kept only when
+    /// its contents are not None, unless its width is `'auto'`.
+    #[test]
+    fn process_segment_string_needs_contents_unless_width_auto() {
+        let cs = test_colorscheme();
+        let never = |_: &(), _: &Map<String, Value>, _: &Map<String, Value>| -> Option<Value> {
+            panic!("contents_func must not run for string segments")
+        };
+        let mut parsed: Vec<Value> = Vec::new();
+
+        let empty = function_segment(json!({"type": "string", "contents": null}));
+        process_segment(
+            &(),
+            "left",
+            &Map::new(),
+            &mut parsed,
+            &empty,
+            None,
+            &cs,
+            &never,
+        );
+        assert!(parsed.is_empty());
+
+        let auto = function_segment(json!({"type": "string", "contents": null, "width": "auto"}));
+        process_segment(
+            &(),
+            "left",
+            &Map::new(),
+            &mut parsed,
+            &auto,
+            None,
+            &cs,
+            &never,
+        );
+        assert_eq!(parsed.len(), 1);
+
+        let lit = function_segment(json!({"type": "string", "contents": "s"}));
+        process_segment(
+            &(),
+            "left",
+            &Map::new(),
+            &mut parsed,
+            &lit,
+            None,
+            &cs,
+            &never,
+        );
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[1]["contents"], json!("s"));
+    }
+
+    /// `highlight_group_prefix` tries `prefix:group` before `group`
+    /// (py:146); a non-empty `literal_contents[1]` skips highlighting
+    /// entirely and still succeeds (py:139-140).
+    #[test]
+    fn set_segment_highlighting_prefix_and_literal_contents() {
+        let cs = test_colorscheme();
+        let mut seg = function_segment(json!({"highlight_group_prefix": "p"}));
+        assert!(set_segment_highlighting(&(), &cs, &mut seg, None));
+        assert_eq!(seg["highlight"]["attrs"], json!(1));
+        assert_eq!(seg["divider_highlight"], Value::Null);
+
+        let mut lit = function_segment(json!({
+            "literal_contents": [0, "raw"],
+            "highlight_groups": ["missing"]
+        }));
+        assert!(set_segment_highlighting(&(), &cs, &mut lit, None));
+        assert!(lit.get("highlight").is_none());
+    }
+
+    /// A missing main or divider highlight group is an exception upstream
+    /// (`colorscheme.py:105`) caught at py:160-162: the segment is dropped
+    /// by `process_segment`, not rendered half-highlighted.
+    #[test]
+    fn missing_highlight_group_drops_the_segment() {
+        let cs = test_colorscheme();
+        let scalar = |_: &(), _: &Map<String, Value>, _: &Map<String, Value>| Some(json!("x"));
+        let mut parsed: Vec<Value> = Vec::new();
+
+        let bad_main = function_segment(json!({"highlight_groups": ["nope"]}));
+        process_segment(
+            &(),
+            "right",
+            &Map::new(),
+            &mut parsed,
+            &bad_main,
+            None,
+            &cs,
+            &scalar,
+        );
+        assert!(parsed.is_empty());
+
+        let bad_div = function_segment(json!({"divider_highlight_group": "nope"}));
+        process_segment(
+            &(),
+            "right",
+            &Map::new(),
+            &mut parsed,
+            &bad_div,
+            None,
+            &cs,
+            &scalar,
+        );
+        assert!(parsed.is_empty());
+
+        let good_div = function_segment(json!({"divider_highlight_group": "div"}));
+        process_segment(
+            &(),
+            "right",
+            &Map::new(),
+            &mut parsed,
+            &good_div,
+            None,
+            &cs,
+            &scalar,
+        );
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0]["divider_highlight"]["fg"], json!([16, 0]));
+    }
+
+    /// `process_segment_lister` (py:103-135): each `(info, update)` pair
+    /// re-runs every subsegment with the update applied (py:114-116),
+    /// `priority_multiplier` scales the priority (py:117-118), and the
+    /// popped `draw_inner_divider` — default `False` (py:111) — is written
+    /// over the soft divider of all but the outermost subsegment of the
+    /// group (py:132-134).
+    #[test]
+    fn process_segment_lister_applies_updates_and_inner_divider_default() {
+        let cs = test_colorscheme();
+        let subsegments = vec![
+            function_segment(json!({"name": "s1", "priority": 10})),
+            function_segment(json!({"name": "s2", "priority": 20})),
+        ];
+        let lister = |_: &(), _: &Map<String, Value>, _: &Map<String, Value>| {
+            vec![
+                (
+                    obj(json!({"tag": "one"})),
+                    obj(json!({"priority_multiplier": 0.5})),
+                ),
+                (obj(json!({"tag": "two"})), obj(json!({}))),
+            ]
+        };
+        // contents_func echoes the per-iteration segment_info tag.
+        let func =
+            |_: &(), info: &Map<String, Value>, _: &Map<String, Value>| Some(info["tag"].clone());
+        let always = |_: &(), _: &Map<String, Value>, _: Option<&str>, _: &Map<String, Value>| true;
+
+        let mut parsed: Vec<Value> = Vec::new();
+        process_segment_lister(
+            &(),
+            &Map::new(),
+            &mut parsed,
+            "right",
+            None,
+            &cs,
+            lister,
+            &subsegments,
+            &Map::new(),
+            always,
+            func,
+        );
+        assert_eq!(contents_of(&parsed), ["one", "one", "two", "two"]);
+        assert_eq!(parsed[0]["priority"], json!(5.0));
+        assert_eq!(parsed[1]["priority"], json!(10.0));
+        assert_eq!(parsed[2]["priority"], json!(10));
+        // Right side: range(old_pslen + 1, new_pslen) — the first of each
+        // pair keeps its divider, the second gets draw_inner_divider=False.
+        let soft: Vec<Value> = parsed
+            .iter()
+            .map(|s| s["draw_soft_divider"].clone())
+            .collect();
+        assert_eq!(soft, [json!(true), json!(false), json!(true), json!(false)]);
+    }
+
+    /// An explicit `draw_inner_divider: None` in the update disables the
+    /// rewrite (py:132 `is not None`), and the display condition filters
+    /// subsegments once, before any lister iteration (py:105-109).
+    #[test]
+    fn process_segment_lister_none_inner_divider_and_display_filter() {
+        let cs = test_colorscheme();
+        let subsegments = vec![
+            function_segment(json!({"name": "s1"})),
+            function_segment(json!({"name": "hidden"})),
+            function_segment(json!({"name": "s3"})),
+        ];
+        let lister = |_: &(), _: &Map<String, Value>, _: &Map<String, Value>| {
+            vec![(Map::new(), obj(json!({"draw_inner_divider": null})))]
+        };
+        let func = |_: &(), _: &Map<String, Value>, _: &Map<String, Value>| Some(json!("x"));
+        let shown = |_: &(), _: &Map<String, Value>, _: Option<&str>, s: &Map<String, Value>| {
+            s["name"] != json!("hidden")
+        };
+        let mut parsed: Vec<Value> = Vec::new();
+        process_segment_lister(
+            &(),
+            &Map::new(),
+            &mut parsed,
+            "left",
+            None,
+            &cs,
+            lister,
+            &subsegments,
+            &Map::new(),
+            shown,
+            func,
+        );
+        let names: Vec<&str> = parsed.iter().map(|s| s["name"].as_str().unwrap()).collect();
+        assert_eq!(names, ["s1", "s3"]);
+        assert!(parsed.iter().all(|s| s["draw_soft_divider"] == json!(true)));
+    }
+
+    /// `found_module_key` (py:12) is set outside the theme_configs loop:
+    /// once `module.function` matched in one theme config, the bare
+    /// `function` key is skipped in every later one (py:26). A `name`
+    /// disables both function-keyed lookups (py:19) in favour of
+    /// `segment_data[name]` (py:31-33).
+    #[test]
+    fn list_segment_key_values_module_key_and_name_precedence() {
+        let first = obj(json!({"segment_data": {"m.fn": {"k": 1}, "fn": {"k": 2}}}));
+        let second = obj(json!({"segment_data": {"fn": {"k": 3}, "nm": {"k": 4}}}));
+        let configs: Vec<&Map<String, Value>> = vec![&first, &second];
+
+        let vals = list_segment_key_values(
+            &Map::new(),
+            &configs,
+            None,
+            "k",
+            Some("fn"),
+            None,
+            Some("m"),
+            Some(json!(0)),
+        );
+        assert_eq!(vals, [json!(1), json!(0)]);
+
+        let vals = list_segment_key_values(
+            &Map::new(),
+            &configs,
+            None,
+            "k",
+            Some("fn"),
+            Some("nm"),
+            Some("m"),
+            Some(json!(0)),
+        );
+        assert_eq!(vals, [json!(4), json!(0)]);
+
+        // Without a module match the bare function key is read from every
+        // theme config, in order.
+        let vals = list_segment_key_values(
+            &Map::new(),
+            &configs,
+            None,
+            "k",
+            Some("fn"),
+            None,
+            Some("other"),
+            None,
+        );
+        assert_eq!(vals, [json!(2), json!(3)]);
+    }
+
+    /// py:15 assigns each theme config's `segment_data` to the function's
+    /// own `segment_data` parameter, so the root lookup at py:36-38 reads
+    /// the LAST theme config's segment_data, not the argument passed in.
+    /// The argument is only consulted when no theme config has any.
+    #[test]
+    fn list_segment_key_values_root_lookup_uses_last_theme_segment_data() {
+        let passed = obj(json!({"k": "passed"}));
+        let theme = obj(json!({"segment_data": {"k": "theme"}}));
+        let no_sd = obj(json!({}));
+
+        let vals = list_segment_key_values(
+            &Map::new(),
+            &[&theme],
+            Some(&passed),
+            "k",
+            None,
+            None,
+            None,
+            None,
+        );
+        assert_eq!(vals, [json!("theme")]);
+
+        let vals = list_segment_key_values(
+            &Map::new(),
+            &[&no_sd],
+            Some(&passed),
+            "k",
+            None,
+            None,
+            None,
+            None,
+        );
+        assert_eq!(vals, [json!("passed")]);
+    }
+
+    /// Merge mode stops at the first non-dict after a dict (py:54-55) and
+    /// returns what it had, rather than merging or overwriting.
+    #[test]
+    fn get_segment_key_merge_stops_at_first_non_dict() {
+        let seg = obj(json!({"args": {"a": 1}}));
+        let theme = obj(json!({"segment_data": {
+            "fn": {"args": "not a dict"},
+            "args": {"b": 2}
+        }}));
+        let merged = get_segment_key(
+            true,
+            &seg,
+            &[&theme],
+            None,
+            "args",
+            Some("fn"),
+            None,
+            None,
+            Some(json!({})),
+        );
+        assert_eq!(merged, Some(json!({"a": 1})));
+    }
+
+    fn getter(
+        theme_config: Value,
+    ) -> Box<dyn Fn(&Map<String, Value>, &str) -> Option<Map<String, Value>>> {
+        gen_segment_getter(
+            &(),
+            "shell",
+            &Map::new(),
+            vec![obj(theme_config)],
+            None,
+            |_: &str, _: &str| true,
+            None,
+        )
+    }
+
+    /// `display` is read through the same segment → segment_data chain as
+    /// every other key (py:333 `get_key(False, ..., 'display', True)`), so
+    /// `display: false` under `segment_data["module.fn"]`, `segment_data[fn]`
+    /// or `segment_data[name]` hides the segment just like on the segment.
+    #[test]
+    fn gen_segment_getter_display_false_from_segment_data_hides_segment() {
+        let spec = obj(json!({"function": "powerline.segments.common.time.date"}));
+
+        let by_module = getter(json!({"segment_data": {
+            "powerline.segments.common.time.date": {"display": false}
+        }}));
+        assert!(by_module(&spec, "right").is_none());
+
+        let by_fn = getter(json!({"segment_data": {"date": {"display": false}}}));
+        assert!(by_fn(&spec, "right").is_none());
+
+        let named =
+            obj(json!({"function": "powerline.segments.common.time.date", "name": "clock"}));
+        let by_name = getter(json!({"segment_data": {"clock": {"display": false}}}));
+        assert!(by_name(&named, "right").is_none());
+        // With a name, the function-keyed entry is not consulted (py:19).
+        assert!(by_fn(&named, "right").is_some());
+
+        // The segment's own key wins over segment_data (py:8-9).
+        let shown =
+            obj(json!({"function": "powerline.segments.common.time.date", "display": true}));
+        assert!(by_fn(&shown, "right").is_some());
+
+        let plain = getter(json!({}));
+        assert!(plain(&spec, "right").is_some());
+    }
+
+    /// Prepared-segment shape from py:343-346 and py:422-448: function
+    /// segments highlight as their function name, string segments fall
+    /// back to `[name]`; `before`/`after` come from segment_data when the
+    /// segment does not set them; defaults for align and dividers.
+    #[test]
+    fn gen_segment_getter_prepared_segment_fields() {
+        let get = getter(json!({"segment_data": {
+            "date": {"before": "D ", "args": {"format": "%H", "istime": true}},
+            "label": {"after": "!"}
+        }}));
+
+        let f = get(
+            &obj(json!({
+                "function": "powerline.segments.common.time.date",
+                "args": {"format": "%M"}
+            })),
+            "left",
+        )
+        .unwrap();
+        assert_eq!(f["name"], json!("date"));
+        assert_eq!(f["highlight_groups"], json!(["date"]));
+        assert_eq!(f["before"], json!("D "));
+        assert_eq!(f["after"], json!(""));
+        assert_eq!(f["align"], json!("l"));
+        assert_eq!(f["draw_soft_divider"], json!(true));
+        assert_eq!(f["draw_hard_divider"], json!(true));
+        assert_eq!(f["draw_inner_divider"], json!(false));
+        assert_eq!(
+            f["contents_func"],
+            json!("powerline.segments.common.time.date")
+        );
+        // Segment args win key-by-key over segment_data args (py:50-53).
+        assert_eq!(f["args"], json!({"format": "%M", "istime": true}));
+
+        let s = get(
+            &obj(json!({"type": "string", "name": "label", "contents": "hi"})),
+            "right",
+        )
+        .unwrap();
+        assert_eq!(s["highlight_groups"], json!(["label"]));
+        assert_eq!(s["contents"], json!("hi"));
+        assert_eq!(s["after"], json!("!"));
+        assert_eq!(s["side"], json!("right"));
+
+        let undotted = get(&obj(json!({"function": "mode"})), "left").unwrap();
+        assert_eq!(
+            undotted["contents_func"],
+            json!("powerline.segments.shell.mode")
+        );
     }
 }
