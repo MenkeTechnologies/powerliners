@@ -549,7 +549,10 @@ impl Theme {
                             "l" => format!("{}{}", cur, " ".repeat(pad)),
                             "r" => format!("{}{}", " ".repeat(pad), cur),
                             "c" => {
-                                let left = pad / 2;
+                                // CPython `str.center` (stringlib `pad()`):
+                                // the odd space goes left only when the
+                                // target width is odd.
+                                let left = pad / 2 + (pad & w & 1);
                                 let right = pad - left;
                                 format!("{}{}{}", " ".repeat(left), cur, " ".repeat(right))
                             }
@@ -796,5 +799,115 @@ mod tests {
         assert_eq!(log.len(), 2);
         assert!(log.contains(&"left_seg".to_string()));
         assert!(log.contains(&"right_seg".to_string()));
+    }
+
+    use crate::ported::colorscheme::Colorscheme;
+
+    fn colorscheme() -> Colorscheme {
+        Colorscheme::new(
+            json!({"groups": {"g": {"fg": "c", "bg": "c", "attrs": []}}})
+                .as_object()
+                .unwrap(),
+            json!({"colors": {"c": [1, "000001"]}, "gradients": {}})
+                .as_object()
+                .unwrap(),
+        )
+    }
+
+    /// A prepared string segment (shape of `segment.py:422-448`) with the
+    /// given overrides.
+    fn string_segment(extra: Value) -> Value {
+        let mut s = json!({
+            "name": "s",
+            "type": "string",
+            "contents": "x",
+            "highlight_groups": ["g"],
+            "divider_highlight_group": null,
+            "literal_contents": [0, ""],
+            "before": "",
+            "after": "",
+            "width": null,
+            "align": "l"
+        });
+        for (k, v) in extra.as_object().unwrap() {
+            s[k] = v.clone();
+        }
+        s
+    }
+
+    fn theme_with(left: Vec<Value>, right: Vec<Value>) -> Theme {
+        let mut t = Theme::new();
+        let mut line = new_empty_segment_line();
+        line.insert("left".to_string(), Value::Array(left));
+        line.insert("right".to_string(), Value::Array(right));
+        t.segments.push(line);
+        t
+    }
+
+    fn rendered(t: &Theme, side: Option<&str>, mode: Option<&str>) -> Vec<String> {
+        let none = |_: &str, _: &(), _: &Map<String, Value>, _: &Map<String, Value>| None;
+        t.get_segments(side, 0, None, mode, &colorscheme(), &none)
+            .iter()
+            .map(|s| s["contents"].as_str().unwrap().to_string())
+            .collect()
+    }
+
+    /// `include_modes` keeps a segment only when `mode in modes`
+    /// (`segment.py:294`), so mode None never matches; `exclude_modes`
+    /// negates the same test (`segment.py:315`). Applied per segment at
+    /// `theme.py:139`.
+    #[test]
+    fn get_segments_filters_by_include_and_exclude_modes() {
+        let t = theme_with(
+            vec![
+                string_segment(json!({"contents": "always"})),
+                string_segment(json!({"contents": "only_i", "include_modes": ["i"]})),
+                string_segment(json!({"contents": "not_i", "exclude_modes": ["i", "R"]})),
+            ],
+            vec![],
+        );
+        assert_eq!(rendered(&t, Some("left"), Some("i")), ["always", "only_i"]);
+        assert_eq!(rendered(&t, Some("left"), Some("n")), ["always", "not_i"]);
+        assert_eq!(rendered(&t, Some("left"), None), ["always", "not_i"]);
+    }
+
+    /// `side=None` walks left then right (`theme.py:136`); a named side
+    /// yields only that side.
+    #[test]
+    fn get_segments_side_selection() {
+        let t = theme_with(
+            vec![string_segment(json!({"contents": "L"}))],
+            vec![string_segment(json!({"contents": "R"}))],
+        );
+        assert_eq!(rendered(&t, None, None), ["L", "R"]);
+        assert_eq!(rendered(&t, Some("right"), None), ["R"]);
+    }
+
+    /// Contents become `before + contents + after` (`theme.py:160-162`),
+    /// then a numeric width pads with `str.ljust` / `rjust` / `center`
+    /// (`theme.py:167-173`). Python's `str.center` puts the odd space on
+    /// the LEFT only when the width is odd (CPython `pad()`:
+    /// `left = marg // 2 + (marg & width & 1)`), so `'ab'.center(5)` is
+    /// `'  ab '` and `'abc'.center(6)` is `' abc  '`. Contents already as
+    /// wide as the width are left alone.
+    #[test]
+    fn get_segments_wraps_and_aligns_like_python_str_methods() {
+        let t = theme_with(
+            vec![
+                string_segment(json!({"contents": "x", "before": "<", "after": ">"})),
+                string_segment(json!({"contents": "ab", "width": 5, "align": "l"})),
+                string_segment(json!({"contents": "ab", "width": 5, "align": "r"})),
+                string_segment(json!({"contents": "ab", "width": 5, "align": "c"})),
+                string_segment(json!({"contents": "abc", "width": 6, "align": "c"})),
+                string_segment(json!({"contents": "a", "width": 4, "align": "c"})),
+                string_segment(json!({"contents": "toolong", "width": 3, "align": "c"})),
+                string_segment(json!({"contents": "b", "before": "[", "width": 4, "align": "r"})),
+            ],
+            vec![],
+        );
+        assert_eq!(
+            rendered(&t, Some("left"), None),
+            ["<x>", "ab   ", "   ab", "  ab ", " abc  ", " a  ", "toolong", "  [b"]
+        );
     }
 }
